@@ -14,12 +14,30 @@ interface video {
   /// Input modalities supported
   variant media-input {
     text(string),
-    image(reference-image),
+    image(reference),
   }
 
-  record reference-image {
-    data: media-data,
+  record reference {
+    data: input-image,
     prompt: option<string>,
+    role: option<image-role>,
+  }
+
+  enum image-role {
+    first,
+    last,
+  }
+
+  record input-image {
+    data: media-data,
+  }
+
+  record base-video {
+    data: media-data,
+  }
+
+  record narration {
+    data: media-data,
   }
 
   variant media-data {
@@ -40,6 +58,7 @@ interface video {
     enable-audio: option<bool>,
     enhance-prompt: option<bool>,
     provider-options: list<kv>,
+    lastframe: option<input-image>,
   }
 
   enum aspect-ratio {

@@ -121,11 +121,11 @@ command = "wit-deps"
 args = ["update"]
 
 [tasks.wit]
-dependencies = ["wit-update"]
+#dependencies = ["wit-update"]
 
 script_runner = "@duckscript"
 script = """
-modules = array video video-veo video-stability video-kling video-runway
+modules = array video veo stability kling runway
 
 for module in ${modules}
     rm -r ${module}/wit/deps
