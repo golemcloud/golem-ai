@@ -85,7 +85,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
 
         return Err(Error {
             code: error_code_from_status(status),
-            message: format!("Request failed with status {}: {}", status, response_text),
+            message: format!("Request failed with status {status}: {response_text}"),
             provider_error_json: Some(response_text),
         });
     }
@@ -99,7 +99,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
             trace!("Error parsing response: {error:?}");
             Err(Error {
                 code: error_code_from_status(status),
-                message: format!("Failed to decode response body: {}", response_text),
+                message: format!("Failed to decode response body: {response_text}"),
                 provider_error_json: Some(error.to_string()),
             })
         }

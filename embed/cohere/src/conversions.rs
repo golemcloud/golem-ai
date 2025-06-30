@@ -344,7 +344,7 @@ mod tests {
         };
 
         let result = process_embedding_response(data.clone(), config);
-        print!("{:?}", result);
+        print!("{result:?}");
         let embedding_response = result.unwrap();
         assert_eq!(embedding_response.embeddings.len(), 5);
         assert_eq!(embedding_response.embeddings[0].index, 0);
