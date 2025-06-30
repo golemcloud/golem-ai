@@ -15,7 +15,8 @@ pub fn media_input_to_request(
             "Text-to-video is not supported by Stability API",
         )),
         MediaInput::Image(ref_image) => {
-            let image_data = match ref_image.data {
+            // Extract image data from new InputImage structure
+            let image_data = match ref_image.data.data {
                 MediaData::Url(url) => {
                     // Download the image from the URL and convert to bytes
                     download_image_from_url(&url)?
@@ -24,6 +25,11 @@ pub fn media_input_to_request(
             };
 
             // Note: Stability doesn't support prompts with images, so we ignore ref_image.prompt
+            
+            // Log warnings for unsupported image role feature
+            if ref_image.role.is_some() {
+                log::warn!("image role positioning (first/last) is not supported by Stability API and will be ignored");
+            }
 
             // Parse provider options - only for parameters not directly supported in WIT
             let options: HashMap<String, String> = config
@@ -90,6 +96,9 @@ pub fn media_input_to_request(
             }
             if config.enhance_prompt.is_some() {
                 log::warn!("enhance_prompt is not supported by Stability API and will be ignored");
+            }
+            if config.lastframe.is_some() {
+                log::warn!("lastframe is not supported by Stability API and will be ignored");
             }
 
             Ok(ImageToVideoRequest {

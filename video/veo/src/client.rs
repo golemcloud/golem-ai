@@ -273,6 +273,8 @@ pub struct ImageToVideoRequest {
 pub struct ImageToVideoInstance {
     pub prompt: String,
     pub image: ImageData,
+    #[serde(rename = "lastFrame", skip_serializing_if = "Option::is_none")]
+    pub last_frame: Option<ImageData>,
 }
 
 #[derive(Debug, Clone, Serialize)]

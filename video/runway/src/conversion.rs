@@ -1,7 +1,7 @@
 use crate::client::{ContentModeration, ImageToVideoRequest, PollResponse, PromptImage, RunwayApi};
 use golem_video::error::{invalid_input, unsupported_feature};
 use golem_video::exports::golem::video::video::{
-    AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
+    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
     VideoResult,
 };
 use std::collections::HashMap;
@@ -15,7 +15,8 @@ pub fn media_input_to_request(
             "Text-to-video is not supported by Runway API",
         )),
         MediaInput::Image(ref_image) => {
-            let image_data = match ref_image.data {
+            // Extract image data from new InputImage structure
+            let image_data = match ref_image.data.data {
                 MediaData::Url(url) => url,
                 MediaData::Bytes(bytes) => {
                     // Convert bytes to data URI
@@ -64,11 +65,37 @@ pub fn media_input_to_request(
                 }
             });
 
-            // Create prompt image - assuming all images are first frame as requested
-            let prompt_image = vec![PromptImage {
+            // Create prompt images based on role and lastframe
+            let mut prompt_images = Vec::new();
+            
+            // Determine position from image role (default to "first")
+            let position = match ref_image.role {
+                Some(ImageRole::First) => "first",
+                Some(ImageRole::Last) => "last", 
+                None => "first", // Default to first frame
+            };
+            
+            prompt_images.push(PromptImage {
                 uri: image_data,
-                position: "first".to_string(),
-            }];
+                position: position.to_string(),
+            });
+            
+            // Handle lastframe if provided
+            if let Some(lastframe) = &config.lastframe {
+                let lastframe_data = match &lastframe.data {
+                    MediaData::Url(url) => url.clone(),
+                    MediaData::Bytes(bytes) => {
+                        use base64::Engine;
+                        let base64_data = base64::engine::general_purpose::STANDARD.encode(bytes);
+                        format!("data:image/png;base64,{base64_data}")
+                    }
+                };
+                
+                prompt_images.push(PromptImage {
+                    uri: lastframe_data,
+                    position: "last".to_string(),
+                });
+            }
 
             // Use prompt text from the image if available
             let prompt_text = ref_image.prompt;
@@ -98,7 +125,7 @@ pub fn media_input_to_request(
             }
 
             Ok(ImageToVideoRequest {
-                prompt_image,
+                prompt_image: prompt_images,
                 model,
                 ratio,
                 seed: config.seed,

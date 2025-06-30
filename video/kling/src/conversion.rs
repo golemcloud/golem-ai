@@ -1,7 +1,7 @@
 use crate::client::{ImageToVideoRequest, KlingApi, PollResponse, TextToVideoRequest};
 use golem_video::error::{invalid_input, unsupported_feature};
 use golem_video::exports::golem::video::video::{
-    AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
+    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
     VideoResult,
 };
 use std::collections::HashMap;
@@ -88,7 +88,16 @@ pub fn media_input_to_request(
             Ok((Some(request), None))
         }
         MediaInput::Image(ref_image) => {
-            let image_data = match ref_image.data {
+            // Handle role and lastframe logic
+            let image_role = ref_image.role.as_ref();
+            
+            // Check for conflict: both role=last and lastframe provided
+            if matches!(image_role, Some(ImageRole::Last)) && config.lastframe.is_some() {
+                log::warn!("Both image role=last and lastframe provided. Using lastframe only as specified.");
+            }
+
+            // Extract image data from new InputImage structure
+            let image_data = match ref_image.data.data {
                 MediaData::Url(_url) => {
                     return Err(unsupported_feature(
                         "Image URLs are not supported by Kling API, only base64 data",
@@ -120,7 +129,7 @@ pub fn media_input_to_request(
                 external_task_id: None,
             };
 
-            // Log warnings for unsupported options
+            // Log warnings for unsupported options including lastframe
             log_unsupported_options(&config, &options);
 
             Ok((None, Some(request)))
@@ -154,6 +163,9 @@ fn log_unsupported_options(config: &GenerationConfig, options: &HashMap<String, 
     }
     if config.enhance_prompt.is_some() {
         log::warn!("enhance_prompt is not supported by Kling API and will be ignored");
+    }
+    if config.lastframe.is_some() {
+        log::warn!("lastframe is not yet fully implemented for Kling API and will be ignored");
     }
 
     // Log unused provider options

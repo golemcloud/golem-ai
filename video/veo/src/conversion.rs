@@ -4,7 +4,7 @@ use crate::client::{
 };
 use golem_video::error::invalid_input;
 use golem_video::exports::golem::video::video::{
-    AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
+    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
     VideoResult,
 };
 use golem_video::utils::download_image_from_url;
@@ -118,7 +118,8 @@ pub fn media_input_to_request(
             Ok((Some(request), None, model_id))
         }
         MediaInput::Image(ref_image) => {
-            let image_data = match ref_image.data {
+            // Extract image data from new InputImage structure
+            let image_data = match ref_image.data.data {
                 MediaData::Url(url) => {
                     // Download image from URL and convert to base64
                     let image_bytes = download_image_from_url(&url)?;
@@ -156,9 +157,76 @@ pub fn media_input_to_request(
                 .clone()
                 .unwrap_or_else(|| "Generate a video from this image".to_string());
 
+            // Handle image role and lastframe
+            let image_role = ref_image.role.as_ref();
+            
+            // Handle lastframe - check if model supports it
+            let last_frame_data = if let Some(lastframe) = &config.lastframe {
+                // Check if we're using a model that supports lastFrame
+                let model_id = model_id.as_deref().unwrap_or("veo-2.0-generate-001");
+                if model_id != "veo-2.0-generate-001" {
+                    log::warn!("lastFrame is only supported by veo-2.0-generate-001 model, ignoring for {}", model_id);
+                    None
+                } else {
+                    let lastframe_image_data = match lastframe.data {
+                        MediaData::Url(ref url) => {
+                            let image_bytes = download_image_from_url(url)?;
+                            let mime_type = determine_image_mime_type(url, &image_bytes)?;
+                            ImageData {
+                                bytes_base64_encoded: base64::Engine::encode(
+                                    &base64::engine::general_purpose::STANDARD,
+                                    &image_bytes,
+                                ),
+                                mime_type,
+                            }
+                        }
+                        MediaData::Bytes(ref bytes) => {
+                            let mime_type = if bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
+                                "image/png".to_string()
+                            } else {
+                                "image/jpeg".to_string()
+                            };
+                            ImageData {
+                                bytes_base64_encoded: base64::Engine::encode(
+                                    &base64::engine::general_purpose::STANDARD,
+                                    bytes,
+                                ),
+                                mime_type,
+                            }
+                        }
+                    };
+                    Some(lastframe_image_data)
+                }
+            } else {
+                None
+            };
+
+            // Handle image role for positioning
+            let (image_for_first, last_frame_final) = match image_role {
+                Some(ImageRole::Last) => {
+                    // If image role is "last", use it as lastFrame instead
+                    (None, Some(image_data))
+                }
+                Some(ImageRole::First) | None => {
+                    // Use as first frame (default behavior)
+                    (Some(image_data), last_frame_data)
+                }
+            };
+
+            // Ensure we have at least one image
+            let final_image = image_for_first.unwrap_or_else(|| {
+                // If we don't have a first frame but have a last frame, create a dummy first frame
+                log::warn!("No first frame provided, using a placeholder. Consider providing both first and last frames.");
+                ImageData {
+                    bytes_base64_encoded: String::new(),
+                    mime_type: "image/jpeg".to_string(),
+                }
+            });
+
             let instances = vec![ImageToVideoInstance {
                 prompt,
-                image: image_data,
+                image: final_image,
+                last_frame: last_frame_final,
             }];
             let request = ImageToVideoRequest {
                 instances,
