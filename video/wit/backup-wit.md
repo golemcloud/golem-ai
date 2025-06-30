@@ -44,6 +44,43 @@ interface types {
     bytes(list<u8>),
   }
 
+  // Add these new types before generation-config
+  record static-mask {
+    mask: input-image,
+  }
+
+  record dynamic-mask {
+    mask: input-image,
+    trajectories: list<position>,
+  }
+
+  record position {
+    x: u32,
+    y: u32,
+  }
+
+  enum camera-movement {
+    simple,
+    down-back,
+    forward-up,
+    right-turn-forward,
+    left-turn-forward,
+  }
+
+  record camera-config {
+    horizontal: f32,
+    vertical: f32,
+    pan: f32,
+    tilt: f32,
+    zoom: f32,
+    roll: f32,
+  }
+
+  variant camera-control {
+    movement(camera-movement),
+    config(camera-config),
+  }
+
   record generation-config {
     negative-prompt: option<string>,
     seed: option<u64>,
@@ -57,7 +94,11 @@ interface types {
     provider-options: list<kv>,
     ///Added model and lastframe (Kling Only)
     model: option<string>,
-    lastframe: option<input-image: media-data>,
+    lastframe: option<input-image>,
+    // Advanced kling only options
+    static-mask: option<static-mask>,
+    dynamic-mask: option<dynamic-mask>,
+    camera-control: option<camera-control>,
   }
 
   enum aspect-ratio {
@@ -142,41 +183,57 @@ interface lip-sync {
 interface advanced {
     use types.{video-error, kv};
 
-    // Supported in Kling and veo
+    // Supported in Kling and veo - done
+    // veo only supports extending video videos
+    // veo only supports extending video videos
     extend-video: func(
         input: base-video,
-        prompt: option<string>,
-        duration: option<f32>,
+        config: generation-config,
     ) -> result<string, video-error>;
 
-    // Supported in runway
+    // Supported in runway - done
+    // model is required but only one possible value, do this client side
     upscale-video: func(
         input: base-video,
     ) -> result<string, video-error>;
 
-    // Supported in kling only
-    video-effects: func(
+    // Supported in kling only - done
+    generate-video-effects: func(
         input: input-image,
-        second-image: input-image,
-        effect: string,
+        effect: effect-type,
+        model: option<string>,
+        duration: option<f32>,
+        mode: option<string>,
     ) -> result<string, video-error>;
     
-    // Multi image generation, kling Only
+    // Single Image Effects: 5 types available, bloombloom, dizzydizzy, fuzzyfuzzy, squish, expansion
+    // Dual-character Effects: 3 types available, hug, kiss, heart_gesture
+    enum single-image-effects {
+      bloombloom,
+      dizzydizzy,
+      fuzzyfuzzy,
+      squish,
+      expansion,
+    }
+
+    // Dual-character Effects: 3 types available
+    enum dual-image-effects {
+      hug,
+      kiss,
+      heart_gesture,
+    }
+
+    // Effect type variant to distinguish between single and dual image effects
+    variant effect-type {
+      single(single-image-effects),
+      dual(effect: dual-image-effects, second-image: input-image),
+    }
+
+    // Multi image generation, kling Only - done
     multi-image-generation: func(
-        input: input-image,
-        other-images: list<input-image>, //Upto max 3 more
+        input-images: list<input-image>, //Upto max 4 images
         config: generation-config,
     ) -> result<string, video-error>;
-}
-
-// I have left this as is, I would like a clarification for this
-// I also dont get why no introspection
-interface templates {
-  use types.{video-error, kv};
-  generate-from-template: func(
-    template-id: string,
-    variables: list<kv>
-  ) -> string;
 }
 
 world video-generation {
@@ -184,10 +241,11 @@ world video-generation {
   import video-generation;
   import lip-sync;
   import advanced;
-  import templates;
 
   export api: video-generation;
   export lip-sync;
-  export template-videos: templates;
   export video-effects: effects;
 }
+
+
+
