@@ -167,6 +167,15 @@ fn log_unsupported_options(config: &GenerationConfig, options: &HashMap<String, 
     if config.lastframe.is_some() {
         log::warn!("lastframe is not yet fully implemented for Kling API and will be ignored");
     }
+    if config.static_mask.is_some() {
+        log::warn!("static_mask is not supported by Kling API and will be ignored");
+    }
+    if config.dynamic_mask.is_some() {
+        log::warn!("dynamic_mask is not supported by Kling API and will be ignored");
+    }
+    if config.camera_control.is_some() {
+        log::warn!("camera_control is not supported by Kling API and will be ignored");
+    }
 
     // Log unused provider options
     for key in options.keys() {
@@ -276,5 +285,47 @@ pub fn list_available_voices(
 ) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Kling API".to_string(),
+    ))
+}
+
+pub fn extend_video(
+    _client: &KlingApi,
+    _input: golem_video::exports::golem::video::types::BaseVideo,
+    _config: GenerationConfig,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Video extension is not supported by Kling API".to_string(),
+    ))
+}
+
+pub fn upscale_video(
+    _client: &KlingApi,
+    _input: golem_video::exports::golem::video::types::BaseVideo,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Video upscaling is not supported by Kling API".to_string(),
+    ))
+}
+
+pub fn generate_video_effects(
+    _client: &KlingApi,
+    _input: golem_video::exports::golem::video::types::InputImage,
+    _effect: golem_video::exports::golem::video::types::EffectType,
+    _model: Option<String>,
+    _duration: Option<f32>,
+    _mode: Option<String>,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Video effects generation is not supported by Kling API".to_string(),
+    ))
+}
+
+pub fn multi_image_generation(
+    _client: &KlingApi,
+    _input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
+    _config: GenerationConfig,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Multi-image generation is not supported by Kling API".to_string(),
     ))
 }

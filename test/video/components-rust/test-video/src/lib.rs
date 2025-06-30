@@ -93,6 +93,9 @@ impl Guest for Component {
                 }
             ],
             lastframe: None,
+            static_mask: None,
+            dynamic_mask: None,
+            camera_control: None,
         };
 
         // Create media input with the image data
@@ -180,6 +183,9 @@ impl Guest for Component {
                 }
             ],
             lastframe: None,
+            static_mask: None,
+            dynamic_mask: None,
+            camera_control: None,
         };
 
         // Create text prompt for video generation

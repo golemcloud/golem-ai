@@ -3,14 +3,17 @@ mod conversion;
 
 use crate::client::StabilityApi;
 use crate::conversion::{
-    cancel_video_generation, generate_lip_sync_video, generate_video, list_available_voices,
-    poll_video_generation,
+    cancel_video_generation, extend_video, generate_lip_sync_video, generate_video,
+    generate_video_effects, list_available_voices, multi_image_generation, poll_video_generation,
+    upscale_video,
 };
 use golem_video::config::with_config_key;
 use golem_video::durability::{DurableVideo, ExtendedGuest};
+use golem_video::exports::golem::video::advanced::Guest as AdvancedGuest;
 use golem_video::exports::golem::video::lip_sync::Guest as LipSyncGuest;
 use golem_video::exports::golem::video::types::{
-    AudioSource, BaseVideo, GenerationConfig, MediaInput, VideoError, VideoResult, VoiceInfo,
+    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, MediaInput, VideoError,
+    VideoResult, VoiceInfo,
 };
 use golem_video::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
 use golem_video::LOGGING_STATE;
@@ -72,6 +75,49 @@ impl LipSyncGuest for StabilityComponent {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = StabilityApi::new(api_key);
             list_available_voices(&client, language)
+        })
+    }
+}
+
+impl AdvancedGuest for StabilityComponent {
+    fn extend_video(input: BaseVideo, config: GenerationConfig) -> Result<String, VideoError> {
+        LOGGING_STATE.with_borrow_mut(|state| state.init());
+        with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
+            let client = StabilityApi::new(api_key);
+            extend_video(&client, input, config)
+        })
+    }
+
+    fn upscale_video(input: BaseVideo) -> Result<String, VideoError> {
+        LOGGING_STATE.with_borrow_mut(|state| state.init());
+        with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
+            let client = StabilityApi::new(api_key);
+            upscale_video(&client, input)
+        })
+    }
+
+    fn generate_video_effects(
+        input: InputImage,
+        effect: EffectType,
+        model: Option<String>,
+        duration: Option<f32>,
+        mode: Option<String>,
+    ) -> Result<String, VideoError> {
+        LOGGING_STATE.with_borrow_mut(|state| state.init());
+        with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
+            let client = StabilityApi::new(api_key);
+            generate_video_effects(&client, input, effect, model, duration, mode)
+        })
+    }
+
+    fn multi_image_generation(
+        input_images: Vec<InputImage>,
+        config: GenerationConfig,
+    ) -> Result<String, VideoError> {
+        LOGGING_STATE.with_borrow_mut(|state| state.init());
+        with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
+            let client = StabilityApi::new(api_key);
+            multi_image_generation(&client, input_images, config)
         })
     }
 }

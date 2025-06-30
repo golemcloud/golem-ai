@@ -43,6 +43,42 @@ interface types {
     bytes(list<u8>),
   }
 
+  record static-mask {
+    mask: input-image,
+  }
+
+  record dynamic-mask {
+    mask: input-image,
+    trajectories: list<position>,
+  }
+
+  record position {
+    x: u32,
+    y: u32,
+  }
+
+  enum camera-movement {
+    simple,
+    down-back,
+    forward-up,
+    right-turn-forward,
+    left-turn-forward,
+  }
+
+  record camera-config {
+    horizontal: f32,
+    vertical: f32,
+    pan: f32,
+    tilt: f32,
+    zoom: f32,
+    roll: f32,
+  }
+
+  variant camera-control {
+    movement(camera-movement),
+    config(camera-config),
+  }
+
   record generation-config {
     negative-prompt: option<string>,
     seed: option<u64>,
@@ -56,6 +92,9 @@ interface types {
     enhance-prompt: option<bool>,
     provider-options: list<kv>,
     lastframe: option<input-image>,
+    static-mask: option<static-mask>,
+    dynamic-mask: option<dynamic-mask>,
+    camera-control: option<camera-control>,
   }
 
   enum aspect-ratio {
@@ -122,6 +161,30 @@ interface types {
     en,
     zh
   }
+
+  enum single-image-effects {
+    bloombloom,
+    dizzydizzy,
+    fuzzyfuzzy,
+    squish,
+    expansion,
+  }
+
+  enum dual-image-effects {
+    hug,
+    kiss,
+    heart-gesture,
+  }
+
+  record dual-effect {
+    effect: dual-image-effects,
+    second-image: input-image,
+  }
+
+  variant effect-type {
+    single(single-image-effects),
+    dual(dual-effect),
+  }
 }
 
 interface video-generation {
@@ -143,12 +206,40 @@ interface lip-sync {
   list-voices: func(language: option<string>) -> result<list<voice-info>, video-error>;
 }
 
+interface advanced {
+  use types.{video-error, kv, base-video, generation-config, input-image, effect-type};
+
+  extend-video: func(
+    input: base-video,
+    config: generation-config,
+  ) -> result<string, video-error>;
+
+  upscale-video: func(
+    input: base-video,
+  ) -> result<string, video-error>;
+
+  generate-video-effects: func(
+    input: input-image,
+    effect: effect-type,
+    model: option<string>,
+    duration: option<f32>,
+    mode: option<string>,
+  ) -> result<string, video-error>;
+
+  multi-image-generation: func(
+    input-images: list<input-image>,
+    config: generation-config,
+  ) -> result<string, video-error>;
+}
+
 world video-library {
   import types;
   import video-generation;
   import lip-sync;
+  import advanced;
   
   export video-generation;
   export lip-sync;
+  export advanced;
   export types;
 }

@@ -1,7 +1,9 @@
+use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
 use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
 #[allow(unused_imports)]
 use crate::exports::golem::video::types::{
-    AudioSource, BaseVideo, GenerationConfig, MediaInput, VideoError, VideoResult, VoiceInfo,
+    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, MediaInput, VideoError,
+    VideoResult, VoiceInfo,
 };
 use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
 use std::marker::PhantomData;
@@ -12,15 +14,17 @@ pub struct DurableVideo<Impl> {
 }
 
 /// Trait to be implemented in addition to the Video `Guest` traits when wrapping it with `DurableVideo`.
-pub trait ExtendedGuest: VideoGenerationGuest + LipSyncGuest + 'static {}
+pub trait ExtendedGuest: VideoGenerationGuest + LipSyncGuest + AdvancedGuest + 'static {}
 
 /// When the durability feature flag is off, wrapping with `DurableVideo` is just a passthrough
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::{DurableVideo, ExtendedGuest};
+    use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
     use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
     use crate::exports::golem::video::types::{
-        AudioSource, BaseVideo, GenerationConfig, MediaInput, VideoError, VideoResult, VoiceInfo,
+        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, MediaInput, VideoError,
+        VideoResult, VoiceInfo,
     };
     use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
 
@@ -47,6 +51,33 @@ mod passthrough_impl {
             Impl::list_voices(language)
         }
     }
+
+    impl<Impl: ExtendedGuest> AdvancedGuest for DurableVideo<Impl> {
+        fn extend_video(input: BaseVideo, config: GenerationConfig) -> Result<String, VideoError> {
+            Impl::extend_video(input, config)
+        }
+
+        fn upscale_video(input: BaseVideo) -> Result<String, VideoError> {
+            Impl::upscale_video(input)
+        }
+
+        fn generate_video_effects(
+            input: InputImage,
+            effect: EffectType,
+            model: Option<String>,
+            duration: Option<f32>,
+            mode: Option<String>,
+        ) -> Result<String, VideoError> {
+            Impl::generate_video_effects(input, effect, model, duration, mode)
+        }
+
+        fn multi_image_generation(
+            input_images: Vec<InputImage>,
+            config: GenerationConfig,
+        ) -> Result<String, VideoError> {
+            Impl::multi_image_generation(input_images, config)
+        }
+    }
 }
 
 /// When the durability feature flag is on, wrapping with `DurableVideo` adds custom durability
@@ -60,9 +91,11 @@ mod passthrough_impl {
 #[cfg(feature = "durability")]
 mod durable_impl {
     use crate::durability::{DurableVideo, ExtendedGuest};
+    use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
     use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
     use crate::exports::golem::video::types::{
-        AudioSource, BaseVideo, GenerationConfig, MediaInput, VideoError, VideoResult, VoiceInfo,
+        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, MediaInput, VideoError,
+        VideoResult, VoiceInfo,
     };
     use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
@@ -154,6 +187,102 @@ mod durable_impl {
         }
     }
 
+    impl<Impl: ExtendedGuest> AdvancedGuest for DurableVideo<Impl> {
+        fn extend_video(input: BaseVideo, config: GenerationConfig) -> Result<String, VideoError> {
+            let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
+                "golem_video",
+                "extend_video",
+                DurableFunctionType::WriteRemote,
+            );
+            if durability.is_live() {
+                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                    Impl::extend_video(input.clone(), config.clone())
+                });
+                durability.persist_infallible(ExtendVideoInput { input, config }, result)
+            } else {
+                durability.replay_infallible()
+            }
+        }
+
+        fn upscale_video(input: BaseVideo) -> Result<String, VideoError> {
+            let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
+                "golem_video",
+                "upscale_video",
+                DurableFunctionType::WriteRemote,
+            );
+            if durability.is_live() {
+                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                    Impl::upscale_video(input.clone())
+                });
+                durability.persist_infallible(UpscaleVideoInput { input }, result)
+            } else {
+                durability.replay_infallible()
+            }
+        }
+
+        fn generate_video_effects(
+            input: InputImage,
+            effect: EffectType,
+            model: Option<String>,
+            duration: Option<f32>,
+            mode: Option<String>,
+        ) -> Result<String, VideoError> {
+            let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
+                "golem_video",
+                "generate_video_effects",
+                DurableFunctionType::WriteRemote,
+            );
+            if durability.is_live() {
+                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                    Impl::generate_video_effects(
+                        input.clone(),
+                        effect.clone(),
+                        model.clone(),
+                        duration,
+                        mode.clone(),
+                    )
+                });
+                durability.persist_infallible(
+                    GenerateVideoEffectsInput {
+                        input,
+                        effect,
+                        model,
+                        duration,
+                        mode,
+                    },
+                    result,
+                )
+            } else {
+                durability.replay_infallible()
+            }
+        }
+
+        fn multi_image_generation(
+            input_images: Vec<InputImage>,
+            config: GenerationConfig,
+        ) -> Result<String, VideoError> {
+            let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
+                "golem_video",
+                "multi_image_generation",
+                DurableFunctionType::WriteRemote,
+            );
+            if durability.is_live() {
+                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                    Impl::multi_image_generation(input_images.clone(), config.clone())
+                });
+                durability.persist_infallible(
+                    MultiImageGenerationInput {
+                        input_images,
+                        config,
+                    },
+                    result,
+                )
+            } else {
+                durability.replay_infallible()
+            }
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
     struct GenerateInput {
         input: MediaInput,
@@ -181,6 +310,32 @@ mod durable_impl {
         language: Option<String>,
     }
 
+    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    struct ExtendVideoInput {
+        input: BaseVideo,
+        config: GenerationConfig,
+    }
+
+    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    struct UpscaleVideoInput {
+        input: BaseVideo,
+    }
+
+    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    struct GenerateVideoEffectsInput {
+        input: InputImage,
+        effect: EffectType,
+        model: Option<String>,
+        duration: Option<f32>,
+        mode: Option<String>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    struct MultiImageGenerationInput {
+        input_images: Vec<InputImage>,
+        config: GenerationConfig,
+    }
+
     #[derive(Debug, FromValueAndType, IntoValue)]
     struct UnusedError;
 
@@ -193,11 +348,14 @@ mod durable_impl {
     #[cfg(test)]
     mod tests {
         use crate::durability::durable_impl::{
-            CancelInput, GenerateInput, GenerateLipSyncInput, ListVoicesInput, PollInput,
+            CancelInput, ExtendVideoInput, GenerateInput, GenerateLipSyncInput,
+            GenerateVideoEffectsInput, ListVoicesInput, MultiImageGenerationInput, PollInput,
+            UpscaleVideoInput,
         };
         use crate::exports::golem::video::types::{
-            AspectRatio, AudioSource, BaseVideo, GenerationConfig, InputImage, Kv, MediaData,
-            MediaInput, Narration, Reference, Resolution, TextToSpeech,
+            AspectRatio, AudioSource, BaseVideo, DualEffect, DualImageEffects, EffectType,
+            GenerationConfig, InputImage, Kv, MediaData, MediaInput, Narration, Reference,
+            Resolution, SingleImageEffects, TextToSpeech,
         };
         use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
         use std::fmt::Debug;
@@ -230,6 +388,9 @@ mod durable_impl {
                         value: "runway-gen3".to_string(),
                     }],
                     lastframe: None,
+                    static_mask: None,
+                    dynamic_mask: None,
+                    camera_control: None,
                 },
             };
             roundtrip_test(input);
@@ -258,6 +419,9 @@ mod durable_impl {
                     enhance_prompt: None,
                     provider_options: vec![],
                     lastframe: None,
+                    static_mask: None,
+                    dynamic_mask: None,
+                    camera_control: None,
                 },
             };
             roundtrip_test(input);
@@ -318,6 +482,111 @@ mod durable_impl {
         #[test]
         fn list_voices_input_no_language_roundtrip() {
             let input = ListVoicesInput { language: None };
+            roundtrip_test(input);
+        }
+
+        #[test]
+        fn extend_video_input_roundtrip() {
+            let input = ExtendVideoInput {
+                input: BaseVideo {
+                    data: MediaData::Url("https://example.com/video.mp4".to_string()),
+                },
+                config: GenerationConfig {
+                    negative_prompt: None,
+                    seed: Some(54321),
+                    scheduler: None,
+                    guidance_scale: Some(8.0),
+                    aspect_ratio: Some(AspectRatio::Cinema),
+                    duration_seconds: Some(10.0),
+                    resolution: Some(Resolution::Fhd),
+                    model: Some("veo-2".to_string()),
+                    enable_audio: Some(false),
+                    enhance_prompt: Some(true),
+                    provider_options: vec![],
+                    lastframe: None,
+                    static_mask: None,
+                    dynamic_mask: None,
+                    camera_control: None,
+                },
+            };
+            roundtrip_test(input);
+        }
+
+        #[test]
+        fn upscale_video_input_roundtrip() {
+            let input = UpscaleVideoInput {
+                input: BaseVideo {
+                    data: MediaData::Bytes(vec![10, 20, 30, 40, 50]),
+                },
+            };
+            roundtrip_test(input);
+        }
+
+        #[test]
+        fn generate_video_effects_input_roundtrip() {
+            let input = GenerateVideoEffectsInput {
+                input: InputImage {
+                    data: MediaData::Bytes(vec![100, 200, 255]),
+                },
+                effect: EffectType::Single(SingleImageEffects::Bloombloom),
+                model: Some("kling-effects".to_string()),
+                duration: Some(3.5),
+                mode: Some("fast".to_string()),
+            };
+            roundtrip_test(input);
+        }
+
+        #[test]
+        fn generate_video_effects_dual_input_roundtrip() {
+            let input = GenerateVideoEffectsInput {
+                input: InputImage {
+                    data: MediaData::Url("https://example.com/image1.jpg".to_string()),
+                },
+                effect: EffectType::Dual(DualEffect {
+                    effect: DualImageEffects::Hug,
+                    second_image: InputImage {
+                        data: MediaData::Url("https://example.com/image2.jpg".to_string()),
+                    },
+                }),
+                model: None,
+                duration: Some(2.0),
+                mode: None,
+            };
+            roundtrip_test(input);
+        }
+
+        #[test]
+        fn multi_image_generation_input_roundtrip() {
+            let input = MultiImageGenerationInput {
+                input_images: vec![
+                    InputImage {
+                        data: MediaData::Bytes(vec![1, 2, 3]),
+                    },
+                    InputImage {
+                        data: MediaData::Url("https://example.com/image.png".to_string()),
+                    },
+                ],
+                config: GenerationConfig {
+                    negative_prompt: Some("blurry".to_string()),
+                    seed: None,
+                    scheduler: Some("euler".to_string()),
+                    guidance_scale: None,
+                    aspect_ratio: Some(AspectRatio::Portrait),
+                    duration_seconds: Some(4.0),
+                    resolution: Some(Resolution::Uhd),
+                    model: Some("kling-multi".to_string()),
+                    enable_audio: Some(true),
+                    enhance_prompt: Some(false),
+                    provider_options: vec![Kv {
+                        key: "quality".to_string(),
+                        value: "high".to_string(),
+                    }],
+                    lastframe: None,
+                    static_mask: None,
+                    dynamic_mask: None,
+                    camera_control: None,
+                },
+            };
             roundtrip_test(input);
         }
     }

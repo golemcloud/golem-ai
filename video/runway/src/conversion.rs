@@ -123,6 +123,15 @@ pub fn media_input_to_request(
             if config.enhance_prompt.is_some() {
                 log::warn!("enhance_prompt is not supported by Runway API and will be ignored");
             }
+            if config.static_mask.is_some() {
+                log::warn!("static_mask is not supported by Runway API and will be ignored");
+            }
+            if config.dynamic_mask.is_some() {
+                log::warn!("dynamic_mask is not supported by Runway API and will be ignored");
+            }
+            if config.camera_control.is_some() {
+                log::warn!("camera_control is not supported by Runway API and will be ignored");
+            }
 
             Ok(ImageToVideoRequest {
                 prompt_image: prompt_images,
@@ -240,5 +249,47 @@ pub fn list_available_voices(
 ) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Runway API".to_string(),
+    ))
+}
+
+pub fn extend_video(
+    _client: &RunwayApi,
+    _input: golem_video::exports::golem::video::types::BaseVideo,
+    _config: GenerationConfig,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Video extension is not supported by Runway API".to_string(),
+    ))
+}
+
+pub fn upscale_video(
+    _client: &RunwayApi,
+    _input: golem_video::exports::golem::video::types::BaseVideo,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Video upscaling is not supported by Runway API".to_string(),
+    ))
+}
+
+pub fn generate_video_effects(
+    _client: &RunwayApi,
+    _input: golem_video::exports::golem::video::types::InputImage,
+    _effect: golem_video::exports::golem::video::types::EffectType,
+    _model: Option<String>,
+    _duration: Option<f32>,
+    _mode: Option<String>,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Video effects generation is not supported by Runway API".to_string(),
+    ))
+}
+
+pub fn multi_image_generation(
+    _client: &RunwayApi,
+    _input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
+    _config: GenerationConfig,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Multi-image generation is not supported by Runway API".to_string(),
     ))
 }
