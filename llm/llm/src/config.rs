@@ -30,7 +30,7 @@ pub fn with_config_keys<R>(
     succeed: impl FnOnce(HashMap<String, String>) -> R,
 ) -> R {
     let mut values = HashMap::new();
-    
+
     for key in keys {
         match std::env::var(key) {
             Ok(value) => {
@@ -46,6 +46,6 @@ pub fn with_config_keys<R>(
             }
         }
     }
-    
+
     succeed(values)
 }

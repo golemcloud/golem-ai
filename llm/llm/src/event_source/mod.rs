@@ -1,8 +1,8 @@
 // Based on https://github.com/jpopesculian/eventsource-stream and https://github.com/jpopesculian/reqwest-eventsource
 // modified to use the wasi-http based reqwest, and wasi pollables
 
-pub mod error;
 mod aws_eventstream;
+pub mod error;
 mod event_stream;
 mod message_event;
 mod ndjson_stream;
@@ -151,7 +151,11 @@ fn check_response(response: Response) -> Result<Response, Error> {
             matches!(
                 (mime_type.type_(), mime_type.subtype()),
                 (mime::TEXT, mime::EVENT_STREAM)
-            ) || mime_type.subtype().as_str().contains("ndjson") || content_type.to_str().unwrap_or("").contains("vnd.amazon.eventstream")
+            ) || mime_type.subtype().as_str().contains("ndjson")
+                || content_type
+                    .to_str()
+                    .unwrap_or("")
+                    .contains("vnd.amazon.eventstream")
         })
         .unwrap_or(false)
     {

@@ -11,8 +11,8 @@ use golem_llm::config::with_config_keys;
 use golem_llm::durability::{DurableLLM, ExtendedGuest};
 use golem_llm::event_source::EventSource;
 use golem_llm::golem::llm::llm::{
-    ChatEvent, ChatStream, Config, ContentPart, Error, Guest, Message, ResponseMetadata,
-    Role, StreamDelta, StreamEvent, ToolCall, ToolResult,
+    ChatEvent, ChatStream, Config, ContentPart, Error, Guest, Message, ResponseMetadata, Role,
+    StreamDelta, StreamEvent, ToolCall, ToolResult,
 };
 use golem_llm::LOGGING_STATE;
 use golem_rust::wasm_rpc::Pollable;
@@ -28,8 +28,7 @@ struct BedrockChatStream {
     response_metadata: RefCell<ResponseMetadata>,
 }
 
-
-/// [2025-06-29T18:11:10.458Z] [TRACE   ] [golem_llm_bedrock] llm/bedrock/src/lib.rs:84: Received raw stream event: 
+/// [2025-06-29T18:11:10.458Z] [TRACE   ] [golem_llm_bedrock] llm/bedrock/src/lib.rs:84: Received raw stream event:
 /// {
 /// "contentBlockIndex":1,
 /// "delta":{
@@ -46,17 +45,17 @@ struct BedrockChatStream {
 /// },
 /// "p":"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX"
 /// }
-/// 
+///
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum Delta {
     ToolUse {
         #[serde(rename = "toolUse")]
-         tool_use: ToolUse,
+        tool_use: ToolUse,
     },
     Text {
-         text: String,
+        text: String,
     },
 }
 
@@ -90,10 +89,9 @@ pub struct MetadataMessage {
 pub struct EventContentBlock {
     #[serde(rename = "contentBlockIndex")]
     pub content_block_index: u32,
-    pub delta : Delta,
+    pub delta: Delta,
     pub p: String,
 }
-
 
 impl BedrockChatStream {
     pub fn new(stream: EventSource) -> LlmChatStream<Self> {
@@ -153,7 +151,7 @@ impl LlmChatStreamState for BedrockChatStream {
 
         let json: Value = serde_json::from_str(raw)
             .map_err(|err| format!("Failed to deserialize stream event: {err}"))?;
-        
+
         // 1. Handle content block delta messages (contentBlockIndex + delta)
         if json.get("contentBlockIndex").is_some() && json.get("delta").is_some() {
             match serde_json::from_value::<EventContentBlock>(json.clone()) {
@@ -176,7 +174,7 @@ impl LlmChatStreamState for BedrockChatStream {
                     }
                 }
                 Err(err) => {
-                    trace!("Failed to parse as EventContentBlock: {}", err);
+                    trace!("Failed to parse as EventContentBlock: {err}");
                     // Continue to other parsing attempts
                 }
             }

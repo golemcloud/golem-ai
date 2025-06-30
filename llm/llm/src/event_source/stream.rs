@@ -2,7 +2,7 @@ use core::fmt;
 use std::{string::FromUtf8Error, task::Poll};
 
 use super::{
-    aws_eventstream::AwsEventStream, event_stream::EventStream, ndjson_stream::NdJsonStream, 
+    aws_eventstream::AwsEventStream, event_stream::EventStream, ndjson_stream::NdJsonStream,
     utf8_stream::Utf8StreamError, MessageEvent,
 };
 use golem_rust::{
@@ -11,6 +11,7 @@ use golem_rust::{
 };
 use nom::error::Error as NomError;
 
+#[allow(clippy::enum_variant_names)]
 pub enum StreamType {
     EventStream(EventStream),
     NdJsonStream(NdJsonStream),
@@ -57,9 +58,9 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Utf8(err) => f.write_fmt(format_args!("UTF8 error: {}", err)),
-            Self::Parser(err) => f.write_fmt(format_args!("Parse error: {}", err)),
-            Self::Transport(err) => f.write_fmt(format_args!("Transport error: {}", err)),
+            Self::Utf8(err) => f.write_fmt(format_args!("UTF8 error: {err}")),
+            Self::Parser(err) => f.write_fmt(format_args!("Parse error: {err}")),
+            Self::Transport(err) => f.write_fmt(format_args!("Transport error: {err}")),
         }
     }
 }

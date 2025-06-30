@@ -168,7 +168,7 @@ fn try_decode_message(
         }
         Ok(DecodedFrame::Incomplete) => Ok(None),
         Err(err) => Err(AwsEventStreamError::Parser(nom::error::Error::new(
-            format!("AWS EventStream decode error: {}", err),
+            format!("AWS EventStream decode error: {err}"),
             nom::error::ErrorKind::Tag,
         ))),
     }
