@@ -570,6 +570,113 @@ impl Guest for Component {
             }
         }
     }
+
+    /// test8 demonstrates multi-turn conversations and crash recovery during streaming
+    fn test8() -> String {
+        let config = llm::Config {
+            model: MODEL.to_string(),
+            temperature: Some(0.2),
+            max_tokens: None,
+            stop_sequences: None,
+            tools: vec![],
+            tool_choice: None,
+            provider_options: vec![],
+        };
+
+        let mut messages = vec![llm::Message {
+            role: llm::Role::User,
+            name: Some("vigoo".to_string()),
+            content: vec![llm::ContentPart::Text(
+                "Do you know what a haiku is?".to_string(),
+            )],
+        }];
+
+        let stream = llm::stream(&messages, &config);
+
+        let mut result = String::new();
+
+        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
+
+        loop {
+            let events = stream.blocking_get_next();
+            if events.is_empty() {
+                break;
+            }
+
+            for event in events {
+                match event {
+                    llm::StreamEvent::Delta(delta) => {
+                        for content in delta.content.unwrap_or_default() {
+                            if let llm::ContentPart::Text(txt) = content {
+                                result.push_str(&txt);
+                            }
+                        }
+                    }
+                    llm::StreamEvent::Finish(_) => {}
+                    llm::StreamEvent::Error(error) => {
+                        result.push_str(&format!("ERROR: {}", error.message));
+                    }
+                }
+            }
+        }
+
+        messages.push(llm::Message {
+            role: llm::Role::Assistant,
+            name: Some("assistant".to_string()),
+            content: vec![llm::ContentPart::Text(result)],
+        });
+
+        messages.push(llm::Message {
+            role: llm::Role::User,
+            name: Some("vigoo".to_string()),
+            content: vec![llm::ContentPart::Text(
+                "Can you write one for me?".to_string(),
+            )],
+        });
+
+        let stream = llm::stream(&messages, &config);
+
+        let mut result = String::new();
+        let mut round = 0;
+
+        loop {
+            let events = stream.blocking_get_next();
+            if events.is_empty() {
+                break;
+            }
+
+            for event in events {
+                match event {
+                    llm::StreamEvent::Delta(delta) => {
+                        for content in delta.content.unwrap_or_default() {
+                            if let llm::ContentPart::Text(txt) = content {
+                                result.push_str(&txt);
+                            }
+                        }
+                    }
+                    llm::StreamEvent::Finish(_) => {}
+                    llm::StreamEvent::Error(error) => {
+                        result.push_str(&format!("ERROR: {}", error.message));
+                    }
+                }
+            }
+
+            round += 1;
+            if round == 2 {
+                atomically(|| {
+                    let client = TestHelperApi::new(&name);
+                    let answer = client.blocking_inc_and_get();
+                    if answer == 1 {
+                        panic!("Simulating crash")
+                    }
+                });
+            }
+        }
+
+        format!("Multi-turn conversation completed successfully: {}", result)
+    }
 }
+
+
 
 bindings::export!(Component with_types_in bindings);
