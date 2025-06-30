@@ -108,7 +108,6 @@ jobs:
         run: |
           set -e
           cargo binstall --force --locked cargo-component@0.21.1
-          cargo binstall golem-cli@1.2.5 --locked --force --no-confirm
           cargo binstall wac-cli --locked --force --no-confirm
       - name: Start Ollama in Docker
         run: |
@@ -139,17 +138,17 @@ jobs:
           set -e
           cargo make --cwd llm build-ollama
           cd test/llm
-          golem-cli app build -b ollama-debug
-          golem-cli app deploy -b ollama-debug
-          golem-cli worker new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 test:llm/ollama-1
-          golem-cli worker invoke test:llm/ollama-1 test1
-          golem-cli worker invoke test:llm/ollama-1 test2
-          golem-cli worker invoke test:llm/ollama-1 test3
-          golem-cli worker invoke test:llm/ollama-1 test4
-          golem-cli worker invoke test:llm/ollama-1 test5
-          golem-cli worker invoke test:llm/ollama-1 test6
-          golem-cli worker invoke test:llm/ollama-1 test7
-          golem-cli worker invoke test:llm/ollama-1 test8
+          golem app build -b ollama-debug
+          golem app deploy -b ollama-debug
+          golem worker new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 test:llm/ollama-1
+          golem worker invoke test:llm/ollama-1 test1
+          golem worker invoke test:llm/ollama-1 test2
+          golem worker invoke test:llm/ollama-1 test3
+          golem worker invoke test:llm/ollama-1 test4
+          golem worker invoke test:llm/ollama-1 test5
+          golem worker invoke test:llm/ollama-1 test6
+          golem worker invoke test:llm/ollama-1 test7
+          golem worker invoke test:llm/ollama-1 test8
   publish-all:
     needs:
       - tests
