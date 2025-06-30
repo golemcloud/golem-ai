@@ -10,9 +10,9 @@ use golem_video::golem::video::video as __with_name0;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 1180] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x98\x08\x01A\x02\x01\
-A\x02\x01B5\x01q\x06\x0dinvalid-input\x01s\0\x13unsupported-feature\x01s\0\x0equ\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 1442] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x9e\x0a\x01A\x02\x01\
+A\x02\x01BC\x01q\x06\x0dinvalid-input\x01s\0\x13unsupported-feature\x01s\0\x0equ\
 ota-exceeded\0\0\x11generation-failed\x01s\0\x09cancelled\0\0\x0einternal-error\x01\
 s\0\x04\0\x0bvideo-error\x03\0\0\x01m\x02\x05first\x04last\x04\0\x0aimage-role\x03\
 \0\x02\x01p}\x01q\x02\x03url\x01s\0\x05bytes\x01\x04\0\x04\0\x0amedia-data\x03\0\
@@ -30,12 +30,18 @@ astframe\x1f\x04\0\x11generation-config\x03\0\x20\x01k\x04\x01ky\x01r\x07\x03uri
 \x09\x0cbase64-bytes\"\x09mime-types\x05width#\x06height#\x03fps\x1a\x10duration\
 -seconds\x1a\x04\0\x05video\x03\0$\x01q\x04\x07pending\0\0\x07running\0\0\x09suc\
 ceeded\0\0\x06failed\x01s\0\x04\0\x0ajob-status\x03\0&\x01p%\x01k(\x01k\x1e\x01r\
-\x03\x06status'\x06videos)\x08metadata*\x04\0\x0cvideo-result\x03\0+\x01j\x01s\x01\
-\x01\x01@\x02\x05input\x0e\x06config!\0-\x04\0\x08generate\x01.\x01j\x01,\x01\x01\
-\x01@\x01\x06job-ids\0/\x04\0\x04poll\x010\x01@\x01\x06job-ids\0-\x04\0\x06cance\
-l\x011\x04\0\x17golem:video/video@1.0.0\x05\0\x04\0)golem:video-stability/video-\
-library@1.0.0\x04\0\x0b\x13\x01\0\x0dvideo-library\x03\0\0\0G\x09producers\x01\x0c\
-processed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
+\x03\x06status'\x06videos)\x08metadata*\x04\0\x0cvideo-result\x03\0+\x01r\x03\x04\
+texts\x08voice-id\x09\x05speedy\x04\0\x0etext-to-speech\x03\0-\x01q\x02\x09from-\
+text\x01.\0\x0afrom-audio\x01\x12\0\x04\0\x0caudio-source\x03\0/\x01m\x02\x02en\x02\
+zh\x04\0\x0evoice-language\x03\01\x01r\x04\x08voice-ids\x04names\x08language2\x0b\
+preview-url\x09\x04\0\x0avoice-info\x03\03\x01j\x01s\x01\x01\x01@\x02\x05input\x0e\
+\x06config!\05\x04\0\x08generate\x016\x01j\x01,\x01\x01\x01@\x01\x06job-ids\07\x04\
+\0\x04poll\x018\x01@\x01\x06job-ids\05\x04\0\x06cancel\x019\x01@\x02\x05video\x10\
+\x05audio0\05\x04\0\x11generate-lip-sync\x01:\x01p4\x01j\x01;\x01\x01\x01@\x01\x08\
+language\x09\0<\x04\0\x0blist-voices\x01=\x04\0\x17golem:video/video@1.0.0\x05\0\
+\x04\0)golem:video-stability/video-library@1.0.0\x04\0\x0b\x13\x01\0\x0dvideo-li\
+brary\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.\
+1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

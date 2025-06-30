@@ -105,6 +105,39 @@ interface video {
   poll: func(job-id: string) -> result<video-result, video-error>;
 
   cancel: func(job-id: string) -> result<string, video-error>;
+
+  // ---------------- BREAK ----------------
+  // Lip Sync Implementation
+
+  record text-to-speech {
+    text: string,
+    voice-id: option<string>,
+    speed: u32,
+  }
+
+  variant audio-source {
+    from-text(text-to-speech),
+    from-audio(narration),
+  }
+
+  generate-lip-sync: func(
+    video: base-video,
+    audio: audio-source,
+  ) -> result<string, video-error>;
+
+  record voice-info {
+    voice-id: string,
+    name: string,
+    language: voice-language,
+    preview-url: option<string>,
+  }
+
+  enum voice-language {
+    en,
+    zh
+  }
+
+  list-voices: func(language: option<string>) -> result<list<voice-info>, video-error>;
 }
 
 world video-library {

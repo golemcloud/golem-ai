@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use crate::exports::golem::video::video::{
-    GenerationConfig, Guest, MediaInput, VideoError, VideoResult,
+    AudioSource, BaseVideo, GenerationConfig, Guest, MediaInput, VideoError, VideoResult, VoiceInfo,
 };
 use std::marker::PhantomData;
 
@@ -17,7 +17,8 @@ pub trait ExtendedGuest: Guest + 'static {}
 mod passthrough_impl {
     use crate::durability::{DurableVideo, ExtendedGuest};
     use crate::exports::golem::video::video::{
-        GenerationConfig, Guest, MediaInput, VideoError, VideoResult,
+        AudioSource, BaseVideo, GenerationConfig, Guest, MediaInput, VideoError, VideoResult,
+        VoiceInfo,
     };
 
     impl<Impl: ExtendedGuest> Guest for DurableVideo<Impl> {
@@ -31,6 +32,14 @@ mod passthrough_impl {
 
         fn cancel(job_id: String) -> Result<String, VideoError> {
             Impl::cancel(job_id)
+        }
+
+        fn generate_lip_sync(video: BaseVideo, audio: AudioSource) -> Result<String, VideoError> {
+            Impl::generate_lip_sync(video, audio)
+        }
+
+        fn list_voices(language: Option<String>) -> Result<Vec<VoiceInfo>, VideoError> {
+            Impl::list_voices(language)
         }
     }
 }
@@ -47,7 +56,8 @@ mod passthrough_impl {
 mod durable_impl {
     use crate::durability::{DurableVideo, ExtendedGuest};
     use crate::exports::golem::video::video::{
-        GenerationConfig, Guest, MediaInput, VideoError, VideoResult,
+        AudioSource, BaseVideo, GenerationConfig, Guest, MediaInput, VideoError, VideoResult,
+        VoiceInfo,
     };
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
@@ -102,6 +112,38 @@ mod durable_impl {
                 durability.replay_infallible()
             }
         }
+
+        fn generate_lip_sync(video: BaseVideo, audio: AudioSource) -> Result<String, VideoError> {
+            let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
+                "golem_video",
+                "generate_lip_sync",
+                DurableFunctionType::WriteRemote,
+            );
+            if durability.is_live() {
+                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                    Impl::generate_lip_sync(video.clone(), audio.clone())
+                });
+                durability.persist_infallible(GenerateLipSyncInput { video, audio }, result)
+            } else {
+                durability.replay_infallible()
+            }
+        }
+
+        fn list_voices(language: Option<String>) -> Result<Vec<VoiceInfo>, VideoError> {
+            let durability = Durability::<Result<Vec<VoiceInfo>, VideoError>, UnusedError>::new(
+                "golem_video",
+                "list_voices",
+                DurableFunctionType::ReadRemote,
+            );
+            if durability.is_live() {
+                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                    Impl::list_voices(language.clone())
+                });
+                durability.persist_infallible(ListVoicesInput { language }, result)
+            } else {
+                durability.replay_infallible()
+            }
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
@@ -120,6 +162,17 @@ mod durable_impl {
         job_id: String,
     }
 
+    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    struct GenerateLipSyncInput {
+        video: BaseVideo,
+        audio: AudioSource,
+    }
+
+    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    struct ListVoicesInput {
+        language: Option<String>,
+    }
+
     #[derive(Debug, FromValueAndType, IntoValue)]
     struct UnusedError;
 
@@ -131,10 +184,12 @@ mod durable_impl {
 
     #[cfg(test)]
     mod tests {
-        use crate::durability::durable_impl::{CancelInput, GenerateInput, PollInput};
+        use crate::durability::durable_impl::{
+            CancelInput, GenerateInput, GenerateLipSyncInput, ListVoicesInput, PollInput,
+        };
         use crate::exports::golem::video::video::{
-            AspectRatio, GenerationConfig, InputImage, Kv, MediaData, MediaInput, Reference,
-            Resolution,
+            AspectRatio, AudioSource, BaseVideo, GenerationConfig, InputImage, Kv, MediaData,
+            MediaInput, Narration, Reference, Resolution, TextToSpeech,
         };
         use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
         use std::fmt::Debug;
@@ -213,6 +268,48 @@ mod durable_impl {
             let input = CancelInput {
                 job_id: "job_67890".to_string(),
             };
+            roundtrip_test(input);
+        }
+
+        #[test]
+        fn generate_lip_sync_input_roundtrip() {
+            let input = GenerateLipSyncInput {
+                video: BaseVideo {
+                    data: MediaData::Bytes(vec![0, 1, 2, 3, 4, 5]),
+                },
+                audio: AudioSource::FromText(TextToSpeech {
+                    text: "Hello world".to_string(),
+                    voice_id: Some("voice_123".to_string()),
+                    speed: 100,
+                }),
+            };
+            roundtrip_test(input);
+        }
+
+        #[test]
+        fn generate_lip_sync_input_with_audio_roundtrip() {
+            let input = GenerateLipSyncInput {
+                video: BaseVideo {
+                    data: MediaData::Url("https://example.com/video.mp4".to_string()),
+                },
+                audio: AudioSource::FromAudio(Narration {
+                    data: MediaData::Bytes(vec![1, 2, 3, 4, 5, 6]),
+                }),
+            };
+            roundtrip_test(input);
+        }
+
+        #[test]
+        fn list_voices_input_roundtrip() {
+            let input = ListVoicesInput {
+                language: Some("en".to_string()),
+            };
+            roundtrip_test(input);
+        }
+
+        #[test]
+        fn list_voices_input_no_language_roundtrip() {
+            let input = ListVoicesInput { language: None };
             roundtrip_test(input);
         }
     }

@@ -3,10 +3,15 @@ mod client;
 mod conversion;
 
 use crate::client::VeoApi;
-use crate::conversion::{cancel_video_generation, generate_video, poll_video_generation};
+use crate::conversion::{
+    cancel_video_generation, generate_lip_sync_video, generate_video, list_available_voices,
+    poll_video_generation,
+};
 use golem_video::config::with_config_key;
 use golem_video::durability::{DurableVideo, ExtendedGuest};
-use golem_video::exports::golem::video::video::{GenerationConfig, MediaInput, VideoError};
+use golem_video::exports::golem::video::video::{
+    AudioSource, BaseVideo, GenerationConfig, MediaInput, VideoError, VoiceInfo,
+};
 use golem_video::exports::golem::video::video::{Guest, VideoResult};
 use golem_video::LOGGING_STATE;
 
@@ -53,6 +58,32 @@ impl Guest for VeoComponent {
                 with_config_key(Self::PRIVATE_KEY_ENV_VAR, Err, |private_key| {
                     let client = VeoApi::new(project_id, client_email, private_key);
                     cancel_video_generation(&client, job_id)
+                })
+            })
+        })
+    }
+
+    fn generate_lip_sync(video: BaseVideo, audio: AudioSource) -> Result<String, VideoError> {
+        LOGGING_STATE.with_borrow_mut(|state| state.init());
+
+        with_config_key(Self::PROJECT_ID_ENV_VAR, Err, |project_id| {
+            with_config_key(Self::CLIENT_EMAIL_ENV_VAR, Err, |client_email| {
+                with_config_key(Self::PRIVATE_KEY_ENV_VAR, Err, |private_key| {
+                    let client = VeoApi::new(project_id, client_email, private_key);
+                    generate_lip_sync_video(&client, video, audio)
+                })
+            })
+        })
+    }
+
+    fn list_voices(language: Option<String>) -> Result<Vec<VoiceInfo>, VideoError> {
+        LOGGING_STATE.with_borrow_mut(|state| state.init());
+
+        with_config_key(Self::PROJECT_ID_ENV_VAR, Err, |project_id| {
+            with_config_key(Self::CLIENT_EMAIL_ENV_VAR, Err, |client_email| {
+                with_config_key(Self::PRIVATE_KEY_ENV_VAR, Err, |private_key| {
+                    let client = VeoApi::new(project_id, client_email, private_key);
+                    list_available_voices(&client, language)
                 })
             })
         })

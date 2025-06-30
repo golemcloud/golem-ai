@@ -259,3 +259,22 @@ pub fn cancel_video_generation(_client: &KlingApi, task_id: String) -> Result<St
         "Cancellation is not supported by Kling API for task {task_id}"
     )))
 }
+
+pub fn generate_lip_sync_video(
+    _client: &KlingApi,
+    _video: golem_video::exports::golem::video::video::BaseVideo,
+    _audio: golem_video::exports::golem::video::video::AudioSource,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Lip sync is not supported by Kling API".to_string(),
+    ))
+}
+
+pub fn list_available_voices(
+    _client: &KlingApi,
+    _language: Option<String>,
+) -> Result<Vec<golem_video::exports::golem::video::video::VoiceInfo>, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Voice listing is not supported by Kling API".to_string(),
+    ))
+}

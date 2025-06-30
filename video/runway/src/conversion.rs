@@ -223,3 +223,22 @@ pub fn cancel_video_generation(client: &RunwayApi, task_id: String) -> Result<St
     client.cancel_task(&task_id)?;
     Ok(format!("Task {task_id} canceled successfully"))
 }
+
+pub fn generate_lip_sync_video(
+    _client: &RunwayApi,
+    _video: golem_video::exports::golem::video::video::BaseVideo,
+    _audio: golem_video::exports::golem::video::video::AudioSource,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Lip sync is not supported by Runway API".to_string(),
+    ))
+}
+
+pub fn list_available_voices(
+    _client: &RunwayApi,
+    _language: Option<String>,
+) -> Result<Vec<golem_video::exports::golem::video::video::VoiceInfo>, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Voice listing is not supported by Runway API".to_string(),
+    ))
+}

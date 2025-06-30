@@ -162,3 +162,22 @@ pub fn cancel_video_generation(_task_id: String) -> Result<String, VideoError> {
         "Video generation cancellation is not supported by Stability API",
     ))
 }
+
+pub fn generate_lip_sync_video(
+    _client: &StabilityApi,
+    _video: golem_video::exports::golem::video::video::BaseVideo,
+    _audio: golem_video::exports::golem::video::video::AudioSource,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Lip sync is not supported by Stability API".to_string(),
+    ))
+}
+
+pub fn list_available_voices(
+    _client: &StabilityApi,
+    _language: Option<String>,
+) -> Result<Vec<golem_video::exports::golem::video::video::VoiceInfo>, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Voice listing is not supported by Stability API".to_string(),
+    ))
+}

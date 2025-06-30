@@ -364,3 +364,22 @@ pub fn cancel_video_generation(
         "Cancellation is not supported by Veo API for operation {operation_name}"
     )))
 }
+
+pub fn generate_lip_sync_video(
+    _client: &VeoApi,
+    _video: golem_video::exports::golem::video::video::BaseVideo,
+    _audio: golem_video::exports::golem::video::video::AudioSource,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Lip sync is not supported by Veo API".to_string(),
+    ))
+}
+
+pub fn list_available_voices(
+    _client: &VeoApi,
+    _language: Option<String>,
+) -> Result<Vec<golem_video::exports::golem::video::video::VoiceInfo>, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Voice listing is not supported by Veo API".to_string(),
+    ))
+}
