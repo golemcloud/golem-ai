@@ -3,7 +3,7 @@ use crate::client::{
     TextToVideoRequest, VeoApi, VideoParameters,
 };
 use golem_video::error::invalid_input;
-use golem_video::exports::golem::video::video::{
+use golem_video::exports::golem::video::types::{
     AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
     VideoError, VideoResult,
 };
@@ -367,8 +367,8 @@ pub fn cancel_video_generation(
 
 pub fn generate_lip_sync_video(
     _client: &VeoApi,
-    _video: golem_video::exports::golem::video::video::BaseVideo,
-    _audio: golem_video::exports::golem::video::video::AudioSource,
+    _video: golem_video::exports::golem::video::types::BaseVideo,
+    _audio: golem_video::exports::golem::video::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Lip sync is not supported by Veo API".to_string(),
@@ -378,7 +378,7 @@ pub fn generate_lip_sync_video(
 pub fn list_available_voices(
     _client: &VeoApi,
     _language: Option<String>,
-) -> Result<Vec<golem_video::exports::golem::video::video::VoiceInfo>, VideoError> {
+) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Veo API".to_string(),
     ))

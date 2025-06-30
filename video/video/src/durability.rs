@@ -1,7 +1,9 @@
+use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
 #[allow(unused_imports)]
-use crate::exports::golem::video::video::{
-    AudioSource, BaseVideo, GenerationConfig, Guest, MediaInput, VideoError, VideoResult, VoiceInfo,
+use crate::exports::golem::video::types::{
+    AudioSource, BaseVideo, GenerationConfig, MediaInput, VideoError, VideoResult, VoiceInfo,
 };
+use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
 use std::marker::PhantomData;
 
 /// Wraps a Video implementation with custom durability
@@ -9,19 +11,20 @@ pub struct DurableVideo<Impl> {
     phantom: PhantomData<Impl>,
 }
 
-/// Trait to be implemented in addition to the Video `Guest` trait when wrapping it with `DurableVideo`.
-pub trait ExtendedGuest: Guest + 'static {}
+/// Trait to be implemented in addition to the Video `Guest` traits when wrapping it with `DurableVideo`.
+pub trait ExtendedGuest: VideoGenerationGuest + LipSyncGuest + 'static {}
 
 /// When the durability feature flag is off, wrapping with `DurableVideo` is just a passthrough
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::{DurableVideo, ExtendedGuest};
-    use crate::exports::golem::video::video::{
-        AudioSource, BaseVideo, GenerationConfig, Guest, MediaInput, VideoError, VideoResult,
-        VoiceInfo,
+    use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
+    use crate::exports::golem::video::types::{
+        AudioSource, BaseVideo, GenerationConfig, MediaInput, VideoError, VideoResult, VoiceInfo,
     };
+    use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
 
-    impl<Impl: ExtendedGuest> Guest for DurableVideo<Impl> {
+    impl<Impl: ExtendedGuest> VideoGenerationGuest for DurableVideo<Impl> {
         fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
             Impl::generate(input, config)
         }
@@ -33,7 +36,9 @@ mod passthrough_impl {
         fn cancel(job_id: String) -> Result<String, VideoError> {
             Impl::cancel(job_id)
         }
+    }
 
+    impl<Impl: ExtendedGuest> LipSyncGuest for DurableVideo<Impl> {
         fn generate_lip_sync(video: BaseVideo, audio: AudioSource) -> Result<String, VideoError> {
             Impl::generate_lip_sync(video, audio)
         }
@@ -55,16 +60,17 @@ mod passthrough_impl {
 #[cfg(feature = "durability")]
 mod durable_impl {
     use crate::durability::{DurableVideo, ExtendedGuest};
-    use crate::exports::golem::video::video::{
-        AudioSource, BaseVideo, GenerationConfig, Guest, MediaInput, VideoError, VideoResult,
-        VoiceInfo,
+    use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
+    use crate::exports::golem::video::types::{
+        AudioSource, BaseVideo, GenerationConfig, MediaInput, VideoError, VideoResult, VoiceInfo,
     };
+    use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::fmt::{Display, Formatter};
 
-    impl<Impl: ExtendedGuest> Guest for DurableVideo<Impl> {
+    impl<Impl: ExtendedGuest> VideoGenerationGuest for DurableVideo<Impl> {
         fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
             let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
                 "golem_video",
@@ -112,7 +118,9 @@ mod durable_impl {
                 durability.replay_infallible()
             }
         }
+    }
 
+    impl<Impl: ExtendedGuest> LipSyncGuest for DurableVideo<Impl> {
         fn generate_lip_sync(video: BaseVideo, audio: AudioSource) -> Result<String, VideoError> {
             let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
                 "golem_video",
@@ -187,7 +195,7 @@ mod durable_impl {
         use crate::durability::durable_impl::{
             CancelInput, GenerateInput, GenerateLipSyncInput, ListVoicesInput, PollInput,
         };
-        use crate::exports::golem::video::video::{
+        use crate::exports::golem::video::types::{
             AspectRatio, AudioSource, BaseVideo, GenerationConfig, InputImage, Kv, MediaData,
             MediaInput, Narration, Reference, Resolution, TextToSpeech,
         };

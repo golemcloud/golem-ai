@@ -1,5 +1,5 @@
 use crate::error::internal_error;
-use crate::exports::golem::video::video::VideoError;
+use crate::exports::golem::video::types::VideoError;
 
 /// Downloads an image from a URL and returns the bytes
 pub fn download_image_from_url(url: &str) -> Result<Vec<u8>, VideoError> {

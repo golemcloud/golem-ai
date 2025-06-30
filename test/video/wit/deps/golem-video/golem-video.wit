@@ -1,6 +1,6 @@
 package golem:video@1.0.0;
 
-interface video {
+interface types {
   variant video-error {
     invalid-input(string),
     unsupported-feature(string),
@@ -100,15 +100,6 @@ interface video {
     metadata: option<list<kv>>,
   }
 
-  generate: func(input: media-input, config: generation-config) -> result<string, video-error>;
-
-  poll: func(job-id: string) -> result<video-result, video-error>;
-
-  cancel: func(job-id: string) -> result<string, video-error>;
-
-  // ---------------- BREAK ----------------
-  // Lip Sync Implementation
-
   record text-to-speech {
     text: string,
     voice-id: option<string>,
@@ -119,11 +110,6 @@ interface video {
     from-text(text-to-speech),
     from-audio(narration),
   }
-
-  generate-lip-sync: func(
-    video: base-video,
-    audio: audio-source,
-  ) -> result<string, video-error>;
 
   record voice-info {
     voice-id: string,
@@ -136,10 +122,33 @@ interface video {
     en,
     zh
   }
+}
+
+interface video-generation {
+  use types.{media-input, generation-config, video-result, video-error};
+
+  generate: func(input: media-input, config: generation-config) -> result<string, video-error>;
+  poll: func(job-id: string) -> result<video-result, video-error>;
+  cancel: func(job-id: string) -> result<string, video-error>;
+}
+
+interface lip-sync {
+  use types.{base-video, audio-source, video-error, voice-info};
+
+  generate-lip-sync: func(
+    video: base-video,
+    audio: audio-source,
+  ) -> result<string, video-error>;
 
   list-voices: func(language: option<string>) -> result<list<voice-info>, video-error>;
 }
 
 world video-library {
-  export video;
+  import types;
+  import video-generation;
+  import lip-sync;
+  
+  export video-generation;
+  export lip-sync;
+  export types;
 }

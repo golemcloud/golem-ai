@@ -2,7 +2,8 @@
 mod bindings;
 
 use crate::bindings::exports::test::video_exports::test_video_api::*;
-use crate::bindings::golem::video::video;
+use crate::bindings::golem::video::types;
+use crate::bindings::golem::video::video_generation;
 use std::fs;
 use std::fs::File;
 use std::io::Read;
@@ -11,7 +12,7 @@ use std::time::Duration;
 
 struct Component;
 
-fn save_video_result(video_result: &video::VideoResult, job_id: &str) -> String {
+fn save_video_result(video_result: &types::VideoResult, _job_id: &str) -> String {
     if let Some(videos) = &video_result.videos {
         for (i, video_data) in videos.iter().enumerate() {
             let filename = format!("/output/video-{}.mp4", i);
@@ -74,7 +75,7 @@ impl Guest for Component {
         }
 
         // Create video generation configuration
-        let config = video::GenerationConfig {
+        let config = types::GenerationConfig {
             negative_prompt: None,
             seed: None,
             scheduler: None,
@@ -86,7 +87,7 @@ impl Guest for Component {
             enable_audio: Some(false),
             enhance_prompt: Some(false),
             provider_options: vec![
-                video::Kv {
+                types::Kv {
                     key: "motion_bucket_id".to_string(),
                     value: "127".to_string(),
                 }
@@ -95,16 +96,16 @@ impl Guest for Component {
         };
 
         // Create media input with the image data
-        let media_input = video::MediaInput::Image(video::Reference {
-            data: video::InputImage {
-                data: video::MediaData::Bytes(buffer),
+        let media_input = types::MediaInput::Image(types::Reference {
+            data: types::InputImage {
+                data: types::MediaData::Bytes(buffer),
             },
             prompt: Some("An Old smiling man, and waving his hand".to_string()),
             role: None,
         });
 
         println!("Sending video generation request...");
-        let job_id = match video::generate(&media_input, &config) {
+        let job_id = match video_generation::generate(&media_input, &config) {
             Ok(id) => {
                 println!("Generated job ID: '{}'", id);
                 println!("Job ID length: {}", id.len());
@@ -124,21 +125,21 @@ impl Guest for Component {
 
         // Poll every 9 seconds until completion
         loop {
-            match video::poll(&job_id) {
+            match video_generation::poll(&job_id) {
                 Ok(video_result) => {
                     match video_result.status {
-                        video::JobStatus::Pending => {
+                        types::JobStatus::Pending => {
                             println!("Video generation is pending...");
                         }
-                        video::JobStatus::Running => {
+                        types::JobStatus::Running => {
                             println!("Video generation is running...");
                         }
-                        video::JobStatus::Succeeded => {
+                        types::JobStatus::Succeeded => {
                             println!("Video generation completed successfully!");
                             let file_path = save_video_result(&video_result, &job_id);
                             return format!("Video generated successfully. Saved to: {}", file_path);
                         }
-                        video::JobStatus::Failed(error_msg) => {
+                        types::JobStatus::Failed(error_msg) => {
                             return format!("Video generation failed: {}", error_msg);
                         }
                     }
@@ -161,7 +162,7 @@ impl Guest for Component {
         // let job_id = "projects/golem-test-463802/locations/us-central1/publishers/google/models/veo-2.0-generate-001/operations/a8b50c2f-3726-48f7-9d81-6f4c6038e1e7".to_string();
         
         // Create video generation configuration
-        let config = video::GenerationConfig {
+        let config = types::GenerationConfig {
             negative_prompt: Some("blurry, low quality, distorted, ugly".to_string()),
             seed: None,
             scheduler: None,
@@ -173,7 +174,7 @@ impl Guest for Component {
             enable_audio: Some(false),
             enhance_prompt: Some(true),
             provider_options: vec![
-                video::Kv {
+                types::Kv {
                     key: "mode".to_string(),
                     value: "std".to_string(),
                 }
@@ -184,10 +185,10 @@ impl Guest for Component {
         // Create text prompt for video generation
         let creative_prompt = "Create a joyful, cartoon-style scene of a playful snow leopard cub with big, expressive eyes prancing through a whimsical winter forest. The cub leaps over snowdrifts, chases falling snowflakes, and slides playfully down a hill. Use bright, cheerful colors, rounded trees dusted with snow, and gentle sunlight filtering through the branches for a heartwarming, upbeat mood".to_string();
         
-        let media_input = video::MediaInput::Text(creative_prompt.clone());
+        let media_input = types::MediaInput::Text(creative_prompt.clone());
 
         println!("Sending text-to-video generation request with prompt: {}", creative_prompt);
-        let job_id = match video::generate(&media_input, &config) {
+        let job_id = match video_generation::generate(&media_input, &config) {
             Ok(id) => {
                 println!("Generated job ID: '{}'", id);
                 println!("Job ID length: {}", id.len());
@@ -209,21 +210,21 @@ impl Guest for Component {
 
         // Poll every 9 seconds until completion
         loop {
-            match video::poll(&job_id) {
+            match video_generation::poll(&job_id) {
                 Ok(video_result) => {
                     match video_result.status {
-                        video::JobStatus::Pending => {
+                        types::JobStatus::Pending => {
                             println!("Text-to-video generation is pending...");
                         }
-                        video::JobStatus::Running => {
+                        types::JobStatus::Running => {
                             println!("Text-to-video generation is running...");
                         }
-                        video::JobStatus::Succeeded => {
+                        types::JobStatus::Succeeded => {
                             println!("Text-to-video generation completed successfully!");
                             let file_path = save_video_result(&video_result, &job_id);
                             return format!("Text-to-video generated successfully. Saved to: {}", file_path);
                         }
-                        video::JobStatus::Failed(error_msg) => {
+                        types::JobStatus::Failed(error_msg) => {
                             return format!("Text-to-video generation failed: {}", error_msg);
                         }
                     }

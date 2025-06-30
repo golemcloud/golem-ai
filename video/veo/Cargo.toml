@@ -40,7 +40,9 @@ package = "golem:video-veo"
 generate_unused_types = true
 
 [package.metadata.component.bindings.with]
-"golem:video/video@1.0.0" = "golem_video::golem::video::video"
+"golem:video/types@1.0.0" = "golem_video::golem::video::types"
+"golem:video/video-generation@1.0.0" = "golem_video::golem::video::video_generation"
+"golem:video/lip-sync@1.0.0" = "golem_video::golem::video::lip_sync"
 
 [package.metadata.component.target]
 path = "wit"

@@ -1,6 +1,6 @@
 use crate::client::{ImageToVideoRequest, PollResponse, StabilityApi};
 use golem_video::error::{invalid_input, unsupported_feature};
-use golem_video::exports::golem::video::video::{
+use golem_video::exports::golem::video::types::{
     GenerationConfig, JobStatus, MediaData, MediaInput, Video, VideoError, VideoResult,
 };
 use golem_video::utils::download_image_from_url;
@@ -165,8 +165,8 @@ pub fn cancel_video_generation(_task_id: String) -> Result<String, VideoError> {
 
 pub fn generate_lip_sync_video(
     _client: &StabilityApi,
-    _video: golem_video::exports::golem::video::video::BaseVideo,
-    _audio: golem_video::exports::golem::video::video::AudioSource,
+    _video: golem_video::exports::golem::video::types::BaseVideo,
+    _audio: golem_video::exports::golem::video::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Lip sync is not supported by Stability API".to_string(),
@@ -176,7 +176,7 @@ pub fn generate_lip_sync_video(
 pub fn list_available_voices(
     _client: &StabilityApi,
     _language: Option<String>,
-) -> Result<Vec<golem_video::exports::golem::video::video::VoiceInfo>, VideoError> {
+) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Stability API".to_string(),
     ))

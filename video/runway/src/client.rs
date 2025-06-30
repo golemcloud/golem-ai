@@ -1,5 +1,5 @@
 use golem_video::error::{from_reqwest_error, video_error_from_status};
-use golem_video::exports::golem::video::video::VideoError;
+use golem_video::exports::golem::video::types::VideoError;
 use log::trace;
 use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};

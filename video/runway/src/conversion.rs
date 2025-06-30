@@ -1,6 +1,6 @@
 use crate::client::{ContentModeration, ImageToVideoRequest, PollResponse, PromptImage, RunwayApi};
 use golem_video::error::{invalid_input, unsupported_feature};
-use golem_video::exports::golem::video::video::{
+use golem_video::exports::golem::video::types::{
     AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
     VideoError, VideoResult,
 };
@@ -226,8 +226,8 @@ pub fn cancel_video_generation(client: &RunwayApi, task_id: String) -> Result<St
 
 pub fn generate_lip_sync_video(
     _client: &RunwayApi,
-    _video: golem_video::exports::golem::video::video::BaseVideo,
-    _audio: golem_video::exports::golem::video::video::AudioSource,
+    _video: golem_video::exports::golem::video::types::BaseVideo,
+    _audio: golem_video::exports::golem::video::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Lip sync is not supported by Runway API".to_string(),
@@ -237,7 +237,7 @@ pub fn generate_lip_sync_video(
 pub fn list_available_voices(
     _client: &RunwayApi,
     _language: Option<String>,
-) -> Result<Vec<golem_video::exports::golem::video::video::VoiceInfo>, VideoError> {
+) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Runway API".to_string(),
     ))

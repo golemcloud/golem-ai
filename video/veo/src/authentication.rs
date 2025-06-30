@@ -1,6 +1,6 @@
 use data_encoding::BASE64URL_NOPAD;
 use golem_video::error::internal_error;
-use golem_video::exports::golem::video::video::VideoError;
+use golem_video::exports::golem::video::types::VideoError;
 use log::{debug, trace};
 use rsa::pkcs8::DecodePrivateKey;
 use rsa::RsaPrivateKey;

@@ -9,10 +9,11 @@ use crate::conversion::{
 };
 use golem_video::config::with_config_key;
 use golem_video::durability::{DurableVideo, ExtendedGuest};
-use golem_video::exports::golem::video::video::{
-    AudioSource, BaseVideo, GenerationConfig, MediaInput, VideoError, VoiceInfo,
+use golem_video::exports::golem::video::lip_sync::Guest as LipSyncGuest;
+use golem_video::exports::golem::video::types::{
+    AudioSource, BaseVideo, GenerationConfig, MediaInput, VideoError, VideoResult, VoiceInfo,
 };
-use golem_video::exports::golem::video::video::{Guest, VideoResult};
+use golem_video::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
 use golem_video::LOGGING_STATE;
 
 struct VeoComponent;
@@ -23,7 +24,7 @@ impl VeoComponent {
     const PRIVATE_KEY_ENV_VAR: &'static str = "VEO_PRIVATE_KEY";
 }
 
-impl Guest for VeoComponent {
+impl VideoGenerationGuest for VeoComponent {
     fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -62,7 +63,9 @@ impl Guest for VeoComponent {
             })
         })
     }
+}
 
+impl LipSyncGuest for VeoComponent {
     fn generate_lip_sync(video: BaseVideo, audio: AudioSource) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
