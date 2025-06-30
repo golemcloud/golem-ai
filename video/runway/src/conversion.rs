@@ -1,8 +1,8 @@
 use crate::client::{ContentModeration, ImageToVideoRequest, PollResponse, PromptImage, RunwayApi};
 use golem_video::error::{invalid_input, unsupported_feature};
 use golem_video::exports::golem::video::video::{
-    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
-    VideoResult,
+    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
+    VideoError, VideoResult,
 };
 use std::collections::HashMap;
 
@@ -67,19 +67,19 @@ pub fn media_input_to_request(
 
             // Create prompt images based on role and lastframe
             let mut prompt_images = Vec::new();
-            
+
             // Determine position from image role (default to "first")
             let position = match ref_image.role {
                 Some(ImageRole::First) => "first",
-                Some(ImageRole::Last) => "last", 
+                Some(ImageRole::Last) => "last",
                 None => "first", // Default to first frame
             };
-            
+
             prompt_images.push(PromptImage {
                 uri: image_data,
                 position: position.to_string(),
             });
-            
+
             // Handle lastframe if provided
             if let Some(lastframe) = &config.lastframe {
                 let lastframe_data = match &lastframe.data {
@@ -90,7 +90,7 @@ pub fn media_input_to_request(
                         format!("data:image/png;base64,{base64_data}")
                     }
                 };
-                
+
                 prompt_images.push(PromptImage {
                     uri: lastframe_data,
                     position: "last".to_string(),

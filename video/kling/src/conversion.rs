@@ -1,8 +1,8 @@
 use crate::client::{ImageToVideoRequest, KlingApi, PollResponse, TextToVideoRequest};
 use golem_video::error::{invalid_input, unsupported_feature};
 use golem_video::exports::golem::video::video::{
-    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
-    VideoResult,
+    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
+    VideoError, VideoResult,
 };
 use std::collections::HashMap;
 
@@ -90,7 +90,7 @@ pub fn media_input_to_request(
         MediaInput::Image(ref_image) => {
             // Handle role and lastframe logic
             let image_role = ref_image.role.as_ref();
-            
+
             // Check for conflict: both role=last and lastframe provided
             if matches!(image_role, Some(ImageRole::Last)) && config.lastframe.is_some() {
                 log::warn!("Both image role=last and lastframe provided. Using lastframe only as specified.");

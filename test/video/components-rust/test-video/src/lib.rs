@@ -91,12 +91,16 @@ impl Guest for Component {
                     value: "127".to_string(),
                 }
             ],
+            lastframe: None,
         };
 
         // Create media input with the image data
-        let media_input = video::MediaInput::Image(video::ReferenceImage {
-            data: video::MediaData::Bytes(buffer),
+        let media_input = video::MediaInput::Image(video::Reference {
+            data: video::InputImage {
+                data: video::MediaData::Bytes(buffer),
+            },
             prompt: Some("An Old smiling man, and waving his hand".to_string()),
+            role: None,
         });
 
         println!("Sending video generation request...");
@@ -174,6 +178,7 @@ impl Guest for Component {
                     value: "std".to_string(),
                 }
             ],
+            lastframe: None,
         };
 
         // Create text prompt for video generation

@@ -133,7 +133,8 @@ mod durable_impl {
     mod tests {
         use crate::durability::durable_impl::{CancelInput, GenerateInput, PollInput};
         use crate::exports::golem::video::video::{
-            AspectRatio, GenerationConfig, Kv, MediaData, MediaInput, ReferenceImage, Resolution,
+            AspectRatio, GenerationConfig, InputImage, Kv, MediaData, MediaInput, Reference,
+            Resolution,
         };
         use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
         use std::fmt::Debug;
@@ -165,6 +166,7 @@ mod durable_impl {
                         key: "model".to_string(),
                         value: "runway-gen3".to_string(),
                     }],
+                    lastframe: None,
                 },
             };
             roundtrip_test(input);
@@ -173,9 +175,12 @@ mod durable_impl {
         #[test]
         fn generate_input_with_image_roundtrip() {
             let input = GenerateInput {
-                input: MediaInput::Image(ReferenceImage {
-                    data: MediaData::Bytes(vec![0, 1, 2, 3, 4, 5]),
+                input: MediaInput::Image(Reference {
+                    data: InputImage {
+                        data: MediaData::Bytes(vec![0, 1, 2, 3, 4, 5]),
+                    },
                     prompt: Some("Animate this image".to_string()),
+                    role: None,
                 }),
                 config: GenerationConfig {
                     negative_prompt: None,
@@ -189,6 +194,7 @@ mod durable_impl {
                     enable_audio: Some(false),
                     enhance_prompt: None,
                     provider_options: vec![],
+                    lastframe: None,
                 },
             };
             roundtrip_test(input);

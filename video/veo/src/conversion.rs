@@ -4,8 +4,8 @@ use crate::client::{
 };
 use golem_video::error::invalid_input;
 use golem_video::exports::golem::video::video::{
-    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
-    VideoResult,
+    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
+    VideoError, VideoResult,
 };
 use golem_video::utils::download_image_from_url;
 use std::collections::HashMap;
@@ -159,13 +159,13 @@ pub fn media_input_to_request(
 
             // Handle image role and lastframe
             let image_role = ref_image.role.as_ref();
-            
+
             // Handle lastframe - check if model supports it
             let last_frame_data = if let Some(lastframe) = &config.lastframe {
                 // Check if we're using a model that supports lastFrame
                 let model_id = model_id.as_deref().unwrap_or("veo-2.0-generate-001");
                 if model_id != "veo-2.0-generate-001" {
-                    log::warn!("lastFrame is only supported by veo-2.0-generate-001 model, ignoring for {}", model_id);
+                    log::warn!("lastFrame is only supported by veo-2.0-generate-001 model, ignoring for {model_id}");
                     None
                 } else {
                     let lastframe_image_data = match lastframe.data {

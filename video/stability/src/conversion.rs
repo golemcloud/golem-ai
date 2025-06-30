@@ -25,7 +25,7 @@ pub fn media_input_to_request(
             };
 
             // Note: Stability doesn't support prompts with images, so we ignore ref_image.prompt
-            
+
             // Log warnings for unsupported image role feature
             if ref_image.role.is_some() {
                 log::warn!("image role positioning (first/last) is not supported by Stability API and will be ignored");
