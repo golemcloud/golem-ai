@@ -1,6 +1,7 @@
 mod authentication;
 mod client;
 mod conversion;
+mod voices;
 
 use crate::client::KlingApi;
 use crate::conversion::{

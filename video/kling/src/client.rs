@@ -197,6 +197,26 @@ impl KlingApi {
 
         Ok(bytes.to_vec())
     }
+
+    pub fn generate_lip_sync(
+        &self,
+        request: LipSyncRequest,
+    ) -> Result<GenerationResponse, VideoError> {
+        trace!("Sending lip-sync request to Kling API");
+
+        let auth_header = self.get_auth_header()?;
+
+        let response: Response = self
+            .client
+            .request(Method::POST, format!("{BASE_URL}/v1/videos/lip-sync"))
+            .header("Authorization", auth_header)
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .map_err(|err| from_reqwest_error("Lip-sync request failed", err))?;
+
+        parse_response(response)
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -380,6 +400,38 @@ pub struct MultiImageToVideoRequest {
 #[derive(Debug, Clone, Serialize)]
 pub struct ImageListItem {
     pub image: String, // Base64 encoded image or URL
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct LipSyncRequest {
+    pub input: LipSyncInput,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub callback_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct LipSyncInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_url: Option<String>,
+    pub mode: String,
+    // Text2Video mode fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice_language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice_speed: Option<f32>,
+    // Audio2Video mode fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio_file: Option<String>, // Base64 encoded
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio_url: Option<String>,
 }
 
 fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {

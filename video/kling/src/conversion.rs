@@ -1,13 +1,14 @@
 use crate::client::{
     CameraConfigRequest, CameraControlRequest, DynamicMaskRequest, ImageListItem,
-    ImageToVideoRequest, KlingApi, MultiImageToVideoRequest, PollResponse, TextToVideoRequest,
-    TrajectoryPoint,
+    ImageToVideoRequest, KlingApi, LipSyncInput, LipSyncRequest, MultiImageToVideoRequest,
+    PollResponse, TextToVideoRequest, TrajectoryPoint,
 };
 use golem_video::error::invalid_input;
 use golem_video::exports::golem::video::types::{
-    AspectRatio, CameraControl, CameraMovement, GenerationConfig, ImageRole, JobStatus, MediaData,
-    MediaInput, Resolution, Video, VideoError, VideoResult,
+    AspectRatio, AudioSource, CameraControl, CameraMovement, GenerationConfig, ImageRole,
+    JobStatus, MediaData, MediaInput, Resolution, Video, VideoError, VideoResult,
 };
+use log::trace;
 use std::collections::HashMap;
 
 pub fn media_input_to_request(
@@ -494,22 +495,128 @@ pub fn cancel_video_generation(_client: &KlingApi, task_id: String) -> Result<St
 }
 
 pub fn generate_lip_sync_video(
-    _client: &KlingApi,
-    _video: golem_video::exports::golem::video::types::BaseVideo,
-    _audio: golem_video::exports::golem::video::types::AudioSource,
+    client: &KlingApi,
+    video: golem_video::exports::golem::video::types::BaseVideo,
+    audio: golem_video::exports::golem::video::types::AudioSource,
 ) -> Result<String, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Lip sync is not supported by Kling API".to_string(),
-    ))
+    use crate::voices::is_valid_voice_id;
+
+    trace!("Generating lip-sync video with Kling API");
+
+    // Convert video data to required format
+    let (video_id, video_url) = match &video.data {
+        MediaData::Url(url) => (None, Some(url.clone())),
+        MediaData::Bytes(_) => {
+            return Err(invalid_input(
+                "Lip-sync requires video URL or video_id from Kling API. Base64 video data is not supported.",
+            ));
+        }
+    };
+
+    // Convert audio source to request format
+    let (mode, text, voice_id, voice_language, voice_speed, audio_type, audio_file, audio_url) =
+        match audio {
+            AudioSource::FromText(tts) => {
+                // Text-to-video mode
+                let voice_id = tts.voice_id.as_ref().ok_or_else(|| {
+                    invalid_input("voice_id is required for text-to-speech lip-sync")
+                })?;
+
+                // Determine language from voice_id
+                let language = if is_valid_voice_id(voice_id, "zh") {
+                    "zh"
+                } else if is_valid_voice_id(voice_id, "en") {
+                    "en"
+                } else {
+                    return Err(invalid_input(format!("Invalid voice_id: {voice_id}")));
+                };
+
+                // Convert speed from u32 to f32 and validate range
+                let speed = tts.speed as f32 / 100.0; // Convert from percentage to decimal
+                let voice_speed = speed.clamp(0.8, 2.0);
+
+                (
+                    "text2video".to_string(),
+                    Some(tts.text.clone()),
+                    Some(voice_id.clone()),
+                    Some(language.to_string()),
+                    Some(voice_speed),
+                    None,
+                    None,
+                    None,
+                )
+            }
+            AudioSource::FromAudio(narration) => {
+                // Audio-to-video mode
+                match &narration.data {
+                    MediaData::Url(url) => (
+                        "audio2video".to_string(),
+                        None,
+                        None,
+                        None,
+                        None,
+                        Some("url".to_string()),
+                        None,
+                        Some(url.clone()),
+                    ),
+                    MediaData::Bytes(bytes) => {
+                        // Convert to base64
+                        use base64::Engine;
+                        let audio_base64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+                        (
+                            "audio2video".to_string(),
+                            None,
+                            None,
+                            None,
+                            None,
+                            Some("file".to_string()),
+                            Some(audio_base64),
+                            None,
+                        )
+                    }
+                }
+            }
+        };
+
+    let input = LipSyncInput {
+        video_id,
+        video_url,
+        mode,
+        text,
+        voice_id,
+        voice_language,
+        voice_speed,
+        audio_type,
+        audio_file,
+        audio_url,
+    };
+
+    let request = LipSyncRequest {
+        input,
+        callback_url: None,
+    };
+
+    let response = client.generate_lip_sync(request)?;
+    if response.code == 0 {
+        Ok(response.data.task_id)
+    } else {
+        Err(VideoError::GenerationFailed(format!(
+            "API error {}: {}",
+            response.code, response.message
+        )))
+    }
 }
 
 pub fn list_available_voices(
     _client: &KlingApi,
-    _language: Option<String>,
+    language: Option<String>,
 ) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Voice listing is not supported by Kling API".to_string(),
-    ))
+    use crate::voices::get_voices;
+
+    trace!("Listing available voices for language: {language:?}");
+
+    let voices = get_voices(language);
+    Ok(voices)
 }
 
 pub fn extend_video(
