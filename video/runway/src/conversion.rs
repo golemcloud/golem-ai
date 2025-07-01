@@ -1,4 +1,7 @@
-use crate::client::{ContentModeration, ImageToVideoRequest, PollResponse, PromptImage, RunwayApi};
+use crate::client::{
+    ContentModeration, ImageToVideoRequest, PollResponse, PromptImage, RunwayApi,
+    VideoUpscaleRequest,
+};
 use golem_video::error::{invalid_input, unsupported_feature};
 use golem_video::exports::golem::video::types::{
     AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
@@ -263,12 +266,29 @@ pub fn extend_video(
 }
 
 pub fn upscale_video(
-    _client: &RunwayApi,
-    _input: golem_video::exports::golem::video::types::BaseVideo,
+    client: &RunwayApi,
+    input: golem_video::exports::golem::video::types::BaseVideo,
 ) -> Result<String, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Video upscaling is not supported by Runway API".to_string(),
-    ))
+    // Extract video data from BaseVideo structure
+    let video_uri = match input.data {
+        MediaData::Url(url) => url,
+        MediaData::Bytes(bytes) => {
+            // Convert bytes to data URI for video
+            use base64::Engine;
+            let base64_data = base64::engine::general_purpose::STANDARD.encode(&bytes);
+            format!("data:video/mp4;base64,{base64_data}")
+        }
+    };
+
+    let request = VideoUpscaleRequest {
+        video_uri,
+        model: "upscale_v1".to_string(),
+    };
+
+    let response = client.upscale_video(request)?;
+
+    // Return the task ID directly from Runway API
+    Ok(response.id)
 }
 
 pub fn generate_video_effects(

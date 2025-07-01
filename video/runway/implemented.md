@@ -4,6 +4,7 @@
 
 ### Core Functionality
 - **Image-to-Video Generation**: Full support for converting images to videos using Runway's gen3a_turbo and gen4_turbo models
+- **Video Upscaling**: Full support for video upscaling using Runway's upscale_v1 model (4X upscale factor)
 - **UUID-based Job Management**: All jobs return UUIDs that correspond to Runway task IDs
 - **Asynchronous Polling**: Proper polling implementation with status tracking (pending → running → succeeded/failed)
 - **Error Handling**: Comprehensive error mapping from HTTP status codes to WIT video errors
@@ -39,6 +40,7 @@
 - **Durability Integration**: Full integration with golem-video durability system
 - **Parameter Validation**: Range validation according to Runway API specifications
 - **Logging**: Proper logging integration with configurable levels
+- **Video Input Support**: URL and binary data support for both image-to-video and video upscaling
 
 ## ✅ Key Differences from Stability
 
@@ -47,6 +49,7 @@
 - **Text Prompts**: Supports text prompts alongside images (via `promptText` field)
 - **Duration Control**: Supports video duration between 5-10 seconds
 - **Content Moderation**: Configurable public figure detection threshold
+- **Video Upscaling**: 4X upscaling factor with maximum 4096px per side and 40-second duration limit
 
 ### API Design
 - **JSON vs Multipart**: Uses JSON requests instead of multipart/form-data

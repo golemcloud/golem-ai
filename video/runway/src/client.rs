@@ -121,6 +121,25 @@ impl RunwayApi {
         }
     }
 
+    pub fn upscale_video(
+        &self,
+        request: VideoUpscaleRequest,
+    ) -> Result<GenerationResponse, VideoError> {
+        trace!("Sending video upscale request to Runway API");
+
+        let response: Response = self
+            .client
+            .request(Method::POST, format!("{BASE_URL}/v1/video_upscale"))
+            .header("Authorization", format!("Bearer {}", &self.api_key))
+            .header("X-Runway-Version", API_VERSION)
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .map_err(|err| from_reqwest_error("Upscale request failed", err))?;
+
+        parse_response(response)
+    }
+
     fn download_video(&self, url: &str) -> Result<Vec<u8>, VideoError> {
         trace!("Downloading video from URL: {url}");
 
@@ -171,6 +190,13 @@ pub struct PromptImage {
 pub struct ContentModeration {
     #[serde(rename = "publicFigureThreshold")]
     pub public_figure_threshold: String, // "auto" or "low"
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VideoUpscaleRequest {
+    #[serde(rename = "videoUri")]
+    pub video_uri: String,
+    pub model: String, // Must be "upscale_v1"
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
