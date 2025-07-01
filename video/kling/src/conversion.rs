@@ -1,8 +1,11 @@
-use crate::client::{ImageToVideoRequest, KlingApi, PollResponse, TextToVideoRequest};
-use golem_video::error::{invalid_input, unsupported_feature};
+use crate::client::{
+    CameraConfigRequest, CameraControlRequest, DynamicMaskRequest, ImageToVideoRequest, KlingApi,
+    PollResponse, TextToVideoRequest, TrajectoryPoint,
+};
+use golem_video::error::invalid_input;
 use golem_video::exports::golem::video::types::{
-    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
-    VideoError, VideoResult,
+    AspectRatio, CameraControl, CameraMovement, GenerationConfig, ImageRole, JobStatus, MediaData,
+    MediaInput, Resolution, Video, VideoError, VideoResult,
 };
 use std::collections::HashMap;
 
@@ -65,6 +68,13 @@ pub fn media_input_to_request(
         .guidance_scale
         .map(|scale| (scale / 10.0).clamp(0.0, 1.0));
 
+    // Camera control support
+    let camera_control = config
+        .camera_control
+        .as_ref()
+        .map(convert_camera_control)
+        .transpose()?;
+
     // Clone negative_prompt before moving values
     let negative_prompt = config.negative_prompt.clone();
 
@@ -76,6 +86,7 @@ pub fn media_input_to_request(
                 negative_prompt,
                 cfg_scale,
                 mode,
+                camera_control,
                 aspect_ratio: Some(aspect_ratio),
                 duration,
                 callback_url: None,
@@ -96,19 +107,66 @@ pub fn media_input_to_request(
                 log::warn!("Both image role=last and lastframe provided. Using lastframe only as specified.");
             }
 
-            // Extract image data from new InputImage structure
-            let image_data = match ref_image.data.data {
-                MediaData::Url(_url) => {
-                    return Err(unsupported_feature(
-                        "Image URLs are not supported by Kling API, only base64 data",
-                    ));
-                }
-                MediaData::Bytes(bytes) => {
-                    // Convert bytes to base64 string
-                    use base64::Engine;
-                    base64::engine::general_purpose::STANDARD.encode(&bytes)
-                }
+            // Extract image data from InputImage structure
+            let image_data = convert_media_data_to_string(&ref_image.data.data)?;
+
+            // Handle lastframe - either from role=last or explicit lastframe
+            let image_tail = if matches!(image_role, Some(ImageRole::Last)) {
+                Some(image_data.clone())
+            } else if let Some(ref lastframe) = config.lastframe {
+                Some(convert_media_data_to_string(&lastframe.data)?)
+            } else {
+                None
             };
+
+            // Set image based on role - if role=last, use None for main image, otherwise use the image
+            let main_image = if matches!(image_role, Some(ImageRole::Last)) {
+                None
+            } else {
+                Some(image_data)
+            };
+
+            // Static mask support
+            let static_mask = config
+                .static_mask
+                .as_ref()
+                .map(|sm| convert_media_data_to_string(&sm.mask.data))
+                .transpose()?;
+
+            // Dynamic mask support
+            let dynamic_masks = config
+                .dynamic_mask
+                .as_ref()
+                .map(convert_dynamic_mask)
+                .transpose()?;
+
+            // Validate API constraints: image+image_tail, dynamic_masks/static_mask, and camera_control cannot be used together
+            let has_image_tail = image_tail.is_some();
+            let has_masks = static_mask.is_some() || dynamic_masks.is_some();
+            let has_camera_control = camera_control.is_some();
+
+            if has_image_tail && has_masks {
+                return Err(invalid_input(
+                    "image_tail (lastframe) cannot be used together with static_mask or dynamic_masks",
+                ));
+            }
+            if has_image_tail && has_camera_control {
+                return Err(invalid_input(
+                    "image_tail (lastframe) cannot be used together with camera_control",
+                ));
+            }
+            if has_masks && has_camera_control {
+                return Err(invalid_input(
+                    "static_mask/dynamic_masks cannot be used together with camera_control",
+                ));
+            }
+
+            // Validate that at least one image (image or image_tail) is provided
+            if main_image.is_none() && image_tail.is_none() {
+                return Err(invalid_input(
+                    "At least one of image or image_tail must be provided",
+                ));
+            }
 
             // Use prompt from the reference image, or default
             let prompt = ref_image
@@ -124,17 +182,156 @@ pub fn media_input_to_request(
                 mode,
                 aspect_ratio: Some(aspect_ratio),
                 duration,
-                image: Some(image_data),
+                image: main_image,
+                image_tail,
+                static_mask,
+                dynamic_masks,
+                camera_control,
                 callback_url: None,
                 external_task_id: None,
             };
 
-            // Log warnings for unsupported options including lastframe
+            // Log warnings for unsupported options
             log_unsupported_options(&config, &options);
 
             Ok((None, Some(request)))
         }
     }
+}
+
+fn convert_media_data_to_string(media_data: &MediaData) -> Result<String, VideoError> {
+    match media_data {
+        MediaData::Url(url) => Ok(url.clone()),
+        MediaData::Bytes(bytes) => {
+            // Convert bytes to base64 string
+            use base64::Engine;
+            Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+        }
+    }
+}
+
+fn convert_camera_control(
+    camera_control: &CameraControl,
+) -> Result<CameraControlRequest, VideoError> {
+    match camera_control {
+        CameraControl::Movement(movement) => {
+            let movement_type = match movement {
+                CameraMovement::Simple => "simple".to_string(),
+                CameraMovement::DownBack => "down_back".to_string(),
+                CameraMovement::ForwardUp => "forward_up".to_string(),
+                CameraMovement::RightTurnForward => "right_turn_forward".to_string(),
+                CameraMovement::LeftTurnForward => "left_turn_forward".to_string(),
+            };
+
+            Ok(CameraControlRequest {
+                movement_type,
+                config: None,
+            })
+        }
+        CameraControl::Config(config) => {
+            // For simple camera control with custom config
+            // Validate that only one parameter is non-zero
+            let non_zero_count = [
+                config.horizontal,
+                config.vertical,
+                config.pan,
+                config.tilt,
+                config.roll,
+                config.zoom,
+            ]
+            .iter()
+            .filter(|&&val| val != 0.0)
+            .count();
+
+            if non_zero_count != 1 {
+                return Err(invalid_input(
+                    "Camera config must have exactly one non-zero parameter",
+                ));
+            }
+
+            // Validate range [-10, 10]
+            for &val in &[
+                config.horizontal,
+                config.vertical,
+                config.pan,
+                config.tilt,
+                config.roll,
+                config.zoom,
+            ] {
+                if !(-10.0..=10.0).contains(&val) {
+                    return Err(invalid_input(
+                        "Camera config values must be in range [-10, 10]",
+                    ));
+                }
+            }
+
+            let config_req = CameraConfigRequest {
+                horizontal: if config.horizontal != 0.0 {
+                    Some(config.horizontal)
+                } else {
+                    None
+                },
+                vertical: if config.vertical != 0.0 {
+                    Some(config.vertical)
+                } else {
+                    None
+                },
+                pan: if config.pan != 0.0 {
+                    Some(config.pan)
+                } else {
+                    None
+                },
+                tilt: if config.tilt != 0.0 {
+                    Some(config.tilt)
+                } else {
+                    None
+                },
+                roll: if config.roll != 0.0 {
+                    Some(config.roll)
+                } else {
+                    None
+                },
+                zoom: if config.zoom != 0.0 {
+                    Some(config.zoom)
+                } else {
+                    None
+                },
+            };
+
+            Ok(CameraControlRequest {
+                movement_type: "simple".to_string(),
+                config: Some(config_req),
+            })
+        }
+    }
+}
+
+fn convert_dynamic_mask(
+    dynamic_mask: &golem_video::exports::golem::video::types::DynamicMask,
+) -> Result<Vec<DynamicMaskRequest>, VideoError> {
+    // Validate trajectory length (max 77 for 5s video)
+    if dynamic_mask.trajectories.len() < 2 {
+        return Err(invalid_input(
+            "Dynamic mask must have at least 2 trajectory points",
+        ));
+    }
+    if dynamic_mask.trajectories.len() > 77 {
+        return Err(invalid_input(
+            "Dynamic mask cannot have more than 77 trajectory points",
+        ));
+    }
+
+    let mask_data = convert_media_data_to_string(&dynamic_mask.mask.data)?;
+    let trajectories: Vec<TrajectoryPoint> = dynamic_mask
+        .trajectories
+        .iter()
+        .map(|pos| TrajectoryPoint { x: pos.x, y: pos.y })
+        .collect();
+
+    Ok(vec![DynamicMaskRequest {
+        mask: mask_data,
+        trajectories,
+    }])
 }
 
 fn determine_aspect_ratio(
@@ -163,18 +360,6 @@ fn log_unsupported_options(config: &GenerationConfig, options: &HashMap<String, 
     }
     if config.enhance_prompt.is_some() {
         log::warn!("enhance_prompt is not supported by Kling API and will be ignored");
-    }
-    if config.lastframe.is_some() {
-        log::warn!("lastframe is not yet fully implemented for Kling API and will be ignored");
-    }
-    if config.static_mask.is_some() {
-        log::warn!("static_mask is not supported by Kling API and will be ignored");
-    }
-    if config.dynamic_mask.is_some() {
-        log::warn!("dynamic_mask is not supported by Kling API and will be ignored");
-    }
-    if config.camera_control.is_some() {
-        log::warn!("camera_control is not supported by Kling API and will be ignored");
     }
 
     // Log unused provider options

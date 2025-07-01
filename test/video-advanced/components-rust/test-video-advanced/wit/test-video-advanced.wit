@@ -1,0 +1,12 @@
+package test:video-advanced;
+
+// See https://component-model.bytecodealliance.org/design/wit.html for more details about the WIT syntax
+
+interface test-video-advanced-api {
+  add: func(value: u64);
+  get: func() -> u64;
+}
+
+world test-video-advanced {
+  export test-video-advanced-api;
+}

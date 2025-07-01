@@ -188,6 +188,8 @@ pub struct TextToVideoRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mode: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub camera_control: Option<CameraControlRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub aspect_ratio: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration: Option<String>,
@@ -213,11 +215,55 @@ pub struct ImageToVideoRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub image: Option<String>, // Base64 encoded image
+    pub image: Option<String>, // Base64 encoded image or URL
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_tail: Option<String>, // Base64 encoded image or URL
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub static_mask: Option<String>, // Base64 encoded image or URL
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dynamic_masks: Option<Vec<DynamicMaskRequest>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub camera_control: Option<CameraControlRequest>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub callback_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub external_task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DynamicMaskRequest {
+    pub mask: String, // Base64 encoded image or URL
+    pub trajectories: Vec<TrajectoryPoint>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TrajectoryPoint {
+    pub x: u32,
+    pub y: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CameraControlRequest {
+    #[serde(rename = "type")]
+    pub movement_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<CameraConfigRequest>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CameraConfigRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub horizontal: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vertical: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pan: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roll: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub zoom: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
