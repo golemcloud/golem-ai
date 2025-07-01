@@ -73,6 +73,29 @@ impl KlingApi {
         parse_response(response)
     }
 
+    pub fn generate_multi_image_to_video(
+        &self,
+        request: MultiImageToVideoRequest,
+    ) -> Result<GenerationResponse, VideoError> {
+        trace!("Sending multi-image-to-video request to Kling API");
+
+        let auth_header = self.get_auth_header()?;
+
+        let response: Response = self
+            .client
+            .request(
+                Method::POST,
+                format!("{BASE_URL}/v1/videos/multi-image2video"),
+            )
+            .header("Authorization", auth_header)
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .map_err(|err| from_reqwest_error("Request failed", err))?;
+
+        parse_response(response)
+    }
+
     pub fn poll_generation(&self, task_id: &str) -> Result<PollResponse, VideoError> {
         trace!("Polling generation status for ID: {task_id}");
 
@@ -331,6 +354,32 @@ pub struct VideoResult {
     pub id: String,
     pub url: String,
     pub duration: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MultiImageToVideoRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_name: Option<String>,
+    pub image_list: Vec<ImageListItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub negative_prompt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aspect_ratio: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub callback_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ImageListItem {
+    pub image: String, // Base64 encoded image or URL
 }
 
 fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {

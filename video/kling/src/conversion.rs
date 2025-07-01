@@ -1,6 +1,7 @@
 use crate::client::{
-    CameraConfigRequest, CameraControlRequest, DynamicMaskRequest, ImageToVideoRequest, KlingApi,
-    PollResponse, TextToVideoRequest, TrajectoryPoint,
+    CameraConfigRequest, CameraControlRequest, DynamicMaskRequest, ImageListItem,
+    ImageToVideoRequest, KlingApi, MultiImageToVideoRequest, PollResponse, TextToVideoRequest,
+    TrajectoryPoint,
 };
 use golem_video::error::invalid_input;
 use golem_video::exports::golem::video::types::{
@@ -370,6 +371,44 @@ fn log_unsupported_options(config: &GenerationConfig, options: &HashMap<String, 
     }
 }
 
+fn log_multi_image_unsupported_options(
+    config: &GenerationConfig,
+    options: &HashMap<String, String>,
+) {
+    // Multi-image generation has additional restrictions
+    if config.scheduler.is_some() {
+        log::warn!("scheduler is not supported by Kling multi-image API and will be ignored");
+    }
+    if config.enable_audio.is_some() {
+        log::warn!("enable_audio is not supported by Kling multi-image API and will be ignored");
+    }
+    if config.enhance_prompt.is_some() {
+        log::warn!("enhance_prompt is not supported by Kling multi-image API and will be ignored");
+    }
+    if config.guidance_scale.is_some() {
+        log::warn!("guidance_scale (cfg_scale) is not supported by Kling multi-image API and will be ignored");
+    }
+    if config.lastframe.is_some() {
+        log::warn!("lastframe is not supported by Kling multi-image API and will be ignored");
+    }
+    if config.static_mask.is_some() {
+        log::warn!("static_mask is not supported by Kling multi-image API and will be ignored");
+    }
+    if config.dynamic_mask.is_some() {
+        log::warn!("dynamic_mask is not supported by Kling multi-image API and will be ignored");
+    }
+    if config.camera_control.is_some() {
+        log::warn!("camera_control is not supported by Kling multi-image API and will be ignored");
+    }
+
+    // Log unused provider options
+    for key in options.keys() {
+        if !matches!(key.as_str(), "model" | "mode") {
+            log::warn!("Provider option '{key}' is not supported by Kling multi-image API");
+        }
+    }
+}
+
 pub fn generate_video(
     client: &KlingApi,
     input: MediaInput,
@@ -506,11 +545,105 @@ pub fn generate_video_effects(
 }
 
 pub fn multi_image_generation(
-    _client: &KlingApi,
-    _input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
-    _config: GenerationConfig,
+    client: &KlingApi,
+    input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
+    config: GenerationConfig,
 ) -> Result<String, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Multi-image generation is not supported by Kling API".to_string(),
-    ))
+    // Validate input: 1 to 4 images supported
+    if input_images.is_empty() {
+        return Err(invalid_input(
+            "At least 1 image is required for multi-image generation",
+        ));
+    }
+    if input_images.len() > 4 {
+        return Err(invalid_input(
+            "Multi-image generation supports at most 4 images",
+        ));
+    }
+
+    // Parse provider options
+    let options: HashMap<String, String> = config
+        .provider_options
+        .iter()
+        .map(|kv| (kv.key.clone(), kv.value.clone()))
+        .collect();
+
+    // Determine model - for multi-image, default to kling-v1-6 as per API docs
+    let model_name = config.model.clone().or_else(|| {
+        options
+            .get("model")
+            .cloned()
+            .or_else(|| Some("kling-v1-6".to_string()))
+    });
+
+    // Validate model if provided (multi-image endpoint only supports kling-v1-6 according to docs)
+    if let Some(ref model) = model_name {
+        if model != "kling-v1-6" {
+            log::warn!("Multi-image generation only supports kling-v1-6 model. Using kling-v1-6.");
+        }
+    }
+
+    // Convert input images to image_list format
+    let mut image_list = Vec::new();
+    for input_image in &input_images {
+        let image_data = convert_media_data_to_string(&input_image.data)?;
+        image_list.push(ImageListItem { image: image_data });
+    }
+
+    // Build prompt - use the first image's prompt if available, or create a default
+    let prompt = input_images
+        .first()
+        .and({
+            // InputImage doesn't have a prompt field directly, so we'll use a default
+            None::<String>
+        })
+        .unwrap_or_else(|| "Generate a video from these images".to_string());
+
+    // Determine aspect ratio
+    let aspect_ratio = determine_aspect_ratio(config.aspect_ratio, config.resolution)?;
+
+    // Duration support - Kling supports 5 and 10 seconds
+    let duration = config.duration_seconds.map(|d| {
+        if d <= 5.0 {
+            "5".to_string()
+        } else {
+            "10".to_string()
+        }
+    });
+
+    // Mode support - std or pro
+    let mode = options
+        .get("mode")
+        .cloned()
+        .or_else(|| Some("std".to_string()));
+    if let Some(ref mode_val) = mode {
+        if !matches!(mode_val.as_str(), "std" | "pro") {
+            return Err(invalid_input("Mode must be 'std' or 'pro'"));
+        }
+    }
+
+    let request = MultiImageToVideoRequest {
+        model_name: Some("kling-v1-6".to_string()), // Force kling-v1-6 for multi-image
+        image_list,
+        prompt: Some(prompt),
+        negative_prompt: config.negative_prompt.clone(),
+        mode,
+        duration,
+        aspect_ratio: Some(aspect_ratio),
+        callback_url: None,
+        external_task_id: None,
+    };
+
+    // Log warnings for unsupported options specific to multi-image
+    log_multi_image_unsupported_options(&config, &options);
+
+    let response = client.generate_multi_image_to_video(request)?;
+    if response.code == 0 {
+        Ok(response.data.task_id)
+    } else {
+        Err(VideoError::GenerationFailed(format!(
+            "API error {}: {}",
+            response.code, response.message
+        )))
+    }
 }
