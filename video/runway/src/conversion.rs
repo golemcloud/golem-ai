@@ -2,6 +2,7 @@ use crate::client::{
     ContentModeration, ImageToVideoRequest, PollResponse, PromptImage, RunwayApi,
     VideoUpscaleRequest,
 };
+use crate::text2image::{ImagePollResponse, TextToImageRequest};
 use golem_video::error::{invalid_input, unsupported_feature};
 use golem_video::exports::golem::video::types::{
     AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
@@ -190,10 +191,60 @@ pub fn generate_video(
     input: MediaInput,
     config: GenerationConfig,
 ) -> Result<String, VideoError> {
-    let request = media_input_to_request(input, config)?;
-    let response = client.generate_video(request)?;
+    match input {
+        MediaInput::Text(prompt) => {
+            // For text input, first generate an image, then use that for video generation
+            generate_text_to_video_via_image(client, prompt, config)
+        }
+        MediaInput::Image(_) => {
+            // For image input, use existing flow
+            let request = media_input_to_request(input, config)?;
+            let response = client.generate_video(request)?;
+            Ok(response.id)
+        }
+    }
+}
 
-    // Return the task ID directly from Runway API
+fn generate_text_to_video_via_image(
+    client: &RunwayApi,
+    prompt: String,
+    config: GenerationConfig,
+) -> Result<String, VideoError> {
+    // Step 1: Generate image from text
+    let image_task_id = generate_text_to_image(client, prompt.clone(), &config)?;
+
+    // Step 2: Poll for image completion (with timeout)
+    let max_polls = 60; // 5 minutes with 5-second intervals
+    let mut polls = 0;
+
+    let image_url = loop {
+        if polls >= max_polls {
+            return Err(VideoError::GenerationFailed(
+                "Text-to-image generation timed out".to_string(),
+            ));
+        }
+
+        match poll_text_to_image_generation(client, &image_task_id)? {
+            Some(url) => break url,
+            None => {
+                // Sleep for 5 seconds before next poll
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                polls += 1;
+            }
+        }
+    };
+
+    // Step 3: Use the generated image URL for video generation
+    let image_input = MediaInput::Image(golem_video::exports::golem::video::types::Reference {
+        data: golem_video::exports::golem::video::types::InputImage {
+            data: MediaData::Url(image_url),
+        },
+        prompt: Some(prompt),
+        role: Some(golem_video::exports::golem::video::types::ImageRole::First),
+    });
+
+    let request = media_input_to_request(image_input, config)?;
+    let response = client.generate_video(request)?;
     Ok(response.id)
 }
 
@@ -312,4 +363,79 @@ pub fn multi_image_generation(
     Err(VideoError::UnsupportedFeature(
         "Multi-image generation is not supported by Runway API".to_string(),
     ))
+}
+
+// Text-to-Image functions for Runway
+
+pub fn text_to_image_request(
+    prompt: String,
+    config: &GenerationConfig,
+) -> Result<TextToImageRequest, VideoError> {
+    // Parse provider options
+    let options: std::collections::HashMap<String, String> = config
+        .provider_options
+        .iter()
+        .map(|kv| (kv.key.clone(), kv.value.clone()))
+        .collect();
+
+    // Determine ratio based on aspect_ratio and resolution
+    let ratio = determine_text_to_image_ratio(config.aspect_ratio, config.resolution)?;
+
+    // Content moderation
+    let content_moderation = options.get("publicFigureThreshold").map(|threshold| {
+        let threshold_value = if threshold == "low" { "low" } else { "auto" };
+        crate::text2image::ContentModeration {
+            public_figure_threshold: threshold_value.to_string(),
+        }
+    });
+
+    // Validate seed if provided
+    if let Some(seed_val) = config.seed {
+        if seed_val > 4294967295 {
+            return Err(invalid_input("Seed must be between 0 and 4294967295"));
+        }
+    }
+
+    Ok(TextToImageRequest {
+        prompt_text: prompt,
+        ratio,
+        model: "gen4_image".to_string(),
+        seed: config.seed,
+        content_moderation,
+    })
+}
+
+fn determine_text_to_image_ratio(
+    aspect_ratio: Option<AspectRatio>,
+    _resolution: Option<Resolution>,
+) -> Result<String, VideoError> {
+    let target_aspect = aspect_ratio.unwrap_or(AspectRatio::Landscape);
+
+    match target_aspect {
+        AspectRatio::Landscape => Ok("1920:1080".to_string()),
+        AspectRatio::Portrait => Ok("1080:1920".to_string()),
+        AspectRatio::Square => Ok("1024:1024".to_string()),
+        AspectRatio::Cinema => Ok("1808:768".to_string()),
+    }
+}
+
+pub fn generate_text_to_image(
+    client: &RunwayApi,
+    prompt: String,
+    config: &GenerationConfig,
+) -> Result<String, VideoError> {
+    let request = text_to_image_request(prompt, config)?;
+    let response = client.generate_text_to_image(request)?;
+    Ok(response.id)
+}
+
+pub fn poll_text_to_image_generation(
+    client: &RunwayApi,
+    task_id: &str,
+) -> Result<Option<String>, VideoError> {
+    match client.poll_text_to_image(task_id) {
+        Ok(ImagePollResponse::Processing) => Ok(None),
+        Ok(ImagePollResponse::Complete { image_url }) => Ok(Some(image_url)),
+        Err(error) => Err(error),
+    }
 }

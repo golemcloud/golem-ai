@@ -9,8 +9,8 @@ const API_VERSION: &str = "2024-11-06";
 
 /// The Runway API client for image-to-video generation
 pub struct RunwayApi {
-    api_key: String,
-    client: Client,
+    pub api_key: String,
+    pub client: Client,
 }
 
 impl RunwayApi {
