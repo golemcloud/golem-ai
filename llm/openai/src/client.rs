@@ -10,15 +10,15 @@ use std::fmt::Debug;
 
 const BASE_URL: &str = "https://api.openai.com";
 
-/// The OpenAI API client for creating model responses.
+/// The OpenAI API client for creating chat completions.
 ///
-/// Based on https://platform.openai.com/docs/api-reference/responses/create
-pub struct ResponsesApi {
+/// Based on https://platform.openai.com/docs/api-reference/chat/create
+pub struct ChatApi {
     openai_api_key: String,
     client: Client,
 }
 
-impl ResponsesApi {
+impl ChatApi {
     pub fn new(openai_api_key: String) -> Self {
         let client = Client::builder()
             .build()
@@ -29,15 +29,15 @@ impl ResponsesApi {
         }
     }
 
-    pub fn create_model_response(
+    pub fn create_chat_completion(
         &self,
-        request: CreateModelResponseRequest,
-    ) -> Result<CreateModelResponseResponse, Error> {
+        request: CreateChatCompletionRequest,
+    ) -> Result<CreateChatCompletionResponse, Error> {
         trace!("Sending request to OpenAI API: {request:?}");
 
         let response: Response = self
             .client
-            .request(Method::POST, format!("{BASE_URL}/v1/responses"))
+            .request(Method::POST, format!("{BASE_URL}/v1/chat/completions"))
             .bearer_auth(&self.openai_api_key)
             .json(&request)
             .send()
@@ -46,15 +46,15 @@ impl ResponsesApi {
         parse_response(response)
     }
 
-    pub fn stream_model_response(
+    pub fn stream_chat_completion(
         &self,
-        request: CreateModelResponseRequest,
+        request: CreateChatCompletionRequest,
     ) -> Result<EventSource, Error> {
         trace!("Sending request to OpenAI API: {request:?}");
 
         let response: Response = self
             .client
-            .request(Method::POST, format!("{BASE_URL}/v1/responses"))
+            .request(Method::POST, format!("{BASE_URL}/v1/chat/completions"))
             .bearer_auth(&self.openai_api_key)
             .header(
                 reqwest::header::ACCEPT,
@@ -72,13 +72,13 @@ impl ResponsesApi {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateModelResponseRequest {
-    pub input: Input,
+pub struct CreateChatCompletionRequest {
+    pub messages: Vec<ChatMessage>,
     pub model: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_output_tokens: Option<u32>,
+    pub max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<Tool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -88,184 +88,167 @@ pub struct CreateModelResponseRequest {
     pub top_p: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub stop: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateModelResponseResponse {
+pub struct CreateChatCompletionResponse {
     pub id: String,
-    pub created_at: u64,
-    pub error: Option<ErrorObject>,
-    pub incomplete_details: Option<IncompleteDetailsObject>,
-    pub status: Status,
-    pub output: Vec<OutputItem>,
+    pub object: String,
+    pub created: u64,
+    pub model: String,
+    pub choices: Vec<Choice>,
     pub usage: Option<Usage>,
-    pub metadata: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_fingerprint: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Choice {
+    pub index: u32,
+    pub message: ChatMessage,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finish_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub role: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<MessageContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<ToolCall>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MessageContent {
+    Text(String),
+    Array(Vec<ContentPart>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum OutputItem {
-    #[serde(rename = "message")]
-    Message {
-        id: String,
-        content: Vec<OutputMessageContent>,
-        role: String,
-        status: Status,
-    },
-    #[serde(rename = "function_call")]
-    ToolCall {
-        arguments: String,
-        call_id: String,
-        name: String,
-        id: String,
-        status: Status,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum OutputMessageContent {
-    #[serde(rename = "output_text")]
+pub enum ContentPart {
+    #[serde(rename = "text")]
     Text { text: String },
-    #[serde(rename = "refusal")]
-    Refusal { refusal: String },
+    #[serde(rename = "image_url")]
+    ImageUrl { image_url: ImageUrl },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ErrorObject {
-    pub code: String,
-    pub message: String,
+pub struct ImageUrl {
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Status {
-    #[serde(rename = "completed")]
-    Completed,
-    #[serde(rename = "failed")]
-    Failed,
-    #[serde(rename = "in_progress")]
-    InProgress,
-    #[serde(rename = "incomplete")]
-    Incomplete,
+pub struct ToolCall {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub tool_type: String,
+    pub function: FunctionCall,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IncompleteDetailsObject {
-    pub reason: String,
+pub struct FunctionCall {
+    pub name: String,
+    pub arguments: String,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Input {
-    TextInput(String),
-    List(Vec<InputItem>),
-}
-
-/// An item representing part of the context for the response to be generated by the model.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum InputItem {
-    #[serde(rename = "message")]
-    InputMessage {
-        /// A list of one or many input items to the model, containing different content types.
-        content: InnerInput,
-        /// The role of the message input. One of user, system, or developer.
-        role: String,
-    },
-    #[serde(rename = "function_call")]
-    ToolCall {
-        /// A JSON string of the arguments to pass to the function.
-        arguments: String,
-        /// The unique ID of the function tool call generated by the model.
-        call_id: String,
-        /// https://platform.openai.com/docs/api-reference/responses/create
-        name: String,
-    },
-    #[serde(rename = "function_call_output")]
-    ToolResult {
-        /// The unique ID of the function tool call generated by the model.
-        call_id: String,
-        /// A JSON string of the output of the function tool call.
-        output: String,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum InnerInput {
-    TextInput(String),
-    List(Vec<InnerInputItem>),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum InnerInputItem {
-    #[serde(rename = "input_text")]
-    TextInput { text: String },
-    #[serde(rename = "input_image")]
-    ImageInput {
-        image_url: String,
-        #[serde(default)]
-        detail: Detail,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub enum Detail {
-    #[serde(rename = "auto")]
-    #[default]
-    Auto,
-    #[serde(rename = "low")]
-    Low,
-    #[serde(rename = "high")]
-    High,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Tool {
     #[serde(rename = "function")]
     Function {
-        name: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        description: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        parameters: Option<serde_json::Value>,
-        strict: bool,
+        function: ToolFunction,
     },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolFunction {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<serde_json::Value>,
+    #[serde(default)]
+    pub strict: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Usage {
-    pub input_tokens: u32,
-    pub input_tokens_details: InputTokensDetails,
-    pub output_tokens: u32,
-    pub output_tokens_details: OutputTokensDetails,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
     pub total_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_tokens_details: Option<PromptTokensDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completion_tokens_details: Option<CompletionTokensDetails>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InputTokensDetails {
-    pub cached_tokens: u32,
+pub struct PromptTokensDetails {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cached_tokens: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OutputTokensDetails {
-    pub reasoning_tokens: u32,
+pub struct CompletionTokensDetails {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_tokens: Option<u32>,
+}
+
+// Streaming response structures
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatCompletionChunk {
+    pub id: String,
+    pub object: String,
+    pub created: u64,
+    pub model: String,
+    pub choices: Vec<ChoiceDelta>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_fingerprint: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResponseOutputTextDelta {
-    pub content_index: u32,
-    pub delta: String,
-    pub item_id: String,
-    pub output_index: u32,
+pub struct ChoiceDelta {
+    pub index: u32,
+    pub delta: ChatMessageDelta,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finish_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResponseOutputItemDone {
-    pub item: OutputItem,
-    pub output_index: u32,
+pub struct ChatMessageDelta {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<ToolCallDelta>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCallDelta {
+    pub index: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub tool_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub function: Option<FunctionCallDelta>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FunctionCallDelta {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arguments: Option<String>,
 }
 
 fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {

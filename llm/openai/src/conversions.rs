@@ -1,11 +1,11 @@
 use crate::client::{
-    CreateModelResponseRequest, CreateModelResponseResponse, Detail, InnerInput, InnerInputItem,
-    Input, InputItem, OutputItem, OutputMessageContent, Tool,
+    ChatMessage, ContentPart as ClientContentPart, CreateChatCompletionRequest,
+    CreateChatCompletionResponse, ImageUrl, MessageContent, Tool, ToolFunction,
 };
 use base64::{engine::general_purpose, Engine as _};
 use golem_llm::error::error_code_from_status;
 use golem_llm::golem::llm::llm::{
-    ChatEvent, CompleteResponse, Config, ContentPart, Error, ErrorCode, ImageDetail,
+    ChatEvent, CompleteResponse, Config, ContentPart, Error, ErrorCode, FinishReason, ImageDetail,
     ImageReference, Message, ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
 };
 use reqwest::StatusCode;
@@ -13,21 +13,21 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 pub fn create_request(
-    items: Vec<InputItem>,
+    messages: Vec<ChatMessage>,
     config: Config,
     tools: Vec<Tool>,
-) -> CreateModelResponseRequest {
+) -> CreateChatCompletionRequest {
     let options = config
         .provider_options
         .into_iter()
         .map(|kv| (kv.key, kv.value))
         .collect::<HashMap<_, _>>();
 
-    CreateModelResponseRequest {
-        input: Input::List(items),
+    CreateChatCompletionRequest {
+        messages,
         model: config.model,
         temperature: config.temperature,
-        max_output_tokens: config.max_tokens,
+        max_tokens: config.max_tokens,
         tools,
         tool_choice: config.tool_choice,
         stream: false,
@@ -37,52 +37,94 @@ pub fn create_request(
         user: options
             .get("user")
             .and_then(|user_s| user_s.parse::<String>().ok()),
+        stop: config.stop_sequences.unwrap_or_default(),
     }
 }
 
-pub fn messages_to_input_items(messages: Vec<Message>) -> Vec<InputItem> {
-    let mut items = Vec::new();
+pub fn messages_to_chat_messages(messages: Vec<Message>) -> Vec<ChatMessage> {
+    let mut chat_messages = Vec::new();
     for message in messages {
         let role = to_openai_role_name(message.role).to_string();
-        let mut input_items = Vec::new();
-        for content_part in message.content {
-            input_items.push(content_part_to_inner_input_item(content_part));
-        }
+        let content = if message.content.len() == 1 && matches!(message.content[0], ContentPart::Text(_)) {
+            // Single text content
+            match &message.content[0] {
+                ContentPart::Text(text) => Some(MessageContent::Text(text.clone())),
+                _ => unreachable!(),
+            }
+        } else {
+            // Multiple content parts or images
+            let parts: Vec<ClientContentPart> = message.content
+                .into_iter()
+                .map(content_part_to_client_content_part)
+                .collect();
+            Some(MessageContent::Array(parts))
+        };
 
-        items.push(InputItem::InputMessage {
+        chat_messages.push(ChatMessage {
             role,
-            content: InnerInput::List(input_items),
+            content,
+            name: message.name,
+            tool_calls: vec![], // Tool calls will be handled separately
         });
     }
-    items
+    chat_messages
 }
 
-pub fn tool_results_to_input_items(tool_results: Vec<(ToolCall, ToolResult)>) -> Vec<InputItem> {
-    let mut items = Vec::new();
+pub fn tool_results_to_chat_messages(tool_results: Vec<(ToolCall, ToolResult)>) -> Vec<ChatMessage> {
+    let mut messages = Vec::new();
+    
+    // Group tool calls by their original assistant message
+    let mut tool_calls_map = std::collections::HashMap::new();
+    let mut tool_results_map = std::collections::HashMap::new();
+    
     for (tool_call, tool_result) in tool_results {
-        let tool_call = InputItem::ToolCall {
-            arguments: tool_call.arguments_json,
-            call_id: tool_call.id,
-            name: tool_call.name,
-        };
-        let tool_result = match tool_result {
-            ToolResult::Success(success) => InputItem::ToolResult {
-                call_id: success.id,
-                output: format!(r#"{{ "success": {} }}"#, success.result_json),
-            },
-            ToolResult::Error(error) => InputItem::ToolResult {
-                call_id: error.id,
-                output: format!(
-                    r#"{{ "error": {{ "code": {}, "message": {} }} }}"#,
+        let call_id = tool_call.id.clone();
+        tool_calls_map.insert(call_id.clone(), tool_call);
+        tool_results_map.insert(call_id, tool_result);
+    }
+    
+    // Create assistant message with tool calls
+    if !tool_calls_map.is_empty() {
+        let tool_calls: Vec<crate::client::ToolCall> = tool_calls_map
+            .values()
+            .map(|tc| crate::client::ToolCall {
+                id: tc.id.clone(),
+                tool_type: "function".to_string(),
+                function: crate::client::FunctionCall {
+                    name: tc.name.clone(),
+                    arguments: tc.arguments_json.clone(),
+                },
+            })
+            .collect();
+
+        messages.push(ChatMessage {
+            role: "assistant".to_string(),
+            content: None,
+            name: None,
+            tool_calls,
+        });
+
+        // Create tool result messages
+        for (call_id, tool_result) in tool_results_map {
+            let content = match tool_result {
+                ToolResult::Success(success) => success.result_json,
+                ToolResult::Error(error) => format!(
+                    r#"{{"error": {{"code": {}, "message": "{}"}} }}"#,
                     error.error_code.unwrap_or_default(),
                     error.error_message
                 ),
-            },
-        };
-        items.push(tool_call);
-        items.push(tool_result);
+            };
+            
+            messages.push(ChatMessage {
+                role: "tool".to_string(),
+                content: Some(MessageContent::Text(content)),
+                name: Some(call_id),
+                tool_calls: vec![],
+            });
+        }
     }
-    items
+    
+    messages
 }
 
 pub fn tool_defs_to_tools(tool_definitions: &[ToolDefinition]) -> Result<Vec<Tool>, Error> {
@@ -91,10 +133,12 @@ pub fn tool_defs_to_tools(tool_definitions: &[ToolDefinition]) -> Result<Vec<Too
         match serde_json::from_str(&tool_def.parameters_schema) {
             Ok(value) => {
                 let tool = Tool::Function {
-                    name: tool_def.name.clone(),
-                    description: tool_def.description.clone(),
-                    parameters: Some(value),
-                    strict: true,
+                    function: ToolFunction {
+                        name: tool_def.name.clone(),
+                        description: tool_def.description.clone(),
+                        parameters: Some(value),
+                        strict: true,
+                    },
                 };
                 tools.push(tool);
             }
@@ -122,31 +166,33 @@ pub fn to_openai_role_name(role: Role) -> &'static str {
     }
 }
 
-pub fn content_part_to_inner_input_item(content_part: ContentPart) -> InnerInputItem {
+pub fn content_part_to_client_content_part(content_part: ContentPart) -> ClientContentPart {
     match content_part {
-        ContentPart::Text(msg) => InnerInputItem::TextInput { text: msg },
+        ContentPart::Text(msg) => ClientContentPart::Text { text: msg },
         ContentPart::Image(image_reference) => match image_reference {
-            ImageReference::Url(image_url) => InnerInputItem::ImageInput {
-                image_url: image_url.url,
-                detail: match image_url.detail {
-                    Some(ImageDetail::Auto) => Detail::Auto,
-                    Some(ImageDetail::Low) => Detail::Low,
-                    Some(ImageDetail::High) => Detail::High,
-                    None => Detail::default(),
+            ImageReference::Url(image_url) => ClientContentPart::ImageUrl {
+                image_url: ImageUrl {
+                    url: image_url.url,
+                    detail: image_url.detail.map(|d| match d {
+                        ImageDetail::Auto => "auto".to_string(),
+                        ImageDetail::Low => "low".to_string(),
+                        ImageDetail::High => "high".to_string(),
+                    }),
                 },
             },
             ImageReference::Inline(image_source) => {
                 let base64_data = general_purpose::STANDARD.encode(&image_source.data);
-                let mime_type = &image_source.mime_type; // This is already a string
+                let mime_type = &image_source.mime_type;
                 let data_url = format!("data:{};base64,{}", mime_type, base64_data);
 
-                InnerInputItem::ImageInput {
-                    image_url: data_url,
-                    detail: match image_source.detail {
-                        Some(ImageDetail::Auto) => Detail::Auto,
-                        Some(ImageDetail::Low) => Detail::Low,
-                        Some(ImageDetail::High) => Detail::High,
-                        None => Detail::default(),
+                ClientContentPart::ImageUrl {
+                    image_url: ImageUrl {
+                        url: data_url,
+                        detail: image_source.detail.map(|d| match d {
+                            ImageDetail::Auto => "auto".to_string(),
+                            ImageDetail::Low => "low".to_string(),
+                            ImageDetail::High => "high".to_string(),
+                        }),
                     },
                 }
             }
@@ -165,72 +211,98 @@ pub fn parse_error_code(code: String) -> ErrorCode {
     }
 }
 
-pub fn process_model_response(response: CreateModelResponseResponse) -> ChatEvent {
-    if let Some(error) = response.error {
-        ChatEvent::Error(Error {
-            code: parse_error_code(error.code),
-            message: error.message,
+pub fn process_chat_completion(response: CreateChatCompletionResponse) -> ChatEvent {
+    if response.choices.is_empty() {
+        return ChatEvent::Error(Error {
+            code: ErrorCode::InternalError,
+            message: "No choices in response".to_string(),
             provider_error_json: None,
-        })
-    } else {
-        let mut contents = Vec::new();
-        let mut tool_calls = Vec::new();
+        });
+    }
 
-        let metadata = create_response_metadata(&response);
+    let choice = &response.choices[0];
+    let message = &choice.message;
+    
+    let mut contents = Vec::new();
+    let mut tool_calls = Vec::new();
 
-        for output_item in response.output {
-            match output_item {
-                OutputItem::Message { content, .. } => {
-                    for content in content {
-                        match content {
-                            OutputMessageContent::Text { text, .. } => {
-                                contents.push(ContentPart::Text(text));
-                            }
-                            OutputMessageContent::Refusal { refusal, .. } => {
-                                contents.push(ContentPart::Text(format!("Refusal: {refusal}")));
-                            }
+    // Extract content
+    if let Some(content) = &message.content {
+        match content {
+            MessageContent::Text(text) => {
+                contents.push(ContentPart::Text(text.clone()));
+            }
+            MessageContent::Array(parts) => {
+                for part in parts {
+                    match part {
+                        ClientContentPart::Text { text } => {
+                            contents.push(ContentPart::Text(text.clone()));
+                        }
+                        ClientContentPart::ImageUrl { image_url } => {
+                            // Convert back to image reference if needed
+                            // For now, just add as text description
+                            contents.push(ContentPart::Text(format!("Image: {}", image_url.url)));
                         }
                     }
                 }
-                OutputItem::ToolCall {
-                    arguments,
-                    call_id,
-                    name,
-                    ..
-                } => {
-                    let tool_call = ToolCall {
-                        id: call_id,
-                        name,
-                        arguments_json: arguments,
-                    };
-                    tool_calls.push(tool_call);
-                }
             }
         }
+    }
 
-        if contents.is_empty() {
-            ChatEvent::ToolRequest(tool_calls)
-        } else {
-            ChatEvent::Message(CompleteResponse {
-                id: response.id,
-                content: contents,
-                tool_calls,
-                metadata,
-            })
-        }
+    // Extract tool calls
+    for tool_call in &message.tool_calls {
+        tool_calls.push(ToolCall {
+            id: tool_call.id.clone(),
+            name: tool_call.function.name.clone(),
+            arguments_json: tool_call.function.arguments.clone(),
+        });
+    }
+
+    let metadata = create_response_metadata(&response);
+
+    if !tool_calls.is_empty() {
+        ChatEvent::ToolRequest(tool_calls)
+    } else {
+        ChatEvent::Message(CompleteResponse {
+            id: response.id,
+            content: contents,
+            tool_calls: vec![],
+            metadata,
+        })
     }
 }
 
-pub fn create_response_metadata(response: &CreateModelResponseResponse) -> ResponseMetadata {
+pub fn create_response_metadata(response: &CreateChatCompletionResponse) -> ResponseMetadata {
     ResponseMetadata {
-        finish_reason: None,
+        finish_reason: response.choices.first().and_then(|c| c.finish_reason.as_ref().and_then(|fr| string_to_finish_reason(fr))),
         usage: response.usage.as_ref().map(|usage| Usage {
-            input_tokens: Some(usage.input_tokens),
-            output_tokens: Some(usage.output_tokens),
+            input_tokens: Some(usage.prompt_tokens),
+            output_tokens: Some(usage.completion_tokens),
             total_tokens: Some(usage.total_tokens),
         }),
         provider_id: Some(response.id.clone()),
-        timestamp: Some(response.created_at.to_string()),
-        provider_metadata_json: response.metadata.as_ref().map(|m| m.to_string()),
+        timestamp: Some(response.created.to_string()),
+        provider_metadata_json: response.system_fingerprint.as_ref().map(|sf| format!(r#"{{"system_fingerprint": "{}"}}"#, sf)),
+    }
+}
+
+pub fn create_chunk_response_metadata(chunk: &crate::client::ChatCompletionChunk) -> ResponseMetadata {
+    ResponseMetadata {
+        finish_reason: chunk.choices.first().and_then(|c| c.finish_reason.as_ref().and_then(|fr| string_to_finish_reason(fr))),
+        usage: None, // Usage is typically not available in streaming chunks
+        provider_id: Some(chunk.id.clone()),
+        timestamp: Some(chunk.created.to_string()),
+        provider_metadata_json: chunk.system_fingerprint.as_ref().map(|sf| format!(r#"{{"system_fingerprint": "{}"}}"#, sf)),
+    }
+}
+
+pub fn string_to_finish_reason(reason: &str) -> Option<FinishReason> {
+    match reason {
+        "stop" => Some(FinishReason::Stop),
+        "length" => Some(FinishReason::Length),
+        "tool_calls" => Some(FinishReason::ToolCalls),
+        "content_filter" => Some(FinishReason::ContentFilter),
+        "error" => Some(FinishReason::Error),
+        _ => Some(FinishReason::Other),
     }
 }

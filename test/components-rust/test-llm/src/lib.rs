@@ -570,6 +570,142 @@ impl Guest for Component {
             }
         }
     }
+
+    /// Helper function for parsing the event stream
+    fn consume_next_event(stream: &llm::ChatStream) -> Option<String> {
+        let events = stream.blocking_get_next();
+
+        if events.is_empty() {
+            return None;
+        }
+
+        let mut result = String::new();
+
+        for event in events {
+            println!("Received {event:?}");
+
+            match event {
+                llm::StreamEvent::Delta(delta) => {
+                    for content in delta.content.unwrap_or_default() {
+                        match content {
+                            llm::ContentPart::Text(txt) => {
+                                result.push_str(&txt);
+                            }
+                            llm::ContentPart::Image(image_ref) => match image_ref {
+                                llm::ImageReference::Url(url_data) => {
+                                    result.push_str(&format!(
+                                        "IMAGE URL: {} ({:?})\n",
+                                        url_data.url, url_data.detail
+                                    ));
+                                }
+                                llm::ImageReference::Inline(inline_data) => {
+                                    result.push_str(&format!(
+                                        "INLINE IMAGE: {} bytes, mime: {}, detail: {:?}\n",
+                                        inline_data.data.len(),
+                                        inline_data.mime_type,
+                                        inline_data.detail
+                                    ));
+                                }
+                            },
+                        }
+                    }
+                }
+                llm::StreamEvent::Finish(finish) => {}
+                llm::StreamEvent::Error(error) => {
+                    result.push_str(&format!(
+                        "\nERROR: {:?} {} ({})\n",
+                        error.code,
+                        error.message,
+                        error.provider_error_json.unwrap_or_default()
+                    ));
+                }
+            }
+        }
+
+        Some(result)
+    }
+
+    /// test8 demonstrates multi-turn conversations with durability behavior
+    fn test8() -> String {
+        let config = llm::Config {
+            model: MODEL.to_string(),
+            temperature: Some(0.2),
+            max_tokens: None,
+            stop_sequences: None,
+            tools: vec![],
+            tool_choice: None,
+            provider_options: vec![],
+        };
+
+        let mut messages = vec![llm::Message {
+            role: llm::Role::User,
+            name: Some("vigoo".to_string()),
+            content: vec![llm::ContentPart::Text(
+                "Do you know what a haiku is?".to_string(),
+            )],
+        }];
+
+        let stream = llm::stream(&messages, &config);
+
+        let mut result = String::new();
+
+        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
+
+        loop {
+            match consume_next_event(&stream) {
+                Some(delta) => {
+                    result.push_str(&delta);
+                }
+                None => break,
+            }
+        }
+
+        messages.push(llm::Message {
+            role: llm::Role::Assistant,
+            name: Some("assistant".to_string()),
+            content: vec![llm::ContentPart::Text(result)],
+        });
+
+        messages.push(llm::Message {
+            role: llm::Role::User,
+            name: Some("vigoo".to_string()),
+            content: vec![llm::ContentPart::Text(
+                "Can you write one for me?".to_string(),
+            )],
+        });
+
+        println!("Message: {messages:?}");
+
+        let stream = llm::stream(&messages, &config);
+
+        let mut result = String::new();
+
+        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
+        let mut round = 0;
+
+        loop {
+            match consume_next_event(&stream) {
+                Some(delta) => {
+                    result.push_str(&delta);
+                }
+                None => break,
+            }
+
+            if round == 2 {
+                atomically(|| {
+                    let client = TestHelperApi::new(&name);
+                    let answer = client.blocking_inc_and_get();
+                    if answer == 1 {
+                        panic!("Simulating crash")
+                    }
+                });
+            }
+
+            round += 1;
+        }
+
+        result
+    }
 }
 
 bindings::export!(Component with_types_in bindings);
