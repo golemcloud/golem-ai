@@ -639,16 +639,133 @@ pub fn upscale_video(
 }
 
 pub fn generate_video_effects(
-    _client: &KlingApi,
-    _input: golem_video::exports::golem::video::types::InputImage,
-    _effect: golem_video::exports::golem::video::types::EffectType,
-    _model: Option<String>,
-    _duration: Option<f32>,
-    _mode: Option<String>,
+    client: &KlingApi,
+    input: golem_video::exports::golem::video::types::InputImage,
+    effect: golem_video::exports::golem::video::types::EffectType,
+    model: Option<String>,
+    duration: Option<f32>,
+    mode: Option<String>,
 ) -> Result<String, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Video effects generation is not supported by Kling API".to_string(),
-    ))
+    use crate::client::{VideoEffectsInput, VideoEffectsRequest};
+    use golem_video::exports::golem::video::types::{
+        DualImageEffects, EffectType, SingleImageEffects,
+    };
+
+    trace!("Generating video effects with Kling API");
+
+    // Convert input image to string (Base64 or URL)
+    let input_image_data = convert_media_data_to_string(&input.data)?;
+
+    // Determine effect scene and build request based on effect type
+    let (effect_scene, request_input) = match effect {
+        EffectType::Single(single_effect) => {
+            // Single image effects
+            let scene_name = match single_effect {
+                SingleImageEffects::Bloombloom => "bloombloom",
+                SingleImageEffects::Dizzydizzy => "dizzydizzy",
+                SingleImageEffects::Fuzzyfuzzy => "fuzzyfuzzy",
+                SingleImageEffects::Squish => "squish",
+                SingleImageEffects::Expansion => "expansion",
+            };
+
+            // For single image effects, model_name is required to be "kling-v1-6"
+            let model_name = Some("kling-v1-6".to_string());
+
+            // Duration for single image effects is fixed to "5"
+            let duration_str = "5".to_string();
+
+            // Single image effects don't support mode parameter
+            if mode.is_some() {
+                log::warn!(
+                    "Mode parameter is not supported for single image effects and will be ignored"
+                );
+            }
+
+            let input = VideoEffectsInput {
+                model_name,
+                mode: None, // Single image effects don't support mode
+                image: Some(input_image_data),
+                images: None,
+                duration: duration_str,
+            };
+
+            (scene_name.to_string(), input)
+        }
+        EffectType::Dual(dual_effect) => {
+            // Dual character effects
+            let scene_name = match dual_effect.effect {
+                DualImageEffects::Hug => "hug",
+                DualImageEffects::Kiss => "kiss",
+                DualImageEffects::HeartGesture => "heart_gesture",
+            };
+
+            // Convert second image to string
+            let second_image_data = convert_media_data_to_string(&dual_effect.second_image.data)?;
+
+            // Build images array with first and second image
+            let images = vec![input_image_data, second_image_data];
+
+            // For dual effects, model validation
+            let model_name = if let Some(ref m) = model {
+                if !matches!(m.as_str(), "kling-v1" | "kling-v1-5" | "kling-v1-6") {
+                    return Err(invalid_input(
+                        "Model must be one of: kling-v1, kling-v1-5, kling-v1-6 for dual effects",
+                    ));
+                }
+                Some(m.clone())
+            } else {
+                Some("kling-v1".to_string()) // Default for dual effects
+            };
+
+            // Mode validation
+            let mode_val = if let Some(ref m) = mode {
+                if !matches!(m.as_str(), "std" | "pro") {
+                    return Err(invalid_input("Mode must be 'std' or 'pro'"));
+                }
+                Some(m.clone())
+            } else {
+                Some("std".to_string()) // Default mode
+            };
+
+            // Duration handling - convert from seconds to string
+            let duration_str = if let Some(dur) = duration {
+                if dur <= 5.0 {
+                    "5".to_string()
+                } else {
+                    "10".to_string()
+                }
+            } else {
+                "5".to_string() // Default duration
+            };
+
+            let input = VideoEffectsInput {
+                model_name,
+                mode: mode_val,
+                image: None, // For dual effects, use images array instead
+                images: Some(images),
+                duration: duration_str,
+            };
+
+            (scene_name.to_string(), input)
+        }
+    };
+
+    let request = VideoEffectsRequest {
+        effect_scene,
+        input: request_input,
+        callback_url: None,
+        external_task_id: None,
+    };
+
+    let response = client.generate_video_effects(request)?;
+    if response.code == 0 {
+        Ok(response.data.task_id)
+    } else {
+        Err(VideoError::GenerationFailed(format!(
+            "API error {}: {}",
+            response.code, response.message
+        )))
+    }
 }
 
 pub fn multi_image_generation(

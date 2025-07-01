@@ -217,6 +217,26 @@ impl KlingApi {
 
         parse_response(response)
     }
+
+    pub fn generate_video_effects(
+        &self,
+        request: VideoEffectsRequest,
+    ) -> Result<GenerationResponse, VideoError> {
+        trace!("Sending video effects request to Kling API");
+
+        let auth_header = self.get_auth_header()?;
+
+        let response: Response = self
+            .client
+            .request(Method::POST, format!("{BASE_URL}/v1/videos/effects"))
+            .header("Authorization", auth_header)
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .map_err(|err| from_reqwest_error("Video effects request failed", err))?;
+
+        parse_response(response)
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -432,6 +452,29 @@ pub struct LipSyncInput {
     pub audio_file: Option<String>, // Base64 encoded
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audio_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VideoEffectsRequest {
+    pub effect_scene: String,
+    pub input: VideoEffectsInput,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub callback_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VideoEffectsInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>, // Base64 encoded image or URL (for single image effects)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub images: Option<Vec<String>>, // Array of Base64 encoded images or URLs (for dual effects)
+    pub duration: String,
 }
 
 fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {
