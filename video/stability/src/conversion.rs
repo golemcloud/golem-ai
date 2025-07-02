@@ -1,10 +1,117 @@
 use crate::client::{ImageToVideoRequest, PollResponse, StabilityApi};
-use golem_video::error::{invalid_input, unsupported_feature};
+use golem_video::error::{internal_error, invalid_input, unsupported_feature};
 use golem_video::exports::golem::video::types::{
-    GenerationConfig, JobStatus, MediaData, MediaInput, Video, VideoError, VideoResult,
+    AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Video, VideoError, VideoResult,
 };
 use golem_video::utils::download_image_from_url;
+use image::ImageFormat;
 use std::collections::HashMap;
+use std::io::Cursor;
+
+/// Stability API supported dimensions
+#[derive(Debug, Clone, Copy)]
+struct StabilityDimensions {
+    width: u32,
+    height: u32,
+}
+
+impl StabilityDimensions {
+    const LANDSCAPE: Self = Self {
+        width: 1024,
+        height: 576,
+    }; // 16:9
+    const PORTRAIT: Self = Self {
+        width: 576,
+        height: 1024,
+    }; // 9:16
+    const SQUARE: Self = Self {
+        width: 768,
+        height: 768,
+    }; // 1:1
+}
+
+/// Determines target dimensions based on aspect ratio configuration
+fn determine_target_dimensions(aspect_ratio: Option<AspectRatio>) -> StabilityDimensions {
+    match aspect_ratio {
+        Some(AspectRatio::Square) => StabilityDimensions::SQUARE,
+        Some(AspectRatio::Portrait) => StabilityDimensions::PORTRAIT,
+        Some(AspectRatio::Landscape) | Some(AspectRatio::Cinema) | None => {
+            // Default to landscape, cinema maps to 16:9
+            if matches!(aspect_ratio, Some(AspectRatio::Cinema)) {
+                log::warn!("Cinema aspect ratio mapped to 16:9 landscape for Stability API");
+            }
+            StabilityDimensions::LANDSCAPE
+        }
+    }
+}
+
+/// Process image data to meet Stability's dimension requirements
+fn process_image_for_stability(
+    image_data: &[u8],
+    target_dims: StabilityDimensions,
+) -> Result<Vec<u8>, VideoError> {
+    // Load image from bytes
+    let img = image::load_from_memory(image_data)
+        .map_err(|e| invalid_input(format!("Failed to decode image: {e}")))?;
+
+    log::debug!(
+        "Original image dimensions: {}x{}",
+        img.width(),
+        img.height()
+    );
+    log::debug!(
+        "Target dimensions: {}x{}",
+        target_dims.width,
+        target_dims.height
+    );
+
+    // Calculate target aspect ratio
+    let target_aspect = target_dims.width as f32 / target_dims.height as f32;
+    let current_aspect = img.width() as f32 / img.height() as f32;
+
+    // Determine crop dimensions to match target aspect ratio
+    let (crop_width, crop_height) = if current_aspect > target_aspect {
+        // Image is wider than target, crop width
+        let new_width = (img.height() as f32 * target_aspect) as u32;
+        (new_width, img.height())
+    } else {
+        // Image is taller than target, crop height
+        let new_height = (img.width() as f32 / target_aspect) as u32;
+        (img.width(), new_height)
+    };
+
+    // Calculate crop position for center crop
+    let crop_x = (img.width().saturating_sub(crop_width)) / 2;
+    let crop_y = (img.height().saturating_sub(crop_height)) / 2;
+
+    log::debug!("Cropping to {crop_width}x{crop_height} at ({crop_x}, {crop_y})");
+
+    // Perform center crop
+    let cropped = img.crop_imm(crop_x, crop_y, crop_width, crop_height);
+
+    // Resize to target dimensions
+    let resized = cropped.resize_exact(
+        target_dims.width,
+        target_dims.height,
+        image::imageops::FilterType::Lanczos3,
+    );
+
+    log::debug!(
+        "Final processed dimensions: {}x{}",
+        resized.width(),
+        resized.height()
+    );
+
+    // Convert back to bytes (PNG format)
+    let mut output = Vec::new();
+    let mut cursor = Cursor::new(&mut output);
+
+    resized
+        .write_to(&mut cursor, ImageFormat::Png)
+        .map_err(|e| internal_error(format!("Failed to encode processed image: {e}")))?;
+
+    Ok(output)
+}
 
 pub fn media_input_to_request(
     input: MediaInput,
@@ -15,13 +122,20 @@ pub fn media_input_to_request(
             "Text-to-video is not supported by Stability API",
         )),
         MediaInput::Image(ref_image) => {
-            // Extract image data from new InputImage structure
-            let image_data = match ref_image.data.data {
+            // Determine target dimensions based on aspect ratio config
+            let target_dims = determine_target_dimensions(config.aspect_ratio);
+
+            // Extract and process image data
+            let processed_image_data = match ref_image.data.data {
                 MediaData::Url(url) => {
-                    // Download the image from the URL and convert to bytes
-                    download_image_from_url(&url)?
+                    // Download the image from the URL and process it
+                    let raw_image_data = download_image_from_url(&url)?;
+                    process_image_for_stability(&raw_image_data, target_dims)?
                 }
-                MediaData::Bytes(bytes) => bytes,
+                MediaData::Bytes(bytes) => {
+                    // Process the image bytes directly
+                    process_image_for_stability(&bytes, target_dims)?
+                }
             };
 
             // Note: Stability doesn't support prompts with images, so we ignore ref_image.prompt
@@ -79,8 +193,10 @@ pub fn media_input_to_request(
                 log::warn!("scheduler is not supported by Stability API and will be ignored");
             }
             if config.aspect_ratio.is_some() {
-                log::warn!(
-                    "aspect_ratio is supported directly by input image dimensions, 1:1, 16:9, 9:16"
+                log::info!(
+                    "aspect_ratio processed and mapped to Stability dimensions: {}x{}",
+                    target_dims.width,
+                    target_dims.height
                 );
             }
             if config.duration_seconds.is_some() {
@@ -89,7 +205,7 @@ pub fn media_input_to_request(
                 );
             }
             if config.resolution.is_some() {
-                log::warn!("resolution is supported directly by input image dimensions, 1024x576, 576x1024, 768x768");
+                log::warn!("resolution is handled by aspect ratio mapping to Stability dimensions");
             }
             if config.enable_audio.is_some() {
                 log::warn!("enable_audio is not supported by Stability API and will be ignored");
@@ -111,7 +227,7 @@ pub fn media_input_to_request(
             }
 
             Ok(ImageToVideoRequest {
-                image_data,
+                image_data: processed_image_data,
                 seed,
                 cfg_scale,
                 motion_bucket_id,
