@@ -8,6 +8,10 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 required-features = []
 
+[features]
+default = ["kling"]
+kling = []
+
 [dependencies]
 # To use common shared libs, use the following:
 # common-lib = { path = "../../common-rust/common-lib" }
@@ -19,10 +23,13 @@ serde_json = { workspace = true }
 wit-bindgen-rt = { workspace = true }
 
 [package.metadata.component.target]
+path = "wit-generated"
 
 [package.metadata.component.bindings.with]
 
 [package.metadata.component.target.dependencies]
+"golem:video" = { path = "wit-generated/deps/golem-video" }
+"test:video-advanced-exports" = { path = "wit-generated/deps/test_video-advanced-exports" }
 
 [package.metadata.component.bindings]
 # See https://github.com/bytecodealliance/cargo-component/blob/main/src/metadata.rs#L62

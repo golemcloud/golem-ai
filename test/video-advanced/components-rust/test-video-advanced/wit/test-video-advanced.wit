@@ -3,10 +3,39 @@ package test:video-advanced;
 // See https://component-model.bytecodealliance.org/design/wit.html for more details about the WIT syntax
 
 interface test-video-advanced-api {
-  add: func(value: u64);
-  get: func() -> u64;
+  // Test1 - Image to video generation using first and last frame from kling video module
+  test1: func() -> string;
+  
+  // Test2 - Text to video generation using kling video module using the text-to-speech module and using advanced camera controls
+  test2: func() -> string;
+  
+  // Test3 - image to video generation using kling video using a static mask image
+  test3: func() -> string;
+  
+  // Test4 - image to video generation using kling video using a dynamic mask image
+  test4: func() -> string;
+  
+  // Test5 - lip-sync video generation using kling video module using the lip-sync module using a audio file
+  test5: func() -> string;
+  
+  // Test6 - lip-sync video generation using kling video module using the lip-sync module using a voice-id and text
+  test6: func() -> string;
+  
+  // Test7 - video effects with single input image
+  test7: func() -> string;
+  
+  // Test8 - video effects with two input images
+  test8: func() -> string;
+  
+  // Test9 - multi image to video generation using kling video module using the multi-image-to-video module
+  test9: func() -> string;
 }
 
 world test-video-advanced {
+  import golem:video/types@1.0.0;
+  import golem:video/video-generation@1.0.0;
+  import golem:video/lip-sync@1.0.0;
+  import golem:video/advanced@1.0.0;
+  
   export test-video-advanced-api;
 }

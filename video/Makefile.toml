@@ -140,6 +140,10 @@ rm -r ../test/video/wit
 mkdir ../test/video/wit/deps/golem-video
 cp wit/golem-video.wit ../test/video/wit/deps/golem-video/golem-video.wit
 
+rm -r ../test/video-advanced/wit
+mkdir ../test/video-advanced/wit/deps/golem-video
+cp wit/golem-video.wit ../test/video-advanced/wit/deps/golem-video/golem-video.wit
+
 echo "Copied WIT for module video"
 """
 
