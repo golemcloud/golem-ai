@@ -45,8 +45,9 @@ pub fn messages_to_input_items(messages: Vec<Message>) -> Vec<InputItem> {
     for message in messages {
         let role = to_openai_role_name(message.role).to_string();
         let mut input_items = Vec::new();
+        let is_assistant = role == "assistant"; // Only assistant messages get output_text
         for content_part in message.content {
-            input_items.push(content_part_to_inner_input_item(content_part));
+            input_items.push(content_part_to_inner_input_item(content_part, is_assistant));
         }
 
         items.push(InputItem::InputMessage {
@@ -122,9 +123,15 @@ pub fn to_openai_role_name(role: Role) -> &'static str {
     }
 }
 
-pub fn content_part_to_inner_input_item(content_part: ContentPart) -> InnerInputItem {
+pub fn content_part_to_inner_input_item(content_part: ContentPart, is_assistant: bool) -> InnerInputItem {
     match content_part {
-        ContentPart::Text(msg) => InnerInputItem::TextInput { text: msg },
+        ContentPart::Text(msg) => {
+            if is_assistant {
+                InnerInputItem::OutputText { text: msg }
+            } else {
+                InnerInputItem::TextInput { text: msg }
+            }
+        },
         ContentPart::Image(image_reference) => match image_reference {
             ImageReference::Url(image_url) => InnerInputItem::ImageInput {
                 image_url: image_url.url,
@@ -233,4 +240,9 @@ pub fn create_response_metadata(response: &CreateModelResponseResponse) -> Respo
         timestamp: Some(response.created_at.to_string()),
         provider_metadata_json: response.metadata.as_ref().map(|m| m.to_string()),
     }
+}
+
+fn main() {
+    println!("Hello, world!");
+    // Or call your library code here
 }

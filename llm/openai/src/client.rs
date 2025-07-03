@@ -208,6 +208,8 @@ pub enum InnerInputItem {
         #[serde(default)]
         detail: Detail,
     },
+    #[serde(rename = "output_text")]
+    OutputText { text: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
