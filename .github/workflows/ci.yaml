@@ -115,13 +115,13 @@ jobs:
           set -e
           docker run -d --name ollama -p 11434:11434 ollama/ollama:latest
           timeout 60 bash -c 'until curl -f http://localhost:11434/api/version; do sleep 2; done'
-          echo "Pulling Qwen2.5:1.5b"
-          docker exec ollama ollama pull qwen2.5:1.5b
-          echo "Pulling Gemma2:2b"
-          docker exec ollama ollama pull gemma2:2b
-          echo "Verifying models are available"
-          docker exec ollama ollama list | grep -q "qwen2.5:1.5b" || exit 1
-          docker exec ollama ollama list | grep -q "gemma2:2b" || exit 1
+                echo "Pulling Qwen3:1.7b" 
+                docker exec ollama ollama pull qwen3:1.7b
+                echo "Pulling Gemma3:4b"
+                docker exec ollama ollama pull gemma3:4b
+                docker exec ollama ollama list | grep -q "qwen3:1.7b" || exit 1
+                docker exec ollama ollama list | grep -q "gemma3:4b" || exit 1
+ 
           echo "Ollama setup completed."
       - name: Install and Run latest Golem Server
         run: |
@@ -149,6 +149,12 @@ jobs:
           golem-cli worker invoke test:llm/ollama-1 test5
           golem-cli worker invoke test:llm/ollama-1 test6
           golem-cli worker invoke test:llm/ollama-1 test7
+          - name:Fail CI if "model not found" errors exist
+        run: |
+          if docker logs ollama | grep -q "model .* not found"; then
+            echo "Model not found error detected in Ollama logs!"
+            exit 1
+          fi
   publish-all:
     needs:
       - tests
