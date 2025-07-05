@@ -125,13 +125,12 @@ fn parse_response(response: Response) -> Result<TavilySearchResponse, SearchErro
     match response.status() {
         StatusCode::OK => {
             let body = response.text().map_err(|e| {
-                SearchError::BackendError(format!("Failed to read response body: {}", e))
+                SearchError::BackendError(format!("Failed to read response body: {e}"))
             })?;
             match serde_json::from_str::<TavilySearchResponse>(&body) {
                 Ok(parsed) => Ok(parsed),
                 Err(e) => Err(SearchError::BackendError(format!(
-                    "Failed to parse response: {} \nRaw body: {}",
-                    e, body
+                    "Failed to parse response: {e} \nRaw body: {body}"
                 ))),
             }
         }
@@ -152,8 +151,7 @@ fn parse_response(response: Response) -> Result<TavilySearchResponse, SearchErro
                 .text()
                 .unwrap_or_else(|_| "<failed to read body>".into());
             Err(SearchError::BackendError(format!(
-                "Request failed: {} \nRaw body: {}",
-                status, body
+                "Request failed: {status} \nRaw body: {body}"
             )))
         }
     }

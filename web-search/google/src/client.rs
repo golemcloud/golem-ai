@@ -6,10 +6,9 @@ use serde::{Deserialize, Serialize};
 
 const BASE_URL: &str = "https://www.googleapis.com/customsearch/v1";
 
-
 /// Google Search API Client
-/// 
-/// Docs: https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list 
+///
+/// Docs: https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list
 pub struct GoogleSearchApi {
     api_key: String,
     search_engine_id: String,
@@ -154,7 +153,7 @@ fn parse_response(response: Response) -> Result<GoogleSearchResponse, SearchErro
 
     let search_response: GoogleSearchResponse = response
         .json()
-        .map_err(|e| SearchError::BackendError(format!("JSON parsing failed: {}", e)))?;
+        .map_err(|e| SearchError::BackendError(format!("JSON parsing failed: {e}")))?;
 
     if let Some(error) = &search_response.error {
         return match error.code {

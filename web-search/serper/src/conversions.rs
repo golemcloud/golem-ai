@@ -9,8 +9,8 @@ pub fn convert_params_to_request(params: &SearchParams, page: Option<u32>) -> Se
     SerperSearchRequest {
         q: params.query.clone(),
         location: params.region.clone(),
-        gl: country_code_to_serper(params.region.as_ref().unwrap_or(&"us".to_string())),     
-        hl: language_code_to_serper(params.language.as_ref().unwrap_or(&"en".to_string())), 
+        gl: country_code_to_serper(params.region.as_ref().unwrap_or(&"us".to_string())),
+        hl: language_code_to_serper(params.language.as_ref().unwrap_or(&"en".to_string())),
         num: Some(num),
         autocorrect: Some(true),
         tbs: params.time_range.as_ref().map(|tr| match tr {
@@ -79,13 +79,13 @@ pub fn country_code_to_serper(country_code: &str) -> Option<String> {
 
 pub fn language_code_to_serper(language_code: &str) -> Option<String> {
     let input = language_code.to_lowercase();
-    
+
     let lang_code = if input.starts_with("lang_") {
         input.strip_prefix("lang_").unwrap_or(&input)
     } else {
         &input
     };
-    
+
     match lang_code {
         "en" | "english" => Some("en".to_string()),
         "es" | "spanish" => Some("es".to_string()),
@@ -180,7 +180,7 @@ pub fn convert_response_to_results(
             let images = response.images.as_ref().and_then(|imgs| {
                 if !imgs.is_empty() {
                     Some(
-                        imgs.iter() 
+                        imgs.iter()
                             .map(|img| ImageResult {
                                 url: img.image_url.clone(),
                                 description: Some(img.title.clone()),

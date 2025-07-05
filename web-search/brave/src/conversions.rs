@@ -8,8 +8,14 @@ use golem_web_search::golem::web_search::types::{
 pub fn convert_params_to_request(params: &SearchParams, offset: Option<u32>) -> BraveSearchRequest {
     let mut request = BraveSearchRequest {
         q: params.query.clone(),
-        country: country_code_to_brave(params.region.as_ref().unwrap_or(&"us".to_string())),
-        search_lang: language_code_to_brave(params.language.as_ref().unwrap_or(&"en".to_string())),
+        country: params
+            .region
+            .as_ref()
+            .and_then(|r| country_code_to_brave(r)),
+        search_lang: params
+            .language
+            .as_ref()
+            .and_then(|l| language_code_to_brave(l)),
         ui_lang: None,
         count: params.max_results,
         offset,
@@ -35,7 +41,7 @@ pub fn convert_params_to_request(params: &SearchParams, offset: Option<u32>) -> 
         if !include_domains.is_empty() {
             let domain_query = include_domains
                 .iter()
-                .map(|domain| format!("site:{}", domain))
+                .map(|domain| format!("site:{domain}"))
                 .collect::<Vec<_>>()
                 .join(" OR ");
             request.q = format!("{} ({})", request.q, domain_query);
@@ -44,7 +50,7 @@ pub fn convert_params_to_request(params: &SearchParams, offset: Option<u32>) -> 
         if !exclude_domains.is_empty() {
             let domain_query = exclude_domains
                 .iter()
-                .map(|domain| format!("-site:{}", domain))
+                .map(|domain| format!("-site:{domain}"))
                 .collect::<Vec<_>>()
                 .join(" ");
             request.q = format!("{} {}", request.q, domain_query);
@@ -110,13 +116,13 @@ pub fn country_code_to_brave(country_code: &str) -> Option<String> {
 
 pub fn language_code_to_brave(language_code: &str) -> Option<String> {
     let input = language_code.to_lowercase();
-    
+
     let lang_code = if input.starts_with("lang_") {
         input.strip_prefix("lang_").unwrap_or(&input)
     } else {
         &input
     };
-    
+
     match lang_code {
         "en" | "english" => Some("en".to_string()),
         "es" | "spanish" => Some("es".to_string()),
@@ -423,7 +429,7 @@ mod tests {
         assert_eq!(request.q, "test query (site:example.com OR site:test.org)");
         assert_eq!(request.country, Some("us".to_string()));
         assert_eq!(request.search_lang, Some("en".to_string()));
-        assert_eq!(request.ui_lang, Some("en".to_string()));
+        assert_eq!(request.ui_lang, None);
         assert_eq!(request.count, Some(10));
         assert_eq!(request.offset, Some(20));
         assert_eq!(request.safesearch, Some("moderate".to_string()));

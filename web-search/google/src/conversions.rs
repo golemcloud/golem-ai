@@ -20,8 +20,14 @@ pub fn convert_params_to_request(
             SafeSearchLevel::Medium => "medium".to_string(),
             SafeSearchLevel::High => "high".to_string(),
         }),
-        lr: language_code_to_google(params.language.as_ref().unwrap_or(&"en".to_string())),
-        gl: country_code_to_google(params.region.as_ref().unwrap_or(&"us".to_string())),
+        lr: params
+            .language
+            .as_ref()
+            .and_then(|l| language_code_to_google(l)),
+        gl: params
+            .region
+            .as_ref()
+            .and_then(|r| country_code_to_google(r)),
         date_restrict: params.time_range.as_ref().map(|tr| match tr {
             TimeRange::Day => "d1".to_string(),
             TimeRange::Week => "w1".to_string(),
@@ -37,7 +43,7 @@ pub fn convert_params_to_request(
             request.site_search = Some(
                 include_domains
                     .iter()
-                    .map(|domain| format!("site:{}", domain))
+                    .map(|domain| format!("site:{domain}"))
                     .collect::<Vec<_>>()
                     .join(" OR "),
             );
@@ -48,7 +54,7 @@ pub fn convert_params_to_request(
             request.site_search = Some(
                 exclude_domains
                     .iter()
-                    .map(|domain| format!("site:{}", domain))
+                    .map(|domain| format!("site:{domain}"))
                     .collect::<Vec<_>>()
                     .join(" OR "),
             );
@@ -115,14 +121,14 @@ pub fn country_code_to_google(country_code: &str) -> Option<String> {
 
 pub fn language_code_to_google(language_code: &str) -> Option<String> {
     let input = language_code.to_lowercase();
-    
+
     if input.starts_with("lang_") {
         return Some(language_code.to_string());
     }
-    
+
     let lang_code = match input.as_str() {
         "en" | "english" => "en",
-        "es" | "spanish" => "es", 
+        "es" | "spanish" => "es",
         "fr" | "french" => "fr",
         "de" | "german" => "de",
         "it" | "italian" => "it",
@@ -201,7 +207,7 @@ pub fn language_code_to_google(language_code: &str) -> Option<String> {
         "tk" | "turkmen" => "tk",
         _ => &input,
     };
-    Some(format!("lang_{}", lang_code))
+    Some(format!("lang_{lang_code}"))
 }
 
 pub fn convert_response_to_results(
