@@ -8,6 +8,8 @@ members = [
     "llm/ollama",
     "llm/openai",
     "llm/openrouter",
+    "golem-exec/exec-python",
+    "golem-exec/exec-javascript",
 ]
 
 [profile.release]

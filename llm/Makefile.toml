@@ -17,7 +17,7 @@ run_task = { name = [
     "build-grok-portable",
     "build-openai-portable",
     "build-openrouter-portable",
-    "build-ollama-portable",
+    "build-ollama-portable"
 ] }
 
 [tasks.release-build]
@@ -26,7 +26,7 @@ run_task = { name = [
     "release-build-grok",
     "release-build-openai",
     "release-build-openrouter",
-    "release-build-ollama",
+    "release-build-ollama"
 ] }
 
 [tasks.release-build-portable]
@@ -35,7 +35,7 @@ run_task = { name = [
     "release-build-grok-portable",
     "release-build-openai-portable",
     "release-build-openrouter-portable",
-    "release-build-ollama-portable",
+    "release-build-ollama-portable"
 ] }
 
 [tasks.build-ollama]
@@ -116,6 +116,7 @@ args = [
     "--release",
     "--no-default-features",
 ]
+
 
 [tasks.release-build-grok]
 install_crate = { crate_name = "cargo-component", version = "0.20.0" }
@@ -207,4 +208,5 @@ golem-cli app clean
 golem-cli app build -b openrouter-debug
 golem-cli app clean
 golem-cli app build -b ollama-debug
+
 '''

@@ -1,0 +1,30 @@
+[package]
+name = "exec-javascript"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-llm"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0"
+tempfile = "3.10"
+rquickjs = { version = "0.9.0" }
+
+tokio = { version = "1", features = ["sync", "macros", "io-util", "rt", "time"] }
+
+# Golem-specific workspace dependencies
+golem-rust = { workspace = true }
+log = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+
+[package.metadata.component.target]
+path = "wit"
+

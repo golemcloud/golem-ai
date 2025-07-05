@@ -1,0 +1,120 @@
+[config]
+default_to_workspace = false
+skip_core_tasks = true
+
+[tasks.build]
+run_task = { name = [
+    "build-exec-python",
+    "build-exec-javascript"
+
+] }
+
+[tasks.build-portable]
+run_task = { name = [
+    "build-exec-python-portable",
+    "build-exec-javascript-portable"
+] }
+
+[tasks.release-build]
+run_task = { name = [
+    "release-build=exec-python",
+    "release-build-exec-javascript"
+] }
+
+[tasks.release-build-portable]
+run_task = { name = [
+    "release-build-exec-python-portable",
+    "release-build-exec-javascript-portable"
+] }
+
+[tasks.build-exec-python]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "exec-python"]
+
+[tasks.build-exec-python-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "exec-python", "--no-default-features"]
+
+
+[tasks.release-build-exec-python]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "exec-python", "--release"]
+
+[tasks.release-build-exec-python-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "exec-python", "--release", "--no-default-features"]
+
+[tasks.build-exec-javascript]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "exec-javascript"]
+
+[tasks.build-exec-javascript-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "exec-javascript", "--no-default-features"]
+
+
+[tasks.release-build-exec-javascript]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "exec-javascript", "--release"]
+
+[tasks.release-build-exec-javascript-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "exec-javascript", "--release", "--no-default-features"]
+
+[tasks.wit-update]
+install_crate = { crate_name = "wit-deps-cli" }
+command = "wit-deps"
+args = ["update"]
+
+[tasks.wit]
+dependencies = ["wit-update"]
+
+script_runner = "@duckscript"
+script = """
+modules = array llm openai anthropic grok openrouter ollama
+
+for module in ${modules}
+    rm -r ${module}/wit/deps
+    mkdir ${module}/wit/deps/golem-llm
+    cp wit/golem-llm.wit ${module}/wit/deps/golem-llm/golem-llm.wit
+    cp wit/deps/wasi:io ${module}/wit/deps
+
+    echo "Copied WIT for module llm::${module}"
+end
+
+# Copy WIT files for integration tests
+rm -r ../test/wit
+mkdir ../test/wit/deps/golem-llm
+mkdir ../test/wit/deps/io
+cp wit/golem-llm.wit ../test/wit/deps/golem-llm/golem-exec.wit
+cp wit/deps/wasi:io/error.wit ../test/wit/deps/io/error.wit
+cp wit/deps/wasi:io/poll.wit ../test/wit/deps/io/poll.wit
+cp wit/deps/wasi:io/streams.wit ../test/wit/deps/io/streams.wit
+cp wit/deps/wasi:io/world.wit ../test/wit/deps/io/world.wit
+
+echo "Copied WIT for module test"
+"""
+
+[tasks.build-test-components]
+dependencies = ["build"]
+install_crate = "cargo-binstall"
+description = "Builds golem-exec test components with golem-cli"
+script = '''
+cargo-binstall golem-cli@1.2.2-dev.11 --locked --no-confirm
+cargo-binstall wac-cli --locked --no-confirm
+cd ../test
+
+golem-cli --version
+golem-cli app clean
+golem-cli app build -b exec-python-debug
+'''
+
+
