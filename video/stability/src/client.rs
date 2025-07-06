@@ -18,26 +18,35 @@ pub struct StabilityApi {
 impl StabilityApi {
     pub fn new(api_key: String) -> Self {
         let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert("accept", ACCEPT_HEADER_VIDEO.parse().expect("Invalid header value"));
+        headers.insert(
+            "accept",
+            ACCEPT_HEADER_VIDEO.parse().expect("Invalid header value"),
+        );
 
         let mut headers_image = reqwest::header::HeaderMap::new();
-        headers_image.insert("accept", ACCEPT_HEADER_IMAGE.parse().expect("Invalid header value"));
+        headers_image.insert(
+            "accept",
+            ACCEPT_HEADER_IMAGE.parse().expect("Invalid header value"),
+        );
 
         let client = Client::builder()
             .default_headers(headers)
             .build()
             .expect("Failed to initialize HTTP client");
-        
+
         let client_image = Client::builder()
             .default_headers(headers_image)
             .build()
             .expect("Failed to initialize HTTP client");
 
-        Self { api_key, client, client_image }
+        Self {
+            api_key,
+            client,
+            client_image,
+        }
     }
 
     pub fn generate_video(
-
         &self,
         request: ImageToVideoRequest,
     ) -> Result<GenerationResponse, VideoError> {

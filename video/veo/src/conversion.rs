@@ -1,13 +1,13 @@
 use crate::client::{
     ImageData, ImageToVideoInstance, ImageToVideoRequest, PollResponse, TextToVideoInstance,
-    TextToVideoRequest, VeoApi, VideoParameters,
+    TextToVideoRequest, VeoApi, VideoData, VideoParameters,
 };
 use golem_video::error::invalid_input;
 use golem_video::exports::golem::video::types::{
     AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
     VideoError, VideoResult,
 };
-use golem_video::utils::download_image_from_url;
+use golem_video::utils::{download_image_from_url, download_video_from_url};
 use std::collections::HashMap;
 
 type RequestTuple = (
@@ -105,9 +105,71 @@ pub fn media_input_to_request(
     };
 
     match input {
-        MediaInput::Video(_) => Err(golem_video::error::unsupported_feature(
-            "Video-to-video is not supported by Veo API",
-        )),
+        MediaInput::Video(ref_video) => {
+            // Check if model supports video input - only veo-2.0-generate-001 supports video
+            let model_str = model_id.as_deref().unwrap_or("veo-2.0-generate-001");
+            if model_str != "veo-2.0-generate-001" {
+                return Err(golem_video::error::unsupported_feature(
+                    "Video-to-video is only supported by veo-2.0-generate-001 model",
+                ));
+            }
+
+            // Extract video data from BaseVideo structure
+            let video_data = match ref_video.data {
+                MediaData::Url(url) => {
+                    // Download video from URL and convert to base64
+                    let raw_bytes = download_video_from_url(&url)?;
+                    let mime_type = if !raw_bytes.mime_type.is_empty() {
+                        raw_bytes.mime_type.clone()
+                    } else {
+                        determine_video_mime_type(&url, &raw_bytes.bytes)?
+                    };
+
+                    VideoData {
+                        bytes_base64_encoded: base64::Engine::encode(
+                            &base64::engine::general_purpose::STANDARD,
+                            &raw_bytes.bytes,
+                        ),
+                        mime_type,
+                    }
+                }
+                MediaData::Bytes(raw_bytes) => {
+                    // Use the mime type from the raw bytes, or determine from bytes if not available
+                    let mime_type = if !raw_bytes.mime_type.is_empty() {
+                        raw_bytes.mime_type.clone()
+                    } else {
+                        determine_video_mime_type_from_bytes(&raw_bytes.bytes)?
+                    };
+
+                    VideoData {
+                        bytes_base64_encoded: base64::Engine::encode(
+                            &base64::engine::general_purpose::STANDARD,
+                            &raw_bytes.bytes,
+                        ),
+                        mime_type,
+                    }
+                }
+            };
+
+            // Use a default prompt for video-to-video since BaseVideo doesn't have a prompt field
+            let prompt = "Generate a video from this video".to_string();
+
+            let instances = vec![ImageToVideoInstance {
+                prompt,
+                image: None,
+                last_frame: None,
+                video: Some(video_data),
+            }];
+            let request = ImageToVideoRequest {
+                instances,
+                parameters,
+            };
+
+            // Log warnings for unsupported options
+            log_unsupported_options(&config, &options);
+
+            Ok((None, Some(request), model_id))
+        }
         MediaInput::Text(prompt) => {
             let instances = vec![TextToVideoInstance { prompt }];
             let request = TextToVideoRequest {
@@ -121,7 +183,7 @@ pub fn media_input_to_request(
             Ok((Some(request), None, model_id))
         }
         MediaInput::Image(ref_image) => {
-            // Extract image data from new InputImage structure
+            // Extract image data from Reference structure
             let image_data = match ref_image.data.data {
                 MediaData::Url(url) => {
                     // Download image from URL and convert to base64
@@ -240,8 +302,9 @@ pub fn media_input_to_request(
 
             let instances = vec![ImageToVideoInstance {
                 prompt,
-                image: final_image,
+                image: Some(final_image),
                 last_frame: last_frame_final,
+                video: None,
             }];
             let request = ImageToVideoRequest {
                 instances,
@@ -295,6 +358,56 @@ fn determine_image_mime_type(url: &str, bytes: &[u8]) -> Result<String, VideoErr
         log::warn!("Could not determine image type, defaulting to JPEG");
         Ok("image/jpeg".to_string())
     }
+}
+
+fn determine_video_mime_type(url: &str, bytes: &[u8]) -> Result<String, VideoError> {
+    // Check file extension first
+    if url.to_lowercase().ends_with(".mp4") {
+        return Ok("video/mp4".to_string());
+    }
+    if url.to_lowercase().ends_with(".mov") {
+        return Ok("video/quicktime".to_string());
+    }
+    if url.to_lowercase().ends_with(".avi") {
+        return Ok("video/x-msvideo".to_string());
+    }
+    if url.to_lowercase().ends_with(".webm") {
+        return Ok("video/webm".to_string());
+    }
+
+    // Check magic bytes
+    determine_video_mime_type_from_bytes(bytes)
+}
+
+fn determine_video_mime_type_from_bytes(bytes: &[u8]) -> Result<String, VideoError> {
+    // Check magic bytes for common video formats
+    if bytes.len() >= 4 {
+        // MP4 format magic bytes
+        if bytes[4..8] == [0x66, 0x74, 0x79, 0x70] {
+            return Ok("video/mp4".to_string());
+        }
+        // Check for other MP4 variants
+        if bytes.len() >= 8 && &bytes[0..4] == b"ftyp" {
+            return Ok("video/mp4".to_string());
+        }
+        // WebM format magic bytes
+        if bytes[0..4] == [0x1A, 0x45, 0xDF, 0xA3] {
+            return Ok("video/webm".to_string());
+        }
+        // AVI format magic bytes
+        if bytes[0..4] == [0x52, 0x49, 0x46, 0x46] && bytes.len() >= 12 && &bytes[8..12] == b"AVI "
+        {
+            return Ok("video/x-msvideo".to_string());
+        }
+        // MOV format magic bytes (QuickTime)
+        if bytes.len() >= 8 && &bytes[4..8] == b"moov" {
+            return Ok("video/quicktime".to_string());
+        }
+    }
+
+    // Default to MP4 if we can't determine the format
+    log::warn!("Could not determine video type, defaulting to MP4");
+    Ok("video/mp4".to_string())
 }
 
 fn log_unsupported_options(config: &GenerationConfig, options: &HashMap<String, String>) {
