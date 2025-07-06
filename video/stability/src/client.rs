@@ -309,7 +309,6 @@ fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<
         Err(video_error_from_status(status, error_message))
     }
 }
-
 fn build_text_to_image_multipart_body(request: &TextToImageRequest, boundary: &str) -> Vec<u8> {
     let mut body = Vec::new();
 
@@ -362,3 +361,4 @@ fn build_text_to_image_multipart_body(request: &TextToImageRequest, boundary: &s
 
     body
 }
+

@@ -1,6 +1,6 @@
 mod client;
 mod conversion;
-mod text2image;
+mod text_to_image;
 
 use crate::client::RunwayApi;
 use crate::conversion::{

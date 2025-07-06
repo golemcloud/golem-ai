@@ -2,7 +2,7 @@ use crate::client::{
     ContentModeration, ImageToVideoRequest, PollResponse, PromptImage, RunwayApi,
     VideoUpscaleRequest,
 };
-use crate::text2image::{ImagePollResponse, TextToImageRequest};
+use crate::text_to_image::{ImagePollResponse, TextToImageRequest};
 use golem_video::error::{invalid_input, unsupported_feature};
 use golem_video::exports::golem::video::types::{
     AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
@@ -410,7 +410,7 @@ pub fn text_to_image_request(
     // Content moderation
     let content_moderation = options.get("publicFigureThreshold").map(|threshold| {
         let threshold_value = if threshold == "low" { "low" } else { "auto" };
-        crate::text2image::ContentModeration {
+        crate::text_to_image::ContentModeration {
             public_figure_threshold: threshold_value.to_string(),
         }
     });
