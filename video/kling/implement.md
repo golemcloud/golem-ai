@@ -148,6 +148,16 @@ All features have been successfully implemented and `cargo check` passes without
 - Warning system: Logs unsupported features for multi-image endpoint (camera_control, masks, etc.)
 - Integration: Seamlessly integrated with existing polling and video download system
 
+### ✅ Video Extension Implementation
+- **NEW**: Complete video extension support via `/v1/videos/video-extend` endpoint
+- Supports extending duration of text-to-video/image-to-video results by 4-5 seconds
+- Full parameter support: video_id, prompt, negative_prompt, cfg_scale
+- Input validation: Prompt/negative_prompt length limits (2500 characters), cfg_scale range [0, 1]
+- Error handling: Comprehensive validation and API error reporting
+- Warning system: Logs unsupported provider options
+- Integration: Uses existing task ID system and polling mechanism
+- Limitations: Cannot extend V1.5 model videos, max 3 minutes total duration as per API
+
 ### ❌ Cancellation (Not Supported)
 - Explicitly returns UnsupportedFeature error as per Kling API limitations
 - Implementation follows requirement specification
@@ -173,6 +183,7 @@ All features have been successfully implemented and `cargo check` passes without
 | Text-to-Video | ✅ | Full API support with camera control |
 | Image-to-Video | ✅ | Base64 + URL support, all advanced features |
 | Multi-Image-to-Video | ✅ | 1-4 images, kling-v1-6 model, full parameter support |
+| Video Extension | ✅ | 4-5 second extensions, full parameter support, validation |
 | Static Masks | ✅ | Motion brush static area control |
 | Dynamic Masks | ✅ | Trajectory-based motion with coordinate validation |
 | Camera Control | ✅ | 5 movement types + 6-axis custom config |
@@ -182,4 +193,4 @@ All features have been successfully implemented and `cargo check` passes without
 | Polling | ✅ | Complete status tracking and video download |
 | Authentication | ✅ | JWT token generation with HMAC-SHA256 |
 
-The implementation is now **production-ready with full advanced feature support** for text-to-video, image-to-video, and multi-image-to-video generation using all available Kling API capabilities.
+The implementation is now **production-ready with full advanced feature support** for text-to-video, image-to-video, multi-image-to-video generation, and video extension using all available Kling API capabilities.

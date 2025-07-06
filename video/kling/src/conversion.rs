@@ -1,7 +1,7 @@
 use crate::client::{
     CameraConfigRequest, CameraControlRequest, DynamicMaskRequest, ImageListItem,
     ImageToVideoRequest, KlingApi, LipSyncInput, LipSyncRequest, MultiImageToVideoRequest,
-    PollResponse, TextToVideoRequest, TrajectoryPoint,
+    PollResponse, TextToVideoRequest, TrajectoryPoint, VideoExtendRequest,
 };
 use golem_video::error::invalid_input;
 use golem_video::exports::golem::video::types::{
@@ -620,16 +620,66 @@ pub fn list_available_voices(
 }
 
 pub fn extend_video(
-    _client: &KlingApi,
-    _video_id: String,
-    _prompt: Option<String>,
-    _negative_prompt: Option<String>,
-    _cfg_scale: Option<f32>,
-    _provider_options: Vec<golem_video::exports::golem::video::types::Kv>,
+    client: &KlingApi,
+    video_id: String,
+    prompt: Option<String>,
+    negative_prompt: Option<String>,
+    cfg_scale: Option<f32>,
+    provider_options: Vec<golem_video::exports::golem::video::types::Kv>,
 ) -> Result<String, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Video extension is not supported by Kling API".to_string(),
-    ))
+    trace!("Extending video with ID: {video_id}");
+
+    // Parse provider options
+    let options: HashMap<String, String> = provider_options
+        .iter()
+        .map(|kv| (kv.key.clone(), kv.value.clone()))
+        .collect();
+
+    // Validate prompt length (max 2500 characters)
+    if let Some(ref p) = prompt {
+        if p.len() > 2500 {
+            return Err(invalid_input("Prompt cannot exceed 2500 characters"));
+        }
+    }
+
+    // Validate negative prompt length (max 2500 characters)
+    if let Some(ref np) = negative_prompt {
+        if np.len() > 2500 {
+            return Err(invalid_input(
+                "Negative prompt cannot exceed 2500 characters",
+            ));
+        }
+    }
+
+    // Validate cfg_scale range [0, 1]
+    if let Some(scale) = cfg_scale {
+        if !(0.0..=1.0).contains(&scale) {
+            return Err(invalid_input("cfg_scale must be between 0.0 and 1.0"));
+        }
+    }
+
+    // Log warnings for unsupported provider options
+    for key in options.keys() {
+        log::warn!("Provider option '{key}' is not supported by Kling video extension API");
+    }
+
+    let request = VideoExtendRequest {
+        video_id,
+        prompt,
+        negative_prompt,
+        cfg_scale,
+        callback_url: None,
+    };
+
+    let response = client.extend_video(request)?;
+    if response.code == 0 {
+        Ok(response.data.task_id)
+    } else {
+        Err(VideoError::GenerationFailed(format!(
+            "API error {}: {}",
+            response.code, response.message
+        )))
+    }
 }
 
 pub fn upscale_video(

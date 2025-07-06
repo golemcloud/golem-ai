@@ -237,6 +237,26 @@ impl KlingApi {
 
         parse_response(response)
     }
+
+    pub fn extend_video(
+        &self,
+        request: VideoExtendRequest,
+    ) -> Result<GenerationResponse, VideoError> {
+        trace!("Sending video extend request to Kling API");
+
+        let auth_header = self.get_auth_header()?;
+
+        let response: Response = self
+            .client
+            .request(Method::POST, format!("{BASE_URL}/v1/videos/video-extend"))
+            .header("Authorization", auth_header)
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .map_err(|err| from_reqwest_error("Video extend request failed", err))?;
+
+        parse_response(response)
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -475,6 +495,19 @@ pub struct VideoEffectsInput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub images: Option<Vec<String>>, // Array of Base64 encoded images or URLs (for dual effects)
     pub duration: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VideoExtendRequest {
+    pub video_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub negative_prompt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cfg_scale: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub callback_url: Option<String>,
 }
 
 fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {
