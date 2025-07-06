@@ -2,7 +2,7 @@ use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
 use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
 #[allow(unused_imports)]
 use crate::exports::golem::video::types::{
-    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, MediaInput, VideoError,
+    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, MediaInput, VideoError,
     VideoResult, VoiceInfo,
 };
 use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
@@ -23,8 +23,8 @@ mod passthrough_impl {
     use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
     use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
     use crate::exports::golem::video::types::{
-        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, MediaInput, VideoError,
-        VideoResult, VoiceInfo,
+        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, MediaInput,
+        VideoError, VideoResult, VoiceInfo,
     };
     use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
 
@@ -53,8 +53,20 @@ mod passthrough_impl {
     }
 
     impl<Impl: ExtendedGuest> AdvancedGuest for DurableVideo<Impl> {
-        fn extend_video(input: BaseVideo, config: GenerationConfig) -> Result<String, VideoError> {
-            Impl::extend_video(input, config)
+        fn extend_video(
+            video_id: String,
+            prompt: Option<String>,
+            negative_prompt: Option<String>,
+            cfg_scale: Option<f32>,
+            provider_options: Vec<Kv>,
+        ) -> Result<String, VideoError> {
+            Impl::extend_video(
+                video_id,
+                prompt,
+                negative_prompt,
+                cfg_scale,
+                provider_options,
+            )
         }
 
         fn upscale_video(input: BaseVideo) -> Result<String, VideoError> {
@@ -94,8 +106,8 @@ mod durable_impl {
     use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
     use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
     use crate::exports::golem::video::types::{
-        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, MediaInput, VideoError,
-        VideoResult, VoiceInfo,
+        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, MediaInput,
+        VideoError, VideoResult, VoiceInfo,
     };
     use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
@@ -188,7 +200,13 @@ mod durable_impl {
     }
 
     impl<Impl: ExtendedGuest> AdvancedGuest for DurableVideo<Impl> {
-        fn extend_video(input: BaseVideo, config: GenerationConfig) -> Result<String, VideoError> {
+        fn extend_video(
+            video_id: String,
+            prompt: Option<String>,
+            negative_prompt: Option<String>,
+            cfg_scale: Option<f32>,
+            provider_options: Vec<Kv>,
+        ) -> Result<String, VideoError> {
             let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
                 "golem_video",
                 "extend_video",
@@ -196,9 +214,24 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::extend_video(input.clone(), config.clone())
+                    Impl::extend_video(
+                        video_id.clone(),
+                        prompt.clone(),
+                        negative_prompt.clone(),
+                        cfg_scale,
+                        provider_options.clone(),
+                    )
                 });
-                durability.persist_infallible(ExtendVideoInput { input, config }, result)
+                durability.persist_infallible(
+                    ExtendVideoInput {
+                        video_id,
+                        prompt,
+                        negative_prompt,
+                        cfg_scale,
+                        provider_options,
+                    },
+                    result,
+                )
             } else {
                 durability.replay_infallible()
             }
@@ -312,8 +345,11 @@ mod durable_impl {
 
     #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
     struct ExtendVideoInput {
-        input: BaseVideo,
-        config: GenerationConfig,
+        video_id: String,
+        prompt: Option<String>,
+        negative_prompt: Option<String>,
+        cfg_scale: Option<f32>,
+        provider_options: Vec<Kv>,
     }
 
     #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
@@ -488,26 +524,14 @@ mod durable_impl {
         #[test]
         fn extend_video_input_roundtrip() {
             let input = ExtendVideoInput {
-                input: BaseVideo {
-                    data: MediaData::Url("https://example.com/video.mp4".to_string()),
-                },
-                config: GenerationConfig {
-                    negative_prompt: None,
-                    seed: Some(54321),
-                    scheduler: None,
-                    guidance_scale: Some(8.0),
-                    aspect_ratio: Some(AspectRatio::Cinema),
-                    duration_seconds: Some(10.0),
-                    resolution: Some(Resolution::Fhd),
-                    model: Some("veo-2".to_string()),
-                    enable_audio: Some(false),
-                    enhance_prompt: Some(true),
-                    provider_options: vec![],
-                    lastframe: None,
-                    static_mask: None,
-                    dynamic_mask: None,
-                    camera_control: None,
-                },
+                video_id: "video_123".to_string(),
+                prompt: Some("extend this video".to_string()),
+                negative_prompt: Some("static".to_string()),
+                cfg_scale: Some(8.0),
+                provider_options: vec![Kv {
+                    key: "quality".to_string(),
+                    value: "high".to_string(),
+                }],
             };
             roundtrip_test(input);
         }

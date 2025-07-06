@@ -308,8 +308,11 @@ pub fn list_available_voices(
 
 pub fn extend_video(
     _client: &RunwayApi,
-    _input: golem_video::exports::golem::video::types::BaseVideo,
-    _config: GenerationConfig,
+    _video_id: String,
+    _prompt: Option<String>,
+    _negative_prompt: Option<String>,
+    _cfg_scale: Option<f32>,
+    _provider_options: Vec<golem_video::exports::golem::video::types::Kv>,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video extension is not supported by Runway API".to_string(),

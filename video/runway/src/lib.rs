@@ -13,7 +13,7 @@ use golem_video::durability::{DurableVideo, ExtendedGuest};
 use golem_video::exports::golem::video::advanced::Guest as AdvancedGuest;
 use golem_video::exports::golem::video::lip_sync::Guest as LipSyncGuest;
 use golem_video::exports::golem::video::types::{
-    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, MediaInput, VideoError,
+    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, MediaInput, VideoError,
     VideoResult, VoiceInfo,
 };
 use golem_video::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
@@ -84,11 +84,24 @@ impl LipSyncGuest for RunwayComponent {
 }
 
 impl AdvancedGuest for RunwayComponent {
-    fn extend_video(input: BaseVideo, config: GenerationConfig) -> Result<String, VideoError> {
+    fn extend_video(
+        video_id: String,
+        prompt: Option<String>,
+        negative_prompt: Option<String>,
+        cfg_scale: Option<f32>,
+        provider_options: Vec<Kv>,
+    ) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = RunwayApi::new(api_key);
-            extend_video(&client, input, config)
+            extend_video(
+                &client,
+                video_id,
+                prompt,
+                negative_prompt,
+                cfg_scale,
+                provider_options,
+            )
         })
     }
 

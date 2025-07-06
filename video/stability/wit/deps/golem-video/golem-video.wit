@@ -210,8 +210,11 @@ interface advanced {
   use types.{video-error, kv, base-video, generation-config, input-image, effect-type};
 
   extend-video: func(
-    input: base-video,
-    config: generation-config,
+    video-id: string,
+    prompt: option<string>,
+    negative-prompt: option<string>,
+    cfg-scale: option<f32>,
+    provider-options: list<kv>,
   ) -> result<string, video-error>;
 
   upscale-video: func(

@@ -13,7 +13,7 @@ use golem_video::durability::{DurableVideo, ExtendedGuest};
 use golem_video::exports::golem::video::advanced::Guest as AdvancedGuest;
 use golem_video::exports::golem::video::lip_sync::Guest as LipSyncGuest;
 use golem_video::exports::golem::video::types::{
-    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, MediaInput, VideoError,
+    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, MediaInput, VideoError,
     VideoResult, VoiceInfo,
 };
 use golem_video::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
@@ -97,14 +97,27 @@ impl LipSyncGuest for VeoComponent {
 }
 
 impl AdvancedGuest for VeoComponent {
-    fn extend_video(input: BaseVideo, config: GenerationConfig) -> Result<String, VideoError> {
+    fn extend_video(
+        video_id: String,
+        prompt: Option<String>,
+        negative_prompt: Option<String>,
+        cfg_scale: Option<f32>,
+        provider_options: Vec<Kv>,
+    ) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
         with_config_key(Self::PROJECT_ID_ENV_VAR, Err, |project_id| {
             with_config_key(Self::CLIENT_EMAIL_ENV_VAR, Err, |client_email| {
                 with_config_key(Self::PRIVATE_KEY_ENV_VAR, Err, |private_key| {
                     let client = VeoApi::new(project_id, client_email, private_key);
-                    extend_video(&client, input, config)
+                    extend_video(
+                        &client,
+                        video_id,
+                        prompt,
+                        negative_prompt,
+                        cfg_scale,
+                        provider_options,
+                    )
                 })
             })
         })
