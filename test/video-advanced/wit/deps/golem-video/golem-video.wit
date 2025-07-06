@@ -40,7 +40,12 @@ interface types {
 
   variant media-data {
     url(string),
-    bytes(list<u8>),
+    bytes(raw-bytes),
+  }
+
+  record raw-bytes {
+    bytes: list<u8>,
+    mime-type: string,
   }
 
   record static-mask {

@@ -129,12 +129,12 @@ pub fn media_input_to_request(
             let processed_image_data = match ref_image.data.data {
                 MediaData::Url(url) => {
                     // Download the image from the URL and process it
-                    let raw_image_data = download_image_from_url(&url)?;
-                    process_image_for_stability(&raw_image_data, target_dims)?
+                    let raw_bytes = download_image_from_url(&url)?;
+                    process_image_for_stability(&raw_bytes.bytes, target_dims)?
                 }
-                MediaData::Bytes(bytes) => {
+                MediaData::Bytes(raw_bytes) => {
                     // Process the image bytes directly
-                    process_image_for_stability(&bytes, target_dims)?
+                    process_image_for_stability(&raw_bytes.bytes, target_dims)?
                 }
             };
 

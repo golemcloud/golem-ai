@@ -122,20 +122,26 @@ pub fn media_input_to_request(
             let image_data = match ref_image.data.data {
                 MediaData::Url(url) => {
                     // Download image from URL and convert to base64
-                    let image_bytes = download_image_from_url(&url)?;
-                    let mime_type = determine_image_mime_type(&url, &image_bytes)?;
+                    let raw_bytes = download_image_from_url(&url)?;
+                    let mime_type = if !raw_bytes.mime_type.is_empty() {
+                        raw_bytes.mime_type.clone()
+                    } else {
+                        determine_image_mime_type(&url, &raw_bytes.bytes)?
+                    };
 
                     ImageData {
                         bytes_base64_encoded: base64::Engine::encode(
                             &base64::engine::general_purpose::STANDARD,
-                            &image_bytes,
+                            &raw_bytes.bytes,
                         ),
                         mime_type,
                     }
                 }
-                MediaData::Bytes(bytes) => {
-                    // Determine MIME type from bytes or default to JPEG
-                    let mime_type = if bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
+                MediaData::Bytes(raw_bytes) => {
+                    // Use the mime type from the raw bytes, or determine from bytes if not available
+                    let mime_type = if !raw_bytes.mime_type.is_empty() {
+                        raw_bytes.mime_type.clone()
+                    } else if raw_bytes.bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
                         "image/png".to_string()
                     } else {
                         "image/jpeg".to_string()
@@ -144,7 +150,7 @@ pub fn media_input_to_request(
                     ImageData {
                         bytes_base64_encoded: base64::Engine::encode(
                             &base64::engine::general_purpose::STANDARD,
-                            &bytes,
+                            &raw_bytes.bytes,
                         ),
                         mime_type,
                     }
@@ -170,18 +176,24 @@ pub fn media_input_to_request(
                 } else {
                     let lastframe_image_data = match lastframe.data {
                         MediaData::Url(ref url) => {
-                            let image_bytes = download_image_from_url(url)?;
-                            let mime_type = determine_image_mime_type(url, &image_bytes)?;
+                            let raw_bytes = download_image_from_url(url)?;
+                            let mime_type = if !raw_bytes.mime_type.is_empty() {
+                                raw_bytes.mime_type.clone()
+                            } else {
+                                determine_image_mime_type(url, &raw_bytes.bytes)?
+                            };
                             ImageData {
                                 bytes_base64_encoded: base64::Engine::encode(
                                     &base64::engine::general_purpose::STANDARD,
-                                    &image_bytes,
+                                    &raw_bytes.bytes,
                                 ),
                                 mime_type,
                             }
                         }
-                        MediaData::Bytes(ref bytes) => {
-                            let mime_type = if bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
+                        MediaData::Bytes(ref raw_bytes) => {
+                            let mime_type = if !raw_bytes.mime_type.is_empty() {
+                                raw_bytes.mime_type.clone()
+                            } else if raw_bytes.bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
                                 "image/png".to_string()
                             } else {
                                 "image/jpeg".to_string()
@@ -189,7 +201,7 @@ pub fn media_input_to_request(
                             ImageData {
                                 bytes_base64_encoded: base64::Engine::encode(
                                     &base64::engine::general_purpose::STANDARD,
-                                    bytes,
+                                    &raw_bytes.bytes,
                                 ),
                                 mime_type,
                             }

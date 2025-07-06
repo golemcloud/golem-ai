@@ -390,8 +390,8 @@ mod durable_impl {
         };
         use crate::exports::golem::video::types::{
             AspectRatio, AudioSource, BaseVideo, DualEffect, DualImageEffects, EffectType,
-            GenerationConfig, InputImage, Kv, MediaData, MediaInput, Narration, Reference,
-            Resolution, SingleImageEffects, TextToSpeech,
+            GenerationConfig, InputImage, Kv, MediaData, MediaInput, Narration, RawBytes,
+            Reference, Resolution, SingleImageEffects, TextToSpeech,
         };
         use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
         use std::fmt::Debug;
@@ -437,7 +437,10 @@ mod durable_impl {
             let input = GenerateInput {
                 input: MediaInput::Image(Reference {
                     data: InputImage {
-                        data: MediaData::Bytes(vec![0, 1, 2, 3, 4, 5]),
+                        data: MediaData::Bytes(RawBytes {
+                            bytes: vec![0, 1, 2, 3, 4, 5],
+                            mime_type: "image/jpeg".to_string(),
+                        }),
                     },
                     prompt: Some("Animate this image".to_string()),
                     role: None,
@@ -483,7 +486,10 @@ mod durable_impl {
         fn generate_lip_sync_input_roundtrip() {
             let input = GenerateLipSyncInput {
                 video: BaseVideo {
-                    data: MediaData::Bytes(vec![0, 1, 2, 3, 4, 5]),
+                    data: MediaData::Bytes(RawBytes {
+                        bytes: vec![0, 1, 2, 3, 4, 5],
+                        mime_type: "video/mp4".to_string(),
+                    }),
                 },
                 audio: AudioSource::FromText(TextToSpeech {
                     text: "Hello world".to_string(),
@@ -501,7 +507,10 @@ mod durable_impl {
                     data: MediaData::Url("https://example.com/video.mp4".to_string()),
                 },
                 audio: AudioSource::FromAudio(Narration {
-                    data: MediaData::Bytes(vec![1, 2, 3, 4, 5, 6]),
+                    data: MediaData::Bytes(RawBytes {
+                        bytes: vec![1, 2, 3, 4, 5, 6],
+                        mime_type: "audio/mpeg".to_string(),
+                    }),
                 }),
             };
             roundtrip_test(input);
@@ -540,7 +549,10 @@ mod durable_impl {
         fn upscale_video_input_roundtrip() {
             let input = UpscaleVideoInput {
                 input: BaseVideo {
-                    data: MediaData::Bytes(vec![10, 20, 30, 40, 50]),
+                    data: MediaData::Bytes(RawBytes {
+                        bytes: vec![10, 20, 30, 40, 50],
+                        mime_type: "video/mp4".to_string(),
+                    }),
                 },
             };
             roundtrip_test(input);
@@ -550,7 +562,10 @@ mod durable_impl {
         fn generate_video_effects_input_roundtrip() {
             let input = GenerateVideoEffectsInput {
                 input: InputImage {
-                    data: MediaData::Bytes(vec![100, 200, 255]),
+                    data: MediaData::Bytes(RawBytes {
+                        bytes: vec![100, 200, 255],
+                        mime_type: "image/jpeg".to_string(),
+                    }),
                 },
                 effect: EffectType::Single(SingleImageEffects::Bloombloom),
                 model: Some("kling-effects".to_string()),
@@ -584,7 +599,10 @@ mod durable_impl {
             let input = MultiImageGenerationInput {
                 input_images: vec![
                     InputImage {
-                        data: MediaData::Bytes(vec![1, 2, 3]),
+                        data: MediaData::Bytes(RawBytes {
+                            bytes: vec![1, 2, 3],
+                            mime_type: "image/jpeg".to_string(),
+                        }),
                     },
                     InputImage {
                         data: MediaData::Url("https://example.com/image.png".to_string()),

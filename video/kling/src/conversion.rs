@@ -204,10 +204,10 @@ pub fn media_input_to_request(
 fn convert_media_data_to_string(media_data: &MediaData) -> Result<String, VideoError> {
     match media_data {
         MediaData::Url(url) => Ok(url.clone()),
-        MediaData::Bytes(bytes) => {
+        MediaData::Bytes(raw_bytes) => {
             // Convert bytes to base64 string
             use base64::Engine;
-            Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+            Ok(base64::engine::general_purpose::STANDARD.encode(&raw_bytes.bytes))
         }
     }
 }
@@ -559,10 +559,11 @@ pub fn generate_lip_sync_video(
                         None,
                         Some(url.clone()),
                     ),
-                    MediaData::Bytes(bytes) => {
+                    MediaData::Bytes(raw_bytes) => {
                         // Convert to base64
                         use base64::Engine;
-                        let audio_base64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+                        let audio_base64 =
+                            base64::engine::general_purpose::STANDARD.encode(&raw_bytes.bytes);
                         (
                             "audio2video".to_string(),
                             None,

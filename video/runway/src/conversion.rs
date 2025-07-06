@@ -22,11 +22,17 @@ pub fn media_input_to_request(
             // Extract image data from new InputImage structure
             let image_data = match ref_image.data.data {
                 MediaData::Url(url) => url,
-                MediaData::Bytes(bytes) => {
-                    // Convert bytes to data URI
+                MediaData::Bytes(raw_bytes) => {
+                    // Convert bytes to data URI with proper mime type
                     use base64::Engine;
-                    let base64_data = base64::engine::general_purpose::STANDARD.encode(&bytes);
-                    format!("data:image/png;base64,{base64_data}")
+                    let base64_data =
+                        base64::engine::general_purpose::STANDARD.encode(&raw_bytes.bytes);
+                    let mime_type = if !raw_bytes.mime_type.is_empty() {
+                        &raw_bytes.mime_type
+                    } else {
+                        "image/png"
+                    };
+                    format!("data:{mime_type};base64,{base64_data}")
                 }
             };
 
@@ -88,10 +94,16 @@ pub fn media_input_to_request(
             if let Some(lastframe) = &config.lastframe {
                 let lastframe_data = match &lastframe.data {
                     MediaData::Url(url) => url.clone(),
-                    MediaData::Bytes(bytes) => {
+                    MediaData::Bytes(raw_bytes) => {
                         use base64::Engine;
-                        let base64_data = base64::engine::general_purpose::STANDARD.encode(bytes);
-                        format!("data:image/png;base64,{base64_data}")
+                        let base64_data =
+                            base64::engine::general_purpose::STANDARD.encode(&raw_bytes.bytes);
+                        let mime_type = if !raw_bytes.mime_type.is_empty() {
+                            &raw_bytes.mime_type
+                        } else {
+                            "image/png"
+                        };
+                        format!("data:{mime_type};base64,{base64_data}")
                     }
                 };
 
@@ -326,11 +338,16 @@ pub fn upscale_video(
     // Extract video data from BaseVideo structure
     let video_uri = match input.data {
         MediaData::Url(url) => url,
-        MediaData::Bytes(bytes) => {
-            // Convert bytes to data URI for video
+        MediaData::Bytes(raw_bytes) => {
+            // Convert bytes to data URI for video with proper mime type
             use base64::Engine;
-            let base64_data = base64::engine::general_purpose::STANDARD.encode(&bytes);
-            format!("data:video/mp4;base64,{base64_data}")
+            let base64_data = base64::engine::general_purpose::STANDARD.encode(&raw_bytes.bytes);
+            let mime_type = if !raw_bytes.mime_type.is_empty() {
+                &raw_bytes.mime_type
+            } else {
+                "video/mp4"
+            };
+            format!("data:{mime_type};base64,{base64_data}")
         }
     };
 
