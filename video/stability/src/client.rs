@@ -116,6 +116,71 @@ impl StabilityApi {
             Err(video_error_from_status(status, error_message))
         }
     }
+
+    pub fn generate_text_to_image(
+        &self,
+        request: TextToImageRequest,
+    ) -> Result<TextToImageResponse, VideoError> {
+        trace!("Sending text-to-image request to Stability API");
+
+        // Manually construct multipart/form-data body
+        let boundary = generate_boundary();
+        let body = build_text_to_image_multipart_body(&request, &boundary);
+
+        let response: Response = self
+            .client_image
+            .request(
+                Method::POST,
+                format!("{BASE_URL}/v2beta/stable-image/generate/core"),
+            )
+            .header("authorization", format!("Bearer {}", &self.api_key))
+            .header(
+                "content-type",
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(body)
+            .send()
+            .map_err(|err| from_reqwest_error("Text-to-image request failed", err))?;
+
+        let status = response.status();
+
+        if status.is_success() {
+            let seed = response
+                .headers()
+                .get("seed")
+                .and_then(|h| h.to_str().ok())
+                .map(|s| s.to_string());
+
+            let finish_reason = response
+                .headers()
+                .get("finish-reason")
+                .and_then(|h| h.to_str().ok())
+                .map(|s| s.to_string());
+
+            let image_data = response
+                .bytes()
+                .map_err(|err| from_reqwest_error("Failed to read image data", err))?;
+
+            Ok(TextToImageResponse {
+                image_data: image_data.to_vec(),
+                seed,
+                finish_reason,
+            })
+        } else {
+            let error_body = response
+                .text()
+                .map_err(|err| from_reqwest_error("Failed to read error response", err))?;
+
+            let error_message =
+                if let Ok(error_response) = serde_json::from_str::<ErrorResponse>(&error_body) {
+                    error_response.error.message
+                } else {
+                    error_body
+                };
+
+            Err(video_error_from_status(status, error_message))
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -153,6 +218,23 @@ pub struct ErrorDetails {
     pub message: String,
     #[serde(rename = "type")]
     pub error_type: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct TextToImageRequest {
+    pub prompt: String,
+    pub aspect_ratio: Option<String>,
+    pub negative_prompt: Option<String>,
+    pub seed: Option<u64>,
+    pub style_preset: Option<String>,
+    pub output_format: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct TextToImageResponse {
+    pub image_data: Vec<u8>,
+    pub seed: Option<String>,
+    pub finish_reason: Option<String>,
 }
 
 fn generate_boundary() -> String {
@@ -226,4 +308,57 @@ fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<
 
         Err(video_error_from_status(status, error_message))
     }
+}
+
+fn build_text_to_image_multipart_body(request: &TextToImageRequest, boundary: &str) -> Vec<u8> {
+    let mut body = Vec::new();
+
+    // Add prompt field
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(b"Content-Disposition: form-data; name=\"prompt\"\r\n\r\n");
+    body.extend_from_slice(request.prompt.as_bytes());
+    body.extend_from_slice(b"\r\n");
+
+    // Add aspect_ratio if provided
+    if let Some(aspect_ratio) = &request.aspect_ratio {
+        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        body.extend_from_slice(b"Content-Disposition: form-data; name=\"aspect_ratio\"\r\n\r\n");
+        body.extend_from_slice(aspect_ratio.as_bytes());
+        body.extend_from_slice(b"\r\n");
+    }
+
+    // Add negative_prompt if provided
+    if let Some(negative_prompt) = &request.negative_prompt {
+        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        body.extend_from_slice(b"Content-Disposition: form-data; name=\"negative_prompt\"\r\n\r\n");
+        body.extend_from_slice(negative_prompt.as_bytes());
+        body.extend_from_slice(b"\r\n");
+    }
+
+    // Add seed if provided
+    if let Some(seed) = request.seed {
+        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        body.extend_from_slice(b"Content-Disposition: form-data; name=\"seed\"\r\n\r\n");
+        body.extend_from_slice(seed.to_string().as_bytes());
+        body.extend_from_slice(b"\r\n");
+    }
+
+    // Add style_preset if provided
+    if let Some(style_preset) = &request.style_preset {
+        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        body.extend_from_slice(b"Content-Disposition: form-data; name=\"style_preset\"\r\n\r\n");
+        body.extend_from_slice(style_preset.as_bytes());
+        body.extend_from_slice(b"\r\n");
+    }
+
+    // Add output_format
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(b"Content-Disposition: form-data; name=\"output_format\"\r\n\r\n");
+    body.extend_from_slice(request.output_format.as_bytes());
+    body.extend_from_slice(b"\r\n");
+
+    // Close boundary
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+    body
 }

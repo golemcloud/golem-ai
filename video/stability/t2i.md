@@ -106,15 +106,6 @@ Enum: jpeg png webp
 
 Dictates the content-type of the generated image.
 Responses
-
-
-200 success
-400 invalid parameter
-403 content moderation
-422 your request was well formed but rejected
-429 too many requests
-500 internal server error
-
 Response Headers x-request-id	
 string
 
@@ -152,3 +143,118 @@ The seed used as random noise for this generation.
 
     NOTE: This header is absent on JSON encoded responses because it is present in the body as seed.
 
+Response Schema:
+image/png
+string <binary>
+
+The bytes of the generated image.
+
+The finish-reason and seed will be present as headers.
+Response Schema: application/json
+id
+required
+	
+string non-empty
+
+A unique identifier associated with this error. Please include this in any support tickets you file, as it will greatly assist us in diagnosing the root cause of the problem.
+name
+required
+	
+string non-empty
+
+Short-hand name for an error, useful for discriminating between errors with the same status code.
+errors
+required
+	
+Array of strings non-empty
+
+One or more error messages indicating what went wrong.
+Response Schema: application/json
+id
+required
+	
+string non-empty
+
+A unique identifier associated with this error. Please include this in any support tickets you file, as it will greatly assist us in diagnosing the root cause of the problem.
+name
+required
+	
+string non-empty
+Value: content_moderation
+
+Our content moderation system has flagged some part of your request and subsequently denied it. You were not charged for this request. While this may at times be frustrating, it is necessary to maintain the integrity of our platform and ensure a safe experience for all users.
+
+If you would like to provide feedback, please use the Support Form.
+errors
+required
+	
+Array of strings non-empty
+
+One or more error messages indicating what went wrong.
+Response Schema: application/json
+id
+required
+	
+string non-empty
+
+A unique identifier associated with this error. Please include this in any support tickets you file, as it will greatly assist us in diagnosing the root cause of the problem.
+name
+required
+	
+string non-empty
+
+Short-hand name for an error, useful for discriminating between errors with the same status code.
+errors
+required
+	
+Array of strings non-empty
+
+One or more error messages indicating what went wrong.
+Response Schema: application/json
+id
+required
+	
+string non-empty
+
+A unique identifier associated with this error. Please include this in any support tickets you file, as it will greatly assist us in diagnosing the root cause of the problem.
+name
+required
+	
+string non-empty
+
+Short-hand name for an error, useful for discriminating between errors with the same status code.
+errors
+required
+	
+Array of strings non-empty
+
+One or more error messages indicating what went wrong.
+Response Schema: application/json
+id
+required
+	
+string non-empty
+
+A unique identifier associated with this error. Please include this in any support tickets you file, as it will greatly assist us in diagnosing the root cause of the problem.
+name
+required
+	
+string non-empty
+
+Short-hand name for an error, useful for discriminating between errors with the same status code.
+errors
+required
+	
+Array of strings non-empty
+
+One or more error messages indicating what went wrong.
+
+
+curl -f -sS "https://api.stability.ai/v2beta/stable-image/generate/core" \
+  -H "authorization: Bearer sk-MYAPIKEY" \
+  -H "accept: image/*" \
+  -F prompt="Lighthouse on a cliff overlooking the ocean" \
+  -F output_format="png" \
+  -o "./lighthouse.png"
+
+  

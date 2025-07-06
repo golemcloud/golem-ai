@@ -1,4 +1,4 @@
-use crate::client::{ImageToVideoRequest, PollResponse, StabilityApi};
+use crate::client::{ImageToVideoRequest, PollResponse, StabilityApi, TextToImageRequest};
 use golem_video::error::{internal_error, invalid_input, unsupported_feature};
 use golem_video::exports::golem::video::types::{
     AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Video, VideoError, VideoResult,
@@ -113,14 +113,83 @@ fn process_image_for_stability(
     Ok(output)
 }
 
+/// Maps WIT aspect ratio to Stability text-to-image API format
+fn map_aspect_ratio_to_stability_t2i(aspect_ratio: Option<AspectRatio>) -> Option<String> {
+    match aspect_ratio {
+        Some(AspectRatio::Square) => Some("1:1".to_string()),
+        Some(AspectRatio::Portrait) => Some("9:16".to_string()),
+        Some(AspectRatio::Landscape) => Some("16:9".to_string()),
+        Some(AspectRatio::Cinema) => Some("21:9".to_string()),
+        None => None, // Let API use default
+    }
+}
+
+/// Generate image from text using Stability's text-to-image API
+fn generate_image_from_text(
+    client: &StabilityApi,
+    prompt: String,
+    config: &GenerationConfig,
+) -> Result<Vec<u8>, VideoError> {
+    log::debug!("Generating image from text: {prompt}");
+
+    // Parse provider options
+    let options: HashMap<String, String> = config
+        .provider_options
+        .iter()
+        .map(|kv| (kv.key.clone(), kv.value.clone()))
+        .collect();
+
+    // Get style preset from provider options
+    let style_preset = options.get("style_preset").cloned();
+
+    // Validate seed range for text-to-image (same as video generation)
+    if let Some(seed_val) = config.seed {
+        if seed_val > 4294967294 {
+            return Err(invalid_input("Seed must be between 0 and 4294967294"));
+        }
+    }
+
+    let t2i_request = TextToImageRequest {
+        prompt,
+        aspect_ratio: map_aspect_ratio_to_stability_t2i(config.aspect_ratio),
+        negative_prompt: config.negative_prompt.clone(),
+        seed: config.seed,
+        style_preset,
+        output_format: "png".to_string(),
+    };
+
+    match client.generate_text_to_image(t2i_request) {
+        Ok(response) => {
+            log::debug!("Successfully generated image from text");
+            if let Some(seed) = response.seed {
+                log::debug!("Text-to-image used seed: {seed}");
+            }
+            if let Some(finish_reason) = response.finish_reason {
+                log::debug!("Text-to-image finish reason: {finish_reason}");
+            }
+            Ok(response.image_data)
+        }
+        Err(err) => {
+            log::error!("Failed to generate image from text: {err:?}");
+            Err(internal_error(format!(
+                "Text-to-image generation failed: {err}"
+            )))
+        }
+    }
+}
+
 pub fn media_input_to_request(
     input: MediaInput,
     config: GenerationConfig,
 ) -> Result<ImageToVideoRequest, VideoError> {
     match input {
-        MediaInput::Text(_) => Err(unsupported_feature(
-            "Text-to-video is not supported by Stability API",
-        )),
+        MediaInput::Text(_) => {
+            // Text-to-video conversion is handled in generate_video function
+            // where the client is available
+            Err(internal_error(
+                "Text processing should be handled in generate_video function",
+            ))
+        }
         MediaInput::Video(_) => Err(unsupported_feature(
             "Video-to-video is not supported by Stability API",
         )),
@@ -245,9 +314,34 @@ pub fn generate_video(
     config: GenerationConfig,
 ) -> Result<String, VideoError> {
     match input {
-        MediaInput::Text(_) => Err(unsupported_feature(
-            "Text-to-video is not supported by Stability API",
-        )),
+        MediaInput::Text(prompt) => {
+            log::info!("Processing text-to-video request via text-to-image + image-to-video");
+
+            // First generate image from text
+            let image_data = generate_image_from_text(client, prompt, &config)?;
+
+            // Create a new MediaInput with the generated image
+            let image_input =
+                MediaInput::Image(golem_video::exports::golem::video::types::Reference {
+                    data: golem_video::exports::golem::video::types::InputImage {
+                        data: MediaData::Bytes(
+                            golem_video::exports::golem::video::types::RawBytes {
+                                bytes: image_data,
+                                mime_type: "image/png".to_string(),
+                            },
+                        ),
+                    },
+                    prompt: None,
+                    role: None,
+                });
+
+            // Now generate video from the image
+            let request = media_input_to_request(image_input, config)?;
+            let response = client.generate_video(request)?;
+
+            log::info!("Successfully initiated text-to-video generation");
+            Ok(response.id)
+        }
         MediaInput::Image(_) => {
             let request = media_input_to_request(input, config)?;
             let response = client.generate_video(request)?;
