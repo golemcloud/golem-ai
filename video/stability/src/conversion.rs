@@ -121,6 +121,9 @@ pub fn media_input_to_request(
         MediaInput::Text(_) => Err(unsupported_feature(
             "Text-to-video is not supported by Stability API",
         )),
+        MediaInput::Video(_) => Err(unsupported_feature(
+            "Video-to-video is not supported by Stability API",
+        )),
         MediaInput::Image(ref_image) => {
             // Determine target dimensions based on aspect ratio config
             let target_dims = determine_target_dimensions(config.aspect_ratio);
@@ -241,11 +244,19 @@ pub fn generate_video(
     input: MediaInput,
     config: GenerationConfig,
 ) -> Result<String, VideoError> {
-    let request = media_input_to_request(input, config)?;
-    let response = client.generate_video(request)?;
-
-    // Return the task ID directly from Stability API
-    Ok(response.id)
+    match input {
+        MediaInput::Text(_) => Err(unsupported_feature(
+            "Text-to-video is not supported by Stability API",
+        )),
+        MediaInput::Image(_) => {
+            let request = media_input_to_request(input, config)?;
+            let response = client.generate_video(request)?;
+            Ok(response.id)
+        }
+        MediaInput::Video(_) => Err(unsupported_feature(
+            "Video-to-video is not supported by Stability API",
+        )),
+    }
 }
 
 pub fn poll_video_generation(

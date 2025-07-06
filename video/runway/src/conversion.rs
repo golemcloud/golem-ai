@@ -18,6 +18,9 @@ pub fn media_input_to_request(
         MediaInput::Text(_) => Err(unsupported_feature(
             "Text-to-video is not supported by Runway API",
         )),
+        MediaInput::Video(_) => Err(unsupported_feature(
+            "Video-to-video is not supported by Runway API",
+        )),
         MediaInput::Image(ref_image) => {
             // Extract image data from new InputImage structure
             let image_data = match ref_image.data.data {
@@ -214,6 +217,9 @@ pub fn generate_video(
             let response = client.generate_video(request)?;
             Ok(response.id)
         }
+        MediaInput::Video(_) => Err(unsupported_feature(
+            "Video-to-video is not supported by Runway API",
+        )),
     }
 }
 

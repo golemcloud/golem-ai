@@ -81,6 +81,9 @@ pub fn media_input_to_request(
     let negative_prompt = config.negative_prompt.clone();
 
     match input {
+        MediaInput::Video(_) => Err(golem_video::error::unsupported_feature(
+            "Video-to-video is not supported by Kling API",
+        )),
         MediaInput::Text(prompt) => {
             let request = TextToVideoRequest {
                 model_name,

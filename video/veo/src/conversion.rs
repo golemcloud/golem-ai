@@ -105,6 +105,9 @@ pub fn media_input_to_request(
     };
 
     match input {
+        MediaInput::Video(_) => Err(golem_video::error::unsupported_feature(
+            "Video-to-video is not supported by Veo API",
+        )),
         MediaInput::Text(prompt) => {
             let instances = vec![TextToVideoInstance { prompt }];
             let request = TextToVideoRequest {
