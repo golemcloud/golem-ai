@@ -5,26 +5,39 @@ use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
 
 const BASE_URL: &str = "https://api.stability.ai";
+const ACCEPT_HEADER_VIDEO: &str = "video/*";
+const ACCEPT_HEADER_IMAGE: &str = "image/*";
 
 /// The Stability API client for image-to-video generation
 pub struct StabilityApi {
     api_key: String,
     client: Client,
+    client_image: Client,
 }
 
 impl StabilityApi {
     pub fn new(api_key: String) -> Self {
         let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert("accept", "video/*".parse().expect("Invalid header value"));
+        headers.insert("accept", ACCEPT_HEADER_VIDEO.parse().expect("Invalid header value"));
+
+        let mut headers_image = reqwest::header::HeaderMap::new();
+        headers_image.insert("accept", ACCEPT_HEADER_IMAGE.parse().expect("Invalid header value"));
 
         let client = Client::builder()
             .default_headers(headers)
             .build()
             .expect("Failed to initialize HTTP client");
-        Self { api_key, client }
+        
+        let client_image = Client::builder()
+            .default_headers(headers_image)
+            .build()
+            .expect("Failed to initialize HTTP client");
+
+        Self { api_key, client, client_image }
     }
 
     pub fn generate_video(
+
         &self,
         request: ImageToVideoRequest,
     ) -> Result<GenerationResponse, VideoError> {
