@@ -264,6 +264,19 @@ impl Guest for Component {
             thread::sleep(Duration::from_secs(9));
         }
     }
+
+    fn test3() -> String {
+        return "test3".to_string();
+    }
+
+    fn test4() -> String {
+        return "test4".to_string();
+    }
+ 
+    fn test5() -> String {
+        return "test5".to_string();
+    }
+
 }
 
 bindings::export!(Component with_types_in bindings);

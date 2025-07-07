@@ -473,6 +473,10 @@ impl Guest for Component {
 
         poll_job_until_complete(&job_id, "Multi-image video generation")
     }
+
+    fn test10() -> String {
+        return "test10".to_string();
+    }
 }
 
 fn save_video_result(video_result: &types::VideoResult, _job_id: &str) -> String {
