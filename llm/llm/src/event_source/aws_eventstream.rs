@@ -70,7 +70,7 @@ impl LlmStream for AwsEventStream {
         match try_decode_message(self) {
             Ok(Some(event)) => {
                 return Poll::Ready(Some(Ok(event)));
-            },
+            }
             Err(err) => return Poll::Ready(Some(Err(err))),
             _ => {}
         }
@@ -96,7 +96,7 @@ impl LlmStream for AwsEventStream {
                         match try_decode_message(self) {
                             Ok(Some(event)) => {
                                 return Poll::Ready(Some(Ok(event)));
-                            },
+                            }
                             Err(err) => return Poll::Ready(Some(Err(err))),
                             _ => {}
                         }

@@ -2,10 +2,7 @@ mod client;
 mod conversions;
 
 use crate::client::{BedrockClient, ConverseRequest};
-use crate::conversions::{
-    convert_usage, messages_to_request, process_response, stop_reason_to_finish_reason,
-    tool_results_to_messages,
-};
+use crate::conversions::{messages_to_request, process_response, tool_results_to_messages};
 use golem_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
 use golem_llm::config::with_config_keys;
 use golem_llm::durability::{DurableLLM, ExtendedGuest};
@@ -155,43 +152,40 @@ impl LlmChatStreamState for BedrockChatStream {
                     timestamp: None,
                     provider_metadata_json: if metadata.metrics.is_some() {
                         Some(format!("{:?}", metadata.metrics.unwrap()))
-                    }else {
+                    } else {
                         None
                     },
                 })));
             }
         }
 
-        match serde_json::from_value::<EventContentBlock>(json.clone()) {
-            Ok(event_content_block) => {
-                if let Some(delta) = event_content_block.delta {
-                    match delta {
-                        Delta::Text { text } => {
-                            return Ok(Some(StreamEvent::Delta(StreamDelta {
-                                content: Some(vec![ContentPart::Text(text)]),
-                                tool_calls: None,
-                            })));
-                        }
-                        Delta::ToolUse { tool_use } => {
-                            return Ok(Some(StreamEvent::Delta(StreamDelta {
-                                content: Some(vec![ContentPart::Text(tool_use.input)]),
-                                tool_calls: None,
-                            })));
-                        }
+        if let Ok(event_content_block) = serde_json::from_value::<EventContentBlock>(json.clone()) {
+            if let Some(delta) = event_content_block.delta {
+                match delta {
+                    Delta::Text { text } => {
+                        return Ok(Some(StreamEvent::Delta(StreamDelta {
+                            content: Some(vec![ContentPart::Text(text)]),
+                            tool_calls: None,
+                        })));
+                    }
+                    Delta::ToolUse { tool_use } => {
+                        return Ok(Some(StreamEvent::Delta(StreamDelta {
+                            content: Some(vec![ContentPart::Text(tool_use.input)]),
+                            tool_calls: None,
+                        })));
                     }
                 }
-                if let Some(tool_use_start) = event_content_block.start {
-                    return Ok(Some(StreamEvent::Delta(StreamDelta {
-                        content: Some(vec![]),
-                        tool_calls: Some(vec![ToolCall {
-                            id: tool_use_start.tool_use.tool_use_id,
-                            name: tool_use_start.tool_use.name,
-                            arguments_json: "".to_string(),
-                        }]),
-                    })));
-                }
             }
-            Err(_) => {}
+            if let Some(tool_use_start) = event_content_block.start {
+                return Ok(Some(StreamEvent::Delta(StreamDelta {
+                    content: Some(vec![]),
+                    tool_calls: Some(vec![ToolCall {
+                        id: tool_use_start.tool_use.tool_use_id,
+                        name: tool_use_start.tool_use.name,
+                        arguments_json: "".to_string(),
+                    }]),
+                })));
+            }
         }
 
         Ok(None)
