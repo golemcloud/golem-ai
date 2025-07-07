@@ -165,4 +165,9 @@ golem-cli app clean
 golem-cli app build -b kling-debug
 golem-cli app clean
 golem-cli app build -b runway-debug
+
+cd ../video-advanced
+golem-cli --version
+golem-cli app clean
+golem-cli app Builds
 '''
