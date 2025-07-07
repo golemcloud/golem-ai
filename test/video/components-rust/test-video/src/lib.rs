@@ -49,6 +49,29 @@ fn save_video_result(video_result: &types::VideoResult, _job_id: &str) -> String
     }
 }
 
+fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
+    println!("Reading file from: {}", path);
+    let mut file = match File::open(path) {
+        Ok(file) => file,
+        Err(err) => return Err(format!("Failed to open {}: {}", path, err)),
+    };
+
+    let mut buffer = Vec::new();
+    match file.read_to_end(&mut buffer) {
+        Ok(_) => {
+            println!("Successfully read {} bytes from {}", buffer.len(), path);
+            let mime_type = match path.rsplit('.').next() {
+                Some("png") => "image/png".to_string(),
+                Some("mp4") => "video/mp4".to_string(),
+                Some("mp3") => "audio/mpeg".to_string(),
+                _ => "application/octet-stream".to_string(), // Default or unknown
+            };
+            Ok((buffer, mime_type))
+        }
+        Err(err) => Err(format!("Failed to read {}: {}", path, err)),
+    }
+}
+
 ///job_id to test stability: 939104de411db613f610b6193259df171e7a5bbd555db55f2310009ad06bfae
 ///because stability polling fails
 
@@ -63,16 +86,10 @@ impl Guest for Component {
         // let job_id = "projects/golem-test-463802/locations/us-central1/publishers/google/models/veo-2.0-generate-001/operations/6013adea-df6a-465a-ae73-21dbf73a0b1f".to_string();
         
         println!("Reading image from Initial File System...");
-        let mut file = match File::open("/data/old.png") {
-            Ok(file) => file,
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/old.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: Failed to open old.png: {}", err),
         };
-
-        let mut buffer = Vec::new();
-        match file.read_to_end(&mut buffer) {
-            Ok(_) => println!("Successfully read {} bytes from old.png", buffer.len()),
-            Err(err) => return format!("ERROR: Failed to read old.png: {}", err),
-        }
 
         // Create video generation configuration
         let config = types::GenerationConfig {
@@ -101,7 +118,10 @@ impl Guest for Component {
         // Create media input with the image data
         let media_input = types::MediaInput::Image(types::Reference {
             data: types::InputImage {
-                data: types::MediaData::Bytes(buffer),
+                data: types::MediaData::Bytes(types::RawBytes {
+                    bytes: image_bytes,
+                    mime_type: image_mime_type,
+                }),
             },
             prompt: Some("An Old smiling man, and waving his hand".to_string()),
             role: None,
