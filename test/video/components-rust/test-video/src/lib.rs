@@ -103,12 +103,12 @@ impl Guest for Component {
             resolution: None, // Will be determined by input image dimensions  
             enable_audio: Some(false),
             enhance_prompt: Some(false),
-            provider_options: vec![
+            provider_options: Some(vec![
                 types::Kv {
                     key: "motion_bucket_id".to_string(),
                     value: "127".to_string(),
                 }
-            ],
+            ]),
             lastframe: None,
             static_mask: None,
             dynamic_mask: None,
@@ -196,12 +196,12 @@ impl Guest for Component {
             resolution: None,
             enable_audio: Some(false),
             enhance_prompt: Some(true),
-            provider_options: vec![
+            provider_options: Some(vec![
                 types::Kv {
                     key: "mode".to_string(),
                     value: "std".to_string(),
                 }
-            ],
+            ]),
             lastframe: None,
             static_mask: None,
             dynamic_mask: None,

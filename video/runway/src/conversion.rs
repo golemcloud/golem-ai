@@ -42,9 +42,8 @@ pub fn media_input_to_request(
             // Parse provider options
             let options: HashMap<String, String> = config
                 .provider_options
-                .into_iter()
-                .map(|kv| (kv.key, kv.value))
-                .collect();
+                .map(|po| po.into_iter().map(|kv| (kv.key, kv.value)).collect())
+                .unwrap_or_default();
 
             // Determine model - default to gen3a_turbo, can be overridden
             let model = config.model.unwrap_or_else(|| {
@@ -400,9 +399,13 @@ pub fn text_to_image_request(
     // Parse provider options
     let options: std::collections::HashMap<String, String> = config
         .provider_options
-        .iter()
-        .map(|kv| (kv.key.clone(), kv.value.clone()))
-        .collect();
+        .as_ref()
+        .map(|po| {
+            po.iter()
+                .map(|kv| (kv.key.clone(), kv.value.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
 
     // Determine ratio based on aspect_ratio and resolution
     let ratio = determine_text_to_image_ratio(config.aspect_ratio, config.resolution)?;

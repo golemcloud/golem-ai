@@ -36,7 +36,7 @@ impl Guest for Component {
             resolution: Some(types::Resolution::Hd),
             enable_audio: Some(false),
             enhance_prompt: Some(true),
-            provider_options: vec![],
+            provider_options: None,
             lastframe: Some(types::InputImage {
                 data: types::MediaData::Bytes(types::RawBytes {
                     bytes: image_bytes.clone(),
@@ -94,7 +94,7 @@ impl Guest for Component {
             resolution: Some(types::Resolution::Fhd),
             enable_audio: Some(true),
             enhance_prompt: Some(true),
-            provider_options: vec![
+            provider_options: Some(vec![
                 types::Kv {
                     key: "use_tts".to_string(),
                     value: "true".to_string(),
@@ -103,7 +103,7 @@ impl Guest for Component {
                     key: "voice_id".to_string(),
                     value: "example_voice".to_string(),
                 }
-            ],
+            ]) ,
             lastframe: None,
             static_mask: None,
             dynamic_mask: None,
@@ -158,7 +158,7 @@ impl Guest for Component {
             resolution: Some(types::Resolution::Hd),
             enable_audio: Some(false),
             enhance_prompt: Some(false),
-            provider_options: vec![],
+            provider_options: None,
             lastframe: None,
             static_mask: Some(static_mask),
             dynamic_mask: None,
@@ -227,7 +227,7 @@ impl Guest for Component {
             resolution: Some(types::Resolution::Hd),
             enable_audio: Some(false),
             enhance_prompt: Some(true),
-            provider_options: vec![],
+            provider_options: None,
             lastframe: None,
             static_mask: None,
             dynamic_mask: Some(dynamic_mask),
@@ -453,12 +453,12 @@ impl Guest for Component {
             resolution: Some(types::Resolution::Fhd),
             enable_audio: Some(false),
             enhance_prompt: Some(true),
-            provider_options: vec![
+            provider_options: Some(vec![
                 types::Kv {
                     key: "transition_style".to_string(),
                     value: "smooth".to_string(),
                 }
-            ],
+            ]),
             lastframe: None,
             static_mask: None,
             dynamic_mask: None,

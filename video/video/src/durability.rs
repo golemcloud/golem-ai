@@ -419,10 +419,10 @@ mod durable_impl {
                     model: Some("runway-gen3".to_string()),
                     enable_audio: Some(true),
                     enhance_prompt: Some(false),
-                    provider_options: vec![Kv {
+                    provider_options: Some(vec![Kv {
                         key: "model".to_string(),
                         value: "runway-gen3".to_string(),
-                    }],
+                    }]),
                     lastframe: None,
                     static_mask: None,
                     dynamic_mask: None,
@@ -456,7 +456,7 @@ mod durable_impl {
                     model: None,
                     enable_audio: Some(false),
                     enhance_prompt: None,
-                    provider_options: vec![],
+                    provider_options: None,
                     lastframe: None,
                     static_mask: None,
                     dynamic_mask: None,
@@ -620,10 +620,10 @@ mod durable_impl {
                     model: Some("kling-multi".to_string()),
                     enable_audio: Some(true),
                     enhance_prompt: Some(false),
-                    provider_options: vec![Kv {
+                    provider_options: Some(vec![Kv {
                         key: "quality".to_string(),
                         value: "high".to_string(),
-                    }],
+                    }]),
                     lastframe: None,
                     static_mask: None,
                     dynamic_mask: None,

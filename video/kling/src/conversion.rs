@@ -18,9 +18,13 @@ pub fn media_input_to_request(
     // Parse provider options
     let options: HashMap<String, String> = config
         .provider_options
-        .iter()
-        .map(|kv| (kv.key.clone(), kv.value.clone()))
-        .collect();
+        .as_ref()
+        .map(|po| {
+            po.iter()
+                .map(|kv| (kv.key.clone(), kv.value.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
 
     // Determine model - default to kling-v1, can be overridden
     let model_name = config.model.clone().or_else(|| {
@@ -838,9 +842,13 @@ pub fn multi_image_generation(
     // Parse provider options
     let options: HashMap<String, String> = config
         .provider_options
-        .iter()
-        .map(|kv| (kv.key.clone(), kv.value.clone()))
-        .collect();
+        .as_ref()
+        .map(|po| {
+            po.iter()
+                .map(|kv| (kv.key.clone(), kv.value.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
 
     // Determine model - for multi-image, default to kling-v1-6 as per API docs
     let model_name = config.model.clone().or_else(|| {

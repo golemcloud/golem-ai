@@ -96,7 +96,7 @@ interface types {
     model: option<string>,
     enable-audio: option<bool>,
     enhance-prompt: option<bool>,
-    provider-options: list<kv>,
+    provider-options: option<list<kv>>,
     lastframe: option<input-image>,
     static-mask: option<static-mask>,
     dynamic-mask: option<dynamic-mask>,

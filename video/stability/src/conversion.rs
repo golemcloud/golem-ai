@@ -135,9 +135,13 @@ fn generate_image_from_text(
     // Parse provider options
     let options: HashMap<String, String> = config
         .provider_options
-        .iter()
-        .map(|kv| (kv.key.clone(), kv.value.clone()))
-        .collect();
+        .as_ref()
+        .map(|po| {
+            po.iter()
+                .map(|kv| (kv.key.clone(), kv.value.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
 
     // Get style preset from provider options
     let style_preset = options.get("style_preset").cloned();
@@ -220,9 +224,8 @@ pub fn media_input_to_request(
             // Parse provider options - only for parameters not directly supported in WIT
             let options: HashMap<String, String> = config
                 .provider_options
-                .into_iter()
-                .map(|kv| (kv.key, kv.value))
-                .collect();
+                .map(|po| po.into_iter().map(|kv| (kv.key, kv.value)).collect())
+                .unwrap_or_default();
 
             // Use built-in config fields directly
             let seed = config.seed;
