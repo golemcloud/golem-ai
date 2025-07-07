@@ -1,0 +1,36 @@
+[package]
+name = "exec-python"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wit-bindgen = "0.30.0"
+log = { workspace = true }
+env_logger = { workspace = true }
+wasi-logger = { workspace = true, optional = true }
+serde = { workspace = true }
+anyhow = "1.0"
+uuid = { version = "1.0", features = ["v4"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1.0", features = ["full"] }
+tempfile = "3.0"
+which = "8.0.0"
+wasmtime = "34.0.1"
+wasmtime-wasi = "34.0.1"
+wasi-common = "34.0.1"
+wasi-cap-std-sync = "17.0"
+cap-std = "3.4.4"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio = { version = "1.0", features = ["sync", "macros", "rt"] }
+
+[features]
+wasi-logging = ["wasi-logger"]
+no-logging = []
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[package.metadata.component]
+target = { path = "wit/exec-python.wit", world = "exec-python" }

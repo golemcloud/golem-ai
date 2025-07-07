@@ -1,0 +1,140 @@
+package golem:exec-javascript@0.1.0;
+
+interface types {
+  record language {
+    kind: language-kind,
+    version: option<string>,
+  }
+
+  enum language-kind {
+    javascript, python, 
+  }
+
+  enum encoding {
+    utf8,
+    base64,
+    hex,
+  }
+
+  record file {
+    name: string,
+    content: list<u8>,
+    encoding: option<encoding>, // defaults to utf8
+  }
+
+  record limits {
+    time-ms: option<u64>,
+    memory-bytes: option<u64>,
+    file-size-bytes: option<u64>,
+    max-processes: option<u32>,
+  }
+
+  record stage-result {
+    stdout: string,
+    stderr: string,
+    exit-code: option<s32>,
+    signal: option<string>,
+  }
+
+  record exec-result {
+    compile: option<stage-result>,
+    run: stage-result,
+    time-ms: option<u64>,
+    memory-bytes: option<u64>,
+  }
+
+  /// Execution error types
+  variant error {
+    unsupported-language,
+    compilation-failed(stage-result),
+    runtime-failed(stage-result),
+    timeout,
+    resource-exceeded,
+    internal(string),
+  }
+
+  variant exec-event {
+    stdout-chunk(list<u8>),
+    stderr-chunk(list<u8>),
+    finished(exec-result),
+    failed(error),
+  }
+}
+
+interface executor {
+  use types.{language, file, limits, exec-result, error, exec-event};
+  use exec-stream.{exec-stream};
+
+  /// Blocking, non-streaming execution
+  run: func(
+    lang: language,
+    files: list<file>,
+    stdin: option<string>,
+    args: list<string>,
+    env: list<tuple<string, string>>,
+    constraints: option<limits>
+  ) -> result<exec-result, error>;
+
+  /// Streaming execution
+  run-streaming: func(
+    lang: language,
+    files: list<file>,
+    stdin: option<string>,
+    args: list<string>,
+    env: list<tuple<string, string>>,
+    constraints: option<limits>
+  ) -> result<exec-stream, error>;
+}
+
+interface exec-stream {
+  use types.{exec-event};
+  
+  resource exec-stream {
+    get-next: func() -> option<exec-event>;
+    
+    blocking-get-next: func() -> option<exec-event>;
+  }
+}
+
+interface session {
+  use types.{language, file, limits, exec-result, error, exec-event};
+  use exec-stream.{exec-stream};
+
+  resource session {
+    constructor(lang: language);
+
+    upload: func(file: file) -> result<_, error>;
+
+    /// Blocking execution
+    run: func(
+      entrypoint: string,
+      args: list<string>,
+      stdin: option<string>,
+      env: list<tuple<string, string>>,
+      constraints: option<limits>
+    ) -> result<exec-result, error>;
+
+    /// Streaming execution
+    run-streaming: func(
+      entrypoint: string,
+      args: list<string>,
+      stdin: option<string>,
+      env: list<tuple<string, string>>,
+      constraints: option<limits>
+    ) -> result<exec-stream, error>;
+
+    download: func(path: string) -> result<list<u8>, error>;
+
+    list-files: func(dir: string) -> result<list<string>, error>;
+
+    set-working-dir: func(path: string) -> result<_, error>;
+
+    close: func();
+  }
+}
+
+world exec-javascript {
+  export executor;
+  export session;
+  export exec-stream;
+}

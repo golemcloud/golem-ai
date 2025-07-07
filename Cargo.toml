@@ -8,6 +8,9 @@ members = [
     "llm/ollama",
     "llm/openai",
     "llm/openrouter",
+    "exec/exec",
+    "exec/exec-javascript",
+    "exec/exec-python",
 ]
 
 [profile.release]
@@ -25,4 +28,11 @@ reqwest = { git = "https://github.com/golemcloud/reqwest", branch = "update-may-
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 wit-bindgen-rt = { version = "0.40.0", features = ["bitflags"] }
+wit-bindgen = { version = "0.40.0" }
 base64 = { version = "0.22.1" }
+tempfile = { version = "3.8.1" }
+thiserror = { version = "2.0.12" }
+env_logger = { version = "0.11" }
+wasi-logger = { version = "0.1.2" }
+futures = { version = "0.3" }
+tokio = { version = "1.35.1", features = ["sync", "macros", "io-util", "rt", "time"] }

@@ -1,0 +1,34 @@
+[package]
+name = "exec-javascript"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wit-bindgen-rt = { workspace = true }
+wit-bindgen = { workspace = true }
+serde = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+wasi-logger = { workspace = true, optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true }
+tempfile = { workspace = true }
+rquickjs = { version = "0.9.0", features = ["array-buffer", "bindgen", "loader", "allocator", "parallel"] }
+wasmtime = { version = "34.0.1", features = ["component-model"], optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio = { version = "1.0", features = ["sync", "macros"] }
+rquickjs = { version = "0.9.0", features = ["array-buffer"], optional = true }
+uuid = { version = "1.6", features = ["v4"] }
+
+[features]
+default = []
+wasi-logging = ["wasi-logger"]
+no-logging = []
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[package.metadata.component]
+target = { path = "wit/exec-javascript.wit", world = "exec-javascript" }
