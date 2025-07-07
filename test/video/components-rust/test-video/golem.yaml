@@ -10,7 +10,7 @@ components:
   test:video:
     profiles:
       # DEBUG PROFILES
-      stability:
+      stability-debug:
         files:
           - sourcePath: ../../data/old.png
             targetPath: /data/old.png
@@ -35,7 +35,7 @@ components:
         linkedWasm: ../../golem-temp/components/test_video_stability.wasm
         clean:
           - src/bindings.rs
-      runway:
+      runway-debug:
         files:
           - sourcePath: ../../data/old.png
             targetPath: /data/old.png
@@ -60,7 +60,7 @@ components:
         linkedWasm: ../../golem-temp/components/test_video_runway_debug.wasm
         clean:
           - src/bindings.rs
-      kling:
+      kling-debug:
         files:
           - sourcePath: ../../data/old.png
             targetPath: /data/old.png
@@ -85,7 +85,7 @@ components:
         linkedWasm: ../../golem-temp/components/test_video_kling_debug.wasm
         clean:
           - src/bindings.rs
-      veo:
+      veo-debug:
         files:
           - sourcePath: ../../data/old.png
             targetPath: /data/old.png
@@ -211,7 +211,7 @@ components:
         linkedWasm: ../../golem-temp/components/test_video_veo_release.wasm
         clean:
           - src/bindings.rs
-    defaultProfile: stability
+    defaultProfile: stability-debug
 
 # Example for adding dependencies for Worker to Worker communication:
 # See https://learn.golem.cloud/docs/app-manifest#fields_dependencies for more information

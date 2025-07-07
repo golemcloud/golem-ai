@@ -311,7 +311,8 @@ impl Guest for Component {
 
         let text_to_speech = types::TextToSpeech {
             text: "Hello, this is a test of lip-sync functionality with generated speech".to_string(),
-            voice_id: Some("example_voice_id".to_string()),
+            voice_id: "example_voice_id".to_string(),
+            language: types::VoiceLanguage::En,
             speed: 100,
         };
 
