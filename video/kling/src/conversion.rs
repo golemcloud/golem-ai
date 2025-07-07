@@ -502,8 +502,6 @@ pub fn generate_lip_sync_video(
     video: golem_video::exports::golem::video::types::BaseVideo,
     audio: golem_video::exports::golem::video::types::AudioSource,
 ) -> Result<String, VideoError> {
-    use crate::voices::is_valid_voice_id;
-
     trace!("Generating lip-sync video with Kling API");
 
     // Convert video data to required format
@@ -521,17 +519,12 @@ pub fn generate_lip_sync_video(
         match audio {
             AudioSource::FromText(tts) => {
                 // Text-to-video mode
-                let voice_id = tts.voice_id.as_ref().ok_or_else(|| {
-                    invalid_input("voice_id is required for text-to-speech lip-sync")
-                })?;
+                let voice_id = &tts.voice_id;
 
-                // Determine language from voice_id
-                let language = if is_valid_voice_id(voice_id, "zh") {
-                    "zh"
-                } else if is_valid_voice_id(voice_id, "en") {
-                    "en"
-                } else {
-                    return Err(invalid_input(format!("Invalid voice_id: {voice_id}")));
+                // Use the language from the TTS object
+                let language = match tts.language {
+                    golem_video::exports::golem::video::types::VoiceLanguage::En => "en",
+                    golem_video::exports::golem::video::types::VoiceLanguage::Zh => "zh",
                 };
 
                 // Convert speed from u32 to f32 and validate range

@@ -493,7 +493,8 @@ mod durable_impl {
                 },
                 audio: AudioSource::FromText(TextToSpeech {
                     text: "Hello world".to_string(),
-                    voice_id: Some("voice_123".to_string()),
+                    voice_id: "voice_123".to_string(),
+                    language: crate::exports::golem::video::types::VoiceLanguage::En,
                     speed: 100,
                 }),
             };

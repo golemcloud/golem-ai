@@ -2,6 +2,8 @@ use golem_video::exports::golem::video::types::{VoiceInfo, VoiceLanguage};
 
 /// Voice data for Kling lip-sync functionality
 /// Data sourced from Kling API documentation
+/// https://docs.qingque.cn/s/home/eZQDvafJ4vXQkP8T9ZPvmye8S?identityId=2E3S0NySBQy
+/// It isnt possible to do this dynamically, or have preview urls
 fn get_chinese_voices() -> Vec<VoiceInfo> {
     vec![
         VoiceInfo {
@@ -397,15 +399,4 @@ pub fn get_voices(language: Option<String>) -> Vec<VoiceInfo> {
             all_voices
         }
     }
-}
-
-/// Check if a voice ID exists for a given language
-pub fn is_valid_voice_id(voice_id: &str, language: &str) -> bool {
-    let voices = match language {
-        "zh" => get_chinese_voices(),
-        "en" => get_english_voices(),
-        _ => return false,
-    };
-
-    voices.iter().any(|voice| voice.voice_id == voice_id)
 }

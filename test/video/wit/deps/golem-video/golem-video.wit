@@ -147,7 +147,8 @@ interface types {
 
   record text-to-speech {
     text: string,
-    voice-id: option<string>,
+    voice-id: string,
+    language: voice-language,
     speed: u32,
   }
 
