@@ -67,8 +67,12 @@ impl LlmStream for AwsEventStream {
     ) -> Poll<Option<Result<MessageEvent, AwsEventStreamError<StreamError>>>> {
         trace!("Polling for next AWS EventStream event");
 
-        if let Some(event) = try_decode_message(self)? {
-            return Poll::Ready(Some(Ok(event)));
+        match try_decode_message(self) {
+            Ok(Some(event)) => {
+                return Poll::Ready(Some(Ok(event)));
+            },
+            Err(err) => return Poll::Ready(Some(Err(err))),
+            _ => {}
         }
 
         if self.state.is_terminated() {
@@ -89,9 +93,12 @@ impl LlmStream for AwsEventStream {
 
                         self.buffer.extend_from_slice(&bytes);
 
-                        // Try to decode complete messages from the updated buffer
-                        if let Some(event) = try_decode_message(self)? {
-                            return Poll::Ready(Some(Ok(event)));
+                        match try_decode_message(self) {
+                            Ok(Some(event)) => {
+                                return Poll::Ready(Some(Ok(event)));
+                            },
+                            Err(err) => return Poll::Ready(Some(Err(err))),
+                            _ => {}
                         }
                     }
                     Err(StreamError::Closed) => {

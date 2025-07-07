@@ -3,8 +3,11 @@ default_to_workspace = false
 skip_core_tasks = true
 
 [tasks.clean]
-command = "cargo"
-args = ["clean"]
+script = '''
+find . -type d \( -name "target" -o -name "wit-generated" -o -name "golem-temp" \) -exec rm -rf {} +
+find . -name "bindings.rs" -delete
+cargo clean
+'''
 
 [tasks.unit-tests]
 command = "cargo"

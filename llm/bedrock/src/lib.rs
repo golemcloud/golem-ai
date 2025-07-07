@@ -25,27 +25,18 @@ struct BedrockChatStream {
     stream: RefCell<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
-    response_metadata: RefCell<ResponseMetadata>,
 }
 
-/// [2025-06-29T18:11:10.458Z] [TRACE   ] [golem_llm_bedrock] llm/bedrock/src/lib.rs:84: Received raw stream event:
-/// {
-/// "contentBlockIndex":1,
-/// "delta":{
-/// "toolUse":{
-/// "input":" 10
-/// }"}},
-/// "p":"abcdefghijklmnopqrstuvwxyzAB"
-/// }
-/// {
-/// "contentBlockIndex":0,
-/// "delta":
-/// {
-/// "text":" German"
-/// },
-/// "p":"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX"
-/// }
-///
+#[derive(Debug, Deserialize)]
+pub struct EventContentBlock {
+    #[serde(rename = "contentBlockIndex")]
+    pub content_block_index: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delta: Option<Delta>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<ToolUseStart>,
+    pub p: String,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
@@ -64,33 +55,38 @@ pub struct ToolUse {
     pub input: String,
 }
 
-// Additional structs for different message types
 #[derive(Debug, Deserialize)]
-pub struct MessageStart {
-    pub p: String,
-    pub role: String,
+pub struct ToolUseStart {
+    #[serde(rename = "toolUse")]
+    pub tool_use: ToolUseInfo,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct MessageStop {
-    pub p: String,
-    #[serde(rename = "stopReason")]
-    pub stop_reason: String,
+pub struct ToolUseInfo {
+    pub name: String,
+    #[serde(rename = "toolUseId")]
+    pub tool_use_id: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct MetadataMessage {
     pub p: String,
-    pub usage: Option<crate::client::Usage>,
-    pub metrics: Option<serde_json::Value>,
+    pub usage: Option<Usage>,
+    pub metrics: Option<Metrics>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct EventContentBlock {
-    #[serde(rename = "contentBlockIndex")]
-    pub content_block_index: u32,
-    pub delta: Delta,
-    pub p: String,
+pub struct Metrics {
+    #[serde(rename = "latencyMs")]
+    pub latency_ms: u32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Usage {
+    #[serde(rename = "outputTokens")]
+    pub output_tokens: u32,
+    #[serde(rename = "totalTokens")]
+    pub total_tokens: u32,
 }
 
 impl BedrockChatStream {
@@ -99,13 +95,6 @@ impl BedrockChatStream {
             stream: RefCell::new(Some(stream)),
             failure: None,
             finished: RefCell::new(false),
-            response_metadata: RefCell::new(ResponseMetadata {
-                finish_reason: None,
-                usage: None,
-                provider_id: None,
-                timestamp: None,
-                provider_metadata_json: None,
-            }),
         })
     }
 
@@ -114,13 +103,6 @@ impl BedrockChatStream {
             stream: RefCell::new(None),
             failure: Some(error),
             finished: RefCell::new(false),
-            response_metadata: RefCell::new(ResponseMetadata {
-                finish_reason: None,
-                usage: None,
-                provider_id: None,
-                timestamp: None,
-                provider_metadata_json: None,
-            }),
         })
     }
 }
@@ -152,11 +134,38 @@ impl LlmChatStreamState for BedrockChatStream {
         let json: Value = serde_json::from_str(raw)
             .map_err(|err| format!("Failed to deserialize stream event: {err}"))?;
 
-        // 1. Handle content block delta messages (contentBlockIndex + delta)
-        if json.get("contentBlockIndex").is_some() && json.get("delta").is_some() {
-            match serde_json::from_value::<EventContentBlock>(json.clone()) {
-                Ok(event_content_block) => {
-                    match event_content_block.delta {
+        if json.get("role").is_some() {
+            return Ok(Some(StreamEvent::Delta(StreamDelta {
+                content: Some(vec![ContentPart::Text(json.to_string())]),
+                tool_calls: None,
+            })));
+        }
+
+        if json.get("usage").is_some() || json.get("metrics").is_some() {
+            if let Ok(metadata) = serde_json::from_value::<MetadataMessage>(json.clone()) {
+                let usage = metadata.usage.unwrap();
+                return Ok(Some(StreamEvent::Finish(ResponseMetadata {
+                    finish_reason: None,
+                    usage: Some(golem_llm::golem::llm::llm::Usage {
+                        input_tokens: Some(usage.total_tokens - usage.output_tokens),
+                        output_tokens: Some(usage.output_tokens),
+                        total_tokens: Some(usage.total_tokens),
+                    }),
+                    provider_id: None,
+                    timestamp: None,
+                    provider_metadata_json: if metadata.metrics.is_some() {
+                        Some(format!("{:?}", metadata.metrics.unwrap()))
+                    }else {
+                        None
+                    },
+                })));
+            }
+        }
+
+        match serde_json::from_value::<EventContentBlock>(json.clone()) {
+            Ok(event_content_block) => {
+                if let Some(delta) = event_content_block.delta {
+                    match delta {
                         Delta::Text { text } => {
                             return Ok(Some(StreamEvent::Delta(StreamDelta {
                                 content: Some(vec![ContentPart::Text(text)]),
@@ -164,8 +173,6 @@ impl LlmChatStreamState for BedrockChatStream {
                             })));
                         }
                         Delta::ToolUse { tool_use } => {
-                            // Handle tool use delta - this would need tool call ID and name from earlier message
-                            // For now, just return the input as text
                             return Ok(Some(StreamEvent::Delta(StreamDelta {
                                 content: Some(vec![ContentPart::Text(tool_use.input)]),
                                 tool_calls: None,
@@ -173,51 +180,20 @@ impl LlmChatStreamState for BedrockChatStream {
                         }
                     }
                 }
-                Err(err) => {
-                    trace!("Failed to parse as EventContentBlock: {err}");
-                    // Continue to other parsing attempts
+                if let Some(tool_use_start) = event_content_block.start {
+                    return Ok(Some(StreamEvent::Delta(StreamDelta {
+                        content: Some(vec![]),
+                        tool_calls: Some(vec![ToolCall {
+                            id: tool_use_start.tool_use.tool_use_id,
+                            name: tool_use_start.tool_use.name,
+                            arguments_json: "".to_string(),
+                        }]),
+                    })));
                 }
             }
+            Err(_) => {}
         }
 
-        // 3. Handle message start (role + p)
-        if json.get("role").is_some() {
-            if let Ok(_message_start) = serde_json::from_value::<MessageStart>(json.clone()) {
-                // Message start event - just metadata, no content to return
-                return Ok(None);
-            }
-        }
-
-        // 4. Handle message stop with stopReason
-        if json.get("stopReason").is_some() {
-            if let Ok(message_stop) = serde_json::from_value::<MessageStop>(json.clone()) {
-                let stop_reason = match message_stop.stop_reason.as_str() {
-                    "end_turn" => crate::client::StopReason::EndTurn,
-                    "tool_use" => crate::client::StopReason::ToolUse,
-                    "max_tokens" => crate::client::StopReason::MaxTokens,
-                    "stop_sequence" => crate::client::StopReason::StopSequence,
-                    "guardrail_intervened" => crate::client::StopReason::GuardrailIntervened,
-                    "content_filtered" => crate::client::StopReason::ContentFiltered,
-                    _ => crate::client::StopReason::EndTurn,
-                };
-                self.response_metadata.borrow_mut().finish_reason =
-                    Some(stop_reason_to_finish_reason(stop_reason));
-
-                let response_metadata = self.response_metadata.borrow().clone();
-                return Ok(Some(StreamEvent::Finish(response_metadata)));
-            }
-        }
-
-        // 5. Handle metadata messages with usage/metrics
-        if json.get("usage").is_some() || json.get("metrics").is_some() {
-            if let Ok(metadata) = serde_json::from_value::<MetadataMessage>(json.clone()) {
-                if let Some(usage) = metadata.usage {
-                    self.response_metadata.borrow_mut().usage = Some(convert_usage(usage));
-                }
-                // Metadata processed, no event to return
-                return Ok(None);
-            }
-        }
         Ok(None)
     }
 }
