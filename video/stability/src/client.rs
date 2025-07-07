@@ -361,4 +361,3 @@ fn build_text_to_image_multipart_body(request: &TextToImageRequest, boundary: &s
 
     body
 }
-

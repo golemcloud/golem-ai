@@ -5,6 +5,7 @@ use log::trace;
 use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
 
+// For older users, the api endpoint is https://api.klingai.com
 const BASE_URL: &str = "https://api-singapore.klingai.com";
 
 /// The Kling API client for video generation

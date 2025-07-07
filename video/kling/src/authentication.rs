@@ -20,16 +20,9 @@ pub fn generate_jwt_token(access_key: &str, secret_key: &str) -> Result<String, 
     // Create JWT payload/claims matching Python implementation exactly
     let payload = json!({
         "iss": access_key,
-        "exp": now + 1800, // Valid for 30 minutes (like Python)
+        "exp": now + 180, // Valid for 3 minutes
         "nbf": now.saturating_sub(5) // Effective 5 seconds ago
     });
-
-    debug!(
-        "JWT claims: iss={}, exp={}, nbf={}",
-        access_key,
-        now + 1800,
-        now.saturating_sub(5)
-    );
 
     // Encode header and payload to base64url
     let header_b64 = base64url_encode(
@@ -51,7 +44,6 @@ pub fn generate_jwt_token(access_key: &str, secret_key: &str) -> Result<String, 
 
     // Print the generated token for debugging
     debug!("Generated JWT token: {token}");
-    println!("DEBUG: Generated JWT token: {token}");
 
     Ok(token)
 }

@@ -19,8 +19,8 @@ impl Guest for Component {
         println!("Test1: Image to video with first and last frame");
         
         // Load test image
-        let image_bytes = match load_file_bytes("/data/test.png") {
-            Ok(bytes) => bytes,
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/test.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
 
@@ -38,7 +38,10 @@ impl Guest for Component {
             enhance_prompt: Some(true),
             provider_options: vec![],
             lastframe: Some(types::InputImage {
-                data: types::MediaData::Bytes(image_bytes.clone()),
+                data: types::MediaData::Bytes(types::RawBytes {
+                    bytes: image_bytes.clone(),
+                    mime_type: image_mime_type.clone(),
+                }),
             }),
             static_mask: None,
             dynamic_mask: None,
@@ -48,7 +51,10 @@ impl Guest for Component {
         // Create media input with first frame image
         let media_input = types::MediaInput::Image(types::Reference {
             data: types::InputImage {
-                data: types::MediaData::Bytes(image_bytes),
+                data: types::MediaData::Bytes(types::RawBytes {
+                    bytes: image_bytes,
+                    mime_type: image_mime_type,
+                }),
             },
             prompt: Some("A person walking through a beautiful garden, smooth motion".to_string()),
             role: Some(types::ImageRole::First),
@@ -122,19 +128,22 @@ impl Guest for Component {
         println!("Test3: Image to video with static mask");
 
         // Load test image and mask
-        let image_bytes = match load_file_bytes("/data/test.png") {
-            Ok(bytes) => bytes,
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/test.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
 
-        let mask_bytes = match load_file_bytes("/data/mask.png") {
-            Ok(bytes) => bytes,
+        let (mask_bytes, mask_mime_type) = match load_file_bytes("/data/mask.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
 
         let static_mask = types::StaticMask {
             mask: types::InputImage {
-                data: types::MediaData::Bytes(mask_bytes),
+                data: types::MediaData::Bytes(types::RawBytes {
+                    bytes: mask_bytes,
+                    mime_type: mask_mime_type,
+                }),
             },
         };
 
@@ -158,7 +167,10 @@ impl Guest for Component {
 
         let media_input = types::MediaInput::Image(types::Reference {
             data: types::InputImage {
-                data: types::MediaData::Bytes(image_bytes),
+                data: types::MediaData::Bytes(types::RawBytes {
+                    bytes: image_bytes,
+                    mime_type: image_mime_type,
+                }),
             },
             prompt: Some("Apply motion effects while preserving masked areas".to_string()),
             role: None,
@@ -178,20 +190,23 @@ impl Guest for Component {
         println!("Test4: Image to video with dynamic mask");
 
         // Load test image and mask
-        let image_bytes = match load_file_bytes("/data/test.png") {
-            Ok(bytes) => bytes,
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/test.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
 
-        let mask_bytes = match load_file_bytes("/data/mask.png") {
-            Ok(bytes) => bytes,
+        let (mask_bytes, mask_mime_type) = match load_file_bytes("/data/mask.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
 
         // Create dynamic mask with trajectory points
         let dynamic_mask = types::DynamicMask {
             mask: types::InputImage {
-                data: types::MediaData::Bytes(mask_bytes),
+                data: types::MediaData::Bytes(types::RawBytes {
+                    bytes: mask_bytes,
+                    mime_type: mask_mime_type,
+                }),
             },
             trajectories: vec![
                 types::Position { x: 100, y: 100 },
@@ -221,7 +236,10 @@ impl Guest for Component {
 
         let media_input = types::MediaInput::Image(types::Reference {
             data: types::InputImage {
-                data: types::MediaData::Bytes(image_bytes),
+                data: types::MediaData::Bytes(types::RawBytes {
+                    bytes: image_bytes,
+                    mime_type: image_mime_type,
+                }),
             },
             prompt: Some("Dynamic motion following the trajectory path".to_string()),
             role: None,
@@ -241,22 +259,28 @@ impl Guest for Component {
         println!("Test5: Lip-sync with audio file");
 
         // Load base video and audio file
-        let video_bytes = match load_file_bytes("/data/video.mp4") {
-            Ok(bytes) => bytes,
+        let (video_bytes, video_mime_type) = match load_file_bytes("/data/video.mp4") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading video: {}", err),
         };
 
-        let audio_bytes = match load_file_bytes("/data/audio.mp3") {
-            Ok(bytes) => bytes,
+        let (audio_bytes, audio_mime_type) = match load_file_bytes("/data/audio.mp3") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading audio: {}", err),
         };
 
         let base_video = types::BaseVideo {
-            data: types::MediaData::Bytes(video_bytes),
+            data: types::MediaData::Bytes(types::RawBytes {
+                bytes: video_bytes,
+                mime_type: video_mime_type,
+            }),
         };
 
         let audio_source = types::AudioSource::FromAudio(types::Narration {
-            data: types::MediaData::Bytes(audio_bytes),
+            data: types::MediaData::Bytes(types::RawBytes {
+                bytes: audio_bytes,
+                mime_type: audio_mime_type,
+            }),
         });
 
         println!("Sending lip-sync with audio file request...");
@@ -273,13 +297,16 @@ impl Guest for Component {
         println!("Test6: Lip-sync with voice-id and text");
 
         // Load base video
-        let video_bytes = match load_file_bytes("/data/video.mp4") {
-            Ok(bytes) => bytes,
+        let (video_bytes, video_mime_type) = match load_file_bytes("/data/video.mp4") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading video: {}", err),
         };
 
         let base_video = types::BaseVideo {
-            data: types::MediaData::Bytes(video_bytes),
+            data: types::MediaData::Bytes(types::RawBytes {
+                bytes: video_bytes,
+                mime_type: video_mime_type,
+            }),
         };
 
         let text_to_speech = types::TextToSpeech {
@@ -303,13 +330,16 @@ impl Guest for Component {
     fn test7() -> String {
         println!("Test7: Video effects with single image");
 
-        let image_bytes = match load_file_bytes("/data/test.png") {
-            Ok(bytes) => bytes,
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/test.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
 
         let input_image = types::InputImage {
-            data: types::MediaData::Bytes(image_bytes),
+            data: types::MediaData::Bytes(types::RawBytes {
+                bytes: image_bytes,
+                mime_type: image_mime_type,
+            }),
         };
 
         let effect = types::EffectType::Single(types::SingleImageEffects::Bloombloom);
@@ -333,23 +363,29 @@ impl Guest for Component {
     fn test8() -> String {
         println!("Test8: Video effects with two images");
 
-        let image_bytes = match load_file_bytes("/data/test.png") {
-            Ok(bytes) => bytes,
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/test.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading first image: {}", err),
         };
 
         // Use the same image as second image for demo purposes
-        let second_image_bytes = match load_file_bytes("/data/test.png") {
-            Ok(bytes) => bytes,
+        let (second_image_bytes, second_image_mime_type) = match load_file_bytes("/data/test.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading second image: {}", err),
         };
 
         let input_image = types::InputImage {
-            data: types::MediaData::Bytes(image_bytes),
+            data: types::MediaData::Bytes(types::RawBytes {
+                bytes: image_bytes,
+                mime_type: image_mime_type,
+            }),
         };
 
         let second_image = types::InputImage {
-            data: types::MediaData::Bytes(second_image_bytes),
+            data: types::MediaData::Bytes(types::RawBytes {
+                bytes: second_image_bytes,
+                mime_type: second_image_mime_type,
+            }),
         };
 
         let dual_effect = types::DualEffect {
@@ -379,20 +415,29 @@ impl Guest for Component {
         println!("Test9: Multi-image to video generation");
 
         // Load multiple images (using same image multiple times for demo)
-        let image_bytes = match load_file_bytes("/data/test.png") {
-            Ok(bytes) => bytes,
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/test.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
 
         let input_images = vec![
             types::InputImage {
-                data: types::MediaData::Bytes(image_bytes.clone()),
+                data: types::MediaData::Bytes(types::RawBytes {
+                    bytes: image_bytes.clone(),
+                    mime_type: image_mime_type.clone(),
+                }),
             },
             types::InputImage {
-                data: types::MediaData::Bytes(image_bytes.clone()),
+                data: types::MediaData::Bytes(types::RawBytes {
+                    bytes: image_bytes.clone(),
+                    mime_type: image_mime_type.clone(),
+                }),
             },
             types::InputImage {
-                data: types::MediaData::Bytes(image_bytes),
+                data: types::MediaData::Bytes(types::RawBytes {
+                    bytes: image_bytes,
+                    mime_type: image_mime_type,
+                }),
             },
         ];
 
@@ -466,7 +511,7 @@ fn save_video_result(video_result: &types::VideoResult, _job_id: &str) -> String
     }
 }
 
-fn load_file_bytes(path: &str) -> Result<Vec<u8>, String> {
+fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
     println!("Reading file from: {}", path);
     let mut file = match File::open(path) {
         Ok(file) => file,
@@ -477,7 +522,13 @@ fn load_file_bytes(path: &str) -> Result<Vec<u8>, String> {
     match file.read_to_end(&mut buffer) {
         Ok(_) => {
             println!("Successfully read {} bytes from {}", buffer.len(), path);
-            Ok(buffer)
+            let mime_type = match path.rsplit('.').next() {
+                Some("png") => "image/png".to_string(),
+                Some("mp4") => "video/mp4".to_string(),
+                Some("mp3") => "audio/mpeg".to_string(),
+                _ => "application/octet-stream".to_string(), // Default or unknown
+            };
+            Ok((buffer, mime_type))
         }
         Err(err) => Err(format!("Failed to read {}: {}", path, err)),
     }
