@@ -9,7 +9,7 @@ args = ["clean"]
 
 [tasks.remove-components]
 command = "rm"
-args = ["-r", "components"]
+args = ["-r", "-f", "components"]
 
 [tasks.unit-tests]
 command = "cargo"
@@ -93,19 +93,41 @@ end
 '''
 
 [tasks.build-test-components]
+dependencies = ["build"]
+install_crate = "cargo-binstall"
 description = "Builds all test components with golem-cli"
-script_runner = "@duckscript"
 script = '''
-domains = array llm video
+cd test/llm
 
-# if there is no domain passed run for every domain
-if is_empty ${1}
-    for domain in ${domains}
-        exec cargo make --cwd ${domain} build-test-components
-    end
-else
-    exec cargo make --cwd ${1} build-test-components
-end
+golem-cli --version
+golem-cli app clean
+golem-cli app build -b anthropic-debug
+golem-cli app clean
+golem-cli app build -b grok-debug
+golem-cli app clean
+golem-cli app build -b openai-debug
+golem-cli app clean
+golem-cli app build -b openrouter-debug
+golem-cli app clean
+golem-cli app build -b ollama-debug
+golem-cli app clean
+
+cd ../video
+golem-cli --version
+golem-cli app clean
+golem-cli app build -b veo-debug
+golem-cli app clean
+golem-cli app build -b stability-debug
+golem-cli app clean
+golem-cli app build -b kling-debug
+golem-cli app clean
+golem-cli app build -b runway-debug
+golem-cli app clean
+
+cd ../video-advanced
+golem-cli --version
+golem-cli app clean
+golem-cli app build
 '''
 
 [tasks.build-all]

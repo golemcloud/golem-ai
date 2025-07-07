@@ -187,24 +187,3 @@ cp wit/deps/wasi:io/world.wit ../test/llm/wit/deps/io/world.wit
 echo "Copied WIT for module test"
 """
 
-[tasks.build-test-components]
-dependencies = ["build"]
-install_crate = "cargo-binstall"
-description = "Builds llm test components with golem-cli"
-script = '''
-cargo-binstall golem-cli@1.2.5 --locked --no-confirm
-cargo-binstall wac-cli --locked --no-confirm
-cd ../test/llm
-
-golem-cli --version
-golem-cli app clean
-golem-cli app build -b anthropic-debug
-golem-cli app clean
-golem-cli app build -b grok-debug
-golem-cli app clean
-golem-cli app build -b openai-debug
-golem-cli app clean
-golem-cli app build -b openrouter-debug
-golem-cli app clean
-golem-cli app build -b ollama-debug
-'''

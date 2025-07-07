@@ -146,29 +146,3 @@ cp wit/golem-video.wit ../test/video-advanced/wit/deps/golem-video/golem-video.w
 
 echo "Copied WIT for module video"
 """
-
-[tasks.build-test-components]
-dependencies = ["build"]
-install_crate = "cargo-binstall"
-description = "Builds video test components with golem-cli"
-script = '''
-cargo-binstall golem-cli@1.2.5 --locked --no-confirm
-cargo-binstall wac-cli --locked --no-confirm
-cd ../test/video
-
-golem-cli --version
-golem-cli app clean
-golem-cli app build -b veo-debug
-golem-cli app clean
-golem-cli app build -b stability-debug
-golem-cli app clean
-golem-cli app build -b kling-debug
-golem-cli app clean
-golem-cli app build -b runway-debug
-golem-cli app clean
-
-cd ../video-advanced
-golem-cli --version
-golem-cli app clean
-golem-cli app build
-'''
