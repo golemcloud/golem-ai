@@ -1,7 +1,7 @@
 #[allow(static_mut_refs)]
 mod bindings;
 
-use crate::bindings::exports::test::video_advanced_exports::test_video_advanced_api::*;
+use crate::bindings::exports::test::video_exports::test_video_api::*;
 use crate::bindings::golem::video::types;
 use crate::bindings::golem::video::{video_generation, advanced, lip_sync};
 use std::fs;

@@ -10,7 +10,7 @@ components:
   test:video-advanced:
     profiles:
       # DEBUG PROFILES
-      kling:
+      kling-debug:
         files:
           - sourcePath: data/test.png
             targetPath: /data/test.png
@@ -27,23 +27,23 @@ components:
         build:
           - command: cargo component build --no-default-features --features kling
             sources:
-              - components-rust/test-video-advanced/src
-              - components-rust/test-video-advanced/wit-generated
-              - common-rust
+              - src
+              - wit-generated
+              - ../../common-rust
             targets:
-              - target/wasm32-wasip1/debug/test_video_advanced.wasm
-          - command: wac plug --plug ../../target/wasm32-wasip1/debug/golem_video_kling.wasm target/wasm32-wasip1/debug/test_video_advanced.wasm -o target/wasm32-wasip1/debug/test_video_advanced_plugged.wasm
+              - ../../target/wasm32-wasip1/debug/test_video_advanced.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_video_kling.wasm ../../target/wasm32-wasip1/debug/test_video_advanced.wasm -o ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
             sources:
-              - target/wasm32-wasip1/debug/test_video_advanced.wasm
-              - ../../target/wasm32-wasip1/debug/golem_video_kling.wasm
+              - ../../target/wasm32-wasip1/debug/test_video_advanced.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_video_kling.wasm
             targets:
-              - target/wasm32-wasip1/debug/test_video_advanced_plugged.wasm
-        sourceWit: components-rust/test-video-advanced/wit
-        generatedWit: components-rust/test-video-advanced/wit-generated
-        componentWasm: target/wasm32-wasip1/debug/test_video_advanced_plugged.wasm
-        linkedWasm: golem-temp/components/test_video_advanced_kling_debug.wasm
+              - ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_video_kling_debug.wasm
         clean:
-          - components-rust/test-video-advanced/src/bindings.rs
+          - src/bindings.rs
       # RELEASE PROFILES    
       kling-release:
         files:
@@ -62,24 +62,24 @@ components:
         build:
           - command: cargo component build --release --no-default-features --features kling 
             sources:
-              - components-rust/test-video-advanced/src
-              - components-rust/test-video-advanced/wit-generated
-              - common-rust
+              - src
+              - wit-generated
+              - ../../common-rust
             targets:
-              - target/wasm32-wasip1/release/test_video_advanced.wasm
-          - command: wac plug --plug ../../target/wasm32-wasip1/release/golem_video_kling.wasm target/wasm32-wasip1/release/test_video_advanced.wasm -o target/wasm32-wasip1/release/test_video_advanced_plugged.wasm
+              - ../../target/wasm32-wasip1/release/test_video.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_video_kling.wasm ../../target/wasm32-wasip1/release/test_video.wasm -o ../../target/wasm32-wasip1/release/test_video_plugged.wasm
             sources:
-              - target/wasm32-wasip1/release/test_video_advanced.wasm
-              - ../../target/wasm32-wasip1/release/golem_video_kling.wasm
+              - ../../target/wasm32-wasip1/release/test_video.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_video_kling.wasm
             targets:
-              - target/wasm32-wasip1/release/test_video_advanced_plugged.wasm
-        sourceWit: components-rust/test-video-advanced/wit
-        generatedWit: components-rust/test-video-advanced/wit-generated
-        componentWasm: target/wasm32-wasip1/release/test_video_advanced_plugged.wasm
-        linkedWasm: golem-temp/components/test_video_advanced_kling_release.wasm
+              - ../../target/wasm32-wasip1/release/test_video_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_video_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_video_kling_release.wasm
         clean:
-          - components-rust/test-video-advanced/src/bindings.rs
-    defaultProfile: kling
+          - src/bindings.rs
+    defaultProfile: kling-debug
 
 # Example for adding dependencies for Worker to Worker communication:
 # See https://learn.golem.cloud/docs/app-manifest#fields_dependencies for more information

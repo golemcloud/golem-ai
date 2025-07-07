@@ -170,5 +170,5 @@ golem-cli app clean
 cd ../video-advanced
 golem-cli --version
 golem-cli app clean
-golem-cli app Builds
+golem-cli app build
 '''
