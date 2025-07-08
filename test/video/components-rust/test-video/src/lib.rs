@@ -1,9 +1,11 @@
 #[allow(static_mut_refs)]
 mod bindings;
 
+use golem_rust::atomically;
 use crate::bindings::exports::test::video_exports::test_video_api::*;
 use crate::bindings::golem::video::types;
 use crate::bindings::golem::video::video_generation;
+use crate::bindings::test::helper_client::test_helper_client::TestHelperApi;
 use std::fs;
 use std::fs::File;
 use std::io::Read;
@@ -334,6 +336,7 @@ fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> Str
     println!("Waiting 5 seconds for job initialization...");
     thread::sleep(Duration::from_secs(5));
 
+    let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
     let mut round = 0;
 
     // Poll every 9 seconds until completion
@@ -362,11 +365,16 @@ fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> Str
             }
         }
         
-        // Durability test simulation: demonstrate polling continues across rounds
-        // In real durability testing, worker restart would be simulated here
+        // Durability test simulation: simulate a crash during polling, but only first time
+        // After automatic recovery it will continue and finish the request successfully
         if round == 2 {
-            println!("DURABILITY TEST: Simulating potential worker failure point (round {})", round);
-            println!("DURABILITY TEST: Worker continues polling - durability working correctly");
+            atomically(|| {
+                let client = TestHelperApi::new(&name);
+                let answer = client.blocking_inc_and_get();
+                if answer == 1 {
+                    panic!("Simulating crash during durability test")
+                }
+            });
         }
 
         round += 1;

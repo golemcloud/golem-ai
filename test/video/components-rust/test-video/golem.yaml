@@ -213,10 +213,8 @@ components:
           - src/bindings.rs
     defaultProfile: stability-debug
 
-# Example for adding dependencies for Worker to Worker communication:
-# See https://learn.golem.cloud/docs/app-manifest#fields_dependencies for more information
-#
-#dependencies:
-#  test:video:
-#  - target: <target component name to be called>
-#    type: wasm-rpc
+
+dependencies:
+  test:video:
+  - target: test:helper
+    type: wasm-rpc
