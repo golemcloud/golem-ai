@@ -102,7 +102,7 @@ impl AdvancedGuest for VeoComponent {
         prompt: Option<String>,
         negative_prompt: Option<String>,
         cfg_scale: Option<f32>,
-        provider_options: Vec<Kv>,
+        provider_options: Option<Vec<Kv>>,
     ) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -157,6 +157,7 @@ impl AdvancedGuest for VeoComponent {
 
     fn multi_image_generation(
         input_images: Vec<InputImage>,
+        prompt: Option<String>,
         config: GenerationConfig,
     ) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
@@ -165,7 +166,7 @@ impl AdvancedGuest for VeoComponent {
             with_config_key(Self::CLIENT_EMAIL_ENV_VAR, Err, |client_email| {
                 with_config_key(Self::PRIVATE_KEY_ENV_VAR, Err, |private_key| {
                     let client = VeoApi::new(project_id, client_email, private_key);
-                    multi_image_generation(&client, input_images, config)
+                    multi_image_generation(&client, input_images, prompt, config)
                 })
             })
         })

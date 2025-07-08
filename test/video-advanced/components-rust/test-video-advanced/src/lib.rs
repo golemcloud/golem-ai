@@ -9,17 +9,25 @@ use std::fs::File;
 use std::io::Read;
 use std::thread;
 use std::time::Duration;
+use std::sync::Mutex;
+
+static JOB_ID_STORAGE: Mutex<String> = Mutex::new(String::new());
 
 struct Component;
 
 impl Guest for Component {
 
-    /// Test1 - Image to video generation with first role and lastframe (both inline raw bytes)
+    /// Test1 - Image to video generation with first frame and last frame included (both inline images)
     fn test1() -> String {
-        println!("Test1: Image to video with first role and lastframe");
+        println!("Test1: Image to video with first frame and last frame");
         
         // Load test image for both first and last frame
-        let (image_bytes, image_mime_type) = match load_file_bytes("/data/test.png") {
+        let (first_image_bytes, first_image_mime_type) = match load_file_bytes("/data/first.png") {
+            Ok((bytes, mime_type)) => (bytes, mime_type),
+            Err(err) => return format!("ERROR: {}", err),
+        };
+
+        let (last_image_bytes, last_image_mime_type) = match load_file_bytes("/data/last.png") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
@@ -31,7 +39,7 @@ impl Guest for Component {
             scheduler: None,
             guidance_scale: None,
             aspect_ratio: Some(types::AspectRatio::Landscape),
-            model: Some("kling".to_string()),
+            model: None,
             duration_seconds: Some(5.0),
             resolution: Some(types::Resolution::Hd),
             enable_audio: Some(false),
@@ -39,8 +47,8 @@ impl Guest for Component {
             provider_options: None,
             lastframe: Some(types::InputImage {
                 data: types::MediaData::Bytes(types::RawBytes {
-                    bytes: image_bytes.clone(),
-                    mime_type: image_mime_type.clone(),
+                    bytes: last_image_bytes.clone(),
+                    mime_type: last_image_mime_type.clone(),
                 }),
             }),
             static_mask: None,
@@ -52,11 +60,13 @@ impl Guest for Component {
         let media_input = types::MediaInput::Image(types::Reference {
             data: types::InputImage {
                 data: types::MediaData::Bytes(types::RawBytes {
-                    bytes: image_bytes,
-                    mime_type: image_mime_type,
+                    bytes: first_image_bytes,
+                    mime_type: first_image_mime_type,
                 }),
             },
-            prompt: Some("A person walking through a beautiful garden".to_string()),
+            // add first and last images and add it to cargo.toml
+            // Ajay fill this in
+            prompt: Some("Ajay fill this in" .to_string()),
             role: Some(types::ImageRole::First),
         });
 
@@ -69,12 +79,12 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test1")
     }
 
-    /// Test2 - Image to video generation with camera control enum
+    /// Test2 - Image to video generation with advancedcamera control enum
     fn test2() -> String {
-        println!("Test2: Image to video with camera control enum");
+        println!("Test2: Image to video with advancedcamera control enum");
 
         // Load test image
-        let (image_bytes, image_mime_type) = match load_file_bytes("/data/test.png") {
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/cameracontrol.png") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
@@ -86,8 +96,8 @@ impl Guest for Component {
             scheduler: None,
             guidance_scale: Some(7.5),
             aspect_ratio: Some(types::AspectRatio::Cinema),
-            model: Some("kling".to_string()),
-            duration_seconds: Some(8.0),
+            model: None,
+            duration_seconds: Some(5.0),
             resolution: Some(types::Resolution::Fhd),
             enable_audio: Some(false),
             enhance_prompt: Some(true),
@@ -105,7 +115,9 @@ impl Guest for Component {
                     mime_type: image_mime_type,
                 }),
             },
-            prompt: Some("A majestic eagle soaring through mountain peaks".to_string()),
+            // add the image and edit cargo.toml and prompt
+            // Ajay fill this in
+            prompt: Some("Ajay fill this in".to_string()),
             role: None,
         });
 
@@ -125,31 +137,29 @@ impl Guest for Component {
         // Create static mask using URL
         let static_mask = types::StaticMask {
             mask: types::InputImage {
-                data: types::MediaData::Url("https://example.com/mask.png".to_string()),
+                data: types::MediaData::Url("https://h2.inkwai.com/bs2/upload-ylab-stunt/ai_portal/1732888177/cOLNrShrSO/static_mask.png".to_string()),
             },
         };
 
         // Create dynamic mask with trajectory points and URL
         let dynamic_mask = types::DynamicMask {
             mask: types::InputImage {
-                data: types::MediaData::Url("https://example.com/dynamic-mask.png".to_string()),
+                data: types::MediaData::Url("https://h2.inkwai.com/bs2/upload-ylab-stunt/ai_portal/1732888130/WU8spl23dA/dynamic_mask_1.png".to_string()),
             },
             trajectories: vec![
-                types::Position { x: 100, y: 100 },
-                types::Position { x: 150, y: 120 },
-                types::Position { x: 200, y: 150 },
-                types::Position { x: 250, y: 180 },
+                types::Position { x: 279, y: 219 },
+                types::Position { x: 417, y: 65 },
             ],
         };
 
         let config = types::GenerationConfig {
-            negative_prompt: Some("artifacts, distortion".to_string()),
+            negative_prompt: None,
             seed: None,
             scheduler: None,
             guidance_scale: None,
             aspect_ratio: Some(types::AspectRatio::Landscape),
-            model: Some("kling".to_string()),
-            duration_seconds: Some(4.0),
+            model: None,
+            duration_seconds: Some(5.0),
             resolution: Some(types::Resolution::Hd),
             enable_audio: Some(false),
             enhance_prompt: Some(false),
@@ -161,10 +171,12 @@ impl Guest for Component {
         };
 
         let media_input = types::MediaInput::Image(types::Reference {
+
             data: types::InputImage {
-                data: types::MediaData::Url("https://example.com/test-image.png".to_string()),
+                data: types::MediaData::Url("https://h2.inkwai.com/bs2/upload-ylab-stunt/se/ai_portal_queue_mmu_image_upscale_aiweb/3214b798-e1b4-4b00-b7af-72b5b0417420_raw_image_0.jpg".to_string()),
             },
-            prompt: Some("Apply motion effects while preserving masked areas".to_string()),
+
+           prompt: Some("The astronaut stood up and walked away".to_string()),
             role: None,
         });
 
@@ -174,7 +186,8 @@ impl Guest for Component {
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
 
-        // TODO: Store job_id for test9 - in real implementation this would be persisted
+        // Store the job ID in the Mutex
+        *JOB_ID_STORAGE.lock().unwrap() = job_id.clone();
         println!("Job ID for test9: {}", job_id);
         poll_job_until_complete(&job_id, "test3")
     }
@@ -195,12 +208,8 @@ impl Guest for Component {
                         voice.voice_id, voice.name, voice.language
                     ));
                 }
-                
-                if result.len() > 20 {
-                    result
-                } else {
-                    "No voices found".to_string()
-                }
+
+                result
             }
             Err(error) => {
                 format!("ERROR: Failed to list voices: {:?}", error)
@@ -213,7 +222,8 @@ impl Guest for Component {
         println!("Test5: Lip-sync with voice-id");
 
         // Load base video
-        let (video_bytes, video_mime_type) = match load_file_bytes("/data/video.mp4") {
+        // Ajay fill this in, add the video and edit cargo.toml
+        let (video_bytes, video_mime_type) = match load_file_bytes("/data/lipsync.mp4") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading video: {}", err),
         };
@@ -226,6 +236,7 @@ impl Guest for Component {
         };
 
         let text_to_speech = types::TextToSpeech {
+            // Ajay fill this in, edit the text and add proper voice id and speed
             text: "Hello, this is a test of lip-sync functionality".to_string(),
             voice_id: "example_voice_id".to_string(),
             language: types::VoiceLanguage::En,
@@ -248,11 +259,13 @@ impl Guest for Component {
         println!("Test6: Lip-sync with audio file");
 
         // Load base video and audio file
-        let (video_bytes, video_mime_type) = match load_file_bytes("/data/video.mp4") {
+        // Ajay fill this in, add the video and edit cargo.toml
+        let (video_bytes, video_mime_type) = match load_file_bytes("/data/lipsync.mp4") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading video: {}", err),
         };
 
+        // Ajay fill this in, add the audio and edit cargo.toml
         let (audio_bytes, audio_mime_type) = match load_file_bytes("/data/audio.mp3") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading audio: {}", err),
@@ -285,7 +298,8 @@ impl Guest for Component {
     fn test7() -> String {
         println!("Test7: Video effects with single image");
 
-        let (image_bytes, image_mime_type) = match load_file_bytes("/data/test.png") {
+        // Ajay fill this in, add the image and edit cargo.toml
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/single-effect.png") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
@@ -318,6 +332,7 @@ impl Guest for Component {
     fn test8() -> String {
         println!("Test8: Video effects with two images");
 
+        // Ajay fill this in, with values from example
         let input_image = types::InputImage {
             data: types::MediaData::Url("https://example.com/image1.png".to_string()),
         };
@@ -334,6 +349,7 @@ impl Guest for Component {
         let effect = types::EffectType::Dual(dual_effect);
 
         println!("Sending dual image effect request...");
+        // Edit this properly Ajay
         let job_id = match advanced::generate_video_effects(
             &input_image,
             &effect,
@@ -352,25 +368,21 @@ impl Guest for Component {
     fn test9() -> String {
         println!("Test9: Extend video using job-id from test3");
 
-        // In a real scenario, you would use the actual job_id from test3
-        // For this test, we'll use a placeholder that should be replaced with actual job-id
-        let job_id_from_test3 = "test3_job_id_placeholder".to_string();
+        // Retrieve the stored job ID
+        let job_id_from_test3 = JOB_ID_STORAGE.lock().unwrap().clone();
+        if job_id_from_test3.is_empty() {
+            return "ERROR: No job ID stored from test3".to_string();
+        }
 
         println!("Attempting to extend video with job ID: {}", job_id_from_test3);
         
-        let provider_options = vec![
-            types::Kv {
-                key: "extend_duration".to_string(),
-                value: "3.0".to_string(),
-            },
-        ];
-
         match advanced::extend_video(
             &job_id_from_test3,
+            // Ajay fill this in, with values from example
             Some("Continue the motion smoothly"),
             Some("abrupt changes"),
             Some(7.5),
-            &provider_options,
+            None,
         ) {
             Ok(extend_job_id) => {
                 let extend_job_id = extend_job_id.trim().to_string();
@@ -382,11 +394,12 @@ impl Guest for Component {
         }
     }
 
+    // Test 10 - Multi-image generation (2 URLs + 1 inline raw bytes), Supports max of 4 images
     fn test10() -> String {
         println!("Test10: Multi-image generation (2 URLs + 1 inline raw bytes)");
 
         // Load one image as inline bytes  
-        let (image_bytes, image_mime_type) = match load_file_bytes("/data/test.png") {
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/multi-image.jpeg") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
@@ -395,11 +408,11 @@ impl Guest for Component {
         let input_images = vec![
             // First image - URL
             types::InputImage {
-                data: types::MediaData::Url("https://example.com/image1.png".to_string()),
+                data: types::MediaData::Url("https://h2.inkwai.com/bs2/upload-ylab-stunt/se/ai_portal_queue_mmu_image_upscale_aiweb/3214b798-e1b4-4b00-b7af-72b5b0417420_raw_image_0.jpg".to_string()),
             },
             // Second image - URL  
             types::InputImage {
-                data: types::MediaData::Url("https://example.com/image2.png".to_string()),
+                data: types::MediaData::Url("https://p1-kling.klingai.com/kcdn/cdn-kcdn112452/kling-api-document/multi-image-unicorn.jpeg".to_string()),
             },
             // Third image - inline raw bytes
             types::InputImage {
@@ -411,30 +424,27 @@ impl Guest for Component {
         ];
 
         let config = types::GenerationConfig {
-            negative_prompt: Some("inconsistent style, poor quality".to_string()),
+            negative_prompt: None,
             seed: None,
             scheduler: None,
-            guidance_scale: Some(8.0),
+            guidance_scale: None,
             aspect_ratio: Some(types::AspectRatio::Landscape),
-            model: Some("kling".to_string()),
-            duration_seconds: Some(8.0),
+            model: None,
+            duration_seconds: Some(5.0),
             resolution: Some(types::Resolution::Fhd),
             enable_audio: Some(false),
             enhance_prompt: Some(true),
-            provider_options: Some(vec![
-                types::Kv {
-                    key: "transition_style".to_string(),
-                    value: "smooth".to_string(),
-                }
-            ]),
+            provider_options: None,
             lastframe: None,
             static_mask: None,
             dynamic_mask: None,
             camera_control: None,
         };
 
+        let prompt: Option<&str> = Some("A girl riding a unicorn in the forest, cinematic realism style");
+
         println!("Sending multi-image generation request...");
-        let job_id = match advanced::multi_image_generation(&input_images, &config) {
+        let job_id = match advanced::multi_image_generation(&input_images, prompt, &config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate multi-image video: {:?}", error),
         };
@@ -445,6 +455,7 @@ impl Guest for Component {
 
 }
 
+// Helper function to save video result
 fn save_video_result(video_result: &types::VideoResult, test_name: &str) -> String {
     if let Some(videos) = &video_result.videos {
         for (i, video_data) in videos.iter().enumerate() {
@@ -482,6 +493,7 @@ fn save_video_result(video_result: &types::VideoResult, test_name: &str) -> Stri
     }
 }
 
+// Helper function to load file bytes
 fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
     println!("Reading file from: {}", path);
     let mut file = match File::open(path) {
@@ -505,6 +517,7 @@ fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
     }
 }
 
+// Polling function happens here
 fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
     println!("Polling for {} results with job ID: {}", test_name, job_id);
 
@@ -512,7 +525,7 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
     println!("Waiting 5 seconds for job initialization...");
     thread::sleep(Duration::from_secs(5));
 
-    // Poll every 9 seconds until completion
+    // Poll every 20 seconds until completion (Kling generation takes few minutes)
     loop {
         match video_generation::poll(&job_id) {
             Ok(video_result) => {
@@ -538,8 +551,8 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
             }
         }
         
-        // Wait 9 seconds before polling again
-        thread::sleep(Duration::from_secs(9));
+        // Wait 20 seconds before polling again
+        thread::sleep(Duration::from_secs(20));
     }
 }
 

@@ -3,13 +3,8 @@ default_to_workspace = false
 skip_core_tasks = true
 
 [tasks.clean]
-dependencies = ["remove-components"]
 command = "cargo"
 args = ["clean"]
-
-[tasks.remove-components]
-command = "rm"
-args = ["-r", "-f", "components"]
 
 [tasks.unit-tests]
 command = "cargo"
@@ -94,7 +89,6 @@ end
 
 [tasks.build-test-components]
 dependencies = ["build"]
-install_crate = "cargo-binstall"
 description = "Builds all test components with golem-cli"
 script = '''
 cd test/llm

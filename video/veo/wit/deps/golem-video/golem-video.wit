@@ -221,7 +221,7 @@ interface advanced {
     prompt: option<string>,
     negative-prompt: option<string>,
     cfg-scale: option<f32>,
-    provider-options: list<kv>,
+    provider-options: option<list<kv>>,
   ) -> result<string, video-error>;
 
   upscale-video: func(
@@ -238,6 +238,7 @@ interface advanced {
 
   multi-image-generation: func(
     input-images: list<input-image>,
+    prompt: option<string>,
     config: generation-config,
   ) -> result<string, video-error>;
 }

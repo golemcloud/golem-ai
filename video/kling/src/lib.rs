@@ -92,7 +92,7 @@ impl AdvancedGuest for KlingComponent {
         prompt: Option<String>,
         negative_prompt: Option<String>,
         cfg_scale: Option<f32>,
-        provider_options: Vec<Kv>,
+        provider_options: Option<Vec<Kv>>,
     ) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -141,6 +141,7 @@ impl AdvancedGuest for KlingComponent {
 
     fn multi_image_generation(
         input_images: Vec<InputImage>,
+        prompt: Option<String>,
         config: GenerationConfig,
     ) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
@@ -148,7 +149,7 @@ impl AdvancedGuest for KlingComponent {
         with_config_key(Self::ACCESS_KEY_ENV_VAR, Err, |access_key| {
             with_config_key(Self::SECRET_KEY_ENV_VAR, Err, |secret_key| {
                 let client = KlingApi::new(access_key, secret_key);
-                multi_image_generation(&client, input_images, config)
+                multi_image_generation(&client, input_images, prompt, config)
             })
         })
     }

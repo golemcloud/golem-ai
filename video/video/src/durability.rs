@@ -58,7 +58,7 @@ mod passthrough_impl {
             prompt: Option<String>,
             negative_prompt: Option<String>,
             cfg_scale: Option<f32>,
-            provider_options: Vec<Kv>,
+            provider_options: Option<Vec<Kv>>,
         ) -> Result<String, VideoError> {
             Impl::extend_video(
                 video_id,
@@ -85,9 +85,10 @@ mod passthrough_impl {
 
         fn multi_image_generation(
             input_images: Vec<InputImage>,
+            prompt: Option<String>,
             config: GenerationConfig,
         ) -> Result<String, VideoError> {
-            Impl::multi_image_generation(input_images, config)
+            Impl::multi_image_generation(input_images, prompt, config)
         }
     }
 }
@@ -205,7 +206,7 @@ mod durable_impl {
             prompt: Option<String>,
             negative_prompt: Option<String>,
             cfg_scale: Option<f32>,
-            provider_options: Vec<Kv>,
+            provider_options: Option<Vec<Kv>>,
         ) -> Result<String, VideoError> {
             let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
                 "golem_video",
@@ -292,6 +293,7 @@ mod durable_impl {
 
         fn multi_image_generation(
             input_images: Vec<InputImage>,
+            prompt: Option<String>,
             config: GenerationConfig,
         ) -> Result<String, VideoError> {
             let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
@@ -301,11 +303,16 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::multi_image_generation(input_images.clone(), config.clone())
+                    Impl::multi_image_generation(
+                        input_images.clone(),
+                        prompt.clone(),
+                        config.clone(),
+                    )
                 });
                 durability.persist_infallible(
                     MultiImageGenerationInput {
                         input_images,
+                        prompt,
                         config,
                     },
                     result,
@@ -349,7 +356,7 @@ mod durable_impl {
         prompt: Option<String>,
         negative_prompt: Option<String>,
         cfg_scale: Option<f32>,
-        provider_options: Vec<Kv>,
+        provider_options: Option<Vec<Kv>>,
     }
 
     #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
@@ -369,6 +376,7 @@ mod durable_impl {
     #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
     struct MultiImageGenerationInput {
         input_images: Vec<InputImage>,
+        prompt: Option<String>,
         config: GenerationConfig,
     }
 
@@ -538,10 +546,10 @@ mod durable_impl {
                 prompt: Some("extend this video".to_string()),
                 negative_prompt: Some("static".to_string()),
                 cfg_scale: Some(8.0),
-                provider_options: vec![Kv {
+                provider_options: Some(vec![Kv {
                     key: "quality".to_string(),
                     value: "high".to_string(),
-                }],
+                }]),
             };
             roundtrip_test(input);
         }
@@ -609,6 +617,7 @@ mod durable_impl {
                         data: MediaData::Url("https://example.com/image.png".to_string()),
                     },
                 ],
+                prompt: Some("Beautiful prompts".to_string()),
                 config: GenerationConfig {
                     negative_prompt: Some("blurry".to_string()),
                     seed: None,

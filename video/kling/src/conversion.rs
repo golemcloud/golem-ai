@@ -626,15 +626,19 @@ pub fn extend_video(
     prompt: Option<String>,
     negative_prompt: Option<String>,
     cfg_scale: Option<f32>,
-    provider_options: Vec<golem_video::exports::golem::video::types::Kv>,
+    provider_options: Option<Vec<golem_video::exports::golem::video::types::Kv>>,
 ) -> Result<String, VideoError> {
     trace!("Extending video with ID: {video_id}");
 
     // Parse provider options
     let options: HashMap<String, String> = provider_options
-        .iter()
-        .map(|kv| (kv.key.clone(), kv.value.clone()))
-        .collect();
+        .as_ref()
+        .map(|po| {
+            po.iter()
+                .map(|kv| (kv.key.clone(), kv.value.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
 
     // Validate prompt length (max 2500 characters)
     if let Some(ref p) = prompt {
@@ -825,6 +829,7 @@ pub fn generate_video_effects(
 pub fn multi_image_generation(
     client: &KlingApi,
     input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
+    prompt: Option<String>,
     config: GenerationConfig,
 ) -> Result<String, VideoError> {
     // Validate input: 1 to 4 images supported
@@ -873,13 +878,7 @@ pub fn multi_image_generation(
     }
 
     // Build prompt - use the first image's prompt if available, or create a default
-    let prompt = input_images
-        .first()
-        .and({
-            // InputImage doesn't have a prompt field directly, so we'll use a default
-            None::<String>
-        })
-        .unwrap_or_else(|| "Generate a video from these images".to_string());
+    let prompt = prompt.unwrap_or_else(|| "Generate a video from these images".to_string());
 
     // Determine aspect ratio
     let aspect_ratio = determine_aspect_ratio(config.aspect_ratio, config.resolution)?;

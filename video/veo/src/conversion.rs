@@ -531,7 +531,7 @@ pub fn extend_video(
     _prompt: Option<String>,
     _negative_prompt: Option<String>,
     _cfg_scale: Option<f32>,
-    _provider_options: Vec<golem_video::exports::golem::video::types::Kv>,
+    _provider_options: Option<Vec<golem_video::exports::golem::video::types::Kv>>,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video extension is not supported by Veo API".to_string(),
@@ -563,6 +563,7 @@ pub fn generate_video_effects(
 pub fn multi_image_generation(
     _client: &VeoApi,
     _input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
+    _prompt: Option<String>,
     _config: GenerationConfig,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(

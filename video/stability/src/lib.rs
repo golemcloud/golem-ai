@@ -85,7 +85,7 @@ impl AdvancedGuest for StabilityComponent {
         prompt: Option<String>,
         negative_prompt: Option<String>,
         cfg_scale: Option<f32>,
-        provider_options: Vec<Kv>,
+        provider_options: Option<Vec<Kv>>,
     ) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
@@ -125,12 +125,13 @@ impl AdvancedGuest for StabilityComponent {
 
     fn multi_image_generation(
         input_images: Vec<InputImage>,
+        prompt: Option<String>,
         config: GenerationConfig,
     ) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = StabilityApi::new(api_key);
-            multi_image_generation(&client, input_images, config)
+            multi_image_generation(&client, input_images, prompt, config)
         })
     }
 }
