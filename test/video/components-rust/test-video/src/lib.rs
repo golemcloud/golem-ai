@@ -12,6 +12,15 @@ use std::io::Read;
 use std::thread;
 use std::time::Duration;
 
+#[cfg(feature = "stability")]
+const POLLING_SLEEP_SECONDS: u64 = 5;
+#[cfg(feature = "runway")]
+const POLLING_SLEEP_SECONDS: u64 = 5;
+#[cfg(feature = "veo")]
+const POLLING_SLEEP_SECONDS: u64 = 5;
+#[cfg(feature = "kling")]
+const POLLING_SLEEP_SECONDS: u64 = 15;
+
 struct Component;
 
 impl Guest for Component {
@@ -66,7 +75,7 @@ impl Guest for Component {
             seed: None,
             scheduler: None,
             guidance_scale: None,
-            aspect_ratio: None,
+            aspect_ratio: Some(types::AspectRatio::Square),
             model: None,
             duration_seconds: None,
             resolution: None,
@@ -87,8 +96,8 @@ impl Guest for Component {
                     mime_type: image_mime_type,
                 }),
             },
-            prompt: Some("A simple motion effect".to_string()),
-            role: None,  // Role set to 'none' as specified
+            prompt: Some("Video of a snowy night landscape with pine trees, vivid aurora borealis dancing in the sky, gentle snowfall, and a peaceful, photorealistic atmosphere.".to_string()),
+            role: None,  // Role set to 'none' as specified, which is same as 'first'
         });
 
         println!("Sending image-to-video generation request...");
@@ -257,8 +266,6 @@ fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
             println!("Successfully read {} bytes from {}", buffer.len(), path);
             let mime_type = match path.rsplit('.').next() {
                 Some("png") => "image/png".to_string(),
-                Some("mp4") => "video/mp4".to_string(),
-                Some("mp3") => "audio/mpeg".to_string(),
                 _ => "application/octet-stream".to_string(), // Default or unknown
             };
             Ok((buffer, mime_type))
@@ -274,7 +281,7 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
     println!("Waiting 5 seconds for job initialization...");
     thread::sleep(Duration::from_secs(5));
 
-    // Poll every 9 seconds until completion
+    // Poll every POLLING_SLEEP_SECONDS seconds until completion
     loop {
         match video_generation::poll(&job_id) {
             Ok(video_result) => {
@@ -300,8 +307,8 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
             }
         }
         
-        // Wait 9 seconds before polling again
-        thread::sleep(Duration::from_secs(9));
+        // Wait POLLING_SLEEP_SECONDS seconds before polling again
+        thread::sleep(Duration::from_secs(POLLING_SLEEP_SECONDS));
     }
 }
 
@@ -315,7 +322,7 @@ fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> Str
     let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
     let mut round = 0;
 
-    // Poll every 5 seconds until completion
+    // Poll every POLLING_SLEEP_SECONDS seconds until completion
     loop {
         match video_generation::poll(&job_id) {
             Ok(video_result) => {
@@ -355,8 +362,8 @@ fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> Str
 
         round += 1;
         
-        // Wait 9 seconds before polling again
-        thread::sleep(Duration::from_secs(9));
+        // Wait POLLING_SLEEP_SECONDS seconds before polling again
+        thread::sleep(Duration::from_secs(POLLING_SLEEP_SECONDS));
     }
 }
 

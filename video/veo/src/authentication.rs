@@ -60,7 +60,7 @@ fn generate_jwt(
         "scope": scope,
         "aud": "https://oauth2.googleapis.com/token",
         "iat": now,
-        "exp": now + 3600  // Valid for 1 hour
+        "exp": now + 120  // Valid for 2 minutes
     });
 
     // Encode header and payload
