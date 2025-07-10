@@ -12,17 +12,26 @@ components:
       # DEBUG PROFILES
       kling-debug:
         files:
-          - sourcePath: data/test.png
-            targetPath: /data/test.png
+          - sourcePath: ../../data/first.png
+            targetPath: /data/first.png
             permissions: read-only
-          - sourcePath: data/audio.mp3
-            targetPath: /data/audio.mp3
+          - sourcePath: ../../data/last.png
+            targetPath: /data/last.png
             permissions: read-only
-          - sourcePath: data/mask.png
-            targetPath: /data/mask.png
+          - sourcePath: ../../data/cameracontrol.jpeg
+            targetPath: /data/cameracontrol.jpeg
             permissions: read-only
-          - sourcePath: data/video.mp4
-            targetPath: /data/video.mp4
+          - sourcePath: ../../data/single-effect.jpeg
+            targetPath: /data/single-effect.jpeg
+            permissions: read-only
+          - sourcePath: ../../data/multi-image.jpeg
+            targetPath: /data/multi-image.jpeg
+            permissions: read-only
+          - sourcePath: ../../data/audio.wav
+            targetPath: /data/audio.wav
+            permissions: read-only
+          - sourcePath: ../../data/lipsync.mp4
+            targetPath: /data/lipsync.mp4
             permissions: read-only
         build:
           - command: cargo component build --no-default-features --features kling
@@ -47,17 +56,26 @@ components:
       # RELEASE PROFILES    
       kling-release:
         files:
-          - sourcePath: data/test.png
-            targetPath: /data/test.png
+          - sourcePath: ../../data/first.png
+            targetPath: /data/first.png
             permissions: read-only
-          - sourcePath: data/audio.mp3
-            targetPath: /data/audio.mp3
+          - sourcePath: ../../data/last.png
+            targetPath: /data/last.png
             permissions: read-only
-          - sourcePath: data/mask.png
-            targetPath: /data/mask.png
+          - sourcePath: ../../data/cameracontrol.jpeg
+            targetPath: /data/cameracontrol.jpeg
             permissions: read-only
-          - sourcePath: data/video.mp4
-            targetPath: /data/video.mp4
+          - sourcePath: ../../data/single-effect.jpeg
+            targetPath: /data/single-effect.jpeg
+            permissions: read-only
+          - sourcePath: ../../data/multi-image.jpeg
+            targetPath: /data/multi-image.jpeg
+            permissions: read-only
+          - sourcePath: ../../data/audio.wav
+            targetPath: /data/audio.wav
+            permissions: read-only
+          - sourcePath: ../../data/lipsync.mp4
+            targetPath: /data/lipsync.mp4
             permissions: read-only
         build:
           - command: cargo component build --release --no-default-features --features kling 

@@ -16,7 +16,7 @@ path = "wit-generated"
 
 [package.metadata.component.target.dependencies]
 "golem:video" = { path = "wit-generated/deps/golem-video" }
-"test:video-exports" = { path = "wit-generated/deps/test_video-exports" }
+"test:video-advanced-exports" = { path = "wit-generated/deps/test_video-advanced-exports" }
 
 [lib]
 path = "src/lib.rs"

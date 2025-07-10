@@ -1,7 +1,7 @@
 #[allow(static_mut_refs)]
 mod bindings;
 
-use crate::bindings::exports::test::video_exports::test_video_api::*;
+use crate::bindings::exports::test::video_advanced_exports::test_video_api::*;
 use crate::bindings::golem::video::types;
 use crate::bindings::golem::video::{video_generation, advanced, lip_sync};
 use std::fs;
@@ -38,7 +38,7 @@ impl Guest for Component {
             seed: None,
             scheduler: None,
             guidance_scale: None,
-            aspect_ratio: Some(types::AspectRatio::Landscape),
+            aspect_ratio: Some(types::AspectRatio::Square),
             model: None,
             duration_seconds: Some(5.0),
             resolution: Some(types::Resolution::Hd),
@@ -64,9 +64,7 @@ impl Guest for Component {
                     mime_type: first_image_mime_type,
                 }),
             },
-            // add first and last images and add it to cargo.toml
-            // Ajay fill this in
-            prompt: Some("Ajay fill this in" .to_string()),
+            prompt: Some("A close up shot of eagle that slowly zooms into its eyes, and then it zooms out to a headshot of a majestic lion, smooth camera movement" .to_string()),
             role: Some(types::ImageRole::First),
         });
 
@@ -84,7 +82,7 @@ impl Guest for Component {
         println!("Test2: Image to video with advancedcamera control enum");
 
         // Load test image
-        let (image_bytes, image_mime_type) = match load_file_bytes("/data/cameracontrol.png") {
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/cameracontrol.jpeg") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
@@ -95,7 +93,7 @@ impl Guest for Component {
             seed: None,
             scheduler: None,
             guidance_scale: Some(7.5),
-            aspect_ratio: Some(types::AspectRatio::Cinema),
+            aspect_ratio: Some(types::AspectRatio::Square),
             model: None,
             duration_seconds: Some(5.0),
             resolution: Some(types::Resolution::Fhd),
@@ -115,9 +113,7 @@ impl Guest for Component {
                     mime_type: image_mime_type,
                 }),
             },
-            // add the image and edit cargo.toml and prompt
-            // Ajay fill this in
-            prompt: Some("Ajay fill this in".to_string()),
+            prompt: Some("The scally dragon slowly breaths embers and smoke, it eyes glow and spark, the flame make the dragon light up".to_string()),
             role: None,
         });
 
@@ -236,9 +232,8 @@ impl Guest for Component {
         };
 
         let text_to_speech = types::TextToSpeech {
-            // Ajay fill this in, edit the text and add proper voice id and speed
-            text: "Hello, this is a test of lip-sync functionality".to_string(),
-            voice_id: "example_voice_id".to_string(),
+            text: "Hello, this is a test of Lip Sync functionality in golem video".to_string(),
+            voice_id: "genshin_vindi2".to_string(),
             language: types::VoiceLanguage::En,
             speed: 100,
         };
@@ -259,14 +254,12 @@ impl Guest for Component {
         println!("Test6: Lip-sync with audio file");
 
         // Load base video and audio file
-        // Ajay fill this in, add the video and edit cargo.toml
         let (video_bytes, video_mime_type) = match load_file_bytes("/data/lipsync.mp4") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading video: {}", err),
         };
 
-        // Ajay fill this in, add the audio and edit cargo.toml
-        let (audio_bytes, audio_mime_type) = match load_file_bytes("/data/audio.mp3") {
+        let (audio_bytes, audio_mime_type) = match load_file_bytes("/data/audio.wav") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading audio: {}", err),
         };
@@ -294,12 +287,11 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test6")
     }
 
-    /// Test7 - Video effects with single input image (inline raw bytes)
+    /// Test7 - Video effects with single input image (inline raw bytes) amd effect boom
     fn test7() -> String {
         println!("Test7: Video effects with single image");
 
-        // Ajay fill this in, add the image and edit cargo.toml
-        let (image_bytes, image_mime_type) = match load_file_bytes("/data/single-effect.png") {
+        let (image_bytes, image_mime_type) = match load_file_bytes("/data/single-effect.jpeg") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
@@ -311,15 +303,15 @@ impl Guest for Component {
             }),
         };
 
-        let effect = types::EffectType::Single(types::SingleImageEffects::Bloombloom);
+        let effect = types::EffectType::Single(types::SingleImageEffects::Fuzzyfuzzy);
 
         println!("Sending single image effect request...");
         let job_id = match advanced::generate_video_effects(
             &input_image,
             &effect,
-            Some("kling"),
-            Some(3.0),
-            Some("creative")
+            None,
+            None,
+            None,
         ) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video effects: {:?}", error),
@@ -328,17 +320,16 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test7")
     }
 
-    /// Test8 - Video effects with two input images (URLs)
+    /// Test8 - Video effects with two input images (URLs) and effect "hug"
     fn test8() -> String {
         println!("Test8: Video effects with two images");
 
-        // Ajay fill this in, with values from example
         let input_image = types::InputImage {
-            data: types::MediaData::Url("https://example.com/image1.png".to_string()),
+            data: types::MediaData::Url("https://p2-kling.klingai.com/bs2/upload-ylab-stunt/c54e463c95816d959602f1f2541c62b2.png".to_string()),
         };
 
         let second_image = types::InputImage {
-            data: types::MediaData::Url("https://example.com/image2.png".to_string()),
+            data: types::MediaData::Url("https://p2-kling.klingai.com/bs2/upload-ylab-stunt/5eef15e03a70e1fa80732808a2f50f3f.png".to_string()),
         };
 
         let dual_effect = types::DualEffect {
@@ -349,13 +340,12 @@ impl Guest for Component {
         let effect = types::EffectType::Dual(dual_effect);
 
         println!("Sending dual image effect request...");
-        // Edit this properly Ajay
         let job_id = match advanced::generate_video_effects(
             &input_image,
             &effect,
-            Some("kling"),
-            Some(4.0),
-            Some("interaction")
+            None,
+            None,
+            None,
         ) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video effects: {:?}", error),
@@ -365,6 +355,7 @@ impl Guest for Component {
     }
 
     /// Test9 - Extend video using job-id from test3
+    /// Pre-requisite: Test3 must be run first and job-id must be stored in JOB_ID_STORAGE
     fn test9() -> String {
         println!("Test9: Extend video using job-id from test3");
 
@@ -378,10 +369,9 @@ impl Guest for Component {
         
         match advanced::extend_video(
             &job_id_from_test3,
-            // Ajay fill this in, with values from example
-            Some("Continue the motion smoothly"),
-            Some("abrupt changes"),
-            Some(7.5),
+            Some("and the astronaut continues to walk away"),
+            None,
+            None,
             None,
         ) {
             Ok(extend_job_id) => {
@@ -509,6 +499,8 @@ fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
                 Some("png") => "image/png".to_string(),
                 Some("mp4") => "video/mp4".to_string(),
                 Some("mp3") => "audio/mpeg".to_string(),
+                Some("jpeg") => "image/jpeg".to_string(),
+                Some("wav") => "audio/wav".to_string(),
                 _ => "application/octet-stream".to_string(), // Default or unknown
             };
             Ok((buffer, mime_type))
