@@ -27,16 +27,10 @@ impl StabilityComponent {
 impl VideoGenerationGuest for StabilityComponent {
     fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
-        with_config_key(
-            Self::ENV_VAR_NAME,
-            |err| {
-                Err(err)
-            },
-            |api_key| {
-                let client = StabilityApi::new(api_key);
-                generate_video(&client, input, config)
-            },
-        )
+        with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
+            let client = StabilityApi::new(api_key);
+            generate_video(&client, input, config)
+        })
     }
 
     fn poll(job_id: String) -> Result<VideoResult, VideoError> {
@@ -56,16 +50,10 @@ impl VideoGenerationGuest for StabilityComponent {
 impl LipSyncGuest for StabilityComponent {
     fn generate_lip_sync(video: BaseVideo, audio: AudioSource) -> Result<String, VideoError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
-        with_config_key(
-            Self::ENV_VAR_NAME,
-            |err| {
-                Err(err)
-            },
-            |api_key| {
-                let client = StabilityApi::new(api_key);
-                generate_lip_sync_video(&client, video, audio)
-            },
-        )
+        with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
+            let client = StabilityApi::new(api_key);
+            generate_lip_sync_video(&client, video, audio)
+        })
     }
 
     fn list_voices(language: Option<String>) -> Result<Vec<VoiceInfo>, VideoError> {

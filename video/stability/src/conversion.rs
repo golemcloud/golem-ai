@@ -191,11 +191,9 @@ pub fn media_input_to_request(
     config: GenerationConfig,
 ) -> Result<ImageToVideoRequest, VideoError> {
     match input {
-        MediaInput::Text(_) => {
-            Err(internal_error(
-                "Text processing should be handled in generate_video function",
-            ))
-        }
+        MediaInput::Text(_) => Err(internal_error(
+            "Text processing should be handled in generate_video function",
+        )),
         MediaInput::Video(_) => Err(unsupported_feature(
             "Video processing error should be handled in generate_video function",
         )),
@@ -392,7 +390,8 @@ pub fn poll_video_generation(
     }
 }
 
-// Unsupported Features
+// Unsupported features
+
 pub fn cancel_video_generation(_task_id: String) -> Result<String, VideoError> {
     Err(unsupported_feature(
         "Video generation cancellation is not supported by Stability API",

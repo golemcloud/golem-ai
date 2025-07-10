@@ -14,13 +14,6 @@ use std::time::Duration;
 
 struct Component;
 
-///job_id to test stability: 939104de411db613f610b6193259df171e7a5bbd555db55f2310009ad06bfae
-///because stability polling fails
-
-/// kling job_id 767103052582096949
-/// incase
-
-//// google projects/golem-test-463802/locations/us-central1/publishers/google/models/veo-2.0-generate-001/operations/6013adea-df6a-465a-ae73-21dbf73a0b1f
 impl Guest for Component {
     /// test1 demonstrates text-to-video generation with a simple prompt
     fn test1() -> String {
@@ -118,7 +111,7 @@ impl Guest for Component {
             guidance_scale: None,
             aspect_ratio: None,
             model: None,
-            duration_seconds: Some(3.0),
+            duration_seconds: None,
             resolution: None,
             enable_audio: Some(false),
             enhance_prompt: Some(false),
@@ -165,8 +158,8 @@ impl Guest for Component {
             scheduler: None,
             guidance_scale: None,
             aspect_ratio: None,
-            model: Some("veo".to_string()), // VEO only as specified
-            duration_seconds: Some(4.0),
+            model: None,
+            duration_seconds: None,
             resolution: None,
             enable_audio: Some(false),
             enhance_prompt: Some(true),
@@ -199,20 +192,8 @@ impl Guest for Component {
         
         println!("Test5: Video upscale (Runway only)");
         
-        // Load the output from test1 as input video
-        let (video_bytes, video_mime_type) = match load_file_bytes("/output/video-test1-0.mp4") {
-            Ok((bytes, mime_type)) => (bytes, mime_type),
-            Err(_) => {
-                // Fallback message if test1 output not available
-                return "Test5: Runway video upscaling (requires test1 output)".to_string();
-            }
-        };
-
         let base_video = types::BaseVideo {
-            data: types::MediaData::Bytes(types::RawBytes {
-                bytes: video_bytes,
-                mime_type: video_mime_type,
-            }),
+            data: types::MediaData::Url("https://v1-kling.kechuangai.com/kcdn/cdn-kcdn112452/kling-api-document/videos/a-girl-on-unicorn.mp4".to_string()),
         };
 
         println!("Sending video upscale request...");
@@ -334,7 +315,7 @@ fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> Str
     let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
     let mut round = 0;
 
-    // Poll every 9 seconds until completion
+    // Poll every 5 seconds until completion
     loop {
         match video_generation::poll(&job_id) {
             Ok(video_result) => {
@@ -362,7 +343,7 @@ fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> Str
         
         // Durability test simulation: simulate a crash during polling, but only first time
         // After automatic recovery it will continue and finish the request successfully
-        if round == 2 {
+        if round == 1 {
             atomically(|| {
                 let client = TestHelperApi::new(&name);
                 let answer = client.blocking_inc_and_get();

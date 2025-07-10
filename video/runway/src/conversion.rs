@@ -1,8 +1,7 @@
 use crate::client::{
-    ContentModeration, ImageToVideoRequest, PollResponse, PromptImage, RunwayApi,
-    VideoUpscaleRequest,
+    ContentModeration, ImagePollResponse, ImageToVideoRequest, PollResponse, PromptImage,
+    RunwayApi, TextToImageRequest, VideoUpscaleRequest,
 };
-use crate::text_to_image::{ImagePollResponse, TextToImageRequest};
 use golem_video::error::{invalid_input, unsupported_feature};
 use golem_video::exports::golem::video::types::{
     AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
@@ -45,13 +44,8 @@ pub fn media_input_to_request(
                 .map(|po| po.into_iter().map(|kv| (kv.key, kv.value)).collect())
                 .unwrap_or_default();
 
-            // Determine model - default to gen3a_turbo, can be overridden
-            let model = config.model.unwrap_or_else(|| {
-                options
-                    .get("model")
-                    .cloned()
-                    .unwrap_or_else(|| "gen3a_turbo".to_string())
-            });
+            // Determine model - default to gen3a_turbo
+            let model = config.model.unwrap_or_else(|| "gen3a_turbo".to_string());
 
             // Validate model
             if !matches!(model.as_str(), "gen3a_turbo" | "gen4_turbo") {
@@ -62,12 +56,17 @@ pub fn media_input_to_request(
             let ratio = determine_ratio(&model, config.aspect_ratio, config.resolution)?;
 
             // Duration support
-            let duration = config.duration_seconds.map(|d| d as u32);
-            if let Some(dur) = duration {
-                if !(5..=10).contains(&dur) {
-                    return Err(invalid_input("Duration must be between 5 and 10 seconds"));
+            let duration = match config.duration_seconds {
+                Some(d) => {
+                    let dur = d as u32;
+                    if dur < 10 {
+                        Some(5) // Default to 5 if less than 10
+                    } else {
+                        Some(10) // Cap at 10 if 10 or above
+                    }
                 }
-            }
+                None => Some(5), // Default to 5 if no duration provided
+            };
 
             // Content moderation
             let content_moderation = options.get("publicFigureThreshold").map(|threshold| {
@@ -304,95 +303,7 @@ pub fn cancel_video_generation(client: &RunwayApi, task_id: String) -> Result<St
     Ok(format!("Task {task_id} canceled successfully"))
 }
 
-pub fn generate_lip_sync_video(
-    _client: &RunwayApi,
-    _video: golem_video::exports::golem::video::types::BaseVideo,
-    _audio: golem_video::exports::golem::video::types::AudioSource,
-) -> Result<String, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Lip sync is not supported by Runway API".to_string(),
-    ))
-}
-
-pub fn list_available_voices(
-    _client: &RunwayApi,
-    _language: Option<String>,
-) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Voice listing is not supported by Runway API".to_string(),
-    ))
-}
-
-pub fn extend_video(
-    _client: &RunwayApi,
-    _video_id: String,
-    _prompt: Option<String>,
-    _negative_prompt: Option<String>,
-    _cfg_scale: Option<f32>,
-    _provider_options: Option<Vec<golem_video::exports::golem::video::types::Kv>>,
-) -> Result<String, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Video extension is not supported by Runway API".to_string(),
-    ))
-}
-
-pub fn upscale_video(
-    client: &RunwayApi,
-    input: golem_video::exports::golem::video::types::BaseVideo,
-) -> Result<String, VideoError> {
-    // Extract video data from BaseVideo structure
-    let video_uri = match input.data {
-        MediaData::Url(url) => url,
-        MediaData::Bytes(raw_bytes) => {
-            // Convert bytes to data URI for video with proper mime type
-            use base64::Engine;
-            let base64_data = base64::engine::general_purpose::STANDARD.encode(&raw_bytes.bytes);
-            let mime_type = if !raw_bytes.mime_type.is_empty() {
-                &raw_bytes.mime_type
-            } else {
-                "video/mp4"
-            };
-            format!("data:{mime_type};base64,{base64_data}")
-        }
-    };
-
-    let request = VideoUpscaleRequest {
-        video_uri,
-        model: "upscale_v1".to_string(),
-    };
-
-    let response = client.upscale_video(request)?;
-
-    // Return the task ID directly from Runway API
-    Ok(response.id)
-}
-
-pub fn generate_video_effects(
-    _client: &RunwayApi,
-    _input: golem_video::exports::golem::video::types::InputImage,
-    _effect: golem_video::exports::golem::video::types::EffectType,
-    _model: Option<String>,
-    _duration: Option<f32>,
-    _mode: Option<String>,
-) -> Result<String, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Video effects generation is not supported by Runway API".to_string(),
-    ))
-}
-
-pub fn multi_image_generation(
-    _client: &RunwayApi,
-    _input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
-    _prompt: Option<String>,
-    _config: GenerationConfig,
-) -> Result<String, VideoError> {
-    Err(VideoError::UnsupportedFeature(
-        "Multi-image generation is not supported by Runway API".to_string(),
-    ))
-}
-
 // Text-to-Image functions for Runway
-
 pub fn text_to_image_request(
     prompt: String,
     config: &GenerationConfig,
@@ -414,7 +325,7 @@ pub fn text_to_image_request(
     // Content moderation
     let content_moderation = options.get("publicFigureThreshold").map(|threshold| {
         let threshold_value = if threshold == "low" { "low" } else { "auto" };
-        crate::text_to_image::ContentModeration {
+        crate::client::ContentModeration {
             public_figure_threshold: threshold_value.to_string(),
         }
     });
@@ -468,4 +379,100 @@ pub fn poll_text_to_image_generation(
         Ok(ImagePollResponse::Complete { image_url }) => Ok(Some(image_url)),
         Err(error) => Err(error),
     }
+}
+
+pub fn upscale_video(
+    client: &RunwayApi,
+    input: golem_video::exports::golem::video::types::BaseVideo,
+) -> Result<String, VideoError> {
+    let video_uri = match input.data {
+        MediaData::Url(url) => Ok(url),
+        MediaData::Bytes(_) => Err(VideoError::UnsupportedFeature(
+            "Video effects generation is not supported by Runway API".to_string(),
+        )),
+        // Convert bytes to data URI for video with proper mime type
+        // Docs indicate they support bytes, but they aren't clear how
+        // so this goes to unsupported for now
+        // https://docs.dev.runwayml.com/api/#tag/Start-generating/paths/~1v1~1video_upscale/post
+        // https://docs.dev.runwayml.com/assets/inputs/#data-uris-base64-encoded-images
+        // below code results in 400 format error
+        /*
+            use base64::Engine;
+            let base64_data = base64::engine::general_purpose::STANDARD.encode(&raw_bytes.bytes);
+            let mime_type = if !raw_bytes.mime_type.is_empty() {
+                &raw_bytes.mime_type
+            } else {
+                "video/mp4"
+            };
+            format!("data:{mime_type};base64,{base64_data}")
+        */
+    }?;
+
+    let request = VideoUpscaleRequest {
+        video_uri,
+        model: "upscale_v1".to_string(),
+    };
+
+    let response = client.upscale_video(request)?;
+
+    // Return the task ID directly from Runway API
+    Ok(response.id)
+}
+
+// Unsupported features
+
+pub fn generate_video_effects(
+    _client: &RunwayApi,
+    _input: golem_video::exports::golem::video::types::InputImage,
+    _effect: golem_video::exports::golem::video::types::EffectType,
+    _model: Option<String>,
+    _duration: Option<f32>,
+    _mode: Option<String>,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Video effects generation is not supported by Runway API".to_string(),
+    ))
+}
+
+pub fn multi_image_generation(
+    _client: &RunwayApi,
+    _input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
+    _prompt: Option<String>,
+    _config: GenerationConfig,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Multi-image generation is not supported by Runway API".to_string(),
+    ))
+}
+
+pub fn generate_lip_sync_video(
+    _client: &RunwayApi,
+    _video: golem_video::exports::golem::video::types::BaseVideo,
+    _audio: golem_video::exports::golem::video::types::AudioSource,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Lip sync is not supported by Runway API".to_string(),
+    ))
+}
+
+pub fn list_available_voices(
+    _client: &RunwayApi,
+    _language: Option<String>,
+) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Voice listing is not supported by Runway API".to_string(),
+    ))
+}
+
+pub fn extend_video(
+    _client: &RunwayApi,
+    _video_id: String,
+    _prompt: Option<String>,
+    _negative_prompt: Option<String>,
+    _cfg_scale: Option<f32>,
+    _provider_options: Option<Vec<golem_video::exports::golem::video::types::Kv>>,
+) -> Result<String, VideoError> {
+    Err(VideoError::UnsupportedFeature(
+        "Video extension is not supported by Runway API".to_string(),
+    ))
 }
