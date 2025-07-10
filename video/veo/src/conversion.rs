@@ -58,7 +58,9 @@ pub fn media_input_to_request(
     let duration_seconds = match config.duration_seconds {
         Some(d) => {
             let duration = d.round() as u32;
-            if model_id.as_deref() == Some("veo-3.0-generate-preview") || model_id.as_deref() == Some("veo-3.0-fast-generate-preview") {
+            if model_id.as_deref() == Some("veo-3.0-generate-preview")
+                || model_id.as_deref() == Some("veo-3.0-fast-generate-preview")
+            {
                 8 // veo-3.0 only supports 8 seconds
             } else {
                 duration.clamp(5, 8) // veo-2.0 supports 5-8 seconds
