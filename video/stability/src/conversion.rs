@@ -9,6 +9,9 @@ use std::collections::HashMap;
 use std::io::Cursor;
 
 /// Stability API supported dimensions
+/// Stability only accepts these resolutions
+/// We resize the image to the resolution before sending it to the API
+/// Other providers do this at their end
 #[derive(Debug, Clone, Copy)]
 struct StabilityDimensions {
     width: u32,
@@ -30,7 +33,7 @@ impl StabilityDimensions {
     }; // 1:1
 }
 
-/// Determines target dimensions based on aspect ratio configuration
+/// Helper function to determine target dimensions based on aspect ratio configuration
 fn determine_target_dimensions(aspect_ratio: Option<AspectRatio>) -> StabilityDimensions {
     match aspect_ratio {
         Some(AspectRatio::Square) => StabilityDimensions::SQUARE,
@@ -45,7 +48,7 @@ fn determine_target_dimensions(aspect_ratio: Option<AspectRatio>) -> StabilityDi
     }
 }
 
-/// Process image data to meet Stability's dimension requirements
+/// Helper function to process image data to meet Stability's dimension requirements
 fn process_image_for_stability(
     image_data: &[u8],
     target_dims: StabilityDimensions,
@@ -113,7 +116,7 @@ fn process_image_for_stability(
     Ok(output)
 }
 
-/// Maps WIT aspect ratio to Stability text-to-image API format
+/// Helper function to map WIT aspect ratio to Stability text-to-image API format
 fn map_aspect_ratio_to_stability_t2i(aspect_ratio: Option<AspectRatio>) -> Option<String> {
     match aspect_ratio {
         Some(AspectRatio::Square) => Some("1:1".to_string()),
@@ -182,20 +185,19 @@ fn generate_image_from_text(
     }
 }
 
+// Make request for video generation
 pub fn media_input_to_request(
     input: MediaInput,
     config: GenerationConfig,
 ) -> Result<ImageToVideoRequest, VideoError> {
     match input {
         MediaInput::Text(_) => {
-            // Text-to-video conversion is handled in generate_video function
-            // where the client is available
             Err(internal_error(
                 "Text processing should be handled in generate_video function",
             ))
         }
         MediaInput::Video(_) => Err(unsupported_feature(
-            "Video-to-video is not supported by Stability API",
+            "Video processing error should be handled in generate_video function",
         )),
         MediaInput::Image(ref_image) => {
             // Determine target dimensions based on aspect ratio config
@@ -214,9 +216,7 @@ pub fn media_input_to_request(
                 }
             };
 
-            // Note: Stability doesn't support prompts with images, so we ignore ref_image.prompt
-
-            // Log warnings for unsupported image role feature
+            // Note: Stability doesn't support prompts with images and image roles, so we ignore prompt and role
             if ref_image.role.is_some() {
                 log::warn!("image role positioning (first/last) is not supported by Stability API and will be ignored");
             }
@@ -311,6 +311,7 @@ pub fn media_input_to_request(
     }
 }
 
+// Generate video from text or image, text->image->video, from video is unsupported
 pub fn generate_video(
     client: &StabilityApi,
     input: MediaInput,
@@ -356,6 +357,7 @@ pub fn generate_video(
     }
 }
 
+// Poll for video generation status
 pub fn poll_video_generation(
     client: &StabilityApi,
     task_id: String,
@@ -390,6 +392,7 @@ pub fn poll_video_generation(
     }
 }
 
+// Unsupported Features
 pub fn cancel_video_generation(_task_id: String) -> Result<String, VideoError> {
     Err(unsupported_feature(
         "Video generation cancellation is not supported by Stability API",

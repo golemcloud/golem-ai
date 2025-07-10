@@ -8,7 +8,62 @@ const BASE_URL: &str = "https://api.stability.ai";
 const ACCEPT_HEADER_VIDEO: &str = "video/*";
 const ACCEPT_HEADER_IMAGE: &str = "image/*";
 
+#[derive(Debug, Clone)]
+pub struct ImageToVideoRequest {
+    pub image_data: Vec<u8>,
+    pub seed: Option<u64>,
+    pub cfg_scale: Option<f32>,
+    pub motion_bucket_id: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenerationResponse {
+    pub id: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum PollResponse {
+    Processing,
+    Complete {
+        video_data: Vec<u8>,
+        mime_type: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error: ErrorDetails,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorDetails {
+    pub message: String,
+    #[serde(rename = "type")]
+    pub error_type: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct TextToImageRequest {
+    pub prompt: String,
+    pub aspect_ratio: Option<String>,
+    pub negative_prompt: Option<String>,
+    pub seed: Option<u64>,
+    pub style_preset: Option<String>,
+    pub output_format: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct TextToImageResponse {
+    pub image_data: Vec<u8>,
+    pub seed: Option<String>,
+    pub finish_reason: Option<String>,
+}
+
 /// The Stability API client for image-to-video generation
+/// The Accept header in reqwest can only be set in initial client creation
+/// Trying to set it during call causes it to add the new header and */*,
+/// Two clients, one for polling with video/* and one for image/* (Part of text->image->video),
+/// Issue:https://github.com/seanmonstar/reqwest/issues/2279
 pub struct StabilityApi {
     api_key: String,
     client: Client,
@@ -46,6 +101,11 @@ impl StabilityApi {
         }
     }
 
+    // Stability API only supports image-to-video generation
+    // We use their text-to-image API to generate the image
+    // and then use the image-to-video API to generate the video
+
+    // Generate video from image
     pub fn generate_video(
         &self,
         request: ImageToVideoRequest,
@@ -53,6 +113,8 @@ impl StabilityApi {
         trace!("Sending image-to-video request to Stability API");
 
         // Manually construct multipart/form-data body
+        // multipart is not supported golem reqwest, rand WASM conflict
+        // so we create it manually
         let boundary = generate_boundary();
         let body = build_multipart_body(&request, &boundary);
 
@@ -71,6 +133,7 @@ impl StabilityApi {
         parse_response(response)
     }
 
+    // Poll for video generation status
     pub fn poll_generation(&self, generation_id: &str) -> Result<PollResponse, VideoError> {
         trace!("Polling generation status for ID: {generation_id}");
 
@@ -117,6 +180,7 @@ impl StabilityApi {
         }
     }
 
+    // Generate image from text as part of text->image->video
     pub fn generate_text_to_image(
         &self,
         request: TextToImageRequest,
@@ -183,60 +247,7 @@ impl StabilityApi {
     }
 }
 
-#[derive(Debug, Clone)]
-// aspect ratio and resolution are supported directly by input image dimensions
-// aspect ratio: 1:1, 16:9, 9:16
-// resolution: 1024x576, 576x1024, 768x768
-pub struct ImageToVideoRequest {
-    pub image_data: Vec<u8>,
-    pub seed: Option<u64>,
-    pub cfg_scale: Option<f32>,
-    pub motion_bucket_id: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GenerationResponse {
-    pub id: String,
-}
-
-#[derive(Debug, Clone)]
-pub enum PollResponse {
-    Processing,
-    Complete {
-        video_data: Vec<u8>,
-        mime_type: String,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ErrorResponse {
-    pub error: ErrorDetails,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ErrorDetails {
-    pub message: String,
-    #[serde(rename = "type")]
-    pub error_type: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct TextToImageRequest {
-    pub prompt: String,
-    pub aspect_ratio: Option<String>,
-    pub negative_prompt: Option<String>,
-    pub seed: Option<u64>,
-    pub style_preset: Option<String>,
-    pub output_format: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct TextToImageResponse {
-    pub image_data: Vec<u8>,
-    pub seed: Option<String>,
-    pub finish_reason: Option<String>,
-}
-
+// Helper functions
 fn generate_boundary() -> String {
     // Generate a simple boundary using a timestamp-based approach
     // Since we can't use rand in WASM, we'll use a deterministic approach
@@ -288,27 +299,6 @@ fn build_multipart_body(request: &ImageToVideoRequest, boundary: &str) -> Vec<u8
     body
 }
 
-fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {
-    let status = response.status();
-    if status.is_success() {
-        response
-            .json::<T>()
-            .map_err(|err| from_reqwest_error("Failed to decode response body", err))
-    } else {
-        let error_body = response
-            .text()
-            .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
-
-        let error_message =
-            if let Ok(error_response) = serde_json::from_str::<ErrorResponse>(&error_body) {
-                error_response.error.message
-            } else {
-                format!("Request failed with {status}: {error_body}")
-            };
-
-        Err(video_error_from_status(status, error_message))
-    }
-}
 fn build_text_to_image_multipart_body(request: &TextToImageRequest, boundary: &str) -> Vec<u8> {
     let mut body = Vec::new();
 
@@ -360,4 +350,26 @@ fn build_text_to_image_multipart_body(request: &TextToImageRequest, boundary: &s
     body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
 
     body
+}
+
+fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {
+    let status = response.status();
+    if status.is_success() {
+        response
+            .json::<T>()
+            .map_err(|err| from_reqwest_error("Failed to decode response body", err))
+    } else {
+        let error_body = response
+            .text()
+            .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
+
+        let error_message =
+            if let Ok(error_response) = serde_json::from_str::<ErrorResponse>(&error_body) {
+                error_response.error.message
+            } else {
+                format!("Request failed with {status}: {error_body}")
+            };
+
+        Err(video_error_from_status(status, error_message))
+    }
 }

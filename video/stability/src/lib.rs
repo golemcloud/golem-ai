@@ -30,7 +30,6 @@ impl VideoGenerationGuest for StabilityComponent {
         with_config_key(
             Self::ENV_VAR_NAME,
             |err| {
-                // Return the error from the config lookup
                 Err(err)
             },
             |api_key| {
@@ -60,7 +59,6 @@ impl LipSyncGuest for StabilityComponent {
         with_config_key(
             Self::ENV_VAR_NAME,
             |err| {
-                // Return the error from the config lookup
                 Err(err)
             },
             |api_key| {
