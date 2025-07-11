@@ -5,8 +5,8 @@ use crate::client::{
 };
 use golem_video::error::invalid_input;
 use golem_video::exports::golem::video::types::{
-    AspectRatio, AudioSource, CameraControl, CameraMovement, GenerationConfig, ImageRole,
-    JobStatus, MediaData, MediaInput, Resolution, Video, VideoError, VideoResult,
+    AspectRatio, AudioSource, CameraControl, CameraMovement, GenerationConfig, JobStatus,
+    MediaData, MediaInput, Resolution, Video, VideoError, VideoResult,
 };
 use log::trace;
 use std::collections::HashMap;
@@ -108,31 +108,17 @@ pub fn media_input_to_request(
             Ok((Some(request), None))
         }
         MediaInput::Image(ref_image) => {
-            // Handle role and lastframe logic
-            let image_role = ref_image.role.as_ref();
+            // Extract image data from InputImage structure - always use as start frame
+            let image_data = {
+                let result = convert_media_data_to_string(&ref_image.data.data);
+                result?
+            };
 
-            // Check for conflict: both role=last and lastframe provided
-            if matches!(image_role, Some(ImageRole::Last)) && config.lastframe.is_some() {
-                log::warn!("Both image role=last and lastframe provided. Using lastframe only as specified.");
-            }
-
-            // Extract image data from InputImage structure
-            let image_data = convert_media_data_to_string(&ref_image.data.data)?;
-
-            // Handle lastframe - either from role=last or explicit lastframe
-            let image_tail = if matches!(image_role, Some(ImageRole::Last)) {
-                Some(image_data.clone())
-            } else if let Some(ref lastframe) = config.lastframe {
+            // Handle lastframe as image_tail if provided
+            let image_tail = if let Some(ref lastframe) = config.lastframe {
                 Some(convert_media_data_to_string(&lastframe.data)?)
             } else {
                 None
-            };
-
-            // Set image based on role - if role=last, use None for main image, otherwise use the image
-            let main_image = if matches!(image_role, Some(ImageRole::Last)) {
-                None
-            } else {
-                Some(image_data)
             };
 
             // Static mask support
@@ -149,7 +135,7 @@ pub fn media_input_to_request(
                 .map(convert_dynamic_mask)
                 .transpose()?;
 
-            // Validate API constraints: image+image_tail, dynamic_masks/static_mask, and camera_control cannot be used together
+            // Validate API constraints: image_tail, dynamic_masks/static_mask, and camera_control cannot be used together
             let has_image_tail = image_tail.is_some();
             let has_masks = static_mask.is_some() || dynamic_masks.is_some();
             let has_camera_control = camera_control.is_some();
@@ -170,13 +156,6 @@ pub fn media_input_to_request(
                 ));
             }
 
-            // Validate that at least one image (image or image_tail) is provided
-            if main_image.is_none() && image_tail.is_none() {
-                return Err(invalid_input(
-                    "At least one of image or image_tail must be provided",
-                ));
-            }
-
             // Use prompt from the reference image, or default
             let prompt = ref_image
                 .prompt
@@ -191,7 +170,7 @@ pub fn media_input_to_request(
                 mode,
                 aspect_ratio: Some(aspect_ratio),
                 duration,
-                image: main_image,
+                image: image_data,
                 image_tail,
                 static_mask,
                 dynamic_masks,
@@ -455,18 +434,23 @@ pub fn poll_video_generation(
     client: &KlingApi,
     task_id: String,
 ) -> Result<VideoResult, VideoError> {
+    trace!("Polling video generation for task ID: {task_id}");
+
     match client.poll_generation(&task_id) {
-        Ok(PollResponse::Processing) => Ok(VideoResult {
-            status: JobStatus::Running,
-            videos: None,
-            metadata: None,
-        }),
+        Ok(PollResponse::Processing) => {
+            log::info!("Task {task_id} is still processing");
+            Ok(VideoResult {
+                status: JobStatus::Running,
+                videos: None,
+                metadata: None,
+            })
+        }
         Ok(PollResponse::Complete {
             video_data,
             mime_type,
             duration,
         }) => {
-            // Parse duration to extract seconds if possible
+            log::info!("Task {task_id} completed successfully");
             let duration_seconds = parse_duration_string(&duration);
 
             let video = Video {
@@ -485,7 +469,10 @@ pub fn poll_video_generation(
                 metadata: None,
             })
         }
-        Err(error) => Err(error),
+        Err(error) => {
+            log::error!("Task {task_id} failed: {error:?}");
+            Err(error)
+        }
     }
 }
 

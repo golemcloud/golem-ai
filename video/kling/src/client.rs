@@ -71,6 +71,7 @@ impl KlingApi {
             .send()
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
+        trace!("Received response status: {}", response.status());
         parse_response(response)
     }
 
@@ -115,9 +116,7 @@ impl KlingApi {
         let status = response.status();
 
         if status.is_success() {
-            let task_response: TaskResponse = response
-                .json()
-                .map_err(|err| from_reqwest_error("Failed to parse task response", err))?;
+            let task_response: TaskResponse = parse_response(response)?;
 
             if task_response.code != 0 {
                 return Err(VideoError::GenerationFailed(format!(
@@ -127,7 +126,10 @@ impl KlingApi {
             }
 
             match task_response.data.task_status.as_str() {
-                "submitted" | "processing" => Ok(PollResponse::Processing),
+                "submitted" | "processing" => {
+                    trace!("Task {task_id} is still processing");
+                    Ok(PollResponse::Processing)
+                }
                 "succeed" => {
                     if let Some(task_result) = task_response.data.task_result {
                         if let Some(videos) = task_result.videos {
@@ -298,10 +300,9 @@ pub struct ImageToVideoRequest {
     pub aspect_ratio: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration: Option<String>,
+    pub image: String, // Base64 encoded image or URL (start frame)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub image: Option<String>, // Base64 encoded image or URL
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub image_tail: Option<String>, // Base64 encoded image or URL
+    pub image_tail: Option<String>, // Base64 encoded image or URL (end frame)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub static_mask: Option<String>, // Base64 encoded image or URL
     #[serde(skip_serializing_if = "Option::is_none")]

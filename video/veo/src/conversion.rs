@@ -158,7 +158,7 @@ pub fn media_input_to_request(
             };
 
             // Use a default prompt for video-to-video since BaseVideo doesn't have a prompt field
-            let prompt = "Generate a video from this video".to_string();
+            let prompt = "Extend this video".to_string();
 
             let instances = vec![ImageToVideoInstance {
                 prompt,

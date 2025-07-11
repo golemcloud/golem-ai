@@ -12,14 +12,7 @@ use std::io::Read;
 use std::thread;
 use std::time::Duration;
 
-#[cfg(feature = "stability")]
 const POLLING_SLEEP_SECONDS: u64 = 5;
-#[cfg(feature = "runway")]
-const POLLING_SLEEP_SECONDS: u64 = 5;
-#[cfg(feature = "veo")]
-const POLLING_SLEEP_SECONDS: u64 = 5;
-#[cfg(feature = "kling")]
-const POLLING_SLEEP_SECONDS: u64 = 15;
 
 struct Component;
 
@@ -27,7 +20,7 @@ impl Guest for Component {
     /// test1 demonstrates text-to-video generation with a simple prompt
     fn test1() -> String {
         println!("Test1: Text to video generation");
-
+        
         // Create video generation configuration
         let config = types::GenerationConfig {
             negative_prompt: None,
@@ -55,6 +48,8 @@ impl Guest for Component {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
+
+        //let job_id = "772257888470433884";
 
         poll_job_until_complete(&job_id, "test1")
     }
@@ -321,7 +316,7 @@ fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> Str
 
     let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
     let mut round = 0;
-
+   
     // Poll every POLLING_SLEEP_SECONDS seconds until completion
     loop {
         match video_generation::poll(&job_id) {
@@ -362,6 +357,7 @@ fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> Str
 
         round += 1;
         
+        println!("Sleeping for {} seconds", POLLING_SLEEP_SECONDS);
         // Wait POLLING_SLEEP_SECONDS seconds before polling again
         thread::sleep(Duration::from_secs(POLLING_SLEEP_SECONDS));
     }
