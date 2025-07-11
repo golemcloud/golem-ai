@@ -4,154 +4,45 @@ skip_core_tasks = true
 
 [tasks.build]
 run_task = { name = [
-    "build-anthropic",
-    "build-grok",
-    "build-openai",
-    "build-openrouter",
-    "build-ollama",
+    "build-algolia",
 ] }
 
 [tasks.build-portable]
 run_task = { name = [
-    "build-anthropic-portable",
-    "build-grok-portable",
-    "build-openai-portable",
-    "build-openrouter-portable",
-    "build-ollama-portable",
+    "build-algolia-portable",
 ] }
 
 [tasks.release-build]
 run_task = { name = [
-    "release-build-anthropic",
-    "release-build-grok",
-    "release-build-openai",
-    "release-build-openrouter",
-    "release-build-ollama",
+    "release-build-algolia",
 ] }
 
 [tasks.release-build-portable]
 run_task = { name = [
-    "release-build-anthropic-portable",
-    "release-build-grok-portable",
-    "release-build-openai-portable",
-    "release-build-openrouter-portable",
-    "release-build-ollama-portable",
+    "release-build-algolia-portable",
 ] }
 
-[tasks.build-ollama]
+[tasks.build-algolia]
 install_crate = { crate_name = "cargo-component", version = "0.20.0" }
 command = "cargo-component"
-args = ["build", "-p", "golem-llm-ollama"]
+args = ["build", "-p", "golem-search-algolia"]
 
 
-[tasks.build-ollama-portable]
+[tasks.build-algolia-portable]
 install_crate = { crate_name = "cargo-component", version = "0.20.0" }
 command = "cargo-component"
-args = ["build", "-p", "golem-llm-ollama", "--no-default-features"]
+args = ["build", "-p", "golem-search-algolia", "--no-default-features"]
 
 
-[tasks.build-anthropic]
+[tasks.release-build-algolia]
 install_crate = { crate_name = "cargo-component", version = "0.20.0" }
 command = "cargo-component"
-args = ["build", "-p", "golem-llm-anthropic"]
+args = ["build", "-p", "golem-search-algolia", "--release"]
 
-[tasks.build-anthropic-portable]
+[tasks.release-build-algolia-portable]
 install_crate = { crate_name = "cargo-component", version = "0.20.0" }
 command = "cargo-component"
-args = ["build", "-p", "golem-llm-anthropic", "--no-default-features"]
-
-[tasks.build-grok]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-grok"]
-
-[tasks.build-grok-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-grok", "--no-default-features"]
-
-[tasks.build-openai]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-openai"]
-
-[tasks.build-openai-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-openai", "--no-default-features"]
-
-[tasks.build-openrouter]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-openrouter"]
-
-[tasks.build-openrouter-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-openrouter", "--no-default-features"]
-
-[tasks.release-build-ollama]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-ollama", "--release"]
-
-[tasks.release-build-ollama-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-ollama", "--release", "--no-default-features"]
-
-
-[tasks.release-build-anthropic]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-anthropic", "--release"]
-
-[tasks.release-build-anthropic-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = [
-    "build",
-    "-p",
-    "golem-llm-anthropic",
-    "--release",
-    "--no-default-features",
-]
-
-[tasks.release-build-grok]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-grok", "--release"]
-
-[tasks.release-build-grok-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-grok", "--release", "--no-default-features"]
-
-[tasks.release-build-openai]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-openai", "--release"]
-
-[tasks.release-build-openai-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-openai", "--release", "--no-default-features"]
-
-[tasks.release-build-openrouter]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-llm-openrouter", "--release"]
-
-[tasks.release-build-openrouter-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = [
-    "build",
-    "-p",
-    "golem-llm-openrouter",
-    "--release",
-    "--no-default-features",
-]
+args = ["build", "-p", "golem-search-algolia", "--release", "--no-default-features"]
 
 [tasks.wit-update]
 install_crate = { crate_name = "wit-deps-cli" }
@@ -163,22 +54,22 @@ dependencies = ["wit-update"]
 
 script_runner = "@duckscript"
 script = """
-modules = array llm openai anthropic grok openrouter ollama
+modules = array search algolia
 
 for module in ${modules}
     rm -r ${module}/wit/deps
-    mkdir ${module}/wit/deps/golem-llm
-    cp wit/golem-llm.wit ${module}/wit/deps/golem-llm/golem-llm.wit
+    mkdir ${module}/wit/deps/golem-search
+    cp wit/golem-search.wit ${module}/wit/deps/golem-search/golem-search.wit
     cp wit/deps/wasi:io ${module}/wit/deps
 
-    echo "Copied WIT for module llm::${module}"
+    echo "Copied WIT for module search::${module}"
 end
 
 # Copy WIT files for integration tests
 rm -r ../test/wit
-mkdir ../test/wit/deps/golem-llm
+mkdir ../test/wit/deps/golem-search
 mkdir ../test/wit/deps/io
-cp wit/golem-llm.wit ../test/wit/deps/golem-llm/golem-llm.wit
+cp wit/golem-search.wit ../test/wit/deps/golem-search/golem-search.wit
 cp wit/deps/wasi:io/error.wit ../test/wit/deps/io/error.wit
 cp wit/deps/wasi:io/poll.wit ../test/wit/deps/io/poll.wit
 cp wit/deps/wasi:io/streams.wit ../test/wit/deps/io/streams.wit
@@ -190,7 +81,7 @@ echo "Copied WIT for module test"
 [tasks.build-test-components]
 dependencies = ["build"]
 install_crate = "cargo-binstall"
-description = "Builds llm test components with golem-cli"
+description = "Builds search test components with golem-cli"
 script = '''
 cargo-binstall golem-cli@1.2.2-dev.11 --locked --no-confirm
 cargo-binstall wac-cli --locked --no-confirm
@@ -198,13 +89,5 @@ cd ../test
 
 golem-cli --version
 golem-cli app clean
-golem-cli app build -b anthropic-debug
-golem-cli app clean
-golem-cli app build -b grok-debug
-golem-cli app clean
-golem-cli app build -b openai-debug
-golem-cli app clean
-golem-cli app build -b openrouter-debug
-golem-cli app clean
-golem-cli app build -b ollama-debug
+golem-cli app build -b algolia-debug
 '''

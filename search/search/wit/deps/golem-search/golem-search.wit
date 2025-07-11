@@ -4,12 +4,13 @@ package golem:search@1.0.0;
 interface types {
   /// Common structured errors for search operations
   variant search-error {
-    index-not-found,
+   index-not-found(string),
     invalid-query(string),
     unsupported,
     internal(string),
-    timeout,
-    rate-limited,
+    timeout(string),
+    rate-limited(string),
+    authentication-failed(u16),
   }
 
   /// Identifier types
@@ -111,7 +112,7 @@ interface core {
   // Index lifecycle
   create-index: func(name: index-name, schema: option<schema>) -> result<_, search-error>;
   delete-index: func(name: index-name) -> result<_, search-error>;
-  list-indexes: func() -> result<list<index-name>, search-error>;
+  list-indexes: func(hitsPerPage: option<u16>, page: option<u16>) -> result<list<index-name>, search-error>;
 
   // Document operations
   upsert: func(index: index-name, doc: doc) -> result<_, search-error>;
@@ -131,6 +132,5 @@ interface core {
 
 
 world search-library {
-    export types;
     export core;
 }

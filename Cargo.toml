@@ -7,7 +7,7 @@ members = [
     "llm/grok",
     "llm/ollama",
     "llm/openai",
-    "llm/openrouter", "search/search",
+    "llm/openrouter", "search/search", "search/algolia",
 ]
 
 [profile.release]
