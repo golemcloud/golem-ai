@@ -509,7 +509,7 @@ pub fn cancel_video_generation(
 
 pub fn generate_lip_sync_video(
     _client: &VeoApi,
-    _video: golem_video::exports::golem::video::types::BaseVideo,
+    _video: golem_video::exports::golem::video::types::LipSyncVideo,
     _audio: golem_video::exports::golem::video::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(

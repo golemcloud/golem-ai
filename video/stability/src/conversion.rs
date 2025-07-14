@@ -399,7 +399,7 @@ pub fn cancel_video_generation(_task_id: String) -> Result<String, VideoError> {
 
 pub fn generate_lip_sync_video(
     _client: &StabilityApi,
-    _video: golem_video::exports::golem::video::types::BaseVideo,
+    _video: golem_video::exports::golem::video::types::LipSyncVideo,
     _audio: golem_video::exports::golem::video::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(

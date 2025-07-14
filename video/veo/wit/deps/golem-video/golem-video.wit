@@ -192,6 +192,11 @@ interface types {
     single(single-image-effects),
     dual(dual-effect),
   }
+
+  variant lip-sync-video {
+    video(base-video),
+    video-id(string),
+  }
 }
 
 interface video-generation {
@@ -203,10 +208,10 @@ interface video-generation {
 }
 
 interface lip-sync {
-  use types.{base-video, audio-source, video-error, voice-info};
+  use types.{base-video, audio-source, video-error, voice-info, lip-sync-video};
 
   generate-lip-sync: func(
-    video: base-video,
+    video: lip-sync-video,
     audio: audio-source,
   ) -> result<string, video-error>;
 

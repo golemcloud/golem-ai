@@ -2,8 +2,8 @@ use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
 use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
 #[allow(unused_imports)]
 use crate::exports::golem::video::types::{
-    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, MediaInput, VideoError,
-    VideoResult, VoiceInfo,
+    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo, MediaInput,
+    VideoError, VideoResult, VoiceInfo,
 };
 use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
 use std::marker::PhantomData;
@@ -23,8 +23,8 @@ mod passthrough_impl {
     use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
     use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
     use crate::exports::golem::video::types::{
-        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, MediaInput,
-        VideoError, VideoResult, VoiceInfo,
+        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo,
+        MediaInput, VideoError, VideoResult, VoiceInfo,
     };
     use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
 
@@ -43,7 +43,10 @@ mod passthrough_impl {
     }
 
     impl<Impl: ExtendedGuest> LipSyncGuest for DurableVideo<Impl> {
-        fn generate_lip_sync(video: BaseVideo, audio: AudioSource) -> Result<String, VideoError> {
+        fn generate_lip_sync(
+            video: LipSyncVideo,
+            audio: AudioSource,
+        ) -> Result<String, VideoError> {
             Impl::generate_lip_sync(video, audio)
         }
 
@@ -107,8 +110,8 @@ mod durable_impl {
     use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
     use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
     use crate::exports::golem::video::types::{
-        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, MediaInput,
-        VideoError, VideoResult, VoiceInfo,
+        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo,
+        MediaInput, VideoError, VideoResult, VoiceInfo,
     };
     use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
@@ -167,7 +170,10 @@ mod durable_impl {
     }
 
     impl<Impl: ExtendedGuest> LipSyncGuest for DurableVideo<Impl> {
-        fn generate_lip_sync(video: BaseVideo, audio: AudioSource) -> Result<String, VideoError> {
+        fn generate_lip_sync(
+            video: LipSyncVideo,
+            audio: AudioSource,
+        ) -> Result<String, VideoError> {
             let durability = Durability::<Result<String, VideoError>, UnusedError>::new(
                 "golem_video",
                 "generate_lip_sync",
@@ -341,7 +347,7 @@ mod durable_impl {
 
     #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
     struct GenerateLipSyncInput {
-        video: BaseVideo,
+        video: LipSyncVideo,
         audio: AudioSource,
     }
 
@@ -398,8 +404,8 @@ mod durable_impl {
         };
         use crate::exports::golem::video::types::{
             AspectRatio, AudioSource, BaseVideo, DualEffect, DualImageEffects, EffectType,
-            GenerationConfig, InputImage, Kv, MediaData, MediaInput, Narration, RawBytes,
-            Reference, Resolution, SingleImageEffects, TextToSpeech,
+            GenerationConfig, InputImage, Kv, LipSyncVideo, MediaData, MediaInput, Narration,
+            RawBytes, Reference, Resolution, SingleImageEffects, TextToSpeech,
         };
         use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
         use std::fmt::Debug;
@@ -493,12 +499,12 @@ mod durable_impl {
         #[test]
         fn generate_lip_sync_input_roundtrip() {
             let input = GenerateLipSyncInput {
-                video: BaseVideo {
+                video: LipSyncVideo::Video(BaseVideo {
                     data: MediaData::Bytes(RawBytes {
                         bytes: vec![0, 1, 2, 3, 4, 5],
                         mime_type: "video/mp4".to_string(),
                     }),
-                },
+                }),
                 audio: AudioSource::FromText(TextToSpeech {
                     text: "Hello world".to_string(),
                     voice_id: "voice_123".to_string(),
@@ -512,9 +518,7 @@ mod durable_impl {
         #[test]
         fn generate_lip_sync_input_with_audio_roundtrip() {
             let input = GenerateLipSyncInput {
-                video: BaseVideo {
-                    data: MediaData::Url("https://example.com/video.mp4".to_string()),
-                },
+                video: LipSyncVideo::VideoId("video_123".to_string()),
                 audio: AudioSource::FromAudio(Narration {
                     data: MediaData::Bytes(RawBytes {
                         bytes: vec![1, 2, 3, 4, 5, 6],

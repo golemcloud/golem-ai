@@ -491,20 +491,26 @@ pub fn cancel_video_generation(_client: &KlingApi, task_id: String) -> Result<St
 
 pub fn generate_lip_sync_video(
     client: &KlingApi,
-    video: golem_video::exports::golem::video::types::BaseVideo,
+    video: golem_video::exports::golem::video::types::LipSyncVideo,
     audio: golem_video::exports::golem::video::types::AudioSource,
 ) -> Result<String, VideoError> {
     trace!("Generating lip-sync video with Kling API");
 
     // Convert video data to required format
-    // It also supports video_id from Kling API
-    // We dont support video_id for now
-    let (video_id, video_url) = match &video.data {
-        MediaData::Url(url) => (None, Some(url.clone())),
-        MediaData::Bytes(_) => {
-            return Err(invalid_input(
-                "Lip-sync requires video URL. Base64 video data is not supported.",
-            ));
+    // Supports both video_id and video_url from Kling API
+    let (video_id, video_url) = match &video {
+        golem_video::exports::golem::video::types::LipSyncVideo::VideoId(id) => {
+            (Some(id.clone()), None)
+        }
+        golem_video::exports::golem::video::types::LipSyncVideo::Video(base_video) => {
+            match &base_video.data {
+                MediaData::Url(url) => (None, Some(url.clone())),
+                MediaData::Bytes(_) => {
+                    return Err(invalid_input(
+                        "Lip-sync requires video URL. Base64 video data is not supported.",
+                    ));
+                }
+            }
         }
     };
 
