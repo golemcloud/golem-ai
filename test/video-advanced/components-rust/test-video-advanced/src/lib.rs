@@ -217,18 +217,8 @@ impl Guest for Component {
     fn test5() -> String {
         println!("Test5: Lip-sync with voice-id");
 
-        // Load base video
-        // Ajay fill this in, add the video and edit cargo.toml
-        let (video_bytes, video_mime_type) = match load_file_bytes("/data/lipsync.mp4") {
-            Ok((bytes, mime_type)) => (bytes, mime_type),
-            Err(err) => return format!("ERROR loading video: {}", err),
-        };
-
         let base_video = types::BaseVideo {
-            data: types::MediaData::Bytes(types::RawBytes {
-                bytes: video_bytes,
-                mime_type: video_mime_type,
-            }),
+            data: types::MediaData::Url("https://v1-kling.klingai.com/kcdn/cdn-kcdn112452/kling-api-document/videos/sing-1.mp4".to_string()),
         };
 
         let text_to_speech = types::TextToSpeech {
@@ -253,22 +243,13 @@ impl Guest for Component {
     fn test6() -> String {
         println!("Test6: Lip-sync with audio file");
 
-        // Load base video and audio file
-        let (video_bytes, video_mime_type) = match load_file_bytes("/data/lipsync.mp4") {
-            Ok((bytes, mime_type)) => (bytes, mime_type),
-            Err(err) => return format!("ERROR loading video: {}", err),
-        };
-
         let (audio_bytes, audio_mime_type) = match load_file_bytes("/data/audio.wav") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR loading audio: {}", err),
         };
 
         let base_video = types::BaseVideo {
-            data: types::MediaData::Bytes(types::RawBytes {
-                bytes: video_bytes,
-                mime_type: video_mime_type,
-            }),
+            data: types::MediaData::Url("https://v1-kling.klingai.com/kcdn/cdn-kcdn112452/kling-api-document/videos/sing-1.mp4".to_string()),
         };
 
         let audio_source = types::AudioSource::FromAudio(types::Narration {
@@ -385,7 +366,7 @@ impl Guest for Component {
     }
 
     // Test 10 - Multi-image generation (2 URLs + 1 inline raw bytes), Supports max of 4 images
-    fn test10() -> String {
+    fn testx() -> String {
         println!("Test10: Multi-image generation (2 URLs + 1 inline raw bytes)");
 
         // Load one image as inline bytes  
@@ -497,8 +478,6 @@ fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
             println!("Successfully read {} bytes from {}", buffer.len(), path);
             let mime_type = match path.rsplit('.').next() {
                 Some("png") => "image/png".to_string(),
-                Some("mp4") => "video/mp4".to_string(),
-                Some("mp3") => "audio/mpeg".to_string(),
                 Some("jpeg") => "image/jpeg".to_string(),
                 Some("wav") => "audio/wav".to_string(),
                 _ => "application/octet-stream".to_string(), // Default or unknown
@@ -517,7 +496,7 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
     println!("Waiting 5 seconds for job initialization...");
     thread::sleep(Duration::from_secs(5));
 
-    // Poll every 20 seconds until completion (Kling generation takes few minutes)
+    // Poll every 5 seconds until completion (Kling generation takes few minutes)
     loop {
         match video_generation::poll(&job_id) {
             Ok(video_result) => {
@@ -544,7 +523,7 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
         }
         
         // Wait 20 seconds before polling again
-        thread::sleep(Duration::from_secs(20));
+        thread::sleep(Duration::from_secs(5));
     }
 }
 

@@ -38,11 +38,12 @@ pub fn media_input_to_request(
     if let Some(ref model) = model_name {
         if !matches!(
             model.as_str(),
-            "kling-v1" | "kling-v1-6" | "kling-v2-master" | "kling-v2-1-master"
+            "kling-v1" | "kling-v1-6" | "kling-v2" | "kling-v2-1" | "kling-v1-5"
         ) {
-            return Err(invalid_input(
-                "Model must be one of: kling-v1, kling-v1-6, kling-v2-master, kling-v2-1-master",
-            ));
+            log::warn!(
+                "Model '{}' is not officially supported. Supported models are: kling-v1, kling-v1-6, kling-v2, kling-v2-1, kling-v1-5",
+                model
+            );
         }
     }
 
@@ -496,11 +497,13 @@ pub fn generate_lip_sync_video(
     trace!("Generating lip-sync video with Kling API");
 
     // Convert video data to required format
+    // It also supports video_id from Kling API
+    // We dont support video_id for now
     let (video_id, video_url) = match &video.data {
         MediaData::Url(url) => (None, Some(url.clone())),
         MediaData::Bytes(_) => {
             return Err(invalid_input(
-                "Lip-sync requires video URL or video_id from Kling API. Base64 video data is not supported.",
+                "Lip-sync requires video URL. Base64 video data is not supported.",
             ));
         }
     };

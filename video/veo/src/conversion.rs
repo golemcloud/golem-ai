@@ -45,9 +45,10 @@ pub fn media_input_to_request(
             model.as_str(),
             "veo-2.0-generate-001" | "veo-3.0-generate-preview" | "veo-3.0-fast-generate-preview"
         ) {
-            return Err(invalid_input(
-                "Model must be one of: veo-2.0-generate-001, veo-3.0-generate-preview, veo-3.0-fast-generate-preview",
-            ));
+            log::warn!(
+                "Model '{}' is not officially supported. Supported models are: veo-2.0-generate-001, veo-3.0-generate-preview, veo-3.0-fast-generate-preview",
+                model
+            );
         }
     }
 

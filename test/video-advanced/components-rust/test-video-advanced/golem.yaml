@@ -30,9 +30,6 @@ components:
           - sourcePath: ../../data/audio.wav
             targetPath: /data/audio.wav
             permissions: read-only
-          - sourcePath: ../../data/lipsync.mp4
-            targetPath: /data/lipsync.mp4
-            permissions: read-only
         build:
           - command: cargo component build --no-default-features --features kling
             sources:
@@ -73,9 +70,6 @@ components:
             permissions: read-only
           - sourcePath: ../../data/audio.wav
             targetPath: /data/audio.wav
-            permissions: read-only
-          - sourcePath: ../../data/lipsync.mp4
-            targetPath: /data/lipsync.mp4
             permissions: read-only
         build:
           - command: cargo component build --release --no-default-features --features kling 
