@@ -339,18 +339,12 @@ pub struct CameraControlRequest {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CameraConfigRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub horizontal: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub vertical: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pan: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tilt: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub roll: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub zoom: Option<f32>,
+    pub horizontal: f32,
+    pub vertical: f32,
+    pub pan: f32,
+    pub tilt: f32,
+    pub roll: f32,
+    pub zoom: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

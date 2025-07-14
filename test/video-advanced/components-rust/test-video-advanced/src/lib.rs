@@ -94,16 +94,19 @@ impl Guest for Component {
             scheduler: None,
             guidance_scale: Some(7.5),
             aspect_ratio: Some(types::AspectRatio::Square),
-            model: None,
+            model: Some("kling-v1-5".to_string()),
             duration_seconds: Some(5.0),
             resolution: Some(types::Resolution::Fhd),
             enable_audio: Some(false),
             enhance_prompt: Some(true),
-            provider_options: None,
+            provider_options: Some(vec![types::Kv {
+                key: "mode".to_string(),
+                value: "pro".to_string(),
+            }]),
             lastframe: None,
             static_mask: None,
             dynamic_mask: None,
-            camera_control: Some(types::CameraControl::Movement(types::CameraMovement::ForwardUp)),
+            camera_control: Some(types::CameraMovement::ForwardUp),
         };
 
         let media_input = types::MediaInput::Image(types::Reference {

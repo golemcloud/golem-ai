@@ -63,8 +63,8 @@ interface types {
     y: u32,
   }
 
-  enum camera-movement {
-    simple,
+  variant camera-movement {
+    simple(camera-config),
     down-back,
     forward-up,
     right-turn-forward,
@@ -78,11 +78,6 @@ interface types {
     tilt: f32,
     zoom: f32,
     roll: f32,
-  }
-
-  variant camera-control {
-    movement(camera-movement),
-    config(camera-config),
   }
 
   record generation-config {
@@ -100,7 +95,7 @@ interface types {
     lastframe: option<input-image>,
     static-mask: option<static-mask>,
     dynamic-mask: option<dynamic-mask>,
-    camera-control: option<camera-control>,
+    camera-control: option<camera-movement>,
   }
 
   enum aspect-ratio {

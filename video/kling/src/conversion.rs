@@ -5,8 +5,8 @@ use crate::client::{
 };
 use golem_video::error::invalid_input;
 use golem_video::exports::golem::video::types::{
-    AspectRatio, AudioSource, CameraControl, CameraMovement, GenerationConfig, JobStatus,
-    MediaData, MediaInput, Resolution, Video, VideoError, VideoResult,
+    AspectRatio, AudioSource, CameraMovement, GenerationConfig, JobStatus, MediaData, MediaInput,
+    Resolution, Video, VideoError, VideoResult,
 };
 use log::trace;
 use std::collections::HashMap;
@@ -199,24 +199,10 @@ fn convert_media_data_to_string(media_data: &MediaData) -> Result<String, VideoE
 }
 
 fn convert_camera_control(
-    camera_control: &CameraControl,
+    camera_movement: &CameraMovement,
 ) -> Result<CameraControlRequest, VideoError> {
-    match camera_control {
-        CameraControl::Movement(movement) => {
-            let movement_type = match movement {
-                CameraMovement::Simple => "simple".to_string(),
-                CameraMovement::DownBack => "down_back".to_string(),
-                CameraMovement::ForwardUp => "forward_up".to_string(),
-                CameraMovement::RightTurnForward => "right_turn_forward".to_string(),
-                CameraMovement::LeftTurnForward => "left_turn_forward".to_string(),
-            };
-
-            Ok(CameraControlRequest {
-                movement_type,
-                config: None,
-            })
-        }
-        CameraControl::Config(config) => {
+    match camera_movement {
+        CameraMovement::Simple(config) => {
             // For simple camera control with custom config
             // Validate that only one parameter is non-zero
             let non_zero_count = [
@@ -254,36 +240,12 @@ fn convert_camera_control(
             }
 
             let config_req = CameraConfigRequest {
-                horizontal: if config.horizontal != 0.0 {
-                    Some(config.horizontal)
-                } else {
-                    None
-                },
-                vertical: if config.vertical != 0.0 {
-                    Some(config.vertical)
-                } else {
-                    None
-                },
-                pan: if config.pan != 0.0 {
-                    Some(config.pan)
-                } else {
-                    None
-                },
-                tilt: if config.tilt != 0.0 {
-                    Some(config.tilt)
-                } else {
-                    None
-                },
-                roll: if config.roll != 0.0 {
-                    Some(config.roll)
-                } else {
-                    None
-                },
-                zoom: if config.zoom != 0.0 {
-                    Some(config.zoom)
-                } else {
-                    None
-                },
+                horizontal: config.horizontal,
+                vertical: config.vertical,
+                pan: config.pan,
+                tilt: config.tilt,
+                roll: config.roll,
+                zoom: config.zoom,
             };
 
             Ok(CameraControlRequest {
@@ -291,6 +253,22 @@ fn convert_camera_control(
                 config: Some(config_req),
             })
         }
+        CameraMovement::DownBack => Ok(CameraControlRequest {
+            movement_type: "down_back".to_string(),
+            config: None,
+        }),
+        CameraMovement::ForwardUp => Ok(CameraControlRequest {
+            movement_type: "forward_up".to_string(),
+            config: None,
+        }),
+        CameraMovement::RightTurnForward => Ok(CameraControlRequest {
+            movement_type: "right_turn_forward".to_string(),
+            config: None,
+        }),
+        CameraMovement::LeftTurnForward => Ok(CameraControlRequest {
+            movement_type: "left_turn_forward".to_string(),
+            config: None,
+        }),
     }
 }
 
