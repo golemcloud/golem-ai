@@ -221,6 +221,8 @@ impl Guest for Component {
             data: types::MediaData::Url("https://v1-kling.klingai.com/kcdn/cdn-kcdn112452/kling-api-document/videos/sing-1.mp4".to_string()),
         };
 
+        let lip_sync_video = types::LipSyncVideo::Video(base_video);
+
         let text_to_speech = types::TextToSpeech {
             text: "Hello, this is a test of Lip Sync functionality in golem video".to_string(),
             voice_id: "genshin_vindi2".to_string(),
@@ -231,7 +233,7 @@ impl Guest for Component {
         let audio_source = types::AudioSource::FromText(text_to_speech);
 
         println!("Sending lip-sync with voice-id request...");
-        let job_id = match lip_sync::generate_lip_sync(&base_video, &audio_source) {
+        let job_id = match lip_sync::generate_lip_sync(&lip_sync_video, &audio_source) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate lip-sync: {:?}", error),
         };
@@ -252,6 +254,8 @@ impl Guest for Component {
             data: types::MediaData::Url("https://v1-kling.klingai.com/kcdn/cdn-kcdn112452/kling-api-document/videos/sing-1.mp4".to_string()),
         };
 
+        let lip_sync_video = types::LipSyncVideo::Video(base_video);
+
         let audio_source = types::AudioSource::FromAudio(types::Narration {
             data: types::MediaData::Bytes(types::RawBytes {
                 bytes: audio_bytes,
@@ -260,7 +264,7 @@ impl Guest for Component {
         });
 
         println!("Sending lip-sync with audio file request...");
-        let job_id = match lip_sync::generate_lip_sync(&base_video, &audio_source) {
+        let job_id = match lip_sync::generate_lip_sync(&lip_sync_video, &audio_source) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate lip-sync: {:?}", error),
         };
