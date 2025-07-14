@@ -364,7 +364,6 @@ pub fn poll_video_generation(
         Ok(PollResponse::Processing) => Ok(VideoResult {
             status: JobStatus::Running,
             videos: None,
-            metadata: None,
         }),
         Ok(PollResponse::Complete {
             video_data,
@@ -378,12 +377,12 @@ pub fn poll_video_generation(
                 height: None,
                 fps: None,
                 duration_seconds: None,
+                generation_id: None,
             };
 
             Ok(VideoResult {
                 status: JobStatus::Succeeded,
                 videos: Some(vec![video]),
-                metadata: None,
             })
         }
         Err(error) => Err(error),

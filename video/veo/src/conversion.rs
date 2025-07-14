@@ -46,8 +46,7 @@ pub fn media_input_to_request(
             "veo-2.0-generate-001" | "veo-3.0-generate-preview" | "veo-3.0-fast-generate-preview"
         ) {
             log::warn!(
-                "Model '{}' is not officially supported. Supported models are: veo-2.0-generate-001, veo-3.0-generate-preview, veo-3.0-fast-generate-preview",
-                model
+                "Model '{model}' is not officially supported. Supported models are: veo-2.0-generate-001, veo-3.0-generate-preview, veo-3.0-fast-generate-preview"
             );
         }
     }
@@ -473,7 +472,6 @@ pub fn poll_video_generation(
         Ok(PollResponse::Processing) => Ok(VideoResult {
             status: JobStatus::Running,
             videos: None,
-            metadata: None,
         }),
         Ok(PollResponse::Complete(video_results)) => {
             let videos: Vec<Video> = video_results
@@ -485,14 +483,14 @@ pub fn poll_video_generation(
                     width: None,
                     height: None,
                     fps: None,
-                    duration_seconds: None, // Veo doesn't provide duration in response
+                    duration_seconds: None,
+                    generation_id: None,
                 })
                 .collect();
 
             Ok(VideoResult {
                 status: JobStatus::Succeeded,
                 videos: Some(videos),
-                metadata: None,
             })
         }
         Err(error) => Err(error),

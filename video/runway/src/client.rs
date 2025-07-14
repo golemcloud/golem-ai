@@ -41,6 +41,8 @@ pub enum PollResponse {
     Complete {
         video_data: Vec<u8>,
         mime_type: String,
+        uri: String,
+        generation_id: String,
     },
 }
 
@@ -159,6 +161,8 @@ impl RunwayApi {
                             Ok(PollResponse::Complete {
                                 video_data,
                                 mime_type: "video/mp4".to_string(),
+                                uri: video_url.clone(),
+                                generation_id: task_response.id.clone(),
                             })
                         } else {
                             Err(VideoError::InternalError(

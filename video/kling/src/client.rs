@@ -140,6 +140,8 @@ impl KlingApi {
                                     video_data,
                                     mime_type: "video/mp4".to_string(),
                                     duration: video.duration.clone(),
+                                    uri: video.url.clone(),
+                                    generation_id: video.id.clone(),
                                 })
                             } else {
                                 Err(VideoError::InternalError(
@@ -381,6 +383,8 @@ pub enum PollResponse {
         video_data: Vec<u8>,
         mime_type: String,
         duration: String,
+        uri: String,
+        generation_id: String,
     },
 }
 

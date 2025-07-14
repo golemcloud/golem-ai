@@ -272,26 +272,27 @@ pub fn poll_video_generation(
         Ok(PollResponse::Processing) => Ok(VideoResult {
             status: JobStatus::Running,
             videos: None,
-            metadata: None,
         }),
         Ok(PollResponse::Complete {
             video_data,
             mime_type,
+            uri,
+            generation_id,
         }) => {
             let video = Video {
-                uri: None,
+                uri: Some(uri),
                 base64_bytes: Some(video_data),
                 mime_type,
                 width: None,
                 height: None,
                 fps: None,
                 duration_seconds: None,
+                generation_id: Some(generation_id),
             };
 
             Ok(VideoResult {
                 status: JobStatus::Succeeded,
                 videos: Some(vec![video]),
-                metadata: None,
             })
         }
         Err(error) => Err(error),

@@ -130,6 +130,7 @@ interface types {
     height: option<u32>,
     fps: option<f32>,
     duration-seconds: option<f32>,
+    generation-id: option<string>,
   }
 
   variant job-status {
@@ -142,7 +143,6 @@ interface types {
   record video-result {
     status: job-status,
     videos: option<list<video>>,
-    metadata: option<list<kv>>,
   }
 
   record text-to-speech {
