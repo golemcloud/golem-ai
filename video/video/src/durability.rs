@@ -509,7 +509,7 @@ mod durable_impl {
                     text: "Hello world".to_string(),
                     voice_id: "voice_123".to_string(),
                     language: crate::exports::golem::video::types::VoiceLanguage::En,
-                    speed: 100,
+                    speed: 1.0,
                 }),
             };
             roundtrip_test(input);

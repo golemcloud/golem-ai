@@ -359,7 +359,8 @@ pub struct GenerationResponse {
 pub struct GenerationResponseData {
     pub task_id: String,
     pub task_status: String,
-    pub task_info: TaskInfo,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_info: Option<TaskInfo>,
     pub created_at: u64,
     pub updated_at: u64,
 }
@@ -396,7 +397,8 @@ pub struct TaskResponseData {
     pub task_status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task_status_msg: Option<String>,
-    pub task_info: TaskInfo,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_info: Option<TaskInfo>,
     pub created_at: u64,
     pub updated_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]

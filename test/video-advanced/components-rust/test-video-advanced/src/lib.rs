@@ -9,9 +9,6 @@ use std::fs::File;
 use std::io::Read;
 use std::thread;
 use std::time::Duration;
-use std::sync::Mutex;
-
-static JOB_ID_STORAGE: Mutex<String> = Mutex::new(String::new());
 
 struct Component;
 
@@ -192,9 +189,6 @@ impl Guest for Component {
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
 
-        // Store the job ID in the Mutex
-        *JOB_ID_STORAGE.lock().unwrap() = job_id.clone();
-        println!("Job ID for test9: {}", job_id);
         poll_job_until_complete(&job_id, "test3")
     }
 
@@ -237,7 +231,7 @@ impl Guest for Component {
             text: "Hello, this is a test of Lip Sync functionality in golem video".to_string(),
             voice_id: "genshin_vindi2".to_string(),
             language: types::VoiceLanguage::En,
-            speed: 100,
+            speed: 1.0,
         };
 
         let audio_source = types::AudioSource::FromText(text_to_speech);
@@ -349,32 +343,80 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test8")
     }
 
-    /// Test9 - Extend video using job-id from test3
-    /// Pre-requisite: Test3 must be run first and job-id must be stored in JOB_ID_STORAGE
+    /// Test9 - Extend video using generation-id from completed text-to-video
     fn test9() -> String {
-        println!("Test9: Extend video using job-id from test3");
+        println!("Test9: Extend video using generation-id from completed text-to-video");
 
-        // Retrieve the stored job ID
-        let job_id_from_test3 = JOB_ID_STORAGE.lock().unwrap().clone();
-        if job_id_from_test3.is_empty() {
-            return "ERROR: No job ID stored from test3".to_string();
-        }
+        // Create a simple text-to-video generation
+        let media_input = types::MediaInput::Text("A beautiful sunset over tropical beach paradise, with blue water reflecting the orange red sunset".to_string());
 
-        println!("Attempting to extend video with job ID: {}", job_id_from_test3);
+        let config = types::GenerationConfig {
+            negative_prompt: None,
+            seed: None,
+            scheduler: None,
+            guidance_scale: None,
+            aspect_ratio: Some(types::AspectRatio::Landscape),
+            model: None,
+            duration_seconds: None,
+            resolution: None,
+            enable_audio: None,
+            enhance_prompt: None,
+            provider_options: None,
+            lastframe: None,
+            static_mask: None,
+            dynamic_mask: None,
+            camera_control: None,
+        };
+
+        println!("Sending text-to-video generation request...");
+        let job_id = match video_generation::generate(&media_input, &config) {
+            Ok(id) => id.trim().to_string(),
+            Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
+        };
+
+        // First poll until completion
+        let _poll_result = poll_job_until_complete(&job_id, "test9_initial");
         
-        match advanced::extend_video(
-            &job_id_from_test3,
-            Some("and the astronaut continues to walk away"),
-            None,
-            None,
-            None,
-        ) {
-            Ok(extend_job_id) => {
-                let extend_job_id = extend_job_id.trim().to_string();
-                poll_job_until_complete(&extend_job_id, "test9")
+        // For test9, we need to get the generation-id from the completed video
+        // Since poll_job_until_complete returns a string, 
+        // we need to poll again to get the actual video result
+        match video_generation::poll(&job_id) {
+            Ok(video_result) => {
+                // Extract generation-id from the completed video result
+                let generation_id = if let Some(videos) = video_result.videos {
+                    if let Some(video) = videos.first() {
+                        if let Some(gid) = &video.generation_id {
+                            gid.clone()
+                        } else {
+                            return "ERROR: No generation-id in video result".to_string();
+                        }
+                    } else {
+                        return "ERROR: No videos in result".to_string();
+                    }
+                } else {
+                    return "ERROR: No videos in result".to_string();
+                };
+
+                println!("Attempting to extend video with generation ID: {}", generation_id);
+                
+                match advanced::extend_video(
+                    &generation_id,
+                    Some("and the sunset fades into night"),
+                    None,
+                    None,
+                    None,
+                ) {
+                    Ok(extend_job_id) => {
+                        let extend_job_id = extend_job_id.trim().to_string();
+                        poll_job_until_complete(&extend_job_id, "test9_extended")
+                    }
+                    Err(error) => {
+                        format!("ERROR: Failed to extend video: {:?}", error)
+                    }
+                }
             }
             Err(error) => {
-                format!("ERROR: Failed to extend video: {:?}", error)
+                format!("ERROR: Failed to poll video result: {:?}", error)
             }
         }
     }
@@ -536,7 +578,7 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
             }
         }
         
-        // Wait 20 seconds before polling again
+        // Wait 5 seconds before polling again
         thread::sleep(Duration::from_secs(5));
     }
 }

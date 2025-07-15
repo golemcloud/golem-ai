@@ -144,7 +144,7 @@ interface types {
     text: string,
     voice-id: string,
     language: voice-language,
-    speed: u32,
+    speed: f32,
   }
 
   variant audio-source {

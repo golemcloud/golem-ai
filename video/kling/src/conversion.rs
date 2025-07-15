@@ -505,8 +505,7 @@ pub fn generate_lip_sync_video(
                     golem_video::exports::golem::video::types::VoiceLanguage::Zh => "zh",
                 };
 
-                // Convert speed from u32 to f32 and validate range
-                let speed = tts.speed as f32 / 100.0; // Convert from percentage to decimal
+                let speed = tts.speed;
                 let voice_speed = speed.clamp(0.8, 2.0);
 
                 (
