@@ -106,7 +106,14 @@ impl Guest for Component {
             lastframe: None,
             static_mask: None,
             dynamic_mask: None,
-            camera_control: Some(types::CameraMovement::ForwardUp),
+            camera_control: Some(types::CameraMovement::Simple(types::CameraConfig {
+                horizontal: 0.0,
+                vertical: 0.0,
+                pan: 0.0,
+                tilt: 0.0,
+                zoom: 5.0,
+                roll: 0.0,
+            })),
         };
 
         let media_input = types::MediaInput::Image(types::Reference {
