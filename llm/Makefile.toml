@@ -169,7 +169,7 @@ for module in ${modules}
     rm -r ${module}/wit/deps
     mkdir ${module}/wit/deps/golem-llm
     cp wit/golem-llm.wit ${module}/wit/deps/golem-llm/golem-llm.wit
-    cp wit/deps/wasi:io ${module}/wit/deps
+    cp wit/deps/io ${module}/wit/deps
 
     echo "Copied WIT for module llm::${module}"
 end
@@ -179,10 +179,10 @@ rm -r ../test/wit
 mkdir ../test/wit/deps/golem-llm
 mkdir ../test/wit/deps/io
 cp wit/golem-llm.wit ../test/wit/deps/golem-llm/golem-llm.wit
-cp wit/deps/wasi:io/error.wit ../test/wit/deps/io/error.wit
-cp wit/deps/wasi:io/poll.wit ../test/wit/deps/io/poll.wit
-cp wit/deps/wasi:io/streams.wit ../test/wit/deps/io/streams.wit
-cp wit/deps/wasi:io/world.wit ../test/wit/deps/io/world.wit
+cp wit/deps/io/error.wit ../test/wit/deps/io/error.wit
+cp wit/deps/io/poll.wit ../test/wit/deps/io/poll.wit
+cp wit/deps/io/streams.wit ../test/wit/deps/io/streams.wit
+cp wit/deps/io/world.wit ../test/wit/deps/io/world.wit
 
 echo "Copied WIT for module test"
 """
