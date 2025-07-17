@@ -4,7 +4,7 @@ use crate::client::{
 };
 use golem_video::error::invalid_input;
 use golem_video::exports::golem::video_generation::types::{
-    AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
+    AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Resolution, Video,
     VideoError, VideoResult,
 };
 use golem_video::utils::{download_image_from_url, download_video_from_url};
@@ -122,22 +122,22 @@ pub fn media_input_to_request(
 
             // Extract video data from BaseVideo structure
             let video_data = match ref_video.data {
-                            MediaData::Url(url) => {
-                if url.starts_with("gs://") {
-                    // Use as gcsUri - default to video/mp4 for GCS URIs
-                    VideoData {
-                        bytes_base64_encoded: String::new(),
-                        mime_type: "video/mp4".to_string(),
-                        gcs_uri: Some(url),
-                    }
-                } else {
+                MediaData::Url(url) => {
+                    if url.starts_with("gs://") {
+                        // Use as gcsUri - default to video/mp4 for GCS URIs
+                        VideoData {
+                            bytes_base64_encoded: None,
+                            mime_type: "video/mp4".to_string(),
+                            gcs_uri: Some(url),
+                        }
+                    } else {
                         // Download video from URL and convert to base64
                         let raw_bytes = download_video_from_url(&url)?;
                         VideoData {
-                            bytes_base64_encoded: base64::Engine::encode(
+                            bytes_base64_encoded: Some(base64::Engine::encode(
                                 &base64::engine::general_purpose::STANDARD,
                                 &raw_bytes.bytes,
-                            ),
+                            )),
                             mime_type: raw_bytes.mime_type.clone(),
                             gcs_uri: None,
                         }
@@ -146,10 +146,10 @@ pub fn media_input_to_request(
                 MediaData::Bytes(raw_bytes) => {
                     // Use the mime type from the raw bytes, or determine from bytes if not available
                     VideoData {
-                        bytes_base64_encoded: base64::Engine::encode(
+                        bytes_base64_encoded: Some(base64::Engine::encode(
                             &base64::engine::general_purpose::STANDARD,
                             &raw_bytes.bytes,
-                        ),
+                        )),
                         mime_type: raw_bytes.mime_type.clone(),
                         gcs_uri: None,
                     }
@@ -190,22 +190,22 @@ pub fn media_input_to_request(
         MediaInput::Image(ref_image) => {
             // Extract image data from Reference structure
             let image_data = match ref_image.data.data {
-                            MediaData::Url(url) => {
-                if url.starts_with("gs://") {
-                    // Use as gcsUri - default to image/jpeg for GCS URIs
-                    ImageData {
-                        bytes_base64_encoded: String::new(),
-                        mime_type: "image/jpg".to_string(),
-                        gcs_uri: Some(url),
-                    }
-                } else {
+                MediaData::Url(url) => {
+                    if url.starts_with("gs://") {
+                        // Use as gcsUri - default to image/jpeg for GCS URIs
+                        ImageData {
+                            bytes_base64_encoded: None,
+                            mime_type: "image/jpg".to_string(),
+                            gcs_uri: Some(url),
+                        }
+                    } else {
                         // Download image from URL and convert to base64
                         let raw_bytes = download_image_from_url(&url)?;
                         ImageData {
-                            bytes_base64_encoded: base64::Engine::encode(
+                            bytes_base64_encoded: Some(base64::Engine::encode(
                                 &base64::engine::general_purpose::STANDARD,
                                 &raw_bytes.bytes,
-                            ),
+                            )),
                             mime_type: raw_bytes.mime_type.clone(),
                             gcs_uri: None,
                         }
@@ -214,10 +214,10 @@ pub fn media_input_to_request(
                 MediaData::Bytes(raw_bytes) => {
                     // Use the mime type from the raw bytes, or determine from bytes if not available
                     ImageData {
-                        bytes_base64_encoded: base64::Engine::encode(
+                        bytes_base64_encoded: Some(base64::Engine::encode(
                             &base64::engine::general_purpose::STANDARD,
                             &raw_bytes.bytes,
-                        ),
+                        )),
                         mime_type: raw_bytes.mime_type.clone(),
                         gcs_uri: None,
                     }
@@ -230,82 +230,50 @@ pub fn media_input_to_request(
                 .clone()
                 .unwrap_or_else(|| "Generate a video from this image".to_string());
 
-            // Handle image role and lastframe
-            let image_role = ref_image.role.as_ref();
+            // Check if role is specified and log warning
+            if ref_image.role.is_some() {
+                log::warn!("Image role is not supported by Veo API and will be ignored");
+            }
 
-            // Handle lastframe - check if model supports it
-            let last_frame_data = if let Some(lastframe) = &config.lastframe {
-                // Check if we're using a model that supports lastFrame
-                let model_id = model_id.as_deref().unwrap_or("veo-2.0-generate-001");
-                if model_id != "veo-2.0-generate-001" {
-                    log::warn!("lastFrame is only supported by veo-2.0-generate-001 model, ignoring for {model_id}");
-                    None
-                } else {
-                    let lastframe_image_data = match lastframe.data {
-                        MediaData::Url(ref url) => {
-                            if url.starts_with("gs://") {
-                                // Use as gcsUri - default to image/jpeg for GCS URIs
-                                ImageData {
-                                    bytes_base64_encoded: String::new(),
-                                    mime_type: "image/jpg".to_string(),
-                                    gcs_uri: Some(url.clone()),
-                                }
-                            } else {
-                                let raw_bytes = download_image_from_url(url)?;
-                                ImageData {
-                                    bytes_base64_encoded: base64::Engine::encode(
-                                        &base64::engine::general_purpose::STANDARD,
-                                        &raw_bytes.bytes,
-                                    ),
-                                    mime_type: raw_bytes.mime_type.clone(),
-                                    gcs_uri: None,
-                                }
-                            }
-                        }
-                        MediaData::Bytes(ref raw_bytes) => {
-                            ImageData {
-                                bytes_base64_encoded: base64::Engine::encode(
+            // Handle lastframe from config if available
+            let last_frame_data = if let Some(lastframe_config) = &config.lastframe {
+                match &lastframe_config.data {
+                    MediaData::Url(url) => {
+                        if url.starts_with("gs://") {
+                            Some(ImageData {
+                                bytes_base64_encoded: None,
+                                mime_type: "image/jpg".to_string(),
+                                gcs_uri: Some(url.clone()),
+                            })
+                        } else {
+                            let raw_bytes = download_image_from_url(url)?;
+                            Some(ImageData {
+                                bytes_base64_encoded: Some(base64::Engine::encode(
                                     &base64::engine::general_purpose::STANDARD,
                                     &raw_bytes.bytes,
-                                ),
+                                )),
                                 mime_type: raw_bytes.mime_type.clone(),
                                 gcs_uri: None,
-                            }
+                            })
                         }
-                    };
-                    Some(lastframe_image_data)
+                    }
+                    MediaData::Bytes(raw_bytes) => Some(ImageData {
+                        bytes_base64_encoded: Some(base64::Engine::encode(
+                            &base64::engine::general_purpose::STANDARD,
+                            &raw_bytes.bytes,
+                        )),
+                        mime_type: raw_bytes.mime_type.clone(),
+                        gcs_uri: None,
+                    }),
                 }
             } else {
                 None
             };
 
-            // Handle image role for positioning
-            let (image_for_first, last_frame_final) = match image_role {
-                Some(ImageRole::Last) => {
-                    // If image role is "last", use it as lastFrame instead
-                    (None, Some(image_data))
-                }
-                Some(ImageRole::First) | None => {
-                    // Use as first frame (default behavior)
-                    (Some(image_data), last_frame_data)
-                }
-            };
-
-            // Ensure we have at least one image
-            let final_image = image_for_first.unwrap_or_else(|| {
-                // If we don't have a first frame but have a last frame, create a dummy first frame
-                log::warn!("No first frame provided, using a placeholder. Consider providing both first and last frames.");
-                ImageData {
-                    bytes_base64_encoded: String::new(),
-                    mime_type: "image/jpeg".to_string(),
-                    gcs_uri: None,
-                }
-            });
-
             let instances = vec![ImageToVideoInstance {
                 prompt,
-                image: Some(final_image),
-                last_frame: last_frame_final,
+                image: Some(image_data),
+                last_frame: last_frame_data,
                 video: None,
             }];
             let request = ImageToVideoRequest {

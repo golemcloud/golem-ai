@@ -29,11 +29,7 @@ pub fn download_image_from_url(url: &str) -> Result<RawBytes, VideoError> {
         .get("content-type")
         .and_then(|ct| ct.to_str().ok())
         .map(|ct| ct.to_string())
-        .unwrap_or_else(|| {
-            from_path(url)
-                .first_or_octet_stream()
-                .to_string()
-        });
+        .unwrap_or_else(|| from_path(url).first_or_octet_stream().to_string());
 
     let bytes = response
         .bytes()
@@ -72,11 +68,7 @@ pub fn download_video_from_url(url: &str) -> Result<RawBytes, VideoError> {
         .get("content-type")
         .and_then(|ct| ct.to_str().ok())
         .map(|ct| ct.to_string())
-        .unwrap_or_else(|| {
-            from_path(url)
-                .first_or_octet_stream()
-                .to_string()
-        });
+        .unwrap_or_else(|| from_path(url).first_or_octet_stream().to_string());
 
     let bytes = response
         .bytes()

@@ -145,7 +145,8 @@ impl Guest for Component {
     }
 
     // Test needs a gsc bucket to work
-    // Else veo polling errors out with file to big to send, use stroage uri instead
+    // Else veo polling errors out with file to big to send, use storage uri instead
+    // You have to precreate bucket in the google console: "golem-video-test-bucket"
     fn test4() -> String {
         println!("Test4: Video to video generation (VEO only)");
         

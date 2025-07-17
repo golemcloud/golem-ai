@@ -295,9 +295,9 @@ pub struct ImageToVideoInstance {
 pub struct ImageData {
     #[serde(
         rename = "bytesBase64Encoded",
-        skip_serializing_if = "String::is_empty"
+        skip_serializing_if = "Option::is_none"
     )]
-    pub bytes_base64_encoded: String,
+    pub bytes_base64_encoded: Option<String>,
     #[serde(rename = "mimeType")]
     pub mime_type: String,
     #[serde(rename = "gcsUri", skip_serializing_if = "Option::is_none")]
@@ -308,9 +308,9 @@ pub struct ImageData {
 pub struct VideoData {
     #[serde(
         rename = "bytesBase64Encoded",
-        skip_serializing_if = "String::is_empty"
+        skip_serializing_if = "Option::is_none"
     )]
-    pub bytes_base64_encoded: String,
+    pub bytes_base64_encoded: Option<String>,
     #[serde(rename = "mimeType")]
     pub mime_type: String,
     #[serde(rename = "gcsUri", skip_serializing_if = "Option::is_none")]
