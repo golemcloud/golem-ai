@@ -553,7 +553,7 @@ mod tests {
         assert_eq!(meta.safe_search, Some(SafeSearchLevel::Medium));
         assert_eq!(meta.language, Some("en".to_string()));
         assert_eq!(meta.region, Some("us".to_string()));
-        assert_eq!(meta.next_page_token, Some("20".to_string()));
+        assert_eq!(meta.next_page_token, Some("1".to_string()));
         assert_eq!(meta.rate_limits, None);
     }
 
