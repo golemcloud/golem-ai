@@ -344,6 +344,8 @@ impl Guest for Component {
     }
 
     /// Test9 - Extend video using generation-id from completed text-to-video
+    /// Klingv1 default, task succeeds, polling fails with a server side error
+    /// Using Klingv1-6
     fn test9() -> String {
         println!("Test9: Extend video using generation-id from completed text-to-video");
 
@@ -356,7 +358,7 @@ impl Guest for Component {
             scheduler: None,
             guidance_scale: None,
             aspect_ratio: Some(types::AspectRatio::Landscape),
-            model: None,
+            model: Some("kling-v1-6".to_string()),
             duration_seconds: None,
             resolution: None,
             enable_audio: None,
@@ -479,6 +481,129 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test10")
     }
 
+    /// Test 11 first generates a text to video, then extends it with a video
+    /// and then lip syncs it with a voice-id
+    fn testy() -> String {
+        println!("Test11: Text to video, extend video, lip sync");
+
+        // Step 1: Generate initial text-to-video
+        let media_input = types::MediaInput::Text("A professional, Caucasian businesswoman with striking red hair, neatly tied back, sits confidently in a modern office. She exhibits subtle, natural movements—light head tilts, gentle hand gestures, and steady blinking without speaking or lip movement".to_string());
+
+        let config = types::GenerationConfig {
+            negative_prompt: None,
+            seed: None,
+            scheduler: None,
+            guidance_scale: None,
+            aspect_ratio: Some(types::AspectRatio::Landscape),
+            model: Some("kling-v1-6".to_string()),
+            duration_seconds: None,
+            resolution: Some(types::Resolution::Fhd),
+            enable_audio: Some(false),
+            enhance_prompt: Some(true),
+            provider_options: None,
+            lastframe: None,
+            static_mask: None,
+            dynamic_mask: None,
+            camera_control: None,
+        };
+
+        println!("Sending text-to-video generation request...");
+        let job_id = match video_generation::generate(&media_input, &config) {
+            Ok(id) => id.trim().to_string(),
+            Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
+        };
+
+        // Step 2: Poll the initial job to get the generation-id
+        let initial_result = poll_job_until_complete(&job_id, "test11_text_to_video");
+        if initial_result.starts_with("ERROR") {
+            return initial_result;
+        }
+
+        // Step 3: Extract generation-id from the initial video result
+        let generation_id = match video_generation::poll(&job_id) {
+            Ok(video_result) => {
+                if let Some(videos) = video_result.videos {
+                    if let Some(video) = videos.first() {
+                        if let Some(gid) = &video.generation_id {
+                            gid.clone()
+                        } else {
+                            return "ERROR: No generation-id in video result".to_string();
+                        }
+                    } else {
+                        return "ERROR: No videos in result".to_string();
+                    }
+                } else {
+                    return "ERROR: No videos in result".to_string();
+                }
+            }
+            Err(error) => {
+                return format!("ERROR: Failed to poll video result: {:?}", error);
+            }
+        };
+
+        // Step 4: Extend the video with the generation-id
+        println!("Extending video with generation ID: {}", generation_id);
+        let extend_job_id = match advanced::extend_video(
+            &generation_id,
+            Some("continue the video with a businesswoman with red hair, in a modern office"),
+            None,
+            None,
+            None,
+        ) {
+            Ok(id) => id.trim().to_string(),
+            Err(error) => return format!("ERROR: Failed to extend video: {:?}", error),
+        };
+
+        // Step 5: Poll the extended video job to get the new generation-id
+        let extended_result = poll_job_until_complete(&extend_job_id, "test11_extended");
+        if extended_result.starts_with("ERROR") {
+            return extended_result;
+        }
+
+        let extended_generation_id = match video_generation::poll(&extend_job_id) {
+            Ok(video_result) => {
+                if let Some(videos) = video_result.videos {
+                    if let Some(video) = videos.first() {
+                        if let Some(gid) = &video.generation_id {
+                            gid.clone()
+                        } else {
+                            return "ERROR: No generation-id in extended video result".to_string();
+                        }
+                    } else {
+                        return "ERROR: No videos in extended result".to_string();
+                    }
+                } else {
+                    return "ERROR: No videos in extended result".to_string();
+                }
+            }
+            Err(error) => {
+                return format!("ERROR: Failed to poll extended video result: {:?}", error);
+            }
+        };
+
+        // Step 6: Perform lip-sync on the extended video
+        let lip_sync_video = types::LipSyncVideo::Video(types::BaseVideo {
+            data: types::MediaData::Url(format!("generation-id:{}", extended_generation_id)),
+        });
+
+        let text_to_speech = types::TextToSpeech {
+            text: "Hello, Golem Cloud is a durable, serverless platform for running long-lived, stateful AI agents and workflows. It uses WebAssembly to provide automatic state persistence, fault tolerance, and seamless recovery—letting developers build resilient cloud applications without managing infrastructure. Welcome to Golem Cloud".to_string(),
+            voice_id: "genshin_vindi2".to_string(),
+            language: types::VoiceLanguage::En,
+            speed: 1.0,
+        };
+
+        let audio_source = types::AudioSource::FromText(text_to_speech);
+
+        println!("Sending lip-sync request...");
+        let lip_sync_job_id = match lip_sync::generate_lip_sync(&lip_sync_video, &audio_source) {
+            Ok(id) => id.trim().to_string(),
+            Err(error) => return format!("ERROR: Failed to generate lip-sync: {:?}", error),
+        };
+
+        // Step 7: Save and print the final video path
+        poll_job_until_complete(&lip_sync_job_id, "test11_lip_sync")
+    }
 
 }
 

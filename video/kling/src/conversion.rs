@@ -697,6 +697,8 @@ pub fn generate_video_effects(
                 SingleImageEffects::Fuzzyfuzzy => "fuzzyfuzzy",
                 SingleImageEffects::Squish => "squish",
                 SingleImageEffects::Expansion => "expansion",
+                SingleImageEffects::AnimeFigure => "anime_figure",
+                SingleImageEffects::Rocketrocket => "rocketrocket",
             };
 
             // For single image effects, model_name is required to be "kling-v1-6"

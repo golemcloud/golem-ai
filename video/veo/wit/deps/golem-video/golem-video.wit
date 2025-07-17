@@ -170,6 +170,8 @@ interface types {
     fuzzyfuzzy,
     squish,
     expansion,
+    anime-figure,
+    rocketrocket,
   }
 
   enum dual-image-effects {

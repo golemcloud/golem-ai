@@ -13,6 +13,7 @@ interface test-video-api {
   test8: func() -> string;
   test9: func() -> string;
   testx: func() -> string;
+  testy: func() -> string;
 }
 
 world test-video {
