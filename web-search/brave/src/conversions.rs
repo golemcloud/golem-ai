@@ -209,6 +209,7 @@ pub fn language_code_to_brave(language_code: &str) -> Option<String> {
 pub fn convert_response_to_results(
     response: BraveSearchResponse,
     params: &SearchParams,
+    current_offset: Option<u32>,
 ) -> (Vec<SearchResult>, Option<SearchMetadata>) {
     let mut results = Vec::new();
 
@@ -265,8 +266,8 @@ pub fn convert_response_to_results(
         .and_then(|q| q.more_results_available)
         .filter(|&has_more| has_more)
         .map(|_| {
-            let current_offset = params.max_results.unwrap_or(10);
-            (current_offset + params.max_results.unwrap_or(10)).to_string()
+            let offset = current_offset.unwrap_or(0);
+            (offset + 1).to_string()
         });
 
     let metadata = SearchMetadata {
@@ -518,7 +519,7 @@ mod tests {
         let params = create_test_params();
         let response = create_test_response();
 
-        let (results, metadata) = convert_response_to_results(response, &params);
+        let (results, metadata) = convert_response_to_results(response, &params, Some(0));
 
         assert_eq!(results.len(), 2);
 
@@ -562,7 +563,7 @@ mod tests {
         params.include_html = Some(false);
         let response = create_test_response();
 
-        let (results, _) = convert_response_to_results(response, &params);
+        let (results, _) = convert_response_to_results(response, &params, Some(0));
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].html_snippet, None);
@@ -596,7 +597,7 @@ mod tests {
             response_type: None,
         };
 
-        let (results, metadata) = convert_response_to_results(response, &params);
+        let (results, metadata) = convert_response_to_results(response, &params, Some(0));
 
         assert_eq!(results.len(), 0);
         assert!(metadata.is_some());

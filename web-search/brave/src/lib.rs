@@ -50,14 +50,21 @@ impl GuestSearchSession for BraveSearchSession {
             ));
         }
 
-        let page_size = self.params.max_results.unwrap_or(10);
         let current_offset = *self.current_offset.borrow();
-        let new_offset = current_offset + page_size;
+        
+        if current_offset >= 9 {
+            *self.has_more_results.borrow_mut() = false;
+            return Err(SearchError::BackendError(
+                "Maximum pagination limit reached".to_string(),
+            ));
+        }
+
+        let new_offset = current_offset + 1;
         *self.current_offset.borrow_mut() = new_offset;
 
         let request = convert_params_to_request(&self.params, Some(new_offset));
         let response = self.client.search(request)?;
-        let (results, metadata) = convert_response_to_results(response, &self.params);
+        let (results, metadata) = convert_response_to_results(response, &self.params, Some(current_offset));
 
         *self.last_metadata.borrow_mut() = metadata.clone();
 
@@ -67,7 +74,9 @@ impl GuestSearchSession for BraveSearchSession {
         }
 
         if let Some(metadata) = &metadata {
-            *self.has_more_results.borrow_mut() = metadata.next_page_token.is_some();
+            let api_has_more = metadata.next_page_token.is_some();
+            let within_limits = new_offset < 9;
+            *self.has_more_results.borrow_mut() = api_has_more && within_limits;
         } else {
             *self.has_more_results.borrow_mut() = false;
         }
@@ -106,7 +115,7 @@ impl Guest for BraveWebSearchComponent {
             let client = BraveSearchApi::new(api_key);
             let request = convert_params_to_request(&params, None);
             let response = client.search(request)?;
-            let (results, metadata) = convert_response_to_results(response, &params);
+            let (results, metadata) = convert_response_to_results(response, &params, None);
             Ok((results, metadata))
         })
     }
