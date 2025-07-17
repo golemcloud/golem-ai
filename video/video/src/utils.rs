@@ -1,5 +1,6 @@
 use crate::error::internal_error;
 use crate::exports::golem::video_generation::types::{RawBytes, VideoError};
+use mime_guess::from_path;
 
 /// Downloads an image from a URL and returns the bytes with mime type
 pub fn download_image_from_url(url: &str) -> Result<RawBytes, VideoError> {
@@ -22,13 +23,17 @@ pub fn download_image_from_url(url: &str) -> Result<RawBytes, VideoError> {
         )));
     }
 
-    // Get the mime type from the response headers
+    // Get the mime type from the response headers or guess from URL
     let mime_type = response
         .headers()
         .get("content-type")
         .and_then(|ct| ct.to_str().ok())
-        .unwrap_or("image/png")
-        .to_string();
+        .map(|ct| ct.to_string())
+        .unwrap_or_else(|| {
+            from_path(url)
+                .first_or_octet_stream()
+                .to_string()
+        });
 
     let bytes = response
         .bytes()
@@ -61,13 +66,17 @@ pub fn download_video_from_url(url: &str) -> Result<RawBytes, VideoError> {
         )));
     }
 
-    // Get the mime type from the response headers
+    // Get the mime type from the response headers or guess from URL
     let mime_type = response
         .headers()
         .get("content-type")
         .and_then(|ct| ct.to_str().ok())
-        .unwrap_or("video/mp4")
-        .to_string();
+        .map(|ct| ct.to_string())
+        .unwrap_or_else(|| {
+            from_path(url)
+                .first_or_octet_stream()
+                .to_string()
+        });
 
     let bytes = response
         .bytes()

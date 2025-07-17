@@ -567,6 +567,7 @@ dependencies = [
  "golem-rust",
  "log",
  "mime",
+ "mime_guess",
  "nom",
  "reqwest",
  "thiserror",

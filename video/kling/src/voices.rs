@@ -4,6 +4,7 @@ use golem_video::exports::golem::video_generation::types::{VoiceInfo, VoiceLangu
 /// Data sourced from Kling API documentation
 /// https://docs.qingque.cn/s/home/eZQDvafJ4vXQkP8T9ZPvmye8S?identityId=2E3S0NySBQy
 /// It isnt possible to do this dynamically, or have preview urls
+/// Even though this is from official documentation, some of them are not valid voice-ids
 fn get_chinese_voices() -> Vec<VoiceInfo> {
     vec![
         VoiceInfo {

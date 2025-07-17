@@ -122,47 +122,35 @@ pub fn media_input_to_request(
 
             // Extract video data from BaseVideo structure
             let video_data = match ref_video.data {
-                MediaData::Url(url) => {
-                    if url.starts_with("gs://") {
-                        // Use as gcsUri
-                        VideoData {
-                            bytes_base64_encoded: String::new(),
-                            mime_type: "video/mp4".to_string(),
-                            gcs_uri: Some(url),
-                        }
-                    } else {
+                            MediaData::Url(url) => {
+                if url.starts_with("gs://") {
+                    // Use as gcsUri - default to video/mp4 for GCS URIs
+                    VideoData {
+                        bytes_base64_encoded: String::new(),
+                        mime_type: "video/mp4".to_string(),
+                        gcs_uri: Some(url),
+                    }
+                } else {
                         // Download video from URL and convert to base64
                         let raw_bytes = download_video_from_url(&url)?;
-                        let mime_type = if !raw_bytes.mime_type.is_empty() {
-                            raw_bytes.mime_type.clone()
-                        } else {
-                            determine_video_mime_type(&url, &raw_bytes.bytes)?
-                        };
-
                         VideoData {
                             bytes_base64_encoded: base64::Engine::encode(
                                 &base64::engine::general_purpose::STANDARD,
                                 &raw_bytes.bytes,
                             ),
-                            mime_type,
+                            mime_type: raw_bytes.mime_type.clone(),
                             gcs_uri: None,
                         }
                     }
                 }
                 MediaData::Bytes(raw_bytes) => {
                     // Use the mime type from the raw bytes, or determine from bytes if not available
-                    let mime_type = if !raw_bytes.mime_type.is_empty() {
-                        raw_bytes.mime_type.clone()
-                    } else {
-                        determine_video_mime_type_from_bytes(&raw_bytes.bytes)?
-                    };
-
                     VideoData {
                         bytes_base64_encoded: base64::Engine::encode(
                             &base64::engine::general_purpose::STANDARD,
                             &raw_bytes.bytes,
                         ),
-                        mime_type,
+                        mime_type: raw_bytes.mime_type.clone(),
                         gcs_uri: None,
                     }
                 }
@@ -202,49 +190,35 @@ pub fn media_input_to_request(
         MediaInput::Image(ref_image) => {
             // Extract image data from Reference structure
             let image_data = match ref_image.data.data {
-                MediaData::Url(url) => {
-                    if url.starts_with("gs://") {
-                        // Use as gcsUri
-                        ImageData {
-                            bytes_base64_encoded: String::new(),
-                            mime_type: "image/jpg".to_string(),
-                            gcs_uri: Some(url),
-                        }
-                    } else {
+                            MediaData::Url(url) => {
+                if url.starts_with("gs://") {
+                    // Use as gcsUri - default to image/jpeg for GCS URIs
+                    ImageData {
+                        bytes_base64_encoded: String::new(),
+                        mime_type: "image/jpg".to_string(),
+                        gcs_uri: Some(url),
+                    }
+                } else {
                         // Download image from URL and convert to base64
                         let raw_bytes = download_image_from_url(&url)?;
-                        let mime_type = if !raw_bytes.mime_type.is_empty() {
-                            raw_bytes.mime_type.clone()
-                        } else {
-                            determine_image_mime_type(&url, &raw_bytes.bytes)?
-                        };
-
                         ImageData {
                             bytes_base64_encoded: base64::Engine::encode(
                                 &base64::engine::general_purpose::STANDARD,
                                 &raw_bytes.bytes,
                             ),
-                            mime_type,
+                            mime_type: raw_bytes.mime_type.clone(),
                             gcs_uri: None,
                         }
                     }
                 }
                 MediaData::Bytes(raw_bytes) => {
                     // Use the mime type from the raw bytes, or determine from bytes if not available
-                    let mime_type = if !raw_bytes.mime_type.is_empty() {
-                        raw_bytes.mime_type.clone()
-                    } else if raw_bytes.bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
-                        "image/png".to_string()
-                    } else {
-                        "image/jpeg".to_string()
-                    };
-
                     ImageData {
                         bytes_base64_encoded: base64::Engine::encode(
                             &base64::engine::general_purpose::STANDARD,
                             &raw_bytes.bytes,
                         ),
-                        mime_type,
+                        mime_type: raw_bytes.mime_type.clone(),
                         gcs_uri: None,
                     }
                 }
@@ -270,43 +244,31 @@ pub fn media_input_to_request(
                     let lastframe_image_data = match lastframe.data {
                         MediaData::Url(ref url) => {
                             if url.starts_with("gs://") {
-                                // Use as gcsUri
+                                // Use as gcsUri - default to image/jpeg for GCS URIs
                                 ImageData {
                                     bytes_base64_encoded: String::new(),
-                                    mime_type: "image/jpeg".to_string(),
+                                    mime_type: "image/jpg".to_string(),
                                     gcs_uri: Some(url.clone()),
                                 }
                             } else {
                                 let raw_bytes = download_image_from_url(url)?;
-                                let mime_type = if !raw_bytes.mime_type.is_empty() {
-                                    raw_bytes.mime_type.clone()
-                                } else {
-                                    determine_image_mime_type(url, &raw_bytes.bytes)?
-                                };
                                 ImageData {
                                     bytes_base64_encoded: base64::Engine::encode(
                                         &base64::engine::general_purpose::STANDARD,
                                         &raw_bytes.bytes,
                                     ),
-                                    mime_type,
+                                    mime_type: raw_bytes.mime_type.clone(),
                                     gcs_uri: None,
                                 }
                             }
                         }
                         MediaData::Bytes(ref raw_bytes) => {
-                            let mime_type = if !raw_bytes.mime_type.is_empty() {
-                                raw_bytes.mime_type.clone()
-                            } else if raw_bytes.bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
-                                "image/png".to_string()
-                            } else {
-                                "image/jpeg".to_string()
-                            };
                             ImageData {
                                 bytes_base64_encoded: base64::Engine::encode(
                                     &base64::engine::general_purpose::STANDARD,
                                     &raw_bytes.bytes,
                                 ),
-                                mime_type,
+                                mime_type: raw_bytes.mime_type.clone(),
                                 gcs_uri: None,
                             }
                         }
@@ -377,77 +339,6 @@ fn determine_aspect_ratio(
             Ok("16:9".to_string())
         }
     }
-}
-
-fn determine_image_mime_type(url: &str, bytes: &[u8]) -> Result<String, VideoError> {
-    // Check file extension first
-    if url.to_lowercase().ends_with(".png") {
-        return Ok("image/png".to_string());
-    }
-    if url.to_lowercase().ends_with(".jpg") || url.to_lowercase().ends_with(".jpeg") {
-        return Ok("image/jpeg".to_string());
-    }
-
-    // Check magic bytes
-    if bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
-        Ok("image/png".to_string())
-    } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
-        Ok("image/jpeg".to_string())
-    } else {
-        // Default to JPEG
-        log::warn!("Could not determine image type, defaulting to JPEG");
-        Ok("image/jpeg".to_string())
-    }
-}
-
-fn determine_video_mime_type(url: &str, bytes: &[u8]) -> Result<String, VideoError> {
-    // Check file extension first
-    if url.to_lowercase().ends_with(".mp4") {
-        return Ok("video/mp4".to_string());
-    }
-    if url.to_lowercase().ends_with(".mov") {
-        return Ok("video/quicktime".to_string());
-    }
-    if url.to_lowercase().ends_with(".avi") {
-        return Ok("video/x-msvideo".to_string());
-    }
-    if url.to_lowercase().ends_with(".webm") {
-        return Ok("video/webm".to_string());
-    }
-
-    // Check magic bytes
-    determine_video_mime_type_from_bytes(bytes)
-}
-
-fn determine_video_mime_type_from_bytes(bytes: &[u8]) -> Result<String, VideoError> {
-    // Check magic bytes for common video formats
-    if bytes.len() >= 4 {
-        // MP4 format magic bytes
-        if bytes[4..8] == [0x66, 0x74, 0x79, 0x70] {
-            return Ok("video/mp4".to_string());
-        }
-        // Check for other MP4 variants
-        if bytes.len() >= 8 && &bytes[0..4] == b"ftyp" {
-            return Ok("video/mp4".to_string());
-        }
-        // WebM format magic bytes
-        if bytes[0..4] == [0x1A, 0x45, 0xDF, 0xA3] {
-            return Ok("video/webm".to_string());
-        }
-        // AVI format magic bytes
-        if bytes[0..4] == [0x52, 0x49, 0x46, 0x46] && bytes.len() >= 12 && &bytes[8..12] == b"AVI "
-        {
-            return Ok("video/x-msvideo".to_string());
-        }
-        // MOV format magic bytes (QuickTime)
-        if bytes.len() >= 8 && &bytes[4..8] == b"moov" {
-            return Ok("video/quicktime".to_string());
-        }
-    }
-
-    // Default to MP4 if we can't determine the format
-    log::warn!("Could not determine video type, defaulting to MP4");
-    Ok("video/mp4".to_string())
 }
 
 fn log_unsupported_options(config: &GenerationConfig, options: &HashMap<String, String>) {

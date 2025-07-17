@@ -487,7 +487,7 @@ impl Guest for Component {
         println!("Test11: Text to video, extend video, lip sync");
 
         // Step 1: Generate initial text-to-video
-        let media_input = types::MediaInput::Text("A professional, Caucasian businesswoman with striking red hair, neatly tied back, sits confidently in a modern office. She exhibits subtle, natural movements—light head tilts, gentle hand gestures, and steady blinking without speaking or lip movement".to_string());
+        let media_input = types::MediaInput::Text("A professional, Front facing, lookig at the camera,Caucasian businesswoman with striking red hair, neatly tied back, sits confidently in a modern office. No camera movement".to_string());
 
         let config = types::GenerationConfig {
             negative_prompt: None,
@@ -496,14 +496,11 @@ impl Guest for Component {
             guidance_scale: None,
             aspect_ratio: Some(types::AspectRatio::Landscape),
             model: Some("kling-v1-6".to_string()),
-            duration_seconds: Some(10.0),
+            duration_seconds: Some(5.0),
             resolution: Some(types::Resolution::Fhd),
             enable_audio: Some(false),
             enhance_prompt: Some(true),
-            provider_options: Some(vec![types::Kv {
-                key: "mode".to_string(),
-                value: "pro".to_string(),
-            }]),
+            provider_options: None,
             lastframe: None,
             static_mask: None,
             dynamic_mask: None,
@@ -548,7 +545,7 @@ impl Guest for Component {
         println!("Extending video with generation ID: {}", generation_id);
         let extend_job_id = match advanced::extend_video(
             &generation_id,
-            Some("continue the video with a businesswoman with red hair, in a modern office"),
+            Some("continue the video with a businesswoman with red hair, in a modern office, front facing, looking at the camera, no camera movement"),
             None,
             None,
             None,
@@ -585,13 +582,12 @@ impl Guest for Component {
         };
 
         // Step 6: Perform lip-sync on the extended video
-        let lip_sync_video = types::LipSyncVideo::Video(types::BaseVideo {
-            data: types::MediaData::Url(format!("generation-id:{}", extended_generation_id)),
-        });
+        println!("Performing lip-sync on video with generation ID: {}", extended_generation_id);
+        let lip_sync_video = types::LipSyncVideo::VideoId(extended_generation_id);
 
         let text_to_speech = types::TextToSpeech {
-            text: "Hello, Golem Cloud is a durable, serverless platform for running long-lived, stateful AI agents and workflows. It uses WebAssembly to provide automatic state persistence, fault tolerance, and seamless recovery. Welcome to Golem Cloud".to_string(),
-            voice_id: "commercial_lady_en_f-v1".to_string(),
+            text: "Hello, Golem Cloud is a durable, serverless platform for running long-lived, stateful AI agents and workflows. Welcome to Golem Cloud".to_string(),
+            voice_id: "chengshu_jiejie".to_string(),
             language: types::VoiceLanguage::En,
             speed: 1.0,
         };
