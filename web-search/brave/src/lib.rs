@@ -51,7 +51,7 @@ impl GuestSearchSession for BraveSearchSession {
         }
 
         let current_offset = *self.current_offset.borrow();
-        
+
         if current_offset >= 9 {
             *self.has_more_results.borrow_mut() = false;
             return Err(SearchError::BackendError(
@@ -64,7 +64,8 @@ impl GuestSearchSession for BraveSearchSession {
 
         let request = convert_params_to_request(&self.params, Some(new_offset));
         let response = self.client.search(request)?;
-        let (results, metadata) = convert_response_to_results(response, &self.params, Some(current_offset));
+        let (results, metadata) =
+            convert_response_to_results(response, &self.params, Some(current_offset));
 
         *self.last_metadata.borrow_mut() = metadata.clone();
 

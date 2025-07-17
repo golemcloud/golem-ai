@@ -49,7 +49,8 @@ impl GuestSearchSession for GoogleSearchSession {
             ));
         }
         let num_results = self.params.max_results.unwrap_or(10);
-        *self.current_start_index.borrow_mut() = *self.current_start_index.borrow_mut() + num_results;
+        *self.current_start_index.borrow_mut() =
+            *self.current_start_index.borrow_mut() + num_results;
         let request =
             convert_params_to_request(&self.params, Some(*self.current_start_index.borrow()));
         let response = self.client.search(request)?;
