@@ -1,0 +1,27 @@
+[package]
+name = "test_video_advanced"
+version = "0.0.1"
+edition = "2021"
+
+[features]
+default = ["kling"]
+kling = []
+
+[package.metadata]
+
+[package.metadata.component]
+
+[package.metadata.component.target]
+path = "wit-generated"
+
+[package.metadata.component.target.dependencies]
+"golem:video-generation" = { path = "wit-generated/deps/golem-video" }
+"test:video-advanced-exports" = { path = "wit-generated/deps/test_video-advanced-exports" }
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+required-features = []
+
+[dependencies]
+wit-bindgen-rt = { workspace = true }

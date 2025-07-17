@@ -1,0 +1,102 @@
+# Schema for IDEA:
+# $schema: https://schema.golem.cloud/app/golem/1.2.2.1/golem.schema.json
+# Schema for vscode-yaml
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.2.2.1/golem.schema.json
+
+# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
+# For creating APIs see https://learn.golem.cloud/invoke/making-custom-apis
+
+components:
+  test:video-advanced:
+    profiles:
+      # DEBUG PROFILES
+      kling-debug:
+        files:
+          - sourcePath: ../../data/first.png
+            targetPath: /data/first.png
+            permissions: read-only
+          - sourcePath: ../../data/last.png
+            targetPath: /data/last.png
+            permissions: read-only
+          - sourcePath: ../../data/cameracontrol.jpeg
+            targetPath: /data/cameracontrol.jpeg
+            permissions: read-only
+          - sourcePath: ../../data/single-effect.jpeg
+            targetPath: /data/single-effect.jpeg
+            permissions: read-only
+          - sourcePath: ../../data/multi-image.jpeg
+            targetPath: /data/multi-image.jpeg
+            permissions: read-only
+          - sourcePath: ../../data/audio.wav
+            targetPath: /data/audio.wav
+            permissions: read-only
+        build:
+          - command: cargo component build --no-default-features --features kling
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_video_advanced.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_video_kling.wasm ../../target/wasm32-wasip1/debug/test_video_advanced.wasm -o ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_video_advanced.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_video_kling.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_video_kling_debug.wasm
+        clean:
+          - src/bindings.rs
+      # RELEASE PROFILES    
+      kling-release:
+        files:
+          - sourcePath: ../../data/first.png
+            targetPath: /data/first.png
+            permissions: read-only
+          - sourcePath: ../../data/last.png
+            targetPath: /data/last.png
+            permissions: read-only
+          - sourcePath: ../../data/cameracontrol.jpeg
+            targetPath: /data/cameracontrol.jpeg
+            permissions: read-only
+          - sourcePath: ../../data/single-effect.jpeg
+            targetPath: /data/single-effect.jpeg
+            permissions: read-only
+          - sourcePath: ../../data/multi-image.jpeg
+            targetPath: /data/multi-image.jpeg
+            permissions: read-only
+          - sourcePath: ../../data/audio.wav
+            targetPath: /data/audio.wav
+            permissions: read-only
+        build:
+          - command: cargo component build --release --no-default-features --features kling 
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_video.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_video_kling.wasm ../../target/wasm32-wasip1/release/test_video.wasm -o ../../target/wasm32-wasip1/release/test_video_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_video.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_video_kling.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_video_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_video_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_video_kling_release.wasm
+        clean:
+          - src/bindings.rs
+    defaultProfile: kling-debug
+
+# Example for adding dependencies for Worker to Worker communication:
+# See https://learn.golem.cloud/docs/app-manifest#fields_dependencies for more information
+#
+#dependencies:
+#  test:video-advanced:
+#  - target: <target component name to be called>
+#    type: wasm-rpc

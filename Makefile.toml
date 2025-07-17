@@ -13,7 +13,7 @@ args = ["test"]
 [tasks.build]
 script_runner = "@duckscript"
 script = '''
-domains = array llm
+domains = array llm video
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -28,7 +28,7 @@ end
 [tasks.release-build]
 script_runner = "@duckscript"
 script = '''
-domains = array llm
+domains = array llm video
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -44,7 +44,7 @@ end
 script_runner = "@duckscript"
 script = '''
 #!/bin/bash
-domains = array llm
+domains = array llm video
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -60,7 +60,7 @@ end
 script_runner = "@duckscript"
 script = '''
 #!/bin/bash
-domains = array llm
+domains = array llm video
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -75,7 +75,7 @@ end
 [tasks.wit]
 script_runner = "@duckscript"
 script = '''
-domains = array llm
+domains = array llm video
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -88,19 +88,40 @@ end
 '''
 
 [tasks.build-test-components]
+dependencies = ["build"]
 description = "Builds all test components with golem-cli"
-script_runner = "@duckscript"
 script = '''
-domains = array llm
+cd test/llm
 
-# if there is no domain passed run for every domain
-if is_empty ${1}
-    for domain in ${domains}
-        exec cargo make --cwd ${domain} build-test-components
-    end
-else
-    exec cargo make --cwd ${1} build-test-components
-end
+golem-cli --version
+golem-cli app clean
+golem-cli app build -b anthropic-debug
+golem-cli app clean
+golem-cli app build -b grok-debug
+golem-cli app clean
+golem-cli app build -b openai-debug
+golem-cli app clean
+golem-cli app build -b openrouter-debug
+golem-cli app clean
+golem-cli app build -b ollama-debug
+golem-cli app clean
+
+cd ../video
+golem-cli --version
+golem-cli app clean
+golem-cli app build -b veo-debug
+golem-cli app clean
+golem-cli app build -b stability-debug
+golem-cli app clean
+golem-cli app build -b kling-debug
+golem-cli app clean
+golem-cli app build -b runway-debug
+golem-cli app clean
+
+cd ../video-advanced
+golem-cli --version
+golem-cli app clean
+golem-cli app build
 '''
 
 [tasks.build-all]
@@ -108,11 +129,37 @@ script_runner = "@duckscript"
 script = '''
 mkdir components/debug
 
+cm_run_task clean
 cm_run_task build
-cm_run_task copy-debug-artifacts
 
+# Copy LLM artifacts
+cp target/wasm32-wasip1/debug/golem_llm_anthropic.wasm components/debug/golem_llm_anthropic.wasm
+cp target/wasm32-wasip1/debug/golem_llm_grok.wasm components/debug/golem_llm_grok.wasm
+cp target/wasm32-wasip1/debug/golem_llm_openai.wasm components/debug/golem_llm_openai.wasm
+cp target/wasm32-wasip1/debug/golem_llm_openrouter.wasm components/debug/golem_llm_openrouter.wasm
+cp target/wasm32-wasip1/debug/golem_llm_ollama.wasm components/debug/golem_llm_ollama.wasm
+
+# Copy Video artifacts
+cp target/wasm32-wasip1/debug/golem_video_veo.wasm components/debug/golem_video_veo.wasm
+cp target/wasm32-wasip1/debug/golem_video_stability.wasm components/debug/golem_video_stability.wasm
+cp target/wasm32-wasip1/debug/golem_video_kling.wasm components/debug/golem_video_kling.wasm
+cp target/wasm32-wasip1/debug/golem_video_runway.wasm components/debug/golem_video_runway.wasm
+
+cm_run_task clean
 cm_run_task build-portable
-cm_run_task copy-debug-artifacts --portable
+
+# Copy portable LLM artifacts
+cp target/wasm32-wasip1/debug/golem_llm_anthropic.wasm components/debug/golem_llm_anthropic-portable.wasm
+cp target/wasm32-wasip1/debug/golem_llm_grok.wasm components/debug/golem_llm_grok-portable.wasm
+cp target/wasm32-wasip1/debug/golem_llm_openai.wasm components/debug/golem_llm_openai-portable.wasm
+cp target/wasm32-wasip1/debug/golem_llm_openrouter.wasm components/debug/golem_llm_openrouter-portable.wasm
+cp target/wasm32-wasip1/debug/golem_llm_ollama.wasm components/debug/golem_llm_ollama-portable.wasm
+
+# Copy portable Video artifacts
+cp target/wasm32-wasip1/debug/golem_video_veo.wasm components/debug/golem_video_veo-portable.wasm
+cp target/wasm32-wasip1/debug/golem_video_stability.wasm components/debug/golem_video_stability-portable.wasm
+cp target/wasm32-wasip1/debug/golem_video_kling.wasm components/debug/golem_video_kling-portable.wasm
+cp target/wasm32-wasip1/debug/golem_video_runway.wasm components/debug/golem_video_runway-portable.wasm
 '''
 
 [tasks.release-build-all]
@@ -124,43 +171,35 @@ cm_run_task set-version
 
 cm_run_task clean
 cm_run_task release-build
-cm_run_task copy-release-artifacts
+
+# Copy LLM artifacts
+cp target/wasm32-wasip1/release/golem_llm_anthropic.wasm components/release/golem_llm_anthropic.wasm
+cp target/wasm32-wasip1/release/golem_llm_grok.wasm components/release/golem_llm_grok.wasm
+cp target/wasm32-wasip1/release/golem_llm_openai.wasm components/release/golem_llm_openai.wasm
+cp target/wasm32-wasip1/release/golem_llm_openrouter.wasm components/release/golem_llm_openrouter.wasm
+cp target/wasm32-wasip1/release/golem_llm_ollama.wasm components/release/golem_llm_ollama.wasm
+
+# Copy Video artifacts
+cp target/wasm32-wasip1/release/golem_video_veo.wasm components/release/golem_video_veo.wasm
+cp target/wasm32-wasip1/release/golem_video_stability.wasm components/release/golem_video_stability.wasm
+cp target/wasm32-wasip1/release/golem_video_kling.wasm components/release/golem_video_kling.wasm
+cp target/wasm32-wasip1/release/golem_video_runway.wasm components/release/golem_video_runway.wasm
 
 cm_run_task clean
 cm_run_task release-build-portable
-cm_run_task copy-release-artifacts --portable
-'''
 
-[tasks.copy-debug-artifacts]
-script_runner = "@duckscript"
-script = '''
+# Copy portable LLM artifacts
+cp target/wasm32-wasip1/release/golem_llm_anthropic.wasm components/release/golem_llm_anthropic-portable.wasm
+cp target/wasm32-wasip1/release/golem_llm_grok.wasm components/release/golem_llm_grok-portable.wasm
+cp target/wasm32-wasip1/release/golem_llm_openai.wasm components/release/golem_llm_openai-portable.wasm
+cp target/wasm32-wasip1/release/golem_llm_openrouter.wasm components/release/golem_llm_openrouter-portable.wasm
+cp target/wasm32-wasip1/release/golem_llm_ollama.wasm components/release/golem_llm_ollama-portable.wasm
 
-is_portable = eq ${1} "--portable"
-
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama
-for target in ${targets}
-    if is_portable
-        cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}-portable.wasm
-    else
-        cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}.wasm
-    end
-end
-'''
-
-[tasks.copy-release-artifacts]
-script_runner = "@duckscript"
-script = '''
-
-is_portable = eq ${1} "--portable"
-
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama
-for target in ${targets}
-    if is_portable
-        cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-portable.wasm
-    else
-        cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}.wasm
-    end
-end
+# Copy portable Video artifacts
+cp target/wasm32-wasip1/release/golem_video_veo.wasm components/release/golem_video_veo-portable.wasm
+cp target/wasm32-wasip1/release/golem_video_stability.wasm components/release/golem_video_stability-portable.wasm
+cp target/wasm32-wasip1/release/golem_video_kling.wasm components/release/golem_video_kling-portable.wasm
+cp target/wasm32-wasip1/release/golem_video_runway.wasm components/release/golem_video_runway-portable.wasm
 '''
 
 # Maintenance tasks

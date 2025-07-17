@@ -8,6 +8,11 @@ members = [
     "llm/ollama",
     "llm/openai",
     "llm/openrouter",
+    "video/video",
+    "video/veo",
+    "video/stability",
+    "video/kling",
+    "video/runway",
 ]
 
 [profile.release]
@@ -26,3 +31,5 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 wit-bindgen-rt = { version = "0.40.0", features = ["bitflags"] }
 base64 = { version = "0.22.1" }
+url = { version = "2.5.4" }
+mime_guess = { version = "2.0.5" }
