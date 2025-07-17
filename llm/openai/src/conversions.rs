@@ -43,16 +43,7 @@ pub fn create_request(
 pub fn messages_to_input_items(messages: Vec<Message>) -> Vec<InputItem> {
     let mut items = Vec::new();
     for message in messages {
-        let role = to_openai_role_name(message.role).to_string();
-        let mut input_items = Vec::new();
-        for content_part in message.content {
-            input_items.push(content_part_to_inner_input_item(content_part));
-        }
-
-        items.push(InputItem::InputMessage {
-            role,
-            content: InnerInput::List(input_items),
-        });
+        items.push(llm_message_to_openai_message(message));
     }
     items
 }
@@ -122,35 +113,48 @@ pub fn to_openai_role_name(role: Role) -> &'static str {
     }
 }
 
-pub fn content_part_to_inner_input_item(content_part: ContentPart) -> InnerInputItem {
-    match content_part {
-        ContentPart::Text(msg) => InnerInputItem::TextInput { text: msg },
-        ContentPart::Image(image_reference) => match image_reference {
-            ImageReference::Url(image_url) => InnerInputItem::ImageInput {
-                image_url: image_url.url,
-                detail: match image_url.detail {
-                    Some(ImageDetail::Auto) => Detail::Auto,
-                    Some(ImageDetail::Low) => Detail::Low,
-                    Some(ImageDetail::High) => Detail::High,
-                    None => Detail::default(),
-                },
-            },
-            ImageReference::Inline(image_source) => {
-                let base64_data = general_purpose::STANDARD.encode(&image_source.data);
-                let mime_type = &image_source.mime_type; // This is already a string
-                let data_url = format!("data:{mime_type};base64,{base64_data}");
+pub fn llm_message_to_openai_message(message: Message) -> InputItem {
+    let mut items = Vec::new();
 
-                InnerInputItem::ImageInput {
-                    image_url: data_url,
-                    detail: match image_source.detail {
+    for content_part in message.content {
+        let item = match content_part {
+            ContentPart::Text(msg) => match message.role {
+                Role::Assistant => InnerInputItem::TextOutput { text: msg },
+                _ => InnerInputItem::TextInput { text: msg },
+            },
+            ContentPart::Image(image_reference) => match image_reference {
+                ImageReference::Url(image_url) => InnerInputItem::ImageInput {
+                    image_url: image_url.url,
+                    detail: match image_url.detail {
                         Some(ImageDetail::Auto) => Detail::Auto,
                         Some(ImageDetail::Low) => Detail::Low,
                         Some(ImageDetail::High) => Detail::High,
                         None => Detail::default(),
                     },
+                },
+                ImageReference::Inline(image_source) => {
+                    let base64_data = general_purpose::STANDARD.encode(&image_source.data);
+                    let mime_type = &image_source.mime_type; // This is already a string
+                    let data_url = format!("data:{mime_type};base64,{base64_data}");
+
+                    InnerInputItem::ImageInput {
+                        image_url: data_url,
+                        detail: match image_source.detail {
+                            Some(ImageDetail::Auto) => Detail::Auto,
+                            Some(ImageDetail::Low) => Detail::Low,
+                            Some(ImageDetail::High) => Detail::High,
+                            None => Detail::default(),
+                        },
+                    }
                 }
-            }
-        },
+            },
+        };
+        items.push(item);
+    }
+
+    InputItem::InputMessage {
+        role: to_openai_role_name(message.role).to_string(),
+        content: InnerInput::List(items),
     }
 }
 
