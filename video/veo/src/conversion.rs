@@ -4,8 +4,8 @@ use crate::client::{
 };
 use golem_video::error::invalid_input;
 use golem_video::exports::golem::video_generation::types::{
-    AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Resolution, Video,
-    VideoError, VideoResult,
+    AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
+    VideoResult,
 };
 use golem_video::utils::{download_image_from_url, download_video_from_url};
 use std::collections::HashMap;

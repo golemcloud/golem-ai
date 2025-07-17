@@ -1,10 +1,10 @@
-# golem-llm
+# Golem-AI
 
-WebAssembly Components providing a unified API for various LLM providers.
+WebAssembly Components providing a unified API for various Ai features with multiple providers.
 
-## Versions
+## LLM
 
-There are 8 published WASM files for each release:
+There are 10 published WASM files for each LLM release:
 
 | Name                                 | Description                                                                          |
 |--------------------------------------|--------------------------------------------------------------------------------------|
@@ -19,14 +19,14 @@ There are 8 published WASM files for each release:
 | `golem-llm-openai-portable.wasm`     | LLM implementation for OpenAI, with no Golem specific dependencies.                  |
 | `golem-llm-openrouter-portable.wasm` | LLM implementation for OpenRouter, with no Golem specific dependencies.              |
 
-Every component **exports** the same `golem:llm` interface, [defined here](wit/golem-llm.wit).
+Every component **exports** the same `golem:llm` interface, [defined here](llm/wit/golem-llm.wit).
 
 The `-portable` versions only depend on `wasi:io`, `wasi:http` and `wasi:logging`.
 
 The default versions also depend on [Golem's host API](https://learn.golem.cloud/golem-host-functions) to implement
 advanced durability related features.
 
-## Usage
+### LLM Usage
 
 Each provider has to be configured with an API key passed as an environment variable:
 
@@ -40,6 +40,42 @@ Each provider has to be configured with an API key passed as an environment vari
 
 Additionally, setting the `GOLEM_LLM_LOG=trace` environment variable enables trace logging for all the communication
 with the underlying LLM provider.
+
+## Video
+
+There are 8 published WASM files for each Video release:
+
+| Name                                 | Description                                                                          |
+|--------------------------------------|--------------------------------------------------------------------------------------|
+| `golem-video-veo.wasm`           | Video implementation for VEO, using custom Golem specific durability features |
+| `golem-video-veo-portable.wasm`           | Video implementation for VEO, with no Golem specific durability features |
+| `golem-video-runway.wasm`          | Video implementation for Runway, using custom Golem specific durability features   |
+| `golem-video-runway-portable.wasm`  | Video implementation for Runway, with no Golem specific dependencies.            |
+| `golem-video-stability.wasm`  | Video implementation for Stability, with no Golem specific dependencies.            |
+| `golem-video-stability-portable.wasm`       | Video implementation for Stability, with no Golem specific dependencies.              |
+| `golem-video-kling.wasm`     | Video implementation for Kling, with no Golem specific dependencies.                  |
+| `golem-video-kling-portable.wasm` | Video implementation for Kling, with no Golem specific dependencies.              |
+
+Every component **exports** the same `golem:video` interface, [defined here](video/wit/golem-video.wit).
+
+The default versions also depend on [Golem's host API](https://learn.golem.cloud/golem-host-functions) to implement
+advanced durability related features.
+
+### Video Usage
+
+Each provider has to be configured with an API key passed as an environment variable:
+
+| Provider    | Environment Variable                                      |
+|-------------|-----------------------------------------------------------|
+| VEO         | `VEO_PROJECT_ID`, `VEO_CLIENT_EMAIL`, `VEO_PRIVATE_KEY`   |
+| Runway      | `RUNWAY_API_KEY`                                          |
+| Stability   | `STABILITY_API_KEY`                                       |
+| Kling       | `KLING_ACCESS_KEY`, `KLING_SECRET_KEY`                    |
+
+**Note**:The VEO API Private Key needs to be passed as is, this includes the `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines, also including the newlines `\n`.
+
+Additionally, setting the `GOLEM_VIDEO_LOG=trace` environment variable enables trace logging for all the communication
+with the underlying video provider.
 
 ### Using with Golem
 
@@ -108,62 +144,6 @@ To use the LLM provider components in a WebAssembly project independent of Golem
 2. Download the `golem-llm.wit` WIT package and import it
 3. Use [`wac`](https://github.com/bytecodealliance/wac) to compose your component with the selected LLM implementation.
 
-## Examples
-
-Take the [test application](test/components-rust/test-llm/src/lib.rs) as an example of using `golem-llm` from Rust. The
-implemented test functions are demonstrating the following:
-
-| Function Name | Description                                                                                |
-|---------------|--------------------------------------------------------------------------------------------|
-| `test1`       | Simple text question and answer, no streaming                                              | 
-| `test2`       | Demonstrates using **tools** without streaming                                             |
-| `test3`       | Simple text question and answer with streaming                                             |
-| `test4`       | Tool usage with streaming                                                                  |
-| `test5`       | Using an image in the prompt                                                               |
-| `test6`       | Demonstrates that the streaming response is continued in case of a crash (with Golem only) |
-| `test7`       | Using a source image by passing byte array as base64 in the prompt                         |
-
-### Running the examples
-
-To run the examples first you need a running Golem instance. This can be Golem Cloud or the single-executable `golem`
-binary
-started with `golem server run`.
-
-**NOTE**: `golem-llm` requires the latest (unstable) version of Golem currently. It's going to work with the next public
-stable release 1.2.2.
-
-Then build and deploy the _test application_. Select one of the following profiles to choose which provider to use:
-| Profile Name | Description |
-|--------------|-----------------------------------------------------------------------------------------------|
-| `anthropic-debug` | Uses the Anthropic LLM implementation and compiles the code in debug profile |
-| `anthropic-release` | Uses the Anthropic LLM implementation and compiles the code in release profile |
-| `ollama-debug` | Uses the Ollama LLM implementation and compiles the code in debug profile |
-| `ollama-release` | Uses the Ollama LLM implementation and compiles the code in release profile |
-| `grok-debug` | Uses the Grok LLM implementation and compiles the code in debug profile |
-| `grok-release` | Uses the Grok LLM implementation and compiles the code in release profile |
-| `openai-debug` | Uses the OpenAI LLM implementation and compiles the code in debug profile |
-| `openai-release` | Uses the OpenAI LLM implementation and compiles the code in release profile |
-| `openrouter-debug` | Uses the OpenRouter LLM implementation and compiles the code in debug profile |
-| `openrouter-release` | Uses the OpenRouter LLM implementation and compiles the code in release profile |
-
-```bash
-cd test
-golem app build -b openai-debug
-golem app deploy -b openai-debug
-```
-
-Depending on the provider selected, an environment variable has to be set for the worker to be started, containing the API key for the given provider:
-
-```bash
-golem worker new test:llm/debug --env OPENAI_API_KEY=xxx --env GOLEM_LLM_LOG=trace
-```
-
-Then you can invoke the test functions on this worker:
-
-```bash
-golem worker invoke test:llm/debug test1 --stream 
-```
-
 ## Development
 
 This repository uses [cargo-make](https://github.com/sagiegurari/cargo-make) to automate build tasks.
@@ -180,7 +160,7 @@ Some of the important tasks are:
 | `cargo make fix`                    | Fixes formatting and Clippy rules                                                                      |
 | `cargo make wit`                    | To be used after editing the `wit/golem-llm.wit` file - distributes the changes to all wit directories |
 
-The `test` directory contains a **Golem application** for testing various features of the LLM components.
+The `test` directory contains a **Golem application** for testing various features of the AI components.
 Check [the Golem documentation](https://learn.golem.cloud/quickstart) to learn how to install Golem and `golem-cli` to
 run these tests.
 
