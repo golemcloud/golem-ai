@@ -17,9 +17,9 @@ interface test-video-api {
 }
 
 world test-video {
-  import golem:video/types@1.0.0;
-  import golem:video/video-generation@1.0.0;
-  import golem:video/lip-sync@1.0.0;
-  import golem:video/advanced@1.0.0;
+  import golem:video-generation/types@1.0.0;
+  import golem:video-generation/video-generation@1.0.0;
+  import golem:video-generation/lip-sync@1.0.0;
+  import golem:video-generation/advanced@1.0.0;
   export test-video-api;
 }

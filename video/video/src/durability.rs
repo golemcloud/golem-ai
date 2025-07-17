@@ -1,11 +1,11 @@
-use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
-use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
+use crate::exports::golem::video_generation::advanced::Guest as AdvancedGuest;
+use crate::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
 #[allow(unused_imports)]
-use crate::exports::golem::video::types::{
+use crate::exports::golem::video_generation::types::{
     AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo, MediaInput,
     VideoError, VideoResult, VoiceInfo,
 };
-use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
+use crate::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
 use std::marker::PhantomData;
 
 /// Wraps a Video implementation with custom durability
@@ -20,13 +20,13 @@ pub trait ExtendedGuest: VideoGenerationGuest + LipSyncGuest + AdvancedGuest + '
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::{DurableVideo, ExtendedGuest};
-    use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
-    use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
-    use crate::exports::golem::video::types::{
+    use crate::exports::golem::video_generation::advanced::Guest as AdvancedGuest;
+    use crate::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
+    use crate::exports::golem::video_generation::types::{
         AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo,
         MediaInput, VideoError, VideoResult, VoiceInfo,
     };
-    use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
+    use crate::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
 
     impl<Impl: ExtendedGuest> VideoGenerationGuest for DurableVideo<Impl> {
         fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
@@ -107,13 +107,13 @@ mod passthrough_impl {
 #[cfg(feature = "durability")]
 mod durable_impl {
     use crate::durability::{DurableVideo, ExtendedGuest};
-    use crate::exports::golem::video::advanced::Guest as AdvancedGuest;
-    use crate::exports::golem::video::lip_sync::Guest as LipSyncGuest;
-    use crate::exports::golem::video::types::{
+    use crate::exports::golem::video_generation::advanced::Guest as AdvancedGuest;
+    use crate::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
+    use crate::exports::golem::video_generation::types::{
         AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo,
         MediaInput, VideoError, VideoResult, VoiceInfo,
     };
-    use crate::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
+    use crate::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
@@ -402,7 +402,7 @@ mod durable_impl {
             GenerateVideoEffectsInput, ListVoicesInput, MultiImageGenerationInput, PollInput,
             UpscaleVideoInput,
         };
-        use crate::exports::golem::video::types::{
+        use crate::exports::golem::video_generation::types::{
             AspectRatio, AudioSource, BaseVideo, DualEffect, DualImageEffects, EffectType,
             GenerationConfig, InputImage, Kv, LipSyncVideo, MediaData, MediaInput, Narration,
             RawBytes, Reference, Resolution, SingleImageEffects, TextToSpeech,
@@ -508,7 +508,7 @@ mod durable_impl {
                 audio: AudioSource::FromText(TextToSpeech {
                     text: "Hello world".to_string(),
                     voice_id: "voice_123".to_string(),
-                    language: crate::exports::golem::video::types::VoiceLanguage::En,
+                    language: crate::exports::golem::video_generation::types::VoiceLanguage::En,
                     speed: 1.0,
                 }),
             };

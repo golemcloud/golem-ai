@@ -1,6 +1,6 @@
 use crate::authentication::generate_access_token;
 use golem_video::error::{from_reqwest_error, video_error_from_status};
-use golem_video::exports::golem::video::types::VideoError;
+use golem_video::exports::golem::video_generation::types::VideoError;
 use log::trace;
 use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
@@ -177,7 +177,16 @@ impl VeoApi {
                         .map(|(index, video)| {
                             trace!("Processing video {index}: {video:?}");
 
-                            if let Some(base64_data) = video.bytes_base64_encoded {
+                            if let Some(gcs_uri) = video.gcs_uri {
+                                trace!("Video {index} has gcsUri: {gcs_uri}");
+                                Ok(VideoResultData {
+                                    video_data: Vec::new(),
+                                    mime_type: video
+                                        .mime_type
+                                        .unwrap_or_else(|| "video/mp4".to_string()),
+                                    gcs_uri: Some(gcs_uri),
+                                })
+                            } else if let Some(base64_data) = video.bytes_base64_encoded {
                                 trace!(
                                     "Video {} has base64 data, length: {}",
                                     index,
@@ -209,11 +218,13 @@ impl VeoApi {
                                 Ok(VideoResultData {
                                     video_data,
                                     mime_type,
+                                    gcs_uri: None,
                                 })
                             } else {
-                                trace!("Video {index} has no base64 encoded data");
+                                trace!("Video {index} has no base64 encoded data or gcsUri");
                                 Err(VideoError::InternalError(
-                                    "No base64 encoded video data in response".to_string(),
+                                    "No base64 encoded video data or gcsUri in response"
+                                        .to_string(),
                                 ))
                             }
                         })
@@ -282,18 +293,28 @@ pub struct ImageToVideoInstance {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ImageData {
-    #[serde(rename = "bytesBase64Encoded")]
+    #[serde(
+        rename = "bytesBase64Encoded",
+        skip_serializing_if = "String::is_empty"
+    )]
     pub bytes_base64_encoded: String,
     #[serde(rename = "mimeType")]
     pub mime_type: String,
+    #[serde(rename = "gcsUri", skip_serializing_if = "Option::is_none")]
+    pub gcs_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct VideoData {
-    #[serde(rename = "bytesBase64Encoded")]
+    #[serde(
+        rename = "bytesBase64Encoded",
+        skip_serializing_if = "String::is_empty"
+    )]
     pub bytes_base64_encoded: String,
     #[serde(rename = "mimeType")]
     pub mime_type: String,
+    #[serde(rename = "gcsUri", skip_serializing_if = "Option::is_none")]
+    pub gcs_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -339,6 +360,7 @@ pub enum PollResponse {
 pub struct VideoResultData {
     pub video_data: Vec<u8>,
     pub mime_type: String,
+    pub gcs_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -362,6 +384,8 @@ pub struct VeoVideo {
     pub bytes_base64_encoded: Option<String>,
     #[serde(rename = "mimeType")]
     pub mime_type: Option<String>,
+    #[serde(rename = "gcsUri", skip_serializing_if = "Option::is_none")]
+    pub gcs_uri: Option<String>,
 }
 
 fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {

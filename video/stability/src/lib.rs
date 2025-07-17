@@ -9,13 +9,13 @@ use crate::conversion::{
 };
 use golem_video::config::with_config_key;
 use golem_video::durability::{DurableVideo, ExtendedGuest};
-use golem_video::exports::golem::video::advanced::Guest as AdvancedGuest;
-use golem_video::exports::golem::video::lip_sync::Guest as LipSyncGuest;
-use golem_video::exports::golem::video::types::{
+use golem_video::exports::golem::video_generation::advanced::Guest as AdvancedGuest;
+use golem_video::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
+use golem_video::exports::golem::video_generation::types::{
     AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo, MediaInput,
     VideoError, VideoResult, VoiceInfo,
 };
-use golem_video::exports::golem::video::video_generation::Guest as VideoGenerationGuest;
+use golem_video::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
 use golem_video::LOGGING_STATE;
 
 struct StabilityComponent;

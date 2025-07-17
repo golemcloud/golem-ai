@@ -2,8 +2,8 @@
 mod bindings;
 
 use crate::bindings::exports::test::video_advanced_exports::test_video_api::*;
-use crate::bindings::golem::video::types;
-use crate::bindings::golem::video::{video_generation, advanced, lip_sync};
+use crate::bindings::golem::video_generation::types;
+use crate::bindings::golem::video_generation::{video_generation, advanced, lip_sync};
 use std::fs;
 use std::fs::File;
 use std::io::Read;
@@ -496,11 +496,14 @@ impl Guest for Component {
             guidance_scale: None,
             aspect_ratio: Some(types::AspectRatio::Landscape),
             model: Some("kling-v1-6".to_string()),
-            duration_seconds: None,
+            duration_seconds: Some(10.0),
             resolution: Some(types::Resolution::Fhd),
             enable_audio: Some(false),
             enhance_prompt: Some(true),
-            provider_options: None,
+            provider_options: Some(vec![types::Kv {
+                key: "mode".to_string(),
+                value: "pro".to_string(),
+            }]),
             lastframe: None,
             static_mask: None,
             dynamic_mask: None,
@@ -587,8 +590,8 @@ impl Guest for Component {
         });
 
         let text_to_speech = types::TextToSpeech {
-            text: "Hello, Golem Cloud is a durable, serverless platform for running long-lived, stateful AI agents and workflows. It uses WebAssembly to provide automatic state persistence, fault tolerance, and seamless recovery—letting developers build resilient cloud applications without managing infrastructure. Welcome to Golem Cloud".to_string(),
-            voice_id: "genshin_vindi2".to_string(),
+            text: "Hello, Golem Cloud is a durable, serverless platform for running long-lived, stateful AI agents and workflows. It uses WebAssembly to provide automatic state persistence, fault tolerance, and seamless recovery. Welcome to Golem Cloud".to_string(),
+            voice_id: "commercial_lady_en_f-v1".to_string(),
             language: types::VoiceLanguage::En,
             speed: 1.0,
         };

@@ -1,4 +1,4 @@
-use crate::exports::golem::video::types::VideoError;
+use crate::exports::golem::video_generation::types::VideoError;
 use reqwest::StatusCode;
 
 /// Creates a `VideoError` value representing invalid input

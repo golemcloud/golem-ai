@@ -1,6 +1,6 @@
 use crate::authentication::generate_jwt_token;
 use golem_video::error::{from_reqwest_error, video_error_from_status};
-use golem_video::exports::golem::video::types::VideoError;
+use golem_video::exports::golem::video_generation::types::VideoError;
 use log::trace;
 use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
@@ -98,6 +98,8 @@ impl KlingApi {
         parse_response(response)
     }
 
+    // Kling has individual endpoints for each generation type
+    // We use polling in text2video, polling for any type works on all endpoints
     pub fn poll_generation(&self, task_id: &str) -> Result<PollResponse, VideoError> {
         trace!("Polling generation status for ID: {task_id}");
 

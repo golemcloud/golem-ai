@@ -3,8 +3,8 @@ mod bindings;
 
 use golem_rust::atomically;
 use crate::bindings::exports::test::video_exports::test_video_api::*;
-use crate::bindings::golem::video::types;
-use crate::bindings::golem::video::video_generation;
+use crate::bindings::golem::video_generation::types;
+use crate::bindings::golem::video_generation::video_generation;
 use crate::bindings::test::helper_client::test_helper_client::TestHelperApi;
 use std::fs;
 use std::fs::File;
@@ -144,6 +144,8 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test3")
     }
 
+    // Test needs a gsc bucket to work
+    // Else veo polling errors out with file to big to send, use stroage uri instead
     fn test4() -> String {
         println!("Test4: Video to video generation (VEO only)");
         
@@ -167,7 +169,10 @@ impl Guest for Component {
             resolution: None,
             enable_audio: Some(false),
             enhance_prompt: Some(true),
-            provider_options: None,
+            provider_options: Some(vec![types::Kv {
+                key: "storage_uri".to_string(),
+                value: "gs://golem-video-test-bucket/test".to_string(),
+            }]),
             lastframe: None,
             static_mask: None,
             dynamic_mask: None,
@@ -188,11 +193,11 @@ impl Guest for Component {
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
 
-        poll_job_until_complete(&job_id, "test4")
+        poll_job_until_complete_uri(&job_id, "test4")
     }
 
     fn test5() -> String {
-        use crate::bindings::golem::video::advanced;
+        use crate::bindings::golem::video_generation::advanced;
         
         println!("Test5: Video upscale (Runway only)");
         
@@ -358,6 +363,57 @@ fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> Str
         round += 1;
         
         println!("Sleeping for {} seconds", POLLING_SLEEP_SECONDS);
+        // Wait POLLING_SLEEP_SECONDS seconds before polling again
+        thread::sleep(Duration::from_secs(POLLING_SLEEP_SECONDS));
+    }
+}
+
+fn poll_job_until_complete_uri(job_id: &str, test_name: &str) -> String {
+    println!("Polling for {} results with job ID: {} (URI only)", test_name, job_id);
+
+    // Wait 5 seconds after job creation before starting polling
+    println!("Waiting 5 seconds for job initialization...");
+    thread::sleep(Duration::from_secs(5));
+
+    // Poll every POLLING_SLEEP_SECONDS seconds until completion
+    loop {
+        match video_generation::poll(&job_id) {
+            Ok(video_result) => {
+                match video_result.status {
+                    types::JobStatus::Pending => {
+                        println!("{} is pending...", test_name);
+                    }
+                    types::JobStatus::Running => {
+                        println!("{} is running...", test_name);
+                    }
+                    types::JobStatus::Succeeded => {
+                        println!("{} completed successfully!", test_name);
+                        
+                        // Extract URI from video result without saving to file
+                        if let Some(videos) = &video_result.videos {
+                            if let Some(first_video) = videos.first() {
+                                if let Some(uri) = &first_video.uri {
+                                    return format!("{} generated successfully. Video URI: {}", test_name, uri);
+                                } else {
+                                    return format!("{} generated successfully, but no URI available (video data may be in base64 format)", test_name);
+                                }
+                            } else {
+                                return format!("{} completed but no videos in result", test_name);
+                            }
+                        } else {
+                            return format!("{} completed but no videos in result", test_name);
+                        }
+                    }
+                    types::JobStatus::Failed(error_msg) => {
+                        return format!("{} failed: {}", test_name, error_msg);
+                    }
+                }
+            }
+            Err(error) => {
+                return format!("Error polling {}: {:?}", test_name, error);
+            }
+        }
+        
         // Wait POLLING_SLEEP_SECONDS seconds before polling again
         thread::sleep(Duration::from_secs(POLLING_SLEEP_SECONDS));
     }

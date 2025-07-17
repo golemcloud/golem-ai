@@ -1,4 +1,4 @@
-package golem:video@1.0.0;
+package golem:video-generation@1.0.0;
 
 interface types {
   variant video-error {

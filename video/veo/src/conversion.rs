@@ -3,7 +3,7 @@ use crate::client::{
     TextToVideoRequest, VeoApi, VideoData, VideoParameters,
 };
 use golem_video::error::invalid_input;
-use golem_video::exports::golem::video::types::{
+use golem_video::exports::golem::video_generation::types::{
     AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
     VideoError, VideoResult,
 };
@@ -30,6 +30,9 @@ pub fn media_input_to_request(
                 .collect()
         })
         .unwrap_or_default();
+
+    // Storage URI from provider options
+    let storage_uri = options.get("storage_uri").cloned();
 
     // Determine model - default to veo-2.0-generate-001, can be overridden
     let model_id = config.model.clone().or_else(|| {
@@ -95,9 +98,6 @@ pub fn media_input_to_request(
         .and_then(|s| s.parse::<u32>().ok())
         .map(|c| c.clamp(1, 4));
 
-    // Storage URI for output
-    let storage_uri = options.get("storage_uri").cloned();
-
     let parameters = VideoParameters {
         aspect_ratio: Some(aspect_ratio),
         duration_seconds,
@@ -123,20 +123,30 @@ pub fn media_input_to_request(
             // Extract video data from BaseVideo structure
             let video_data = match ref_video.data {
                 MediaData::Url(url) => {
-                    // Download video from URL and convert to base64
-                    let raw_bytes = download_video_from_url(&url)?;
-                    let mime_type = if !raw_bytes.mime_type.is_empty() {
-                        raw_bytes.mime_type.clone()
+                    if url.starts_with("gs://") {
+                        // Use as gcsUri
+                        VideoData {
+                            bytes_base64_encoded: String::new(),
+                            mime_type: "video/mp4".to_string(),
+                            gcs_uri: Some(url),
+                        }
                     } else {
-                        determine_video_mime_type(&url, &raw_bytes.bytes)?
-                    };
+                        // Download video from URL and convert to base64
+                        let raw_bytes = download_video_from_url(&url)?;
+                        let mime_type = if !raw_bytes.mime_type.is_empty() {
+                            raw_bytes.mime_type.clone()
+                        } else {
+                            determine_video_mime_type(&url, &raw_bytes.bytes)?
+                        };
 
-                    VideoData {
-                        bytes_base64_encoded: base64::Engine::encode(
-                            &base64::engine::general_purpose::STANDARD,
-                            &raw_bytes.bytes,
-                        ),
-                        mime_type,
+                        VideoData {
+                            bytes_base64_encoded: base64::Engine::encode(
+                                &base64::engine::general_purpose::STANDARD,
+                                &raw_bytes.bytes,
+                            ),
+                            mime_type,
+                            gcs_uri: None,
+                        }
                     }
                 }
                 MediaData::Bytes(raw_bytes) => {
@@ -153,6 +163,7 @@ pub fn media_input_to_request(
                             &raw_bytes.bytes,
                         ),
                         mime_type,
+                        gcs_uri: None,
                     }
                 }
             };
@@ -192,20 +203,30 @@ pub fn media_input_to_request(
             // Extract image data from Reference structure
             let image_data = match ref_image.data.data {
                 MediaData::Url(url) => {
-                    // Download image from URL and convert to base64
-                    let raw_bytes = download_image_from_url(&url)?;
-                    let mime_type = if !raw_bytes.mime_type.is_empty() {
-                        raw_bytes.mime_type.clone()
+                    if url.starts_with("gs://") {
+                        // Use as gcsUri
+                        ImageData {
+                            bytes_base64_encoded: String::new(),
+                            mime_type: "image/jpg".to_string(),
+                            gcs_uri: Some(url),
+                        }
                     } else {
-                        determine_image_mime_type(&url, &raw_bytes.bytes)?
-                    };
+                        // Download image from URL and convert to base64
+                        let raw_bytes = download_image_from_url(&url)?;
+                        let mime_type = if !raw_bytes.mime_type.is_empty() {
+                            raw_bytes.mime_type.clone()
+                        } else {
+                            determine_image_mime_type(&url, &raw_bytes.bytes)?
+                        };
 
-                    ImageData {
-                        bytes_base64_encoded: base64::Engine::encode(
-                            &base64::engine::general_purpose::STANDARD,
-                            &raw_bytes.bytes,
-                        ),
-                        mime_type,
+                        ImageData {
+                            bytes_base64_encoded: base64::Engine::encode(
+                                &base64::engine::general_purpose::STANDARD,
+                                &raw_bytes.bytes,
+                            ),
+                            mime_type,
+                            gcs_uri: None,
+                        }
                     }
                 }
                 MediaData::Bytes(raw_bytes) => {
@@ -224,6 +245,7 @@ pub fn media_input_to_request(
                             &raw_bytes.bytes,
                         ),
                         mime_type,
+                        gcs_uri: None,
                     }
                 }
             };
@@ -247,18 +269,28 @@ pub fn media_input_to_request(
                 } else {
                     let lastframe_image_data = match lastframe.data {
                         MediaData::Url(ref url) => {
-                            let raw_bytes = download_image_from_url(url)?;
-                            let mime_type = if !raw_bytes.mime_type.is_empty() {
-                                raw_bytes.mime_type.clone()
+                            if url.starts_with("gs://") {
+                                // Use as gcsUri
+                                ImageData {
+                                    bytes_base64_encoded: String::new(),
+                                    mime_type: "image/jpeg".to_string(),
+                                    gcs_uri: Some(url.clone()),
+                                }
                             } else {
-                                determine_image_mime_type(url, &raw_bytes.bytes)?
-                            };
-                            ImageData {
-                                bytes_base64_encoded: base64::Engine::encode(
-                                    &base64::engine::general_purpose::STANDARD,
-                                    &raw_bytes.bytes,
-                                ),
-                                mime_type,
+                                let raw_bytes = download_image_from_url(url)?;
+                                let mime_type = if !raw_bytes.mime_type.is_empty() {
+                                    raw_bytes.mime_type.clone()
+                                } else {
+                                    determine_image_mime_type(url, &raw_bytes.bytes)?
+                                };
+                                ImageData {
+                                    bytes_base64_encoded: base64::Engine::encode(
+                                        &base64::engine::general_purpose::STANDARD,
+                                        &raw_bytes.bytes,
+                                    ),
+                                    mime_type,
+                                    gcs_uri: None,
+                                }
                             }
                         }
                         MediaData::Bytes(ref raw_bytes) => {
@@ -275,6 +307,7 @@ pub fn media_input_to_request(
                                     &raw_bytes.bytes,
                                 ),
                                 mime_type,
+                                gcs_uri: None,
                             }
                         }
                     };
@@ -303,6 +336,7 @@ pub fn media_input_to_request(
                 ImageData {
                     bytes_base64_encoded: String::new(),
                     mime_type: "image/jpeg".to_string(),
+                    gcs_uri: None,
                 }
             });
 
@@ -477,8 +511,12 @@ pub fn poll_video_generation(
             let videos: Vec<Video> = video_results
                 .into_iter()
                 .map(|result| Video {
-                    uri: None,
-                    base64_bytes: Some(result.video_data),
+                    uri: result.gcs_uri,
+                    base64_bytes: if result.video_data.is_empty() {
+                        None
+                    } else {
+                        Some(result.video_data)
+                    },
                     mime_type: result.mime_type,
                     width: None,
                     height: None,
@@ -509,8 +547,8 @@ pub fn cancel_video_generation(
 
 pub fn generate_lip_sync_video(
     _client: &VeoApi,
-    _video: golem_video::exports::golem::video::types::LipSyncVideo,
-    _audio: golem_video::exports::golem::video::types::AudioSource,
+    _video: golem_video::exports::golem::video_generation::types::LipSyncVideo,
+    _audio: golem_video::exports::golem::video_generation::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Lip sync is not supported by Veo API".to_string(),
@@ -520,7 +558,7 @@ pub fn generate_lip_sync_video(
 pub fn list_available_voices(
     _client: &VeoApi,
     _language: Option<String>,
-) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
+) -> Result<Vec<golem_video::exports::golem::video_generation::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Veo API".to_string(),
     ))
@@ -532,7 +570,7 @@ pub fn extend_video(
     _prompt: Option<String>,
     _negative_prompt: Option<String>,
     _cfg_scale: Option<f32>,
-    _provider_options: Option<Vec<golem_video::exports::golem::video::types::Kv>>,
+    _provider_options: Option<Vec<golem_video::exports::golem::video_generation::types::Kv>>,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video extension is not supported by Veo API".to_string(),
@@ -541,7 +579,7 @@ pub fn extend_video(
 
 pub fn upscale_video(
     _client: &VeoApi,
-    _input: golem_video::exports::golem::video::types::BaseVideo,
+    _input: golem_video::exports::golem::video_generation::types::BaseVideo,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video upscaling is not supported by Veo API".to_string(),
@@ -550,8 +588,8 @@ pub fn upscale_video(
 
 pub fn generate_video_effects(
     _client: &VeoApi,
-    _input: golem_video::exports::golem::video::types::InputImage,
-    _effect: golem_video::exports::golem::video::types::EffectType,
+    _input: golem_video::exports::golem::video_generation::types::InputImage,
+    _effect: golem_video::exports::golem::video_generation::types::EffectType,
     _model: Option<String>,
     _duration: Option<f32>,
     _mode: Option<String>,
@@ -563,7 +601,7 @@ pub fn generate_video_effects(
 
 pub fn multi_image_generation(
     _client: &VeoApi,
-    _input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
+    _input_images: Vec<golem_video::exports::golem::video_generation::types::InputImage>,
     _prompt: Option<String>,
     _config: GenerationConfig,
 ) -> Result<String, VideoError> {

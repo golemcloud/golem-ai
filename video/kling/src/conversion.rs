@@ -4,7 +4,7 @@ use crate::client::{
     PollResponse, TextToVideoRequest, TrajectoryPoint, VideoExtendRequest,
 };
 use golem_video::error::invalid_input;
-use golem_video::exports::golem::video::types::{
+use golem_video::exports::golem::video_generation::types::{
     AspectRatio, AudioSource, CameraMovement, GenerationConfig, JobStatus, MediaData, MediaInput,
     Resolution, Video, VideoError, VideoResult,
 };
@@ -273,7 +273,7 @@ fn convert_camera_control(
 }
 
 fn convert_dynamic_mask(
-    dynamic_mask: &golem_video::exports::golem::video::types::DynamicMask,
+    dynamic_mask: &golem_video::exports::golem::video_generation::types::DynamicMask,
 ) -> Result<Vec<DynamicMaskRequest>, VideoError> {
     // Validate trajectory length (max 77 for 5s video)
     if dynamic_mask.trajectories.len() < 2 {
@@ -469,18 +469,18 @@ pub fn cancel_video_generation(_client: &KlingApi, task_id: String) -> Result<St
 
 pub fn generate_lip_sync_video(
     client: &KlingApi,
-    video: golem_video::exports::golem::video::types::LipSyncVideo,
-    audio: golem_video::exports::golem::video::types::AudioSource,
+    video: golem_video::exports::golem::video_generation::types::LipSyncVideo,
+    audio: golem_video::exports::golem::video_generation::types::AudioSource,
 ) -> Result<String, VideoError> {
     trace!("Generating lip-sync video with Kling API");
 
     // Convert video data to required format
     // Supports both video_id and video_url from Kling API
     let (video_id, video_url) = match &video {
-        golem_video::exports::golem::video::types::LipSyncVideo::VideoId(id) => {
+        golem_video::exports::golem::video_generation::types::LipSyncVideo::VideoId(id) => {
             (Some(id.clone()), None)
         }
-        golem_video::exports::golem::video::types::LipSyncVideo::Video(base_video) => {
+        golem_video::exports::golem::video_generation::types::LipSyncVideo::Video(base_video) => {
             match &base_video.data {
                 MediaData::Url(url) => (None, Some(url.clone())),
                 MediaData::Bytes(_) => {
@@ -501,8 +501,8 @@ pub fn generate_lip_sync_video(
 
                 // Use the language from the TTS object
                 let language = match tts.language {
-                    golem_video::exports::golem::video::types::VoiceLanguage::En => "en",
-                    golem_video::exports::golem::video::types::VoiceLanguage::Zh => "zh",
+                    golem_video::exports::golem::video_generation::types::VoiceLanguage::En => "en",
+                    golem_video::exports::golem::video_generation::types::VoiceLanguage::Zh => "zh",
                 };
 
                 let speed = tts.speed;
@@ -584,7 +584,7 @@ pub fn generate_lip_sync_video(
 pub fn list_available_voices(
     _client: &KlingApi,
     language: Option<String>,
-) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
+) -> Result<Vec<golem_video::exports::golem::video_generation::types::VoiceInfo>, VideoError> {
     use crate::voices::get_voices;
 
     trace!("Listing available voices for language: {language:?}");
@@ -599,7 +599,7 @@ pub fn extend_video(
     prompt: Option<String>,
     negative_prompt: Option<String>,
     cfg_scale: Option<f32>,
-    provider_options: Option<Vec<golem_video::exports::golem::video::types::Kv>>,
+    provider_options: Option<Vec<golem_video::exports::golem::video_generation::types::Kv>>,
 ) -> Result<String, VideoError> {
     trace!("Extending video with ID: {video_id}");
 
@@ -662,7 +662,7 @@ pub fn extend_video(
 
 pub fn upscale_video(
     _client: &KlingApi,
-    _input: golem_video::exports::golem::video::types::BaseVideo,
+    _input: golem_video::exports::golem::video_generation::types::BaseVideo,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video upscaling is not supported by Kling API".to_string(),
@@ -671,14 +671,14 @@ pub fn upscale_video(
 
 pub fn generate_video_effects(
     client: &KlingApi,
-    input: golem_video::exports::golem::video::types::InputImage,
-    effect: golem_video::exports::golem::video::types::EffectType,
+    input: golem_video::exports::golem::video_generation::types::InputImage,
+    effect: golem_video::exports::golem::video_generation::types::EffectType,
     model: Option<String>,
     duration: Option<f32>,
     mode: Option<String>,
 ) -> Result<String, VideoError> {
     use crate::client::{VideoEffectsInput, VideoEffectsRequest};
-    use golem_video::exports::golem::video::types::{
+    use golem_video::exports::golem::video_generation::types::{
         DualImageEffects, EffectType, SingleImageEffects,
     };
 
@@ -699,6 +699,7 @@ pub fn generate_video_effects(
                 SingleImageEffects::Expansion => "expansion",
                 SingleImageEffects::AnimeFigure => "anime_figure",
                 SingleImageEffects::Rocketrocket => "rocketrocket",
+                // anime_figure and rocketrocket are newly added, in their chinese documentations
             };
 
             // For single image effects, model_name is required to be "kling-v1-6"
@@ -803,7 +804,7 @@ pub fn generate_video_effects(
 
 pub fn multi_image_generation(
     client: &KlingApi,
-    input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
+    input_images: Vec<golem_video::exports::golem::video_generation::types::InputImage>,
     prompt: Option<String>,
     config: GenerationConfig,
 ) -> Result<String, VideoError> {

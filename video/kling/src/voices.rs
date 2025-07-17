@@ -1,4 +1,4 @@
-use golem_video::exports::golem::video::types::{VoiceInfo, VoiceLanguage};
+use golem_video::exports::golem::video_generation::types::{VoiceInfo, VoiceLanguage};
 
 /// Voice data for Kling lip-sync functionality
 /// Data sourced from Kling API documentation

@@ -15,7 +15,7 @@ kling = []
 path = "wit-generated"
 
 [package.metadata.component.target.dependencies]
-"golem:video" = { path = "wit-generated/deps/golem-video" }
+"golem:video-generation" = { path = "wit-generated/deps/golem-video" }
 "test:video-advanced-exports" = { path = "wit-generated/deps/test_video-advanced-exports" }
 
 [lib]

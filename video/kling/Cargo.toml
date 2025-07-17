@@ -34,10 +34,10 @@ package = "golem:video-kling"
 generate_unused_types = true
 
 [package.metadata.component.bindings.with]
-"golem:video/types@1.0.0" = "golem_video::golem::video::types"
-"golem:video/video-generation@1.0.0" = "golem_video::golem::video::video_generation"
-"golem:video/lip-sync@1.0.0" = "golem_video::golem::video::lip_sync"
-"golem:video/advanced@1.0.0" = "golem_video::golem::video::advanced"
+"golem:video-generation/types@1.0.0" = "golem_video::golem::video_generation::types"
+"golem:video-generation/video-generation@1.0.0" = "golem_video::golem::video_generation::video_generation"
+"golem:video-generation/lip-sync@1.0.0" = "golem_video::golem::video_generation::lip_sync"
+"golem:video-generation/advanced@1.0.0" = "golem_video::golem::video_generation::advanced"
 
 [package.metadata.component.target]
 path = "wit"

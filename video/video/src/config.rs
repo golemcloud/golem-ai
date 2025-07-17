@@ -1,4 +1,4 @@
-use crate::exports::golem::video::types::VideoError;
+use crate::exports::golem::video_generation::types::VideoError;
 use std::ffi::OsStr;
 
 /// Gets an expected configuration value from the environment, and fails if it is not found

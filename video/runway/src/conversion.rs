@@ -3,7 +3,7 @@ use crate::client::{
     RunwayApi, TextToImageRequest, VideoUpscaleRequest,
 };
 use golem_video::error::{invalid_input, unsupported_feature};
-use golem_video::exports::golem::video::types::{
+use golem_video::exports::golem::video_generation::types::{
     AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
     VideoError, VideoResult,
 };
@@ -251,13 +251,15 @@ fn generate_text_to_video_via_image(
     };
 
     // Step 3: Use the generated image URL for video generation
-    let image_input = MediaInput::Image(golem_video::exports::golem::video::types::Reference {
-        data: golem_video::exports::golem::video::types::InputImage {
-            data: MediaData::Url(image_url),
+    let image_input = MediaInput::Image(
+        golem_video::exports::golem::video_generation::types::Reference {
+            data: golem_video::exports::golem::video_generation::types::InputImage {
+                data: MediaData::Url(image_url),
+            },
+            prompt: Some(prompt),
+            role: Some(golem_video::exports::golem::video_generation::types::ImageRole::First),
         },
-        prompt: Some(prompt),
-        role: Some(golem_video::exports::golem::video::types::ImageRole::First),
-    });
+    );
 
     let request = media_input_to_request(image_input, config)?;
     let response = client.generate_video(request)?;
@@ -384,7 +386,7 @@ pub fn poll_text_to_image_generation(
 
 pub fn upscale_video(
     client: &RunwayApi,
-    input: golem_video::exports::golem::video::types::BaseVideo,
+    input: golem_video::exports::golem::video_generation::types::BaseVideo,
 ) -> Result<String, VideoError> {
     let video_uri = match input.data {
         MediaData::Url(url) => Ok(url),
@@ -424,8 +426,8 @@ pub fn upscale_video(
 
 pub fn generate_video_effects(
     _client: &RunwayApi,
-    _input: golem_video::exports::golem::video::types::InputImage,
-    _effect: golem_video::exports::golem::video::types::EffectType,
+    _input: golem_video::exports::golem::video_generation::types::InputImage,
+    _effect: golem_video::exports::golem::video_generation::types::EffectType,
     _model: Option<String>,
     _duration: Option<f32>,
     _mode: Option<String>,
@@ -437,7 +439,7 @@ pub fn generate_video_effects(
 
 pub fn multi_image_generation(
     _client: &RunwayApi,
-    _input_images: Vec<golem_video::exports::golem::video::types::InputImage>,
+    _input_images: Vec<golem_video::exports::golem::video_generation::types::InputImage>,
     _prompt: Option<String>,
     _config: GenerationConfig,
 ) -> Result<String, VideoError> {
@@ -448,8 +450,8 @@ pub fn multi_image_generation(
 
 pub fn generate_lip_sync_video(
     _client: &RunwayApi,
-    _video: golem_video::exports::golem::video::types::LipSyncVideo,
-    _audio: golem_video::exports::golem::video::types::AudioSource,
+    _video: golem_video::exports::golem::video_generation::types::LipSyncVideo,
+    _audio: golem_video::exports::golem::video_generation::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Lip sync is not supported by Runway API".to_string(),
@@ -459,7 +461,7 @@ pub fn generate_lip_sync_video(
 pub fn list_available_voices(
     _client: &RunwayApi,
     _language: Option<String>,
-) -> Result<Vec<golem_video::exports::golem::video::types::VoiceInfo>, VideoError> {
+) -> Result<Vec<golem_video::exports::golem::video_generation::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Runway API".to_string(),
     ))
@@ -471,7 +473,7 @@ pub fn extend_video(
     _prompt: Option<String>,
     _negative_prompt: Option<String>,
     _cfg_scale: Option<f32>,
-    _provider_options: Option<Vec<golem_video::exports::golem::video::types::Kv>>,
+    _provider_options: Option<Vec<golem_video::exports::golem::video_generation::types::Kv>>,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video extension is not supported by Runway API".to_string(),
