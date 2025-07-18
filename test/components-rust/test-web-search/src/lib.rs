@@ -109,7 +109,7 @@ impl Guest for Component {
         }
     }
 
-    /// test4 simulates a crash during a web search, but only first time.
+    /// test4 simulates a crash during a web search session, but only first time.
     /// after the automatic recovery it will continue and finish the request successfully.
     fn test4() -> String {
         let params = web_search::SearchParams {
@@ -126,33 +126,54 @@ impl Guest for Component {
             advanced_answer: None,
         };
 
-        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
-
-        atomically(|| {
-            let client = TestHelperApi::new(&name);
-            let counter = client.blocking_inc_and_get();
-            if counter == 1 {
-                panic!("Simulating crash during web search")
-            }
-        });
-
-        println!("Sending web search request after recovery...");
-        let response = web_search::search_once(&params);
-        println!("Response: {:?}", response);
-
-        match response {
-            Ok((results, metadata)) => {
-                format!(
-                    "Found {} results.\nResults: {:?}\nMetadata: {:?}",
-                    results.len(),
-                    results,
-                    metadata
-                )
+        println!("Starting web search session for durability test...");
+        let session = match web_search::start_search(&params) {
+            Ok(session) => {
+                println!("Created session successfully");
+                session
             }
             Err(error) => {
-                format!("ERROR after recovery: {:?}", error)
+                return format!("Failed to create session: {:?}", error);
+            }
+        };
+
+        let mut result = String::new();
+        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
+        let mut round = 0;
+
+        loop {
+            match session.next_page() {
+                Ok(search_result) => {
+                    println!("Result: {}\n",search_result.title );
+                    result.push_str(&format!(
+                        "Result: {} ({})\n",
+                        search_result.title,
+                        search_result.url
+                    ));
+                }
+                Err(error) => {
+                    result.push_str(&format!("\n ERROR: {:?}\n", error));
+                    break;
+                }
+            }
+
+            if round == 1 {
+                atomically(|| {
+                    let client = TestHelperApi::new(&name);
+                    let answer = client.blocking_inc_and_get();
+                    if answer == 1 {
+                        panic!("Simulating crash...")
+                    }
+                });
+            }
+
+            round += 1;
+            
+            if round >= 2 {
+                break;
             }
         }
+        result
     }
 }
 
