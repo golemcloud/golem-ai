@@ -126,10 +126,15 @@ impl Guest for Component {
             advanced_answer: None,
         };
 
-        println!("Starting web search session for durability test...");
+        let mut result = String::new();
+        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
+        let mut round = 0;
+        let mut crashed = false;
+
+        println!("[TEST] Starting web search session for durability test...");
         let session = match web_search::start_search(&params) {
             Ok(session) => {
-                println!("Created session successfully");
+                println!("[TEST] Created session successfully");
                 session
             }
             Err(error) => {
@@ -137,16 +142,15 @@ impl Guest for Component {
             }
         };
 
-        let mut result = String::new();
-        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
-        let mut round = 0;
-
         loop {
             match session.next_page() {
                 Ok(search_result) => {
-                    println!("Result: {}\n",search_result.title );
+                    let status = if crashed { "[AFTER CRASH]" } else { "[BEFORE CRASH]" };
+                    println!("{} Round {}: Result: {}\n", status, round, search_result.title);
                     result.push_str(&format!(
-                        "Result: {} ({})\n",
+                        "{} Round {}: Result: {} ({})\n",
+                        status,
+                        round,
                         search_result.title,
                         search_result.url
                     ));
@@ -157,19 +161,24 @@ impl Guest for Component {
                 }
             }
 
-            if round == 1 {
+            if round == 1 && !crashed {
                 atomically(|| {
                     let client = TestHelperApi::new(&name);
                     let answer = client.blocking_inc_and_get();
                     if answer == 1 {
+                        println!("[TEST] About to simulate crash after round {}...", round);
                         panic!("Simulating crash...")
+                    } else {
+                        println!("[TEST] This is post-crash execution, continuing...");
+                        crashed = true;
                     }
                 });
             }
 
             round += 1;
             
-            if round >= 2 {
+            if round >= 5 {
+                println!("[TEST] Reached maximum rounds (5), stopping");
                 break;
             }
         }

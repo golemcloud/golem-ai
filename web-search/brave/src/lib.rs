@@ -2,7 +2,7 @@ use crate::client::BraveSearchApi;
 use crate::conversions::{convert_params_to_request, convert_response_to_results};
 use golem_web_search::config::with_config_key;
 
-use golem_web_search::durability::DurableWebSearch;
+use golem_web_search::durability::{DurableWebSearch, ExtendedGuest};
 use golem_web_search::golem::web_search::types::{
     SearchError, SearchMetadata, SearchParams, SearchResult,
 };
@@ -119,6 +119,42 @@ impl Guest for BraveWebSearchComponent {
             let (results, metadata) = convert_response_to_results(response, &params, None);
             Ok((results, metadata))
         })
+    }
+}
+
+impl ExtendedGuest for BraveWebSearchComponent {
+    fn unwrapped_search_session(params: SearchParams) -> Result<BraveSearchSession, SearchError> {
+        println!("[DURABILITY] unwrapped_search_session: Creating new BraveSearchSession");
+        LOGGING_STATE.with_borrow_mut(|state| state.init());
+
+        with_config_key(&[Self::API_KEY_ENV_VAR], Err, |keys| {
+            let api_key = keys.get(Self::API_KEY_ENV_VAR).unwrap().to_owned();
+            let client = BraveSearchApi::new(api_key);
+            Ok(BraveSearchSession::new(client, params))
+        })
+    }
+
+    fn session_from_state(params: SearchParams, page_count: u32) -> Result<BraveSearchSession, SearchError> {
+        println!("[DURABILITY] session_from_state: Creating BraveSearchSession from state, page_count: {}", page_count);
+        LOGGING_STATE.with_borrow_mut(|state| state.init());
+
+        with_config_key(&[Self::API_KEY_ENV_VAR], Err, |keys| {
+            let api_key = keys.get(Self::API_KEY_ENV_VAR).unwrap().to_owned();
+            let client = BraveSearchApi::new(api_key);
+            let session = BraveSearchSession::new(client, params);
+            
+            // Adjust session state to reflect the page count
+            *session.current_offset.borrow_mut() = page_count;
+            
+            Ok(session)
+        })
+    }
+
+    fn retry_search_params(original_params: &SearchParams, page_count: u32) -> SearchParams {
+        println!("[DURABILITY] retry_search_params: Adjusting params for page_count: {}", page_count);
+        // For Brave, we just return the original params
+        // The offset is handled internally by the session state
+        original_params.clone()
     }
 }
 
