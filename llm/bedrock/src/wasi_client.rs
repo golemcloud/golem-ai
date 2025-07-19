@@ -8,8 +8,7 @@ use aws_smithy_runtime_api::{
     http::{Headers, Response, StatusCode},
 };
 use aws_smithy_types::body::SdkBody;
-use reqwest::Method;
-use wstd::http;
+use wstd::http::{self, Method};
 
 use crate::async_utils::UnsafeFuture;
 

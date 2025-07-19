@@ -27,10 +27,6 @@ golem-llm = { workspace = true }
 
 golem-rust = { workspace = true }
 log = { workspace = true }
-reqwest = { git = "https://github.com/golemcloud/reqwest", branch = "update-july-2025", features = [
-    "json",
-    "async",
-] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 wit-bindgen-rt = { workspace = true }
