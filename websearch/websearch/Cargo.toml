@@ -1,0 +1,26 @@
+[package]
+name = "golem-web-search"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-llm"
+description = "WebAssembly components for working with websearch APIs, with special support for Golem Cloud"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["rlib"]
+
+[features]
+default = ["durability"]
+durability = ["golem-rust/durability"]
+
+[dependencies]
+golem-rust = { workspace = true }
+log = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+wasi-logger = "0.1.2"
+wit-bindgen = { version = "0.40.0" }
+

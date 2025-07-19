@@ -1,0 +1,54 @@
+[package]
+name = "golem-web-search-serper"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-llm"
+description = "WebAssembly component for querying Serper APIs via the golem:web-search interface"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[features]
+default = ["durability"]
+durability = ["golem-rust/durability", "golem-web-search/durability"]
+
+[dependencies]
+golem-web-search = { path = "../websearch", version = "0.0.0", default-features = false }
+golem-rust = { workspace = true }
+log = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+base64 = { workspace = true }
+url = "2.5"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[package.metadata.component]
+package = "golem:web-search-serper"
+
+[package.metadata.component.bindings]
+generate_unused_types = true
+
+[package.metadata.component.bindings.with]
+"golem:web-search/web-search@1.0.0" = "golem_websearch::golem::websearch::websearch"
+"golem:web-search/types@1.0.0" = "golem_websearch::golem::websearch::types"
+
+
+[package.metadata.component.target]
+path = "wit"
+
+[package.metadata.component.target.dependencies]
+"golem:websearch" = { path = "wit/deps/golem-web-search" }
+"wasi:io" = { path = "wit/deps/wasi:io" }

@@ -91,9 +91,9 @@ checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
 name = "aws-config"
-version = "1.8.0"
+version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "455e9fb7743c6f6267eb2830ccc08686fbb3d13c9a689369562fd4d4ef9ea462"
+checksum = "ebd9b83179adf8998576317ce47785948bcff399ec5b15f4dfbdedd44ddf5b92"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -116,9 +116,9 @@ dependencies = [
 
 [[package]]
 name = "aws-credential-types"
-version = "1.2.3"
+version = "1.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "687bc16bc431a8533fe0097c7f0182874767f920989d7260950172ae8e3c4465"
+checksum = "b68c2194a190e1efc999612792e25b1ab3abfefe4306494efaaabc25933c0cbe"
 dependencies = [
  "aws-smithy-async",
  "aws-smithy-runtime-api",
@@ -128,9 +128,9 @@ dependencies = [
 
 [[package]]
 name = "aws-runtime"
-version = "1.5.8"
+version = "1.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f6c68419d8ba16d9a7463671593c54f81ba58cab466e9b759418da606dcc2e2"
+checksum = "b2090e664216c78e766b6bac10fe74d2f451c02441d43484cd76ac9a295075f7"
 dependencies = [
  "aws-credential-types",
  "aws-sigv4",
@@ -153,9 +153,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-bedrockruntime"
-version = "1.93.0"
+version = "1.97.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c46900e6ef102ae75cd2ff16d5a73085228a8b0fcccb987d85f792673da00ef"
+checksum = "a2cabf0de26d45a7529721f8900657d005b9989b1b26121b0200450126b2a685"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -178,9 +178,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-sts"
-version = "1.75.0"
+version = "1.78.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3258fa707f2f585ee3049d9550954b959002abd59176975150a01d5cf38ae3f"
+checksum = "37f7766d2344f56d10d12f3c32993da36d78217f32594fe4fb8e57a538c1cdea"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -235,9 +235,9 @@ dependencies = [
 
 [[package]]
 name = "aws-smithy-eventstream"
-version = "0.60.9"
+version = "0.60.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "338a3642c399c0a5d157648426110e199ca7fd1c689cc395676b81aa563700c4"
+checksum = "604c7aec361252b8f1c871a7641d5e0ba3a7f5a586e51b66bc9510a5519594d9"
 dependencies = [
  "aws-smithy-types",
  "bytes",
@@ -246,9 +246,9 @@ dependencies = [
 
 [[package]]
 name = "aws-smithy-http"
-version = "0.62.1"
+version = "0.62.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99335bec6cdc50a346fda1437f9fefe33abf8c99060739a546a16457f2862ca9"
+checksum = "43c82ba4cab184ea61f6edaafc1072aad3c2a17dcf4c0fce19ac5694b90d8b5f"
 dependencies = [
  "aws-smithy-eventstream",
  "aws-smithy-runtime-api",
@@ -295,9 +295,9 @@ dependencies = [
 
 [[package]]
 name = "aws-smithy-runtime"
-version = "1.8.3"
+version = "1.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14302f06d1d5b7d333fd819943075b13d27c7700b414f574c3c35859bfb55d5e"
+checksum = "c3aaec682eb189e43c8a19c3dab2fe54590ad5f2cc2d26ab27608a20f2acf81c"
 dependencies = [
  "aws-smithy-async",
  "aws-smithy-http",
@@ -1107,6 +1107,86 @@ dependencies = [
 ]
 
 [[package]]
+name = "golem-web-search"
+version = "0.0.0"
+dependencies = [
+ "golem-rust",
+ "log",
+ "reqwest 0.12.15 (git+https://github.com/golemcloud/reqwest?branch=update-may-2025)",
+ "serde",
+ "serde_json",
+ "wasi-logger",
+ "wit-bindgen 0.40.0",
+]
+
+[[package]]
+name = "golem-web-search-brave"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "golem-rust",
+ "golem-web-search",
+ "log",
+ "reqwest 0.12.15 (git+https://github.com/golemcloud/reqwest?branch=update-may-2025)",
+ "serde",
+ "serde_json",
+ "url",
+ "urlencoding",
+ "wasm-bindgen",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "golem-web-search-google"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "golem-rust",
+ "golem-web-search",
+ "log",
+ "reqwest 0.12.15 (git+https://github.com/golemcloud/reqwest?branch=update-may-2025)",
+ "serde",
+ "serde_json",
+ "url",
+ "urlencoding",
+ "wasm-bindgen",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "golem-web-search-serper"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "golem-rust",
+ "golem-web-search",
+ "log",
+ "reqwest 0.12.15 (git+https://github.com/golemcloud/reqwest?branch=update-may-2025)",
+ "serde",
+ "serde_json",
+ "url",
+ "wasm-bindgen",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "golem-web-search-tavily"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "golem-rust",
+ "golem-web-search",
+ "log",
+ "reqwest 0.12.15 (git+https://github.com/golemcloud/reqwest?branch=update-may-2025)",
+ "serde",
+ "serde_json",
+ "url",
+ "urlencoding",
+ "wasm-bindgen",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1400,6 +1480,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a588916bfdfd92e71cacef98a63d9b1f0d74d6599980d11894290e7ddefffcf7"
 
 [[package]]
+name = "io-uring"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b86e202f00093dcba4275d4636b93ef9dd75d025ae560d2521b45ea28ab49013"
+dependencies = [
+ "bitflags",
+ "cfg-if",
+ "libc",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1508,6 +1599,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3be647b768db090acb35d5ec5db2b0e1f1de11133ca123b9eacf5137868f892a"
 dependencies = [
  "adler2",
+]
+
+[[package]]
+name = "mio"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78bed444cc8a2160f01cbcf811ef18cac863ad68ae8ca62092e8db51d51c761c"
+dependencies = [
+ "libc",
+ "wasi 0.11.1+wasi-snapshot-preview1",
+ "windows-sys",
 ]
 
 [[package]]
@@ -2030,12 +2132,16 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.45.1"
+version = "1.46.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75ef51a33ef1da925cea3e4eb122833cb377c61439ca401b770f54902b806779"
+checksum = "0cc3a2344dafbe23a245241fe8b09735b521110d30fcefbbd5feb1797ca35d17"
 dependencies = [
  "backtrace",
+ "io-uring",
+ "libc",
+ "mio",
  "pin-project-lite",
+ "slab",
 ]
 
 [[package]]
@@ -2209,6 +2315,12 @@ checksum = "bfa7760aed19e106de2c7c0b581b509f2f25d3dacaf737cb82ac61bc6d760b0e"
 dependencies = [
  "try-lock",
 ]
+
+[[package]]
+name = "wasi"
+version = "0.11.1+wasi-snapshot-preview1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasi"
@@ -2408,9 +2520,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows"
-version = "0.61.1"
+version = "0.61.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5ee8f3d025738cb02bad7868bbb5f8a6327501e870bf51f1b455b0a2454a419"
+checksum = "9babd3a767a4c1aef6900409f85f5d53ce2544ccdfaa86dad48c91782c6d6893"
 dependencies = [
  "windows-collections",
  "windows-core",
@@ -2476,9 +2588,9 @@ dependencies = [
 
 [[package]]
 name = "windows-link"
-version = "0.1.1"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76840935b766e1b0a05c0066835fb9ec80071d4c09a16f6bd5f7e655e3c14c38"
+checksum = "5e6ad25900d524eaabdbbb96d20b4311e1e7ae1699af4fb28c17ae66c80d798a"
 
 [[package]]
 name = "windows-numerics"
@@ -2506,6 +2618,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56e6c93f3a0c3b36176cb1327a4958a0353d5d166c2a35cb268ace15e91d3b57"
 dependencies = [
  "windows-link",
+]
+
+[[package]]
+name = "windows-sys"
+version = "0.59.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
+dependencies = [
+ "windows-targets",
 ]
 
 [[package]]
