@@ -11,7 +11,7 @@ use golem_web_search::golem_web_search::web_search::web_search::{
 };
 
 use golem_web_search::LOGGING_STATE;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 
 mod client;
 mod conversions;
@@ -28,6 +28,7 @@ pub struct BraveSearchSession {
     current_offset: RefCell<u32>,
     last_metadata: RefCell<Option<SearchMetadata>>,
     has_more_results: RefCell<bool>,
+    current_page : RefCell<u32>,
 }
 
 impl BraveSearchSession {
@@ -38,6 +39,7 @@ impl BraveSearchSession {
             current_offset: RefCell::new(0),
             last_metadata: RefCell::new(None),
             has_more_results: RefCell::new(true),
+            current_page:RefCell::new(1)
         }
     }
 }
@@ -81,7 +83,7 @@ impl GuestSearchSession for BraveSearchSession {
         } else {
             *self.has_more_results.borrow_mut() = false;
         }
-
+        *self.current_page.borrow_mut() += 1; 
         results
             .into_iter()
             .next()
@@ -134,11 +136,11 @@ impl ExtendedGuest for BraveWebSearchComponent {
         })
     }
 
-    fn session_from_state(
+    fn session_for_page (
         params: SearchParams,
         page_count: u32,
     ) -> Result<BraveSearchSession, SearchError> {
-        println!("[DURABILITY] session_from_state: Creating BraveSearchSession from state, page_count: {page_count}");
+        println!("[DURABILITY] session_for_page : Creating BraveSearchSession from state, page_count: {page_count}");
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
         with_config_key(&[Self::API_KEY_ENV_VAR], Err, |keys| {
@@ -153,12 +155,7 @@ impl ExtendedGuest for BraveWebSearchComponent {
         })
     }
 
-    fn retry_search_params(original_params: &SearchParams, page_count: u32) -> SearchParams {
-        println!("[DURABILITY] retry_search_params: Adjusting params for page_count: {page_count}");
-        // For Brave, we just return the original params
-        // The offset is handled internally by the session state
-        original_params.clone()
-    }
+  
 }
 
 type DurableBraveWebSearchComponent = DurableWebSearch<BraveWebSearchComponent>;

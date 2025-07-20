@@ -25,9 +25,9 @@ impl SerperWebSearchComponent {
 pub struct SerperSearchSession {
     client: SerperSearchApi,
     params: SearchParams,
-    current_page: RefCell<u32>,
     last_metadata: RefCell<Option<SearchMetadata>>,
     has_more_results: RefCell<bool>,
+    current_page: RefCell<u32>,
 }
 
 impl SerperSearchSession {
@@ -35,9 +35,9 @@ impl SerperSearchSession {
         Self {
             client,
             params,
-            current_page: RefCell::new(1),
             last_metadata: RefCell::new(None),
             has_more_results: RefCell::new(true),
+            current_page: RefCell::new(1),
         }
     }
 }
@@ -68,7 +68,7 @@ impl GuestSearchSession for SerperSearchSession {
         if new_page >= 10 {
             *self.has_more_results.borrow_mut() = false;
         }
-
+        *self.current_page.borrow_mut() += 1; 
         results
             .into_iter()
             .next()
@@ -121,11 +121,11 @@ impl ExtendedGuest for SerperWebSearchComponent {
         })
     }
 
-    fn session_from_state(
+    fn session_for_page (
         params: SearchParams,
         page_count: u32,
     ) -> Result<SerperSearchSession, SearchError> {
-        println!("[DURABILITY] session_from_state: Creating SerperSearchSession from state, page_count: {page_count}");
+        println!("[DURABILITY] session_for_page : Creating SerperSearchSession from state, page_count: {page_count}");
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
         with_config_key(&[Self::API_KEY_ENV_VAR], Err, |keys| {
@@ -140,12 +140,7 @@ impl ExtendedGuest for SerperWebSearchComponent {
         })
     }
 
-    fn retry_search_params(original_params: &SearchParams, page_count: u32) -> SearchParams {
-        println!("[DURABILITY] retry_search_params: Adjusting params for page_count: {page_count}");
-        // For Serper, we just return the original params
-        // The page is handled internally by the session state
-        original_params.clone()
-    }
+ 
 }
 
 type DurableSerperWebSearchComponent = DurableWebSearch<SerperWebSearchComponent>;

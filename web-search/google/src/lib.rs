@@ -26,6 +26,7 @@ pub struct GoogleSearchSession {
     params: SearchParams,
     current_start_index: RefCell<u32>,
     last_metadata: RefCell<Option<SearchMetadata>>,
+    current_page:RefCell<u32>,
     has_more_results: RefCell<bool>,
 }
 
@@ -37,6 +38,7 @@ impl GoogleSearchSession {
             current_start_index: RefCell::new(0),
             last_metadata: RefCell::new(None),
             has_more_results: RefCell::new(true),
+            current_page:RefCell::new(1)
         }
     }
 }
@@ -68,7 +70,7 @@ impl GuestSearchSession for GoogleSearchSession {
         } else {
             *self.has_more_results.borrow_mut() = false;
         }
-
+        *self.current_page.borrow_mut() += 1; 
         results
             .into_iter()
             .next()
@@ -136,11 +138,11 @@ impl ExtendedGuest for GoogleWebSearchComponent {
         )
     }
 
-    fn session_from_state(
+    fn session_for_page (
         params: SearchParams,
         page_count: u32,
     ) -> Result<GoogleSearchSession, SearchError> {
-        println!("[DURABILITY] session_from_state: Creating GoogleSearchSession from state, page_count: {page_count}");
+        println!("[DURABILITY] session_for_page : Creating GoogleSearchSession from state, page_count: {page_count}");
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
         with_config_key(
@@ -160,12 +162,6 @@ impl ExtendedGuest for GoogleWebSearchComponent {
         )
     }
 
-    fn retry_search_params(original_params: &SearchParams, page_count: u32) -> SearchParams {
-        println!("[DURABILITY] retry_search_params: Adjusting params for page_count: {page_count}");
-        // For Google, we just return the original params
-        // The start index is handled internally by the session state
-        original_params.clone()
-    }
 }
 
 type DurableGoogleWebSearchComponent = DurableWebSearch<GoogleWebSearchComponent>;

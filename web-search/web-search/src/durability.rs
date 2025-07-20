@@ -12,7 +12,7 @@ pub trait ExtendedGuest: Guest + 'static {
     fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError>;
 
     /// Creates a search session from stored state (for recovery)
-    fn session_from_state(
+    fn session_for_page (
         params: SearchParams,
         page_count: u32,
     ) -> Result<Self::SearchSession, SearchError>;
@@ -150,7 +150,7 @@ mod durable_impl {
                             let (session, first_live_result) =
                                 with_persistence_level(PersistenceLevel::PersistNothing, || {
                                     let session =
-                                        Impl::session_from_state(retry_params, *page_count)?;
+                                        Impl::session_for_page (retry_params, *page_count)?;
                                     let result = session.next_page();
                                     Ok((session, result))
                                 })?;
