@@ -156,7 +156,12 @@ impl Guest for Component {
                     ));
                 }
                 Err(error) => {
-                    result.push_str(&format!("\n ERROR: {:?}\n", error));
+                    let status = if crashed { "[AFTER CRASH]" } else { "[BEFORE CRASH]" };
+                    println!("{} Round {}: Error - {:?}\n", status, round, error);
+                    result.push_str(&format!(
+                        "{} Round {}: Error - {:?}\n",
+                        status, round, error
+                    ));
                     break;
                 }
             }
@@ -177,11 +182,12 @@ impl Guest for Component {
 
             round += 1;
             
-            if round >= 5 {
-                println!("[TEST] Reached maximum rounds (5), stopping");
-                break;
-            }
+            // Continue until no more results (error occurs)
+            // No round limit - fetch all available pages
         }
+        
+        println!("[TEST] Completed durability test - Total pages fetched: {}", round);
+        result.push_str(&format!("\n[SUMMARY] Total pages fetched: {}\n", round));
         result
     }
 }

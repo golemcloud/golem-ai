@@ -136,8 +136,11 @@ impl ExtendedGuest for GoogleWebSearchComponent {
         )
     }
 
-    fn session_from_state(params: SearchParams, page_count: u32) -> Result<GoogleSearchSession, SearchError> {
-        println!("[DURABILITY] session_from_state: Creating GoogleSearchSession from state, page_count: {}", page_count);
+    fn session_from_state(
+        params: SearchParams,
+        page_count: u32,
+    ) -> Result<GoogleSearchSession, SearchError> {
+        println!("[DURABILITY] session_from_state: Creating GoogleSearchSession from state, page_count: {page_count}");
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
         with_config_key(
@@ -148,17 +151,17 @@ impl ExtendedGuest for GoogleWebSearchComponent {
                 let search_engine_id = keys.get(Self::SEARCH_ENGINE_ID_ENV_VAR).unwrap().to_owned();
                 let client = GoogleSearchApi::new(api_key, search_engine_id);
                 let session = GoogleSearchSession::new(client, params);
-                
+
                 // Adjust session state to reflect the page count (each page is 10 results for Google)
                 *session.current_start_index.borrow_mut() = page_count * 10;
-                
+
                 Ok(session)
             },
         )
     }
 
     fn retry_search_params(original_params: &SearchParams, page_count: u32) -> SearchParams {
-        println!("[DURABILITY] retry_search_params: Adjusting params for page_count: {}", page_count);
+        println!("[DURABILITY] retry_search_params: Adjusting params for page_count: {page_count}");
         // For Google, we just return the original params
         // The start index is handled internally by the session state
         original_params.clone()

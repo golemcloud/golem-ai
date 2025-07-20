@@ -121,24 +121,27 @@ impl ExtendedGuest for TavilyWebSearchComponent {
         })
     }
 
-    fn session_from_state(params: SearchParams, page_count: u32) -> Result<TavilySearchSession, SearchError> {
-        println!("[DURABILITY] session_from_state: Creating TavilySearchSession from state, page_count: {}", page_count);
+    fn session_from_state(
+        params: SearchParams,
+        page_count: u32,
+    ) -> Result<TavilySearchSession, SearchError> {
+        println!("[DURABILITY] session_from_state: Creating TavilySearchSession from state, page_count: {page_count}");
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
         with_config_key(&[Self::API_KEY_ENV_VAR], Err, |keys| {
             let api_key = keys.get(Self::API_KEY_ENV_VAR).unwrap().to_owned();
             let client = TavilySearchApi::new(api_key);
             let session = TavilySearchSession::new(client, params);
-            
+
             // Adjust session state to reflect the page count
             *session.current_offset.borrow_mut() = page_count;
-            
+
             Ok(session)
         })
     }
 
     fn retry_search_params(original_params: &SearchParams, page_count: u32) -> SearchParams {
-        println!("[DURABILITY] retry_search_params: Adjusting params for page_count: {}", page_count);
+        println!("[DURABILITY] retry_search_params: Adjusting params for page_count: {page_count}");
         // For Tavily, we just return the original params
         // The offset is handled internally by the session state
         original_params.clone()
