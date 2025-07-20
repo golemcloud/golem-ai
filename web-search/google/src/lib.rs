@@ -156,10 +156,19 @@ impl ExtendedGuest for GoogleWebSearchComponent {
 
                 // Adjust session state to reflect the page count (each page is 10 results for Google)
                 *session.current_start_index.borrow_mut() = page_count * 10;
+                *session.current_page.borrow_mut() = page_count + 1;
 
                 Ok(session)
             },
         )
+    }
+
+    fn is_session_finished(session: &Self::SearchSession) -> bool {
+        !*session.has_more_results.borrow()
+    }
+
+    fn mark_session_finished(session: &Self::SearchSession) {
+        *session.has_more_results.borrow_mut() = false;
     }
 
 }

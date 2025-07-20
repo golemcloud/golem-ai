@@ -132,13 +132,23 @@ impl ExtendedGuest for TavilyWebSearchComponent {
         with_config_key(&[Self::API_KEY_ENV_VAR], Err, |keys| {
             let api_key = keys.get(Self::API_KEY_ENV_VAR).unwrap().to_owned();
             let client = TavilySearchApi::new(api_key);
+            let page_size = params.max_results.unwrap_or(10);
             let session = TavilySearchSession::new(client, params);
 
             // Adjust session state to reflect the page count
-            *session.current_offset.borrow_mut() = page_count;
+            *session.current_offset.borrow_mut() = page_count * page_size;
+            *session.current_page.borrow_mut() = page_count;
 
             Ok(session)
         })
+    }
+
+    fn is_session_finished(session: &Self::SearchSession) -> bool {
+        !*session.has_more_results.borrow()
+    }
+
+    fn mark_session_finished(session: &Self::SearchSession) {
+        *session.has_more_results.borrow_mut() = false;
     }
 }
 

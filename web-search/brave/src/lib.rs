@@ -11,7 +11,7 @@ use golem_web_search::golem_web_search::web_search::web_search::{
 };
 
 use golem_web_search::LOGGING_STATE;
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 
 mod client;
 mod conversions;
@@ -150,12 +150,19 @@ impl ExtendedGuest for BraveWebSearchComponent {
 
             // Adjust session state to reflect the page count
             *session.current_offset.borrow_mut() = page_count;
+            *session.current_page.borrow_mut() = page_count + 1;
 
             Ok(session)
         })
     }
 
-  
+    fn is_session_finished(session: &Self::SearchSession) -> bool {
+        !*session.has_more_results.borrow()
+    }
+
+    fn mark_session_finished(session: &Self::SearchSession) {
+        *session.has_more_results.borrow_mut() = false;
+    }
 }
 
 type DurableBraveWebSearchComponent = DurableWebSearch<BraveWebSearchComponent>;

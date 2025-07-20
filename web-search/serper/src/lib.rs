@@ -134,13 +134,19 @@ impl ExtendedGuest for SerperWebSearchComponent {
             let session = SerperSearchSession::new(client, params);
 
             // Adjust session state to reflect the page count
-            *session.current_page.borrow_mut() = page_count;
+            *session.current_page.borrow_mut() = page_count + 1;
 
             Ok(session)
         })
     }
 
- 
+    fn is_session_finished(session: &Self::SearchSession) -> bool {
+        !*session.has_more_results.borrow()
+    }
+
+    fn mark_session_finished(session: &Self::SearchSession) {
+        *session.has_more_results.borrow_mut() = false;
+    }
 }
 
 type DurableSerperWebSearchComponent = DurableWebSearch<SerperWebSearchComponent>;

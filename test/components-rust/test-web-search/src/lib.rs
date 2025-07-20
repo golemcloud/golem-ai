@@ -113,7 +113,7 @@ impl Guest for Component {
     /// after the automatic recovery it will continue and finish the request successfully.
     fn test4() -> String {
         let params = web_search::SearchParams {
-            query: "Golem cloud WebAssembly components".to_string(),
+            query: "Rust programming language".to_string(),
             safe_search: None,
             language: None,
             region: None,
