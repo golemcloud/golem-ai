@@ -57,7 +57,7 @@ jobs:
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-component
-        run: cargo binstall --force --locked cargo-component@0.21.1
+        run: cargo binstall --force --locked cargo-component@0.20.0
       - name: Build all
         run: cargo make build-all
   build-test-components:
@@ -81,7 +81,7 @@ jobs:
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-component
-        run: cargo binstall --force --locked cargo-component@0.21.1
+        run: cargo binstall --force --locked cargo-component@0.20.0
       - name: Build all test components
         run: cargo make build-test-components
   ollama-integration-tests:
@@ -107,7 +107,7 @@ jobs:
       - name: Install tools
         run: |
           set -e
-          cargo binstall --force --locked cargo-component@0.21.1
+          cargo binstall --force --locked cargo-component@0.20.0
           cargo binstall wac-cli --locked --force --no-confirm
       - name: Start Ollama in Docker
         run: |
@@ -138,14 +138,13 @@ jobs:
           set -eo pipefail
           cargo make --cwd llm build-ollama
           cd test
-          golem app build -b ollama-debug
-          golem app deploy -b ollama-debug
+          golem app deploy -b ollama-debug test:llm test:helper
           golem worker new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 test:llm/ollama-1
           golem worker invoke test:llm/ollama-1 test1 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test2 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test3 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test4 | grep -v "ERROR: "
-          golem worker invoke test:llm/ollama-1 test5 | grep -v "ERROR: " 
+          golem worker invoke test:llm/ollama-1 test5 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test6 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test7 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test8 | grep -v "ERROR: "
@@ -177,7 +176,7 @@ jobs:
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-component
-        run: cargo binstall --force --locked cargo-component@0.21.1
+        run: cargo binstall --force --locked cargo-component@0.20.0
       - name: Build all components in release
         run: cargo make release-build-all
       - name: Login GH CLI

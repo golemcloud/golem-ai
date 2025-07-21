@@ -13,6 +13,8 @@ struct Component;
 
 #[cfg(feature = "openai")]
 const MODEL: &'static str = "gpt-3.5-turbo";
+#[cfg(feature = "bedrock")]
+const MODEL: &'static str = "anthropic.claude-3-5-sonnet-20240620-v1:0";
 #[cfg(feature = "anthropic")]
 const MODEL: &'static str = "claude-3-7-sonnet-20250219";
 #[cfg(feature = "grok")]
@@ -24,6 +26,8 @@ const MODEL: &'static str = "qwen3:1.7b";
 
 #[cfg(feature = "openai")]
 const IMAGE_MODEL: &'static str = "gpt-4o-mini";
+#[cfg(feature = "bedrock")]
+const IMAGE_MODEL: &'static str = "anthropic.claude-3-5-sonnet-20240620-v1:0";
 #[cfg(feature = "anthropic")]
 const IMAGE_MODEL: &'static str = "claude-3-7-sonnet-20250219";
 #[cfg(feature = "grok")]
