@@ -26,7 +26,7 @@ pub struct GoogleSearchSession {
     params: SearchParams,
     current_start_index: RefCell<u32>,
     last_metadata: RefCell<Option<SearchMetadata>>,
-    current_page:RefCell<u32>,
+    current_page: RefCell<u32>,
     has_more_results: RefCell<bool>,
 }
 
@@ -38,7 +38,7 @@ impl GoogleSearchSession {
             current_start_index: RefCell::new(0),
             last_metadata: RefCell::new(None),
             has_more_results: RefCell::new(true),
-            current_page:RefCell::new(1)
+            current_page: RefCell::new(1),
         }
     }
 }
@@ -52,7 +52,8 @@ impl GuestSearchSession for GoogleSearchSession {
         }
 
         // Use pre-set pagination state from session_for_page
-        let request = convert_params_to_request(&self.params, Some(*self.current_start_index.borrow()));
+        let request =
+            convert_params_to_request(&self.params, Some(*self.current_start_index.borrow()));
         let response = self.client.search(request)?;
         let (results, metadata) = convert_response_to_results(response, &self.params);
 
@@ -121,7 +122,7 @@ impl Guest for GoogleWebSearchComponent {
 }
 
 impl ExtendedGuest for GoogleWebSearchComponent {
-    fn session_for_page (
+    fn session_for_page(
         params: SearchParams,
         page_count: u32,
     ) -> Result<GoogleSearchSession, SearchError> {
@@ -153,7 +154,6 @@ impl ExtendedGuest for GoogleWebSearchComponent {
     fn mark_session_finished(session: &Self::SearchSession) {
         *session.has_more_results.borrow_mut() = false;
     }
-
 }
 
 type DurableGoogleWebSearchComponent = DurableWebSearch<GoogleWebSearchComponent>;

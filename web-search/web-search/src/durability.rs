@@ -196,7 +196,7 @@ mod durable_impl {
                                         page_count: next_page_count,
                                     });
 
-                                    println!("[DURABILITY] next_page: REPLAY→LIVE transition complete, now on page: {}", next_page_count);
+                                    println!("[DURABILITY] next_page: REPLAY→LIVE transition complete, now on page: {next_page_count}");
                                     persisted_result
                                 }
                                 Err(err) => Err(err),
@@ -249,10 +249,7 @@ mod durable_impl {
                         Ok(search_result)
                     }
                     Err(error) => {
-                        println!(
-                            "[DURABILITY] next_page: REPLAY mode - replayed error: {:?}",
-                            error
-                        );
+                        println!("[DURABILITY] next_page: REPLAY mode - replayed error: {error:?}");
                         Err(error)
                     }
                 }

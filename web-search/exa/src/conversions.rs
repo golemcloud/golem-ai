@@ -1,5 +1,7 @@
-use crate::client::{ExaSearchRequest, ExaSearchResponse, ExaSearchContents, ExaHighlightsOptions};
-use golem_web_search::golem::web_search::types::{ImageResult, SearchMetadata, SearchParams, SearchResult};
+use crate::client::{ExaHighlightsOptions, ExaSearchContents, ExaSearchRequest, ExaSearchResponse};
+use golem_web_search::golem::web_search::types::{
+    ImageResult, SearchMetadata, SearchParams, SearchResult,
+};
 
 pub fn convert_params_to_request(
     params: &SearchParams,
@@ -25,14 +27,14 @@ pub fn convert_params_to_request(
         // For different "pages", we'll vary the approach to get different results
         let base_results = params.max_results.unwrap_or(10).min(20); // Smaller batches for pagination
         let adjusted_results = (base_results + offset * 2).min(100); // Gradually increase results
-        
+
         // Alternate between search types for different pages to get variety
         let search_type = match offset % 3 {
             0 => "auto",
-            1 => "neural", 
+            1 => "neural",
             _ => "keyword",
         };
-        
+
         (adjusted_results, search_type)
     } else {
         (params.max_results.unwrap_or(10).min(100), "auto")
@@ -77,7 +79,8 @@ pub fn convert_response_to_results(
         .map(|exa_result| SearchResult {
             title: exa_result.title,
             url: exa_result.url.clone(),
-            snippet: exa_result.text
+            snippet: exa_result
+                .text
                 .or_else(|| exa_result.summary.clone())
                 .unwrap_or_else(|| {
                     // If no text content, try to use highlights or create a snippet from title
@@ -85,7 +88,7 @@ pub fn convert_response_to_results(
                         highlights.join(" ... ")
                     } else {
                         match exa_result.score {
-                            Some(score) => format!("Score: {:.2}", score),
+                            Some(score) => format!("Score: {score:.2}"),
                             None => "Relevant result".to_string(),
                         }
                     }
@@ -95,11 +98,13 @@ pub fn convert_response_to_results(
             score: exa_result.score,
             html_snippet: None,
             date_published: exa_result.published_date,
-            images: exa_result.image.map(|image_url| vec![ImageResult {
-                url: image_url,
-                description: None,
-            }]),
-            content_chunks: exa_result.highlights.map(|highlights| highlights),
+            images: exa_result.image.map(|image_url| {
+                vec![ImageResult {
+                    url: image_url,
+                    description: None,
+                }]
+            }),
+            content_chunks: exa_result.highlights,
         })
         .collect();
 

@@ -26,6 +26,7 @@ pub struct ExaSearchSession {
     current_offset: RefCell<u32>,
     last_metadata: RefCell<Option<SearchMetadata>>,
     has_more_results: RefCell<bool>,
+    current_page: RefCell<u32>,
 }
 
 impl ExaSearchSession {
@@ -36,6 +37,7 @@ impl ExaSearchSession {
             current_offset: RefCell::new(0),
             last_metadata: RefCell::new(None),
             has_more_results: RefCell::new(true),
+            current_page: RefCell::new(1),
         }
     }
 }
@@ -49,9 +51,10 @@ impl GuestSearchSession for ExaSearchSession {
         }
 
         let current_offset = *self.current_offset.borrow();
-        
+
         // Exa has a limit of 100 results per request, so we'll limit pagination
-        if current_offset >= 50 {  // Reasonable limit for pagination
+        if current_offset >= 10 {
+            // Reasonable limit for pagination
             *self.has_more_results.borrow_mut() = false;
             return Err(SearchError::BackendError(
                 "Maximum pagination limit reached".to_string(),
@@ -76,7 +79,8 @@ impl GuestSearchSession for ExaSearchSession {
         }
 
         // For Exa, limit pagination attempts
-        if new_offset >= 10 {  // Limit to 10 pages 
+        if new_offset >= 10 {
+            // Limit to 10 pages
             *self.has_more_results.borrow_mut() = false;
         }
 
@@ -122,21 +126,13 @@ impl Guest for ExaWebSearchComponent {
 }
 
 impl ExtendedGuest for ExaWebSearchComponent {
-    fn unwrapped_search_session(params: SearchParams) -> Result<ExaSearchSession, SearchError> {
-        println!("[DURABILITY] unwrapped_search_session: Creating new ExaSearchSession");
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
-        with_config_key(&[Self::API_KEY_ENV_VAR], Err, |keys| {
-            let api_key = keys.get(Self::API_KEY_ENV_VAR).unwrap().to_owned();
-            let client = ExaSearchApi::new(api_key);
-            Ok(ExaSearchSession::new(client, params))
-        })
-    }
-
-    fn session_from_state(
-        params: SearchParams,
+    fn session_for_page(
+        params: golem_web_search::golem_web_search::web_search::web_search::SearchParams,
         page_count: u32,
-    ) -> Result<ExaSearchSession, SearchError> {
+    ) -> Result<
+        Self::SearchSession,
+        golem_web_search::golem_web_search::web_search::web_search::SearchError,
+    > {
         println!("[DURABILITY] session_from_state: Creating ExaSearchSession from state, page_count: {page_count}");
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -152,11 +148,12 @@ impl ExtendedGuest for ExaWebSearchComponent {
         })
     }
 
-    fn retry_search_params(original_params: &SearchParams, page_count: u32) -> SearchParams {
-        println!("[DURABILITY] retry_search_params: Adjusting params for page_count: {page_count}");
-        // For Exa, we just return the original params
-        // The page is handled internally by the session state
-        original_params.clone()
+    fn is_session_finished(session: &Self::SearchSession) -> bool {
+        !*session.has_more_results.borrow()
+    }
+
+    fn mark_session_finished(session: &Self::SearchSession) {
+        *session.has_more_results.borrow_mut() = false;
     }
 }
 

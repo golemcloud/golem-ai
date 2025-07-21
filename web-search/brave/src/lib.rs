@@ -28,7 +28,7 @@ pub struct BraveSearchSession {
     current_offset: RefCell<u32>,
     last_metadata: RefCell<Option<SearchMetadata>>,
     has_more_results: RefCell<bool>,
-    current_page : RefCell<u32>,
+    current_page: RefCell<u32>,
 }
 
 impl BraveSearchSession {
@@ -39,7 +39,7 @@ impl BraveSearchSession {
             current_offset: RefCell::new(0),
             last_metadata: RefCell::new(None),
             has_more_results: RefCell::new(true),
-            current_page:RefCell::new(1)
+            current_page: RefCell::new(1),
         }
     }
 }
@@ -125,7 +125,7 @@ impl Guest for BraveWebSearchComponent {
 }
 
 impl ExtendedGuest for BraveWebSearchComponent {
-    fn session_for_page (
+    fn session_for_page(
         params: SearchParams,
         page_count: u32,
     ) -> Result<BraveSearchSession, SearchError> {

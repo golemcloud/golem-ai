@@ -9,8 +9,6 @@ pub fn from_reqwest_error(details: impl AsRef<str>, err: reqwest::Error) -> Sear
     SearchError::BackendError(format!("{}: {err}", details.as_ref()))
 }
 
-
-
 impl From<&SearchError> for SearchError {
     fn from(error: &SearchError) -> Self {
         error.clone()

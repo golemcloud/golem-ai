@@ -111,7 +111,7 @@ impl Guest for SerperWebSearchComponent {
 }
 
 impl ExtendedGuest for SerperWebSearchComponent {
-    fn session_for_page (
+    fn session_for_page(
         params: SearchParams,
         page_count: u32,
     ) -> Result<SerperSearchSession, SearchError> {
