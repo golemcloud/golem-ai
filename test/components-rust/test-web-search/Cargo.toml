@@ -14,7 +14,6 @@ google = []
 brave = []
 tavily = []
 serper = []
-exa = []
 
 [dependencies]
 # To use common shared libs, use the following:

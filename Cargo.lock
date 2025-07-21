@@ -1135,21 +1135,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "golem-websearch-exa"
-version = "0.0.0"
-dependencies = [
- "base64 0.22.1",
- "golem-rust",
- "golem-web-search",
- "log",
- "reqwest 0.12.15 (git+https://github.com/golemcloud/reqwest?branch=update-may-2025)",
- "serde",
- "serde_json",
- "url",
- "wit-bindgen-rt 0.40.0",
-]
-
-[[package]]
 name = "golem-websearch-google"
 version = "0.0.0"
 dependencies = [
