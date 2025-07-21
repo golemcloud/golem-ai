@@ -111,17 +111,6 @@ impl Guest for TavilyWebSearchComponent {
 }
 
 impl ExtendedGuest for TavilyWebSearchComponent {
-    fn unwrapped_search_session(params: SearchParams) -> Result<TavilySearchSession, SearchError> {
-        println!("[DURABILITY] unwrapped_search_session: Creating new TavilySearchSession");
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
-        with_config_key(&[Self::API_KEY_ENV_VAR], Err, |keys| {
-            let api_key = keys.get(Self::API_KEY_ENV_VAR).unwrap().to_owned();
-            let client = TavilySearchApi::new(api_key);
-            Ok(TavilySearchSession::new(client, params))
-        })
-    }
-
     fn session_for_page(
         params: SearchParams,
         page_count: u32,

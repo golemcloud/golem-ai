@@ -8,9 +8,6 @@ pub struct DurableWebSearch<Impl> {
 
 /// Trait to be implemented in addition to the web search `Guest` trait when wrapping it with `DurableWebSearch`.
 pub trait ExtendedGuest: Guest + 'static {
-    /// Creates an instance of the web search specific `SearchSession` without wrapping it in a `Resource`
-    fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError>;
-
     /// Creates a search session from stored state (for recovery)
     fn session_for_page(
         params: SearchParams,
@@ -288,7 +285,8 @@ mod durable_impl {
             if durability.is_live() {
                 println!("[DURABILITY] start_search: LIVE mode - creating new search session");
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let inner_session = Impl::unwrapped_search_session(params.clone())?;
+                    let search_session = Impl::start_search(params.clone())?;
+                    let inner_session = search_session.into_inner();
                     Ok(SearchSession::new(DurableSearchSession::<Impl>::new(
                         inner_session,
                         params,

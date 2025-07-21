@@ -50,6 +50,7 @@ impl GuestSearchSession for GoogleSearchSession {
                 "No more results available".to_string(),
             ));
         }
+
         let num_results = self.params.max_results.unwrap_or(10);
         *self.current_start_index.borrow_mut() =
             *self.current_start_index.borrow_mut() + num_results;
@@ -122,22 +123,6 @@ impl Guest for GoogleWebSearchComponent {
 }
 
 impl ExtendedGuest for GoogleWebSearchComponent {
-    fn unwrapped_search_session(params: SearchParams) -> Result<GoogleSearchSession, SearchError> {
-        println!("[DURABILITY] unwrapped_search_session: Creating new GoogleSearchSession");
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
-        with_config_key(
-            &[Self::API_KEY_ENV_VAR, Self::SEARCH_ENGINE_ID_ENV_VAR],
-            Err,
-            |keys| {
-                let api_key = keys.get(Self::API_KEY_ENV_VAR).unwrap().to_owned();
-                let search_engine_id = keys.get(Self::SEARCH_ENGINE_ID_ENV_VAR).unwrap().to_owned();
-                let client = GoogleSearchApi::new(api_key, search_engine_id);
-                Ok(GoogleSearchSession::new(client, params))
-            },
-        )
-    }
-
     fn session_for_page (
         params: SearchParams,
         page_count: u32,

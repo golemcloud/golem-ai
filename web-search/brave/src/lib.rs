@@ -125,17 +125,6 @@ impl Guest for BraveWebSearchComponent {
 }
 
 impl ExtendedGuest for BraveWebSearchComponent {
-    fn unwrapped_search_session(params: SearchParams) -> Result<BraveSearchSession, SearchError> {
-        println!("[DURABILITY] unwrapped_search_session: Creating new BraveSearchSession");
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
-        with_config_key(&[Self::API_KEY_ENV_VAR], Err, |keys| {
-            let api_key = keys.get(Self::API_KEY_ENV_VAR).unwrap().to_owned();
-            let client = BraveSearchApi::new(api_key);
-            Ok(BraveSearchSession::new(client, params))
-        })
-    }
-
     fn session_for_page (
         params: SearchParams,
         page_count: u32,
