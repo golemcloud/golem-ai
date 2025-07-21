@@ -13,6 +13,7 @@ members = [
     "web-search/google",
     "web-search/serper",
     "web-search/tavily",
+    "web-search/exa",
 ]
 
 [profile.release]

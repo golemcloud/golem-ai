@@ -8,6 +8,7 @@ run_task = { name = [
     "build-brave",
     "build-tavily",
     "build-serper",
+    "build-exa",
 ] }
 
 [tasks.build-portable]
@@ -16,6 +17,7 @@ run_task = { name = [
     "build-brave-portable",
     "build-tavily-portable",
     "build-serper-portable",
+    "build-exa-portable",
 ] }
 
 [tasks.release-build]
@@ -24,6 +26,7 @@ run_task = { name = [
     "release-build-brave",
     "release-build-tavily",
     "release-build-serper",
+    "release-build-exa",
 ] }
 
 [tasks.release-build-portable]
@@ -32,6 +35,7 @@ run_task = { name = [
     "release-build-brave-portable",
     "release-build-tavily-portable",
     "release-build-serper-portable",
+    "release-build-exa-portable",
 ] }
 
 [tasks.build-google]
@@ -74,6 +78,17 @@ install_crate = { crate_name = "cargo-component", version = "0.20.0" }
 command = "cargo-component"
 args = ["build", "-p", "golem-websearch-serper", "--no-default-features"]
 
+[tasks.build-exa]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-websearch-exa"]
+
+[tasks.build-exa-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-websearch-exa", "--no-default-features"]
+
+
 [tasks.release-build-google]
 install_crate = { crate_name = "cargo-component", version = "0.20.0" }
 command = "cargo-component"
@@ -104,6 +119,17 @@ install_crate = { crate_name = "cargo-component", version = "0.20.0" }
 command = "cargo-component"
 args = ["build", "-p", "golem-websearch-tavily", "--release", "--no-default-features"]
 
+[tasks.release-build-exa]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-websearch-exa", "--release"]
+
+[tasks.release-build-exa-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-websearch-exa", "--release", "--no-default-features"]
+
+
 [tasks.release-build-serper]
 install_crate = { crate_name = "cargo-component", version = "0.20.0" }
 command = "cargo-component"
@@ -124,7 +150,7 @@ dependencies = ["wit-update"]
 
 script_runner = "@duckscript"
 script = """
-modules = array web-search google brave tavily serper
+modules = array web-search google brave tavily serper exa
 
 for module in ${modules}
     rm -r ${module}/wit/deps
@@ -166,4 +192,6 @@ golem-cli app clean
 golem-cli app build -b tavily-debug
 golem-cli app clean
 golem-cli app build -b serper-debug
+golem-cli app clean
+golem-cli app build -b exa-debug
 '''
