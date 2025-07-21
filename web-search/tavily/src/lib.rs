@@ -52,23 +52,21 @@ impl GuestSearchSession for TavilySearchSession {
             ));
         }
 
+        // Use pre-set pagination state - add page_size for the actual API call
         let page_size = self.params.max_results.unwrap_or(10);
         let current_offset = *self.current_offset.borrow();
-        let new_offset = current_offset + page_size;
-        *self.current_offset.borrow_mut() = new_offset;
+        let api_offset = current_offset + page_size;
 
-        let request = convert_params_to_request(&self.params, Some(new_offset));
+        let request = convert_params_to_request(&self.params, Some(api_offset));
         let response = self.client.search(request)?;
         let (results, metadata) = convert_response_to_results(response, &self.params);
 
         *self.last_metadata.borrow_mut() = metadata.clone();
 
         if results.is_empty() {
-            *self.has_more_results.borrow_mut() = true;
+            *self.has_more_results.borrow_mut() = false;
             return Err(SearchError::BackendError("No more results".to_string()));
         }
-
-        *self.current_page.borrow_mut() += 1; 
 
         results
             .into_iter()

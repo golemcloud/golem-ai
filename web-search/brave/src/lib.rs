@@ -61,10 +61,9 @@ impl GuestSearchSession for BraveSearchSession {
             ));
         }
 
-        let new_offset = current_offset + 1;
-        *self.current_offset.borrow_mut() = new_offset;
-
-        let request = convert_params_to_request(&self.params, Some(new_offset));
+        // Use pre-set pagination state - add 1 for the actual API call
+        let api_offset = current_offset + 1;
+        let request = convert_params_to_request(&self.params, Some(api_offset));
         let response = self.client.search(request)?;
         let (results, metadata) =
             convert_response_to_results(response, &self.params, Some(current_offset));
@@ -76,14 +75,15 @@ impl GuestSearchSession for BraveSearchSession {
             return Err(SearchError::BackendError("No more results".to_string()));
         }
 
+        // Update has_more_results based on response and limits
         if let Some(metadata) = &metadata {
             let api_has_more = metadata.next_page_token.is_some();
-            let within_limits = new_offset < 9;
+            let within_limits = api_offset < 9;
             *self.has_more_results.borrow_mut() = api_has_more && within_limits;
         } else {
             *self.has_more_results.borrow_mut() = false;
         }
-        *self.current_page.borrow_mut() += 1; 
+
         results
             .into_iter()
             .next()

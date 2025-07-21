@@ -50,11 +50,11 @@ impl GuestSearchSession for SerperSearchSession {
             ));
         }
 
+        // Use pre-set pagination state - add 1 for the actual API call
         let current_page = *self.current_page.borrow();
-        let new_page = current_page + 1;
-        *self.current_page.borrow_mut() = new_page;
+        let api_page = current_page + 1;
 
-        let request = convert_params_to_request(&self.params, Some(new_page));
+        let request = convert_params_to_request(&self.params, Some(api_page));
         let response = self.client.search(request)?;
         let (results, metadata) = convert_response_to_results(response, &self.params);
 
@@ -65,10 +65,11 @@ impl GuestSearchSession for SerperSearchSession {
             return Err(SearchError::BackendError("No more results".to_string()));
         }
 
-        if new_page >= 10 {
+        // Update has_more_results based on page limits
+        if api_page >= 10 {
             *self.has_more_results.borrow_mut() = false;
         }
-        *self.current_page.borrow_mut() += 1; 
+
         results
             .into_iter()
             .next()

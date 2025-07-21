@@ -45,17 +45,14 @@ impl GoogleSearchSession {
 
 impl GuestSearchSession for GoogleSearchSession {
     fn next_page(&self) -> Result<SearchResult, SearchError> {
-        if !*self.has_more_results.borrow_mut() {
+        if !*self.has_more_results.borrow() {
             return Err(SearchError::BackendError(
                 "No more results available".to_string(),
             ));
         }
 
-        let num_results = self.params.max_results.unwrap_or(10);
-        *self.current_start_index.borrow_mut() =
-            *self.current_start_index.borrow_mut() + num_results;
-        let request =
-            convert_params_to_request(&self.params, Some(*self.current_start_index.borrow()));
+        // Use pre-set pagination state from session_for_page
+        let request = convert_params_to_request(&self.params, Some(*self.current_start_index.borrow()));
         let response = self.client.search(request)?;
         let (results, metadata) = convert_response_to_results(response, &self.params);
 
@@ -66,12 +63,13 @@ impl GuestSearchSession for GoogleSearchSession {
             return Err(SearchError::BackendError("No more results".to_string()));
         }
 
+        // Update has_more_results based on response
         if let Some(metadata) = &metadata {
             *self.has_more_results.borrow_mut() = metadata.next_page_token.is_some();
         } else {
             *self.has_more_results.borrow_mut() = false;
         }
-        *self.current_page.borrow_mut() += 1; 
+
         results
             .into_iter()
             .next()
