@@ -260,6 +260,12 @@ mod durable_impl {
                 let state = self.state.borrow();
                 let result = match &*state {
                     Some(DurableSearchSessionState::Live { session, .. }) => session.get_metadata(),
+                    Some(DurableSearchSessionState::Replay { original_params, page_count, .. }) => {
+                        match Impl::session_for_page(original_params.clone(), *page_count) {
+                            Ok(session) => session.get_metadata(),
+                            Err(_) => None,
+                        }
+                    }
                     _ => None,
                 };
                 println!("[DURABILITY] get_metadata: LIVE mode - persisting metadata result");
