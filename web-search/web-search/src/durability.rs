@@ -91,9 +91,9 @@ mod durable_impl {
     impl<Impl: ExtendedGuest> DurableSearchSession<Impl> {
         fn new(session: Impl::SearchSession, _params: SearchParams) -> Self {
             Self {
-                state: RefCell::new(Some(DurableSearchSessionState::Live { 
-                    session, 
-                    page_count: 0 
+                state: RefCell::new(Some(DurableSearchSessionState::Live {
+                    session,
+                    page_count: 0,
                 })),
                 phantom: PhantomData,
             }
@@ -115,7 +115,7 @@ mod durable_impl {
         for DurableSearchSession<Impl>
     {
         fn next_page(&self) -> Result<SearchResult, SearchError> {
-            let durability = Durability::<Result<SearchResult, SearchError>, UnusedError>::new(
+            let durability = Durability::<SearchResult, SearchError>::new(
                 "golem_web_search",
                 "next_page",
                 DurableFunctionType::ReadRemote,
@@ -124,14 +124,17 @@ mod durable_impl {
             if durability.is_live() {
                 let mut state = self.state.borrow_mut();
                 let result = match &mut *state {
-                    Some(DurableSearchSessionState::Live { session, page_count }) => {
+                    Some(DurableSearchSessionState::Live {
+                        session,
+                        page_count,
+                    }) => {
                         println!("[DURABILITY] next_page: LIVE mode - executing search, current_page: {}", *page_count);
                         let result =
                             with_persistence_level(PersistenceLevel::PersistNothing, || {
                                 session.next_page()
                             });
-                        let persisted_result = durability.persist_infallible(NoInput, result.clone());
-                        
+                        let persisted_result = durability.persist(NoInput, result.clone());
+
                         // Increment page count if successful, mark as finished if error
                         match &persisted_result {
                             Ok(_) => {
@@ -144,7 +147,7 @@ mod durable_impl {
                                 println!("[DURABILITY] next_page: LIVE mode - marked session as finished due to error");
                             }
                         }
-                        
+
                         persisted_result
                     }
                     Some(DurableSearchSessionState::Replay {
@@ -157,58 +160,66 @@ mod durable_impl {
                         } else {
                             println!("[DURABILITY] next_page: REPLAY→LIVE transition - creating live session from state, page_count: {page_count}");
 
-                            let (session, first_live_result) =
+                            let result =
                                 with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                    let session =
-                                        Impl::session_for_page(original_params.clone(), *page_count)?;
-                                    let result = session.next_page();
-                                    Ok((session, result))
-                                })?;
+                                    match Impl::session_for_page(
+                                        original_params.clone(),
+                                        *page_count,
+                                    ) {
+                                        Ok(session) => {
+                                            let result = session.next_page();
+                                            Ok((session, result))
+                                        }
+                                        Err(err) => Err(err),
+                                    }
+                                });
+                            match result {
+                                Ok((session, first_live_result)) => {
+                                    let persisted_result =
+                                        durability.persist(NoInput, first_live_result.clone());
 
-                            let persisted_result = durability
-                                .persist_infallible(NoInput, first_live_result.clone());
-                            
-                            // Switch to live mode with current page count + 1 if successful
-                            let next_page_count = if persisted_result.is_ok() { 
-                                *page_count + 1 
-                            } else { 
-                                *page_count 
-                            };
-                            
-                            // Check if session is finished and update finished state if needed
-                            if persisted_result.is_err() {
-                                // If the live request failed, mark the session as finished
-                                Impl::mark_session_finished(&session);
+                                    // Switch to live mode with current page count + 1 if successful
+                                    let next_page_count = if persisted_result.is_ok() {
+                                        *page_count + 1
+                                    } else {
+                                        *page_count
+                                    };
+
+                                    // Check if session is finished and update finished state if needed
+                                    if persisted_result.is_err() {
+                                        // If the live request failed, mark the session as finished
+                                        Impl::mark_session_finished(&session);
+                                    }
+
+                                    *state = Some(DurableSearchSessionState::Live {
+                                        session,
+                                        page_count: next_page_count,
+                                    });
+
+                                    println!("[DURABILITY] next_page: REPLAY→LIVE transition complete, now on page: {}", next_page_count);
+                                    persisted_result
+                                }
+                                Err(err) => Err(err),
                             }
-                            
-                            *state = Some(DurableSearchSessionState::Live { 
-                                session, 
-                                page_count: next_page_count 
-                            });
-                            
-                            println!("[DURABILITY] next_page: REPLAY→LIVE transition complete, now on page: {}", next_page_count);
-                            persisted_result
                         }
                     }
-                    None => {
-                        Err(SearchError::BackendError(
-                            "Invalid session state".to_string(),
-                        ))
-                    }
+                    None => Err(SearchError::BackendError(
+                        "Invalid session state".to_string(),
+                    )),
                 };
 
                 result
             } else {
                 println!("[DURABILITY] next_page: REPLAY mode - retrieving persisted result");
-                let result: Result<SearchResult, SearchError> = durability.replay_infallible();
-                
+                let result: Result<SearchResult, SearchError> = durability.replay();
+
                 // Update state during replay to maintain consistency
                 let mut state = self.state.borrow_mut();
                 match &mut *state {
-                    Some(DurableSearchSessionState::Replay { 
-                        page_count, 
-                        finished, 
-                        .. 
+                    Some(DurableSearchSessionState::Replay {
+                        page_count,
+                        finished,
+                        ..
                     }) => {
                         match &result {
                             Ok(_) => {
@@ -228,7 +239,7 @@ mod durable_impl {
                         println!("[DURABILITY] next_page: REPLAY mode - unexpected state");
                     }
                 }
-                
+
                 match result {
                     Ok(search_result) => {
                         println!(
@@ -251,7 +262,7 @@ mod durable_impl {
         fn get_metadata(&self) -> Option<SearchMetadata> {
             let durability = Durability::<Option<SearchMetadata>, UnusedError>::new(
                 "golem_web_search",
-                "get_metadata", 
+                "get_metadata",
                 DurableFunctionType::ReadRemote,
             );
 
@@ -260,12 +271,14 @@ mod durable_impl {
                 let state = self.state.borrow();
                 let result = match &*state {
                     Some(DurableSearchSessionState::Live { session, .. }) => session.get_metadata(),
-                    Some(DurableSearchSessionState::Replay { original_params, page_count, .. }) => {
-                        match Impl::session_for_page(original_params.clone(), *page_count) {
-                            Ok(session) => session.get_metadata(),
-                            Err(_) => None,
-                        }
-                    }
+                    Some(DurableSearchSessionState::Replay {
+                        original_params,
+                        page_count,
+                        ..
+                    }) => match Impl::session_for_page(original_params.clone(), *page_count) {
+                        Ok(session) => session.get_metadata(),
+                        Err(_) => None,
+                    },
                     _ => None,
                 };
                 println!("[DURABILITY] get_metadata: LIVE mode - persisting metadata result");
