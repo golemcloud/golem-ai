@@ -136,7 +136,7 @@ jobs:
       - name: Build and test Ollama integration
         run: |
           set -eo pipefail
-          cargo make build
+          cargo make --cwd llm build-ollama
           cd test
           golem app build -b ollama-debug
           golem app deploy -b ollama-debug
