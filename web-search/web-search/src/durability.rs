@@ -252,10 +252,26 @@ mod durable_impl {
         }
 
         fn get_metadata(&self) -> Option<SearchMetadata> {
-            let state = self.state.borrow();
-            match &*state {
-                Some(DurableSearchSessionState::Live { session, .. }) => session.get_metadata(),
-                _ => None,
+            let durability = Durability::<Option<SearchMetadata>, UnusedError>::new(
+                "golem_web_search",
+                "get_metadata", 
+                DurableFunctionType::ReadRemote,
+            );
+
+            if durability.is_live() {
+                println!("[DURABILITY] get_metadata: LIVE mode - retrieving metadata");
+                let state = self.state.borrow();
+                let result = match &*state {
+                    Some(DurableSearchSessionState::Live { session, .. }) => session.get_metadata(),
+                    _ => None,
+                };
+                println!("[DURABILITY] get_metadata: LIVE mode - persisting metadata result");
+                durability.persist_infallible(NoInput, result)
+            } else {
+                println!("[DURABILITY] get_metadata: REPLAY mode - retrieving persisted metadata");
+                let result: Option<SearchMetadata> = durability.replay_infallible();
+                println!("[DURABILITY] get_metadata: REPLAY mode - replayed metadata");
+                result
             }
         }
     }
