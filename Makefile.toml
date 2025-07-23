@@ -19,7 +19,8 @@ args = ["test"]
 [tasks.build]
 script_runner = "@duckscript"
 script = '''
-domains = array llm embed
+
+domains = array llm embed websearch search
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -34,7 +35,8 @@ end
 [tasks.release-build]
 script_runner = "@duckscript"
 script = '''
-domains = array llm embed
+
+domains = array llm embed websearch search
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -50,7 +52,9 @@ end
 script_runner = "@duckscript"
 script = '''
 #!/bin/bash
-domains = array llm embed
+
+domains = array llm embed websearch search
+
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -66,7 +70,9 @@ end
 script_runner = "@duckscript"
 script = '''
 #!/bin/bash
-domains = array llm embed
+
+domains = array llm embed websearch search
+
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -81,7 +87,9 @@ end
 [tasks.wit]
 script_runner = "@duckscript"
 script = '''
-domains = array llm embed
+
+domains = array llm embed websearch search
+
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -97,7 +105,9 @@ end
 description = "Builds all test components with golem-cli"
 script_runner = "@duckscript"
 script = '''
-domains = array llm embed
+
+domains = array llm embed websearch search
+
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -114,11 +124,14 @@ script_runner = "@duckscript"
 script = '''
 mkdir components/debug
 
+cm_run_task clean
 cm_run_task build
 cm_run_task copy-debug-artifacts
 
+cm_run_task clean
 cm_run_task build-portable
-cm_run_task copy-debug-artifacts --portable
+set_env "PORTABLE" "yes"
+cm_run_task copy-debug-artifacts
 '''
 
 [tasks.release-build-all]
@@ -134,21 +147,36 @@ cm_run_task copy-release-artifacts
 
 cm_run_task clean
 cm_run_task release-build-portable
-cm_run_task copy-release-artifacts --portable
+set_env "PORTABLE" "yes"
+cm_run_task copy-release-artifacts
 '''
 
 [tasks.copy-debug-artifacts]
 script_runner = "@duckscript"
 script = '''
 
-is_portable = eq ${1} "--portable"
+portable = get_env "PORTABLE"
+is_portable = eq ${portable} "yes"
+environment = get_env "ENVIRONMENT"
+is_dev = eq ${environment} "dev"
 
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama embed_openai embed_cohere embed_hugging_face embed_voyageai
+
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama embed_openai embed_cohere embed_hugging_face embed_voyageai web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense
+
+
 for target in ${targets}
-    if is_portable
-        cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}-portable.wasm
+    if ${is_portable}
+        if ${is_dev}
+            cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}-portable-dev.wasm
+        else
+            cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}-portable.wasm
+        end
     else
-        cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}.wasm
+        if ${is_dev}
+            cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}-dev.wasm
+        else
+            cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}.wasm
+        end
     end
 end
 '''
@@ -157,14 +185,29 @@ end
 script_runner = "@duckscript"
 script = '''
 
-is_portable = eq ${1} "--portable"
+portable = get_env "PORTABLE"
+is_portable = eq ${portable} "yes"
+environment = get_env "ENVIRONMENT"
+is_dev = eq ${environment} "dev"
 
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama embed_openai embed_cohere embed_hugging_face embed_voyageai
+
+
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama embed_openai embed_cohere embed_hugging_face embed_voyageai websearch_brave websearch_google websearch_serper websearch_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense
+
+
 for target in ${targets}
-    if is_portable
-        cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-portable.wasm
+    if ${is_portable}
+        if ${is_dev}
+            cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-portable-dev.wasm
+        else
+            cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-portable.wasm
+        end
     else
-        cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}.wasm
+        if ${is_dev}
+            cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-dev.wasm
+        else
+            cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}.wasm
+        end
     end
 end
 '''

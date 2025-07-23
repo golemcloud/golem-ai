@@ -1,0 +1,210 @@
+[config]
+default_to_workspace = false
+skip_core_tasks = true
+
+[tasks.build]
+run_task = { name = [
+    "build-algolia",
+    "build-elasticsearch",
+    "build-meilisearch",
+    "build-opensearch",
+    "build-typesense",
+] }
+
+[tasks.build-portable]
+run_task = { name = [
+    "build-algolia-portable",
+    "build-elasticsearch-portable",
+    "build-meilisearch-portable",
+    "build-opensearch-portable",
+    "build-typesense-portable",
+] }
+
+[tasks.release-build]
+run_task = { name = [
+    "release-build-algolia",
+    "release-build-elasticsearch",
+    "release-build-meilisearch",
+    "release-build-opensearch",
+    "release-build-typesense",
+] }
+
+[tasks.release-build-portable]
+run_task = { name = [
+    "release-build-algolia-portable",
+    "release-build-elasticsearch-portable",
+    "release-build-meilisearch-portable",
+    "release-build-opensearch-portable",
+    "release-build-typesense-portable",
+] }
+
+[tasks.build-algolia]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-algolia"]
+
+
+[tasks.build-algolia-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-algolia", "--no-default-features"]
+
+
+[tasks.build-elasticsearch]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-elasticsearch"]
+
+[tasks.build-elasticsearch-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-elasticsearch", "--no-default-features"]
+
+[tasks.build-meilisearch]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-meilisearch"]
+
+[tasks.build-meilisearch-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-meilisearch", "--no-default-features"]
+
+[tasks.build-opensearch]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-opensearch"]
+
+[tasks.build-opensearch-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-opensearch", "--no-default-features"]
+
+[tasks.build-typesense]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-typesense"]
+
+[tasks.build-typesense-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-typesense", "--no-default-features"]
+
+[tasks.release-build-algolia]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-algolia", "--release"]
+
+[tasks.release-build-algolia-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-algolia", "--release", "--no-default-features"]
+
+
+[tasks.release-build-elasticsearch]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-elasticsearch", "--release"]
+
+[tasks.release-build-elasticsearch-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = [
+    "build",
+    "-p",
+    "golem-search-elasticsearch",
+    "--release",
+    "--no-default-features",
+]
+
+[tasks.release-build-meilisearch]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-meilisearch", "--release"]
+
+[tasks.release-build-meilisearch-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-meilisearch", "--release", "--no-default-features"]
+
+[tasks.release-build-opensearch]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-opensearch", "--release"]
+
+[tasks.release-build-opensearch-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-opensearch", "--release", "--no-default-features"]
+
+[tasks.release-build-typesense]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-search-typesense", "--release"]
+
+[tasks.release-build-typesense-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = [
+    "build",
+    "-p",
+    "golem-search-typesense",
+    "--release",
+    "--no-default-features",
+]
+
+[tasks.wit-update]
+install_crate = { crate_name = "wit-deps-cli" }
+command = "wit-deps"
+args = ["update"]
+
+[tasks.wit]
+dependencies = ["wit-update"]
+
+script_runner = "@duckscript"
+script = """
+modules = array search algolia elasticsearch meilisearch opensearch typesense
+
+for module in ${modules}
+    rm -r ${module}/wit/deps
+    mkdir ${module}/wit/deps/golem-search
+    cp wit/golem-search.wit ${module}/wit/deps/golem-search/golem-search.wit
+    cp wit/deps/wasi:io ${module}/wit/deps
+
+    echo "Copied WIT for module search::${module}"
+end
+
+# Copy WIT files for integration tests
+rm -r ../test-search/wit
+mkdir ../test-search/wit/deps/golem-search
+mkdir ../test-search/wit/deps/io
+cp wit/golem-search.wit ../test-search/wit/deps/golem-search/golem-search.wit
+cp wit/deps/wasi:io/error.wit ../test-search/wit/deps/io/error.wit
+cp wit/deps/wasi:io/poll.wit ../test-search/wit/deps/io/poll.wit
+cp wit/deps/wasi:io/streams.wit ../test-search/wit/deps/io/streams.wit
+cp wit/deps/wasi:io/world.wit ../test-search/wit/deps/io/world.wit
+
+echo "Copied WIT for module test"
+"""
+
+[tasks.build-test-components]
+dependencies = ["build"]
+install_crate = "cargo-binstall"
+description = "Builds search test components with golem-cli"
+script = '''
+cargo-binstall golem-cli@1.2.2-dev.11 --locked --no-confirm
+cargo-binstall wac-cli --locked --no-confirm
+cd ../test
+
+golem-cli --version
+golem-cli app clean
+golem-cli app build -b algolia-debug
+golem-cli app clean
+golem-cli app build -b elasticsearch-debug
+golem-cli app clean
+golem-cli app build -b meilisearch-debug
+golem-cli app clean
+golem-cli app build -b opensearch-debug
+golem-cli app clean
+golem-cli app build -b typesense-debug
+'''

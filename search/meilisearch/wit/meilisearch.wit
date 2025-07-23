@@ -1,0 +1,6 @@
+package golem:search-meilisearch@1.0.0;
+
+world search-library {
+  include golem:search/search-library@1.0.0;
+  
+}

@@ -1,0 +1,278 @@
+# Schema for IDEA:
+# $schema: https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
+# Schema for vscode-yaml
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
+
+# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
+
+components:
+  test:search:
+    profiles:
+      # DEBUG PROFILES
+      algolia-debug:
+        files:
+          - sourcePath: ../../data/cat.png
+            targetPath: /data/cat.png
+            permissions: read-only
+        build:
+          - command: cargo component build --no-default-features --features algolia
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_search.wasm
+          - command: wac plug --plug ../../../target/wasm32-wasip1/debug/golem_search_algolia.wasm ../../target/wasm32-wasip1/debug/test_search.wasm -o ../../target/wasm32-wasip1/debug/test_algolia_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_search.wasm
+              - ../../../target/wasm32-wasip1/debug/golem_search_algolia.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_algolia_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_algolia_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_algolia_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      elasticsearch-debug:
+        files:
+          - sourcePath: ../../data/cat.png
+            targetPath: /data/cat.png
+            permissions: read-only
+        build:
+          - command: cargo component build --no-default-features --features elasticsearch
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_search.wasm
+          - command: wac plug --plug ../../../target/wasm32-wasip1/debug/golem_search_elasticsearch.wasm ../../target/wasm32-wasip1/debug/test_search.wasm -o ../../target/wasm32-wasip1/debug/test_elasticsearch_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_search.wasm
+              - ../../../target/wasm32-wasip1/debug/golem_search_elasticsearch.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_elasticsearch_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_elasticsearch_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_elasticsearch_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      meilisearch-debug:
+        files:
+          - sourcePath: ../../data/cat.png
+            targetPath: /data/cat.png
+            permissions: read-only
+        build:
+          - command: cargo component build --no-default-features --features meilisearch
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_search.wasm
+          - command: wac plug --plug ../../../target/wasm32-wasip1/debug/golem_search_meilisearch.wasm ../../target/wasm32-wasip1/debug/test_search.wasm -o ../../target/wasm32-wasip1/debug/test_meilisearch_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_search.wasm
+              - ../../../target/wasm32-wasip1/debug/golem_search_meilisearch.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_meilisearch_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_meilisearch_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_meilisearch_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      opensearch-debug:
+        files:
+          - sourcePath: ../../data/cat.png
+            targetPath: /data/cat.png
+            permissions: read-only
+        build:
+          - command: cargo component build --no-default-features --features opensearch
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_search.wasm
+          - command: wac plug --plug ../../../target/wasm32-wasip1/debug/golem_search_opensearch.wasm ../../target/wasm32-wasip1/debug/test_search.wasm -o ../../target/wasm32-wasip1/debug/test_opensearch_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_search.wasm
+              - ../../../target/wasm32-wasip1/debug/golem_search_opensearch.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_opensearch_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_opensearch_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_opensearch_debug.wasm
+        clean:
+          - src/bindings.rs
+          
+      typesense-debug:
+        files:
+        - sourcePath: ../../data/cat.png
+          targetPath: /data/cat.png
+          permissions: read-only
+        build:
+          - command: cargo component build --no-default-features --features typesense
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_search.wasm
+          - command: wac plug --plug ../../../target/wasm32-wasip1/debug/golem_search_typesense.wasm ../../target/wasm32-wasip1/debug/test_search.wasm -o ../../target/wasm32-wasip1/debug/test_typesense_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_search.wasm
+              - ../../../target/wasm32-wasip1/debug/golem_search_typesense.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_typesense_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_typesense_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_typesense_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      # RELEASE PROFILES
+      algolia-release:
+        files:
+          - sourcePath: ../../data/cat.png
+            targetPath: /data/cat.png
+            permissions: read-only
+        build:
+          - command: cargo component build --release --no-default-features --features algolia
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_search.wasm
+          - command: wac plug --plug ../../../target/wasm32-wasip1/release/golem_search_algolia.wasm ../../target/wasm32-wasip1/release/test_search.wasm -o ../../target/wasm32-wasip1/release/test_algolia_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_search.wasm
+              - ../../../target/wasm32-wasip1/release/golem_search_algolia.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_algolia_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_algolia_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_algolia_release.wasm
+        clean:
+          - src/bindings.rs
+
+      elasticsearch-release:
+        files:
+          - sourcePath: ../../data/cat.png
+            targetPath: /data/cat.png
+            permissions: read-only
+        build:
+          - command: cargo component build --release --no-default-features --features elasticsearch
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_search.wasm
+          - command: wac plug --plug ../../../target/wasm32-wasip1/release/golem_search_elasticsearch.wasm ../../target/wasm32-wasip1/release/test_search.wasm -o ../../target/wasm32-wasip1/release/test_elasticsearch_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_search.wasm
+              - ../../../target/wasm32-wasip1/release/golem_search_elasticsearch.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_elasticsearch_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_elasticsearch_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_elasticsearch_release.wasm
+        clean:
+          - src/bindings.rs
+
+      meilisearch-release:
+        files:
+          - sourcePath: ../../data/cat.png
+            targetPath: /data/cat.png
+            permissions: read-only
+        build:
+          - command: cargo component build --release --no-default-features --features meilisearch
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_search.wasm
+          - command: wac plug --plug ../../../target/wasm32-wasip1/release/golem_search_meilisearch.wasm ../../target/wasm32-wasip1/release/test_search.wasm -o ../../target/wasm32-wasip1/release/test_meilisearch_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_search.wasm
+              - ../../../target/wasm32-wasip1/release/golem_search_meilisearch.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_meilisearch_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_meilisearch_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_meilisearch_release.wasm
+        clean:
+          - src/bindings.rs
+
+      opensearch-release:
+        files:
+          - sourcePath: ../../data/cat.png
+            targetPath: /data/cat.png
+            permissions: read-only
+        build:
+          - command: cargo component build --release --no-default-features --features opensearch
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_search.wasm
+          - command: wac plug --plug ../../../target/wasm32-wasip1/release/golem_search_opensearch.wasm ../../target/wasm32-wasip1/release/test_search.wasm -o ../../target/wasm32-wasip1/release/test_opensearch_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_search.wasm
+              - ../../../target/wasm32-wasip1/release/golem_search_opensearch.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_opensearch_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_opensearch_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_opensearch_release.wasm
+        clean:
+          - src/bindings.rs
+
+      typesense-release:
+        files:
+        - sourcePath: ../../data/cat.png
+          targetPath: /data/cat.png
+          permissions: read-only
+        build:
+          - command: cargo component build --release --no-default-features --features typesense
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_search.wasm
+          - command: wac plug --plug ../../../target/wasm32-wasip1/release/golem_search_typesense.wasm ../../target/wasm32-wasip1/release/test_search.wasm -o ../../target/wasm32-wasip1/release/test_typesense_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_search.wasm
+              - ../../../target/wasm32-wasip1/release/golem_search_typesense.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_typesense_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_typesense_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_typesense_release.wasm
+        clean:
+          - src/bindings.rs
+
+    defaultProfile: algolia-debug
+
+dependencies:
+  test:search:
+    - target: test:helper
+      type: wasm-rpc

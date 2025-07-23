@@ -202,6 +202,8 @@ pub enum InnerInput {
 pub enum InnerInputItem {
     #[serde(rename = "input_text")]
     TextInput { text: String },
+    #[serde(rename = "output_text")]
+    TextOutput { text: String },
     #[serde(rename = "input_image")]
     ImageInput {
         image_url: String,

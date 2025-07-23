@@ -1,0 +1,6 @@
+package golem:web-search-serper@1.0.0;
+
+world websearch-library {
+  export golem:web-search/web-search@1.0.0;
+  export golem:web-search/types@1.0.0;
+}
