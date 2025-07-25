@@ -1,0 +1,7 @@
+[package]
+name = "integration_tests"
+version = "0.1.0"
+edition = "2021"
+
+[dev-dependencies]
+# No additional dependencies needed for our basic tests

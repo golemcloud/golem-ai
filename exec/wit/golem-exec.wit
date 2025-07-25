@@ -1,0 +1,73 @@
+package golem:exec@0.1.0;
+
+interface types {
+  /// Programming language for execution
+  variant language {
+    javascript,
+    python,
+  }
+
+  /// Source code file
+  record file {
+    name: string,
+    content: list<u8>,
+  }
+
+  /// Execution limits and constraints
+  record limits {
+    timeout-ms: option<u32>,
+    memory-mb: option<u32>,
+    cpu-quota: option<f32>,
+    network-access: bool,
+    file-system-access: bool,
+  }
+
+  /// Error information
+  record error {
+    code: string,
+    message: string,
+    details: option<string>,
+  }
+
+  /// Result of a single execution stage
+  record stage-result {
+    stdout: string,
+    stderr: string,
+    exit-code: option<s32>,
+    signal: option<string>,
+  }
+
+  /// Complete execution result
+  record execution-result {
+    compile: option<stage-result>,
+    run: stage-result,
+    time-ms: option<u64>,
+    memory-bytes: option<u64>,
+  }
+
+  /// Streamed event output during execution
+  variant exec-event {
+    stdout-chunk(list<u8>),
+    stderr-chunk(list<u8>),
+    finished(execution-result),
+    failed(error),
+  }
+}
+
+interface executor {
+  use types.{language, file, limits, execution-result, error};
+
+  /// Blocking, non-streaming execution
+  run: func(
+    lang: language,
+    files: list<file>,
+    stdin: option<string>,
+    args: list<string>,
+    env: list<tuple<string, string>>,
+    constraints: option<limits>
+  ) -> result<execution-result, error>;
+}
+
+world golem-exec {
+  export executor;
+}

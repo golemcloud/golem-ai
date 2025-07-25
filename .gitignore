@@ -1,7 +1,0 @@
-*.iml
-.idea
-openapi
-target
-tmp
-components
-.DS_Store
