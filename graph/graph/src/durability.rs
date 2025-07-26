@@ -219,9 +219,9 @@ pub trait ExtendedGraphGuest:
 /// When the durability feature flag is off, wrapping with `DurableGraph` is just a passthrough
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
-    use crate::durability::{DurableGraph, ExtendedGraphGuest, TransactionBorrow};
+    use crate::durability::{DurableGraph, DurableSchemaManager, ExtendedGraphGuest};
     use crate::exports::golem::graph::connection::{
-        ConnectionConfig, Graph, Guest as ConnectionGuest,
+        ConnectionConfig, Graph, Guest as ConnectionGuest, TransactionBorrow,
     };
     use crate::exports::golem::graph::errors::GraphError;
     use crate::exports::golem::graph::query::{
@@ -250,8 +250,8 @@ mod passthrough_impl {
     impl<Impl: ExtendedGraphGuest> SchemaGuest for DurableGraph<Impl> {
         type SchemaManager = DurableSchemaManager;
 
-        fn get_schema_manager() -> Result<Self::SchemaManager, GraphError> {
-            Ok(DurableSchemaManager::new())
+        fn get_schema_manager() -> Result<SchemaManager, GraphError> {
+            Ok(SchemaManager::new(DurableSchemaManager::new()))
         }
     }
 
@@ -337,9 +337,7 @@ mod durable_impl {
         ContainerInfo, ContainerType, EdgeLabelSchema, EdgeTypeDefinition, IndexDefinition,
         VertexLabelSchema,
     };
-    use crate::exports::golem::graph::schema::{
-        Guest as SchemaGuest, GuestSchemaManager, SchemaManager,
-    };
+    use crate::exports::golem::graph::schema::{Guest as SchemaGuest, GuestSchemaManager};
     use crate::exports::golem::graph::transactions::{EdgeSpec, VertexSpec};
     use crate::exports::golem::graph::transactions::{
         Guest as TransactionGuest, GuestTransaction, Transaction, TransactionBorrow,
@@ -403,7 +401,7 @@ mod durable_impl {
             error.clone()
         }
     }
-    impl<Impl: ExtendedGraphGuest<SchemaManager = SchemaManager>> SchemaGuest for DurableGraph<Impl> {
+    impl<Impl: ExtendedGraphGuest> SchemaGuest for DurableGraph<Impl> {
         type SchemaManager = DurableSchemaManager;
 
         fn get_schema_manager() -> std::result::Result<
@@ -420,10 +418,10 @@ mod durable_impl {
                 let result: Result<DurableSchemaManager, GraphError> =
                     Ok(DurableSchemaManager::new());
                 match &result {
-                    Ok(_) => {
+                    Ok(schema_manager) => {
                         let _ = durability.persist(NoInput, Ok(NoInput));
                         Ok(crate::golem::graph::schema::SchemaManager::new(
-                            result.unwrap(),
+                            schema_manager.clone(),
                         ))
                     }
                     Err(e) => {
@@ -500,6 +498,7 @@ mod durable_impl {
             Impl::execute_query(transaction, query, parameters, options)
         }
     }
+    #[allow(dead_code)]
     pub struct DurableGraphInstance<Impl: ExtendedGraphGuest> {
         graph: Impl,
         config: ConnectionConfig,
@@ -617,6 +616,7 @@ mod durable_impl {
         }
     }
 
+    #[allow(dead_code)]
     pub struct DurableTransactionInstance<Impl: ExtendedGraphGuest> {
         transaction: <Impl as ExtendedGraphGuest>::Transaction,
         graph: Impl,
@@ -895,6 +895,7 @@ mod durable_impl {
     }
 
     impl<Impl: ExtendedGraphGuest> DurableSchemaManagerInstance<Impl> {
+        #[allow(dead_code)]
         fn new(schema_manager: DurableSchemaManager) -> Self {
             Self {
                 schema_manager,
@@ -976,6 +977,7 @@ mod durable_impl {
         Live {
             graph: Impl,
         },
+        #[allow(dead_code)]
         Replay {
             state: <Impl as ExtendedGraphGuest>::ReplayState,
         },
@@ -1039,6 +1041,7 @@ mod tests {
     use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
     use std::fmt::Debug;
 
+    #[allow(dead_code)]
     fn roundtrip_test<T: Debug + Clone + PartialEq + IntoValueAndType + FromValueAndType>(
         value: T,
     ) {

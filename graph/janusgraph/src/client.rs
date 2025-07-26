@@ -303,12 +303,8 @@ impl JanusGraphClient {
         self.execute_gremlin_sync(&query, None)
     }
 
-    pub fn delete_vertex(&mut self, id: &str, delete_edges: bool) -> Result<(), GraphError> {
-        let query = if delete_edges {
-            format!("g.V('{id}').drop()")
-        } else {
-            format!("g.V('{id}').drop()") // JanusGraph doesn't have separate edge deletion
-        };
+    pub fn delete_vertex(&mut self, id: &str, _delete_edges: bool) -> Result<(), GraphError> {
+        let query = format!("g.V('{id}').drop()"); // JanusGraph doesn't have separate edge deletion
 
         self.execute_gremlin_sync(&query, None)?;
         Ok(())

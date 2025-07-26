@@ -514,11 +514,7 @@ impl Neo4jClient {
         index_type: &str,
     ) -> Result<Neo4jResponse, GraphError> {
         let query = format!(
-            "CREATE INDEX {} IF NOT EXISTS FOR (n:{}) ON (n.{}) TYPE {}",
-            format!("{}_{}_idx", label, property),
-            label,
-            property,
-            index_type
+            "CREATE INDEX {label}_{property}_idx IF NOT EXISTS FOR (n:{label}) ON (n.{property}) TYPE {index_type}"
         );
         self.execute_cypher(query, None)
     }
