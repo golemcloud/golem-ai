@@ -1,0 +1,25 @@
+package test:video-advanced;
+
+// See https://component-model.bytecodealliance.org/design/wit.html for more details about the WIT syntax
+
+interface test-video-api {
+  test1: func() -> string;
+  test2: func() -> string;
+  test3: func() -> string;
+  test4: func() -> string;
+  test5: func() -> string;
+  test6: func() -> string;
+  test7: func() -> string;
+  test8: func() -> string;
+  test9: func() -> string;
+  testx: func() -> string;
+  testy: func() -> string;
+}
+
+world test-video {
+  import golem:video-generation/types@1.0.0;
+  import golem:video-generation/video-generation@1.0.0;
+  import golem:video-generation/lip-sync@1.0.0;
+  import golem:video-generation/advanced@1.0.0;
+  export test-video-api;
+}

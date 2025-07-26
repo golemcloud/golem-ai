@@ -38,7 +38,7 @@ get-metadata\x01\x0e\x01i\x08\x01j\x01\x0f\x01\x07\x01@\x01\x06params\x01\0\x10\
 ams\x01\0\x13\x04\0\x0bsearch-once\x01\x14\x04\0!golem:web-search/web-search@1.0\
 .0\x05\x05\x04\0.golem:web-search-brave/websearch-library@1.0.0\x04\0\x0b\x17\x01\
 \0\x11websearch-library\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-c\
-omponent\x070.220.0\x10wit-bindgen-rust\x060.36.0";
+omponent\x070.220.1\x10wit-bindgen-rust\x060.36.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

@@ -136,8 +136,8 @@ modules = array websearch brave google serper tavily
 
 for module in ${modules}
     rm -r ${module}/wit/deps
-    mkdir ${module}/wit/deps/golem-websearch
-    cp wit/golem-websearch.wit ${module}/wit/deps/golem-websearch/golem-websearch.wit
+    mkdir ${module}/wit/deps/golem-web-search
+    cp wit/golem-web-search.wit ${module}/wit/deps/golem-web-search/golem-web-search.wit
     cp wit/deps/wasi:io ${module}/wit/deps
 
     echo "Copied WIT for module websearch::${module}"
@@ -147,7 +147,7 @@ end
 rm -r ../test/websearch/wit
 mkdir ../test/websearch/wit/deps/golem-websearch
 mkdir ../test/websearch/wit/deps/io
-cp wit/golem-websearch.wit ../test/websearch/wit/deps/golem-websearch/golem-websearch.wit
+cp wit/golem-web-search.wit ../test/websearch/wit/deps/golem-web-search/golem-web-search.wit
 cp wit/deps/wasi:io/error.wit ../test/websearch/wit/deps/io/error.wit
 cp wit/deps/wasi:io/poll.wit ../test/websearch/wit/deps/io/poll.wit
 cp wit/deps/wasi:io/streams.wit ../test/websearch/wit/deps/io/streams.wit
