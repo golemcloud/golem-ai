@@ -1,6 +1,6 @@
 # golem-embed
 
-WebAssembly Components providing a unified API for various AI embedding and reranking providers.
+WebAssembly Components providing a unified API for various AI embedding and reranking providers (OpenAI, Cohere, Hugging Face, and VoyageAI).
 
 ## Versions
 
@@ -30,10 +30,10 @@ Each provider supports different functionality and input types:
 
 | Provider      |Text Embedding | Image Embedding | Reranking |
 |---------------|-----------|------|-------|
-| OpenAI        | ✅   | ❌    | ❌        |
+| OpenAI        | ✅   | ❌    | ❌        | 
 | Cohere        | ✅   | ✅    | ✅        |
-| Hugging Face  | ✅   | ❌    | ❌        |
-| VoyageAI      | ✅   | ❌    | ✅        |
+| Hugging Face  | ✅   | ❌    | ❌        | 
+| VoyageAI      | ✅   | ❌    | ✅        | 
 
 
 ## Usage
@@ -49,6 +49,55 @@ Each provider has to be configured with an API key passed as an environment vari
 
 Additionally, setting the `GOLEM_EMBED_LOG=trace` environment variable enables trace logging for all the communication
 with the underlying embedding provider.
+
+### Code Examples
+
+#### Basic Text Embedding
+
+```rust
+use golem::embed::embed::{self, Config, ContentPart, TaskType};
+
+let config = Config {
+    model: Some("text-embedding-3-small".to_string()),
+    task_type: Some(TaskType::RetrievalDocument),
+    dimensions: Some(1024),
+    ..Default::default()
+};
+
+let response = embed::generate(
+    &[ContentPart::Text("Your text here".to_string())],
+    &config
+)?;
+
+println!("Vector: {:?}", response.embeddings[0].vector);
+```
+
+#### Document Reranking (Cohere/VoyageAI)
+
+```rust
+let query = "What is machine learning?";
+let documents = vec![
+    "Machine learning is AI".to_string(),
+    "Weather is sunny".to_string(),
+    "AI transforms industries".to_string(),
+];
+
+let response = embed::rerank(query, &documents, &config)?;
+for result in response.results {
+    println!("Doc {}: {:.3}", result.index, result.relevance_score);
+}
+```
+
+#### Image Embedding (Cohere Only)
+
+```rust
+let response = embed::generate(
+    &[ContentPart::Image(ImageUrl {
+        url: "https://example.com/image.jpg".to_string()
+    })],
+    &config
+)?;
+```
 
 ### Using with Golem
 
@@ -117,15 +166,103 @@ To use the embedding provider components in a WebAssembly project independent of
 2. Download the `golem-embed.wit` WIT package and import it
 3. Use [`wac`](https://github.com/bytecodealliance/wac) to compose your component with the selected embedding implementation.
 
+## API Reference
+
+### Core Functions
+
+```rust
+// Generate embeddings
+generate(inputs: &[ContentPart], config: &Config) -> Result<EmbeddingResponse, Error>
+
+// Rerank documents  
+rerank(query: &str, documents: &[String], config: &Config) -> Result<RerankResponse, Error>
+```
+
+### Configuration
+
+```rust
+Config {
+    model: Some("model-name".to_string()),           // Provider model
+    task_type: Some(TaskType::RetrievalDocument),    // Use case optimization
+    dimensions: Some(1024),                          // Output vector size
+    truncation: Some(true),                          // Auto-truncate long inputs
+    output_format: Some(OutputFormat::FloatArray),   // Vector format
+    user: Some("user_id".to_string()),               // User tracking
+    provider_options: vec![                          // Provider-specific options
+        Kv { key: "key".to_string(), value: "value".to_string() }
+    ],
+}
+```
+
+### Task Types
+
+- `RetrievalQuery` - Search queries
+- `RetrievalDocument` - Documents to search
+- `SemanticSimilarity` - Similarity tasks
+- `Classification` - Text classification
+- `Clustering` - Document grouping
+- `QuestionAnswering` - Q&A systems
+- `FactVerification` - Fact checking
+- `CodeRetrieval` - Code search
+
+### Response Types
+
+```rust
+struct EmbeddingResponse {
+    embeddings: Vec<Embedding>,     // Vector embeddings
+    usage: Option<Usage>,           // Token usage stats
+    model: String,                  // Model used
+    provider_metadata_json: Option<String>,
+}
+
+struct RerankResponse {
+    results: Vec<RerankResult>,     // Ranked results
+    usage: Option<Usage>,           // Token usage
+    model: String,                  // Model used
+    provider_metadata_json: Option<String>,
+}
+
+struct RerankResult {
+    index: u32,                     // Original document index
+    relevance_score: f32,           // Relevance score (0-1)
+    document: Option<String>,       // Document text
+}
+```
+
+### Error Handling
+
+```rust
+enum ErrorCode {
+    InvalidRequest,        // Bad input
+    ModelNotFound,         // Invalid model
+    AuthenticationFailed,  // Invalid API key
+    RateLimitExceeded,    // Rate limit hit
+    ProviderError,        // Provider issue
+    InternalError,        // Internal component error
+    Unknown,              // Unclassified error
+}
+
+struct Error {
+    code: ErrorCode,
+    message: String,
+    provider_error_json: Option<String>,
+}
+```
+
 ## Examples
 
-Take the [test application](test/components-rust/test-embed/src/lib.rs) as an example of using `golem-embed` from Rust. The
+Take the [test application](../test/embed/components-rust/test-embed/src/lib.rs) as an example of using `golem-embed` from Rust. The
 implemented test functions are demonstrating the following:
 
 | Function Name | Description                                                                                |
 |---------------|--------------------------------------------------------------------------------------------|
-| `test1`       | Simple text embedding generation                                                           | 
-| `test2`       | Demonstrates document reranking functionality                                              |
+| `test1`       | Basic text embedding generation                                                           | 
+| `test2`       | Document reranking functionality                                              |
+| `test3`       | Image embedding (Cohere only)                                                            |
+| `test4`       | Multi-modal embedding (text + image)                                                     |
+| `test5`       | Default parameters usage                                                                  |
+| `test6`       | Provider-specific options                                                                 |
+| `test7`       | Advanced reranking with custom parameters                                                |
 
 ### Running the examples
 
@@ -137,19 +274,20 @@ started with `golem server run`.
 stable release 1.2.2.
 
 Then build and deploy the _test application_. Select one of the following profiles to choose which provider to use:
-| Profile Name | Description |
-|--------------|-----------------------------------------------------------------------------------------------|
-| `openai-debug` | Uses the OpenAI embedding implementation and compiles the code in debug profile |
-| `openai-release` | Uses the OpenAI embedding implementation and compiles the code in release profile |
-| `cohere-debug` | Uses the Cohere embedding implementation and compiles the code in debug profile |
-| `cohere-release` | Uses the Cohere embedding implementation and compiles the code in release profile |
-| `hugging-face-debug` | Uses the Hugging Face embedding implementation and compiles the code in debug profile |
-| `hugging-face-release` | Uses the Hugging Face embedding implementation and compiles the code in release profile |
-| `voyageai-debug` | Uses the VoyageAI embedding implementation and compiles the code in debug profile |
-| `voyageai-release` | Uses the VoyageAI embedding implementation and compiles the code in release profile |
+
+| Profile Name | Provider | Compilation | Description |
+|--------------|----------|-------------|-------------|
+| `openai-debug` | OpenAI | Debug | Development with OpenAI |
+| `openai-release` | OpenAI | Release | Production with OpenAI |
+| `cohere-debug` | Cohere | Debug | Development with Cohere |
+| `cohere-release` | Cohere | Release | Production with Cohere |
+| `hugging-face-debug` | Hugging Face | Debug | Development with Hugging Face |
+| `hugging-face-release` | Hugging Face | Release | Production with Hugging Face |
+| `voyageai-debug` | VoyageAI | Debug | Development with VoyageAI |
+| `voyageai-release` | VoyageAI | Release | Production with VoyageAI |
 
 ```bash
-cd test
+cd ../test/embed
 golem app build -b openai-debug
 golem app deploy -b openai-debug
 ```
@@ -163,7 +301,13 @@ golem worker new test:embed/debug --env OPENAI_API_KEY=xxx --env GOLEM_EMBED_LOG
 Then you can invoke the test functions on this worker:
 
 ```bash
-golem worker invoke test:embed/debug test1 --stream 
+golem worker invoke test:embed/debug test1 --stream   # Basic text embedding
+golem worker invoke test:embed/debug test2 --stream   # Document reranking
+golem worker invoke test:embed/debug test3 --stream   # Image embedding (Cohere only)
+golem worker invoke test:embed/debug test4 --stream   # Multi-modal (Cohere only)
+golem worker invoke test:embed/debug test5 --stream   # Default parameters
+golem worker invoke test:embed/debug test6 --stream   # Provider-specific options
+golem worker invoke test:embed/debug test7 --stream   # Advanced reranking
 ```
 
 ## Development
@@ -185,3 +329,13 @@ Some of the important tasks are:
 The `test` directory contains a **Golem application** for testing various features of the embedding components.
 Check [the Golem documentation](https://learn.golem.cloud/quickstart) to learn how to install Golem and `golem-cli` to
 run these tests.
+
+## Resources
+
+- [Golem Cloud Documentation](https://learn.golem.cloud/)
+- [WebAssembly Component Model](https://github.com/WebAssembly/component-model)
+- [WIT (WebAssembly Interface Types)](https://github.com/WebAssembly/component-model/blob/main/design/mvp/WIT.md)
+- [OpenAI Embeddings API](https://platform.openai.com/docs/guides/embeddings)
+- [Cohere Embed API](https://docs.cohere.com/reference/embed)
+- [Hugging Face Inference API](https://huggingface.co/docs/api-inference/index)
+- [VoyageAI API Documentation](https://docs.voyageai.com/)
