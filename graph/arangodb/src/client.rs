@@ -1,7 +1,7 @@
-use golem_graph::exports::golem::graph::errors::GraphError;
 use golem_graph::exports::golem::graph::connection::GraphStatistics;
+use golem_graph::exports::golem::graph::errors::GraphError;
 use reqwest::Method;
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,29 +82,30 @@ impl ArangoClient {
             password: self.password.clone(),
         };
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::POST, auth_url)
             .json(&auth_request)
             .send()
             .map_err(|err| from_reqwest_error("Authentication failed", err))?;
 
         if response.status().is_success() {
-            let auth_response: ArangoAuthResponse = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse auth response: {}", err))
-                )?;
+            let auth_response: ArangoAuthResponse = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse auth response: {err}"))
+            })?;
             self.jwt_token = Some(auth_response.jwt);
             Ok(())
         } else {
-            Err(GraphError::InternalError("Authentication failed".to_string()))
+            Err(GraphError::InternalError(
+                "Authentication failed".to_string(),
+            ))
         }
     }
 
     pub fn execute_query(
         &self,
         query: &str,
-        bind_vars: Option<HashMap<String, serde_json::Value>>
+        bind_vars: Option<HashMap<String, serde_json::Value>>,
     ) -> Result<ArangoResponse, GraphError> {
         let mut temp_client = self.clone();
         temp_client.authenticate()?;
@@ -118,30 +119,35 @@ impl ArangoClient {
             ttl: Some(60),
         };
 
-        let response = temp_client.client
+        let response = temp_client
+            .client
             .request(Method::POST, url)
-            .header("Authorization", format!("Bearer {}", temp_client.jwt_token.unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", temp_client.jwt_token.unwrap()),
+            )
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Query execution failed", err))?;
 
         if response.status().is_success() {
-            let arango_response: ArangoResponse = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse response: {}", err))
-                )?;
+            let arango_response: ArangoResponse = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
 
             if arango_response.error {
-                let error_msg = arango_response.error_message.unwrap_or_else(||
-                    "Unknown error".to_string()
-                );
+                let error_msg = arango_response
+                    .error_message
+                    .unwrap_or_else(|| "Unknown error".to_string());
                 return Err(GraphError::InvalidQuery(error_msg));
             }
 
             Ok(arango_response)
         } else {
-            Err(GraphError::InternalError(format!("HTTP error: {}", response.status())))
+            Err(GraphError::InternalError(format!(
+                "HTTP error: {}",
+                response.status()
+            )))
         }
     }
 
@@ -149,40 +155,43 @@ impl ArangoClient {
         self.authenticate()?;
 
         let url = format!("{}/_db/{}/_api/transaction", self.base_url, self.database);
-        let request =
-            serde_json::json!({
+        let request = serde_json::json!({
             "collections": {
                 "write": ["*"],
                 "read": ["*"]
             }
         });
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::POST, url)
-            .header("Authorization", format!("Bearer {}", self.jwt_token.as_ref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
+            )
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Begin transaction failed", err))?;
 
         if response.status().is_success() {
-            let result: serde_json::Value = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse response: {}", err))
-                )?;
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
 
             let tx_id = result["result"]["id"]
                 .as_str()
-                .ok_or_else(||
+                .ok_or_else(|| {
                     GraphError::InternalError("No transaction ID in response".to_string())
-                )?
+                })?
                 .to_string();
 
             self.session_state = Some(SessionState {});
 
             Ok(tx_id)
         } else {
-            Err(GraphError::TransactionFailed("Begin transaction failed".to_string()))
+            Err(GraphError::TransactionFailed(
+                "Begin transaction failed".to_string(),
+            ))
         }
     }
 
@@ -190,50 +199,60 @@ impl ArangoClient {
         self.authenticate()?;
 
         let url = format!("{}/_db/{}/_api/transaction", self.base_url, self.database);
-        let request =
-            serde_json::json!({
+        let request = serde_json::json!({
             "collections": {
                 "read": ["*"]
             }
         });
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::POST, url)
-            .header("Authorization", format!("Bearer {}", self.jwt_token.as_ref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
+            )
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Begin read transaction failed", err))?;
 
         if response.status().is_success() {
-            let result: serde_json::Value = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse response: {}", err))
-                )?;
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
 
             let tx_id = result["result"]["id"]
                 .as_str()
-                .ok_or_else(||
+                .ok_or_else(|| {
                     GraphError::InternalError("No transaction ID in response".to_string())
-                )?
+                })?
                 .to_string();
 
             self.session_state = Some(SessionState {});
 
             Ok(tx_id)
         } else {
-            Err(GraphError::TransactionFailed("Begin read transaction failed".to_string()))
+            Err(GraphError::TransactionFailed(
+                "Begin read transaction failed".to_string(),
+            ))
         }
     }
 
     pub fn commit_transaction(&mut self, tx_id: &str) -> Result<(), GraphError> {
         self.authenticate()?;
 
-        let url = format!("{}/_db/{}/_api/transaction/{}", self.base_url, self.database, tx_id);
+        let url = format!(
+            "{}/_db/{}/_api/transaction/{}",
+            self.base_url, self.database, tx_id
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::PUT, url)
-            .header("Authorization", format!("Bearer {}", self.jwt_token.as_ref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
+            )
             .send()
             .map_err(|err| from_reqwest_error("Commit failed", err))?;
 
@@ -248,11 +267,18 @@ impl ArangoClient {
     pub fn rollback_transaction(&mut self, tx_id: &str) -> Result<(), GraphError> {
         self.authenticate()?;
 
-        let url = format!("{}/_db/{}/_api/transaction/{}", self.base_url, self.database, tx_id);
+        let url = format!(
+            "{}/_db/{}/_api/transaction/{}",
+            self.base_url, self.database, tx_id
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::DELETE, url)
-            .header("Authorization", format!("Bearer {}", self.jwt_token.as_ref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
+            )
             .send()
             .map_err(|err| from_reqwest_error("Rollback failed", err))?;
 
@@ -267,25 +293,30 @@ impl ArangoClient {
     pub fn create_vertex(
         &mut self,
         collection: &str,
-        properties: serde_json::Value
+        properties: serde_json::Value,
     ) -> Result<ArangoResponse, GraphError> {
         self.authenticate()?;
 
-        let url = format!("{}/_db/{}/_api/document/{}", self.base_url, self.database, collection);
+        let url = format!(
+            "{}/_db/{}/_api/document/{}",
+            self.base_url, self.database, collection
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::POST, url)
-            .header("Authorization", format!("Bearer {}", self.jwt_token.as_ref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
+            )
             .json(&properties)
             .send()
             .map_err(|err| from_reqwest_error("Create vertex failed", err))?;
 
         if response.status().is_success() {
-            let result: serde_json::Value = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse response: {}", err))
-                )?;
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
 
             Ok(ArangoResponse {
                 result: vec![result],
@@ -297,7 +328,9 @@ impl ArangoClient {
                 error_num: None,
             })
         } else {
-            Err(GraphError::InternalError("Create vertex failed".to_string()))
+            Err(GraphError::InternalError(
+                "Create vertex failed".to_string(),
+            ))
         }
     }
 
@@ -305,20 +338,25 @@ impl ArangoClient {
         let mut temp_client = self.clone();
         temp_client.authenticate()?;
 
-        let url = format!("{}/_db/{}/_api/document/{}", self.base_url, self.database, id);
+        let url = format!(
+            "{}/_db/{}/_api/document/{}",
+            self.base_url, self.database, id
+        );
 
-        let response = temp_client.client
+        let response = temp_client
+            .client
             .request(Method::GET, url)
-            .header("Authorization", format!("Bearer {}", temp_client.jwt_token.unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", temp_client.jwt_token.unwrap()),
+            )
             .send()
             .map_err(|err| from_reqwest_error("Get vertex failed", err))?;
 
         if response.status().is_success() {
-            let result: serde_json::Value = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse response: {}", err))
-                )?;
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
 
             Ok(ArangoResponse {
                 result: vec![result],
@@ -347,25 +385,30 @@ impl ArangoClient {
     pub fn update_vertex(
         &mut self,
         id: &str,
-        properties: serde_json::Value
+        properties: serde_json::Value,
     ) -> Result<ArangoResponse, GraphError> {
         self.authenticate()?;
 
-        let url = format!("{}/_db/{}/_api/document/{}", self.base_url, self.database, id);
+        let url = format!(
+            "{}/_db/{}/_api/document/{}",
+            self.base_url, self.database, id
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::PATCH, url)
-            .header("Authorization", format!("Bearer {}", self.jwt_token.as_ref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
+            )
             .json(&properties)
             .send()
             .map_err(|err| from_reqwest_error("Update vertex failed", err))?;
 
         if response.status().is_success() {
-            let result: serde_json::Value = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse response: {}", err))
-                )?;
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
 
             Ok(ArangoResponse {
                 result: vec![result],
@@ -377,25 +420,36 @@ impl ArangoClient {
                 error_num: None,
             })
         } else {
-            Err(GraphError::InternalError("Update vertex failed".to_string()))
+            Err(GraphError::InternalError(
+                "Update vertex failed".to_string(),
+            ))
         }
     }
 
     pub fn delete_vertex(&mut self, id: &str, _delete_edges: bool) -> Result<(), GraphError> {
         self.authenticate()?;
 
-        let url = format!("{}/_db/{}/_api/document/{}", self.base_url, self.database, id);
+        let url = format!(
+            "{}/_db/{}/_api/document/{}",
+            self.base_url, self.database, id
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::DELETE, url)
-            .header("Authorization", format!("Bearer {}", self.jwt_token.as_ref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
+            )
             .send()
             .map_err(|err| from_reqwest_error("Delete vertex failed", err))?;
 
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(GraphError::InternalError("Delete vertex failed".to_string()))
+            Err(GraphError::InternalError(
+                "Delete vertex failed".to_string(),
+            ))
         }
     }
 
@@ -404,29 +458,40 @@ impl ArangoClient {
         collection: &str,
         from_id: &str,
         to_id: &str,
-        properties: serde_json::Value
+        properties: serde_json::Value,
     ) -> Result<ArangoResponse, GraphError> {
         self.authenticate()?;
 
         let mut edge_properties = properties.as_object().unwrap().clone();
-        edge_properties.insert("_from".to_string(), serde_json::Value::String(from_id.to_string()));
-        edge_properties.insert("_to".to_string(), serde_json::Value::String(to_id.to_string()));
+        edge_properties.insert(
+            "_from".to_string(),
+            serde_json::Value::String(from_id.to_string()),
+        );
+        edge_properties.insert(
+            "_to".to_string(),
+            serde_json::Value::String(to_id.to_string()),
+        );
 
-        let url = format!("{}/_db/{}/_api/document/{}", self.base_url, self.database, collection);
+        let url = format!(
+            "{}/_db/{}/_api/document/{}",
+            self.base_url, self.database, collection
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::POST, url)
-            .header("Authorization", format!("Bearer {}", self.jwt_token.as_ref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
+            )
             .json(&edge_properties)
             .send()
             .map_err(|err| from_reqwest_error("Create edge failed", err))?;
 
         if response.status().is_success() {
-            let result: serde_json::Value = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse response: {}", err))
-                )?;
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
 
             Ok(ArangoResponse {
                 result: vec![result],
@@ -446,20 +511,25 @@ impl ArangoClient {
         let mut temp_client = self.clone();
         temp_client.authenticate()?;
 
-        let url = format!("{}/_db/{}/_api/document/{}", self.base_url, self.database, id);
+        let url = format!(
+            "{}/_db/{}/_api/document/{}",
+            self.base_url, self.database, id
+        );
 
-        let response = temp_client.client
+        let response = temp_client
+            .client
             .request(Method::GET, url)
-            .header("Authorization", format!("Bearer {}", temp_client.jwt_token.unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", temp_client.jwt_token.unwrap()),
+            )
             .send()
             .map_err(|err| from_reqwest_error("Get edge failed", err))?;
 
         if response.status().is_success() {
-            let result: serde_json::Value = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse response: {}", err))
-                )?;
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
 
             Ok(ArangoResponse {
                 result: vec![result],
@@ -488,25 +558,30 @@ impl ArangoClient {
     pub fn update_edge(
         &mut self,
         id: &str,
-        properties: serde_json::Value
+        properties: serde_json::Value,
     ) -> Result<ArangoResponse, GraphError> {
         self.authenticate()?;
 
-        let url = format!("{}/_db/{}/_api/document/{}", self.base_url, self.database, id);
+        let url = format!(
+            "{}/_db/{}/_api/document/{}",
+            self.base_url, self.database, id
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::PATCH, url)
-            .header("Authorization", format!("Bearer {}", self.jwt_token.as_ref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
+            )
             .json(&properties)
             .send()
             .map_err(|err| from_reqwest_error("Update edge failed", err))?;
 
         if response.status().is_success() {
-            let result: serde_json::Value = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse response: {}", err))
-                )?;
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
 
             Ok(ArangoResponse {
                 result: vec![result],
@@ -525,11 +600,18 @@ impl ArangoClient {
     pub fn delete_edge(&mut self, id: &str) -> Result<(), GraphError> {
         self.authenticate()?;
 
-        let url = format!("{}/_db/{}/_api/document/{}", self.base_url, self.database, id);
+        let url = format!(
+            "{}/_db/{}/_api/document/{}",
+            self.base_url, self.database, id
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::DELETE, url)
-            .header("Authorization", format!("Bearer {}", self.jwt_token.as_ref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
+            )
             .send()
             .map_err(|err| from_reqwest_error("Delete edge failed", err))?;
 
@@ -543,7 +625,8 @@ impl ArangoClient {
     pub fn ping(&self) -> Result<(), GraphError> {
         let url = format!("{}/_api/version", self.base_url);
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::GET, url)
             .send()
             .map_err(|err| from_reqwest_error("Ping failed", err))?;
@@ -618,14 +701,10 @@ impl ArangoClient {
         from_vertex: &str,
         to_vertex: &str,
         edge_filter: &str,
-        depth_limit: u32
+        depth_limit: u32,
     ) -> Result<ArangoResponse, GraphError> {
         let query = format!(
-            "FOR v, e, p IN 1..{} SHORTEST_PATH '{}' TO '{}' GRAPH 'default' FILTER {} RETURN p",
-            depth_limit,
-            from_vertex,
-            to_vertex,
-            edge_filter
+            "FOR v, e, p IN 1..{depth_limit} SHORTEST_PATH '{from_vertex}' TO '{to_vertex}' GRAPH 'default' FILTER {edge_filter} RETURN p"
         );
         self.execute_query(&query, None)
     }
@@ -635,14 +714,10 @@ impl ArangoClient {
         from_vertex: &str,
         to_vertex: &str,
         edge_filter: &str,
-        depth_limit: u32
+        depth_limit: u32,
     ) -> Result<ArangoResponse, GraphError> {
         let query = format!(
-            "FOR v, e, p IN 1..{} ALL SHORTEST_PATHS '{}' TO '{}' GRAPH 'default' FILTER {} RETURN p",
-            depth_limit,
-            from_vertex,
-            to_vertex,
-            edge_filter
+            "FOR v, e, p IN 1..{depth_limit} ALL SHORTEST_PATHS '{from_vertex}' TO '{to_vertex}' GRAPH 'default' FILTER {edge_filter} RETURN p"
         );
         self.execute_query(&query, None)
     }
@@ -652,15 +727,11 @@ impl ArangoClient {
         center_vertex: &str,
         direction: &str,
         depth: u32,
-        vertex_limit: u32
+        vertex_limit: u32,
     ) -> Result<ArangoResponse, GraphError> {
         let _direction_used = direction;
         let query = format!(
-            "FOR v, e, p IN 1..{} {} '{}' GRAPH 'default' LIMIT {} RETURN v",
-            depth,
-            direction,
-            center_vertex,
-            vertex_limit
+            "FOR v, e, p IN 1..{depth} {direction} '{center_vertex}' GRAPH 'default' LIMIT {vertex_limit} RETURN v"
         );
         self.execute_query(&query, None)
     }
@@ -670,14 +741,10 @@ impl ArangoClient {
         from_vertex: &str,
         to_vertex: &str,
         edge_filter: &str,
-        depth_limit: u32
+        depth_limit: u32,
     ) -> Result<ArangoResponse, GraphError> {
         let query = format!(
-            "FOR v, e, p IN 1..{} SHORTEST_PATH '{}' TO '{}' GRAPH 'default' FILTER {} LIMIT 1 RETURN LENGTH(p) > 0",
-            depth_limit,
-            from_vertex,
-            to_vertex,
-            edge_filter
+            "FOR v, e, p IN 1..{depth_limit} SHORTEST_PATH '{from_vertex}' TO '{to_vertex}' GRAPH 'default' FILTER {edge_filter} LIMIT 1 RETURN LENGTH(p) > 0"
         );
         self.execute_query(&query, None)
     }
@@ -688,7 +755,7 @@ impl ArangoClient {
         distance: u32,
         direction: &str,
         edge_types: Option<Vec<String>>,
-        vertex_limit: u32
+        vertex_limit: u32,
     ) -> Result<ArangoResponse, GraphError> {
         let _direction_used = direction;
         let edge_filter = if let Some(types) = edge_types {
@@ -698,12 +765,7 @@ impl ArangoClient {
         };
 
         let query = format!(
-            "FOR v, e, p IN {} {} '{}' GRAPH 'default' FILTER {} LIMIT {} RETURN v",
-            distance,
-            direction,
-            source_vertex,
-            edge_filter,
-            vertex_limit
+            "FOR v, e, p IN {distance} {direction} '{source_vertex}' GRAPH 'default' FILTER {edge_filter} LIMIT {vertex_limit} RETURN v"
         );
         self.execute_query(&query, None)
     }
@@ -716,20 +778,17 @@ impl ArangoClient {
         &self,
         collection: &str,
         fields: Vec<String>,
-        index_type: &str
+        index_type: &str,
     ) -> Result<ArangoResponse, GraphError> {
         let fields_json = serde_json::to_string(&fields).unwrap();
         let query = format!(
-            "db.{}.ensureIndex({{ fields: {}, type: '{}' }})",
-            collection,
-            fields_json,
-            index_type
+            "db.{collection}.ensureIndex({{ fields: {fields_json}, type: '{index_type}' }})"
         );
         self.execute_query(&query, None)
     }
 
     pub fn _drop_index(&self, index_id: &str) -> Result<ArangoResponse, GraphError> {
-        let query = format!("db._dropIndex('{}')", index_id);
+        let query = format!("db._dropIndex('{index_id}')");
         self.execute_query(&query, None)
     }
 
@@ -740,26 +799,26 @@ impl ArangoClient {
 
     pub fn _get_index(&self, index_name: &str) -> Result<ArangoResponse, GraphError> {
         let query =
-            format!("FOR index IN db._indexes() FILTER index.name == '{}' RETURN index", index_name);
+            format!("FOR index IN db._indexes() FILTER index.name == '{index_name}' RETURN index");
         self.execute_query(&query, None)
     }
 
     pub fn _get_collection_schema(&self, collection: &str) -> Result<ArangoResponse, GraphError> {
-        let query = format!("FOR doc IN {} LIMIT 1 RETURN doc", collection);
+        let query = format!("FOR doc IN {collection} LIMIT 1 RETURN doc");
         self.execute_query(&query, None)
     }
 
     pub fn _create_collection(
         &self,
         name: &str,
-        collection_type: &str
+        collection_type: &str,
     ) -> Result<ArangoResponse, GraphError> {
-        let query = format!("db._create('{}', {{ type: '{}' }})", name, collection_type);
+        let query = format!("db._create('{name}', {{ type: '{collection_type}' }})");
         self.execute_query(&query, None)
     }
 
     pub fn _drop_collection(&self, name: &str) -> Result<ArangoResponse, GraphError> {
-        let query = format!("db._drop('{}')", name);
+        let query = format!("db._drop('{name}')");
         self.execute_query(&query, None)
     }
 
@@ -770,5 +829,5 @@ impl ArangoClient {
 }
 
 fn from_reqwest_error(context: &str, err: reqwest::Error) -> GraphError {
-    GraphError::InternalError(format!("{}: {}", context, err))
+    GraphError::InternalError(format!("{context}: {err}"))
 }

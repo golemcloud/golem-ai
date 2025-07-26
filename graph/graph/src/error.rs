@@ -20,21 +20,19 @@ pub fn error_from_status(status: StatusCode, body: Option<String>) -> GraphError
             let message = body.unwrap_or_else(|| "Rate limit exceeded".to_string());
             GraphError::ResourceExhausted(message)
         }
-        StatusCode::UNAUTHORIZED =>
-            GraphError::AuthenticationFailed(
-                body.unwrap_or_else(|| "Authentication failed".to_string())
-            ),
-        StatusCode::FORBIDDEN =>
-            GraphError::AuthorizationFailed(
-                body.unwrap_or_else(|| "Authorization failed".to_string())
-            ),
+        StatusCode::UNAUTHORIZED => GraphError::AuthenticationFailed(
+            body.unwrap_or_else(|| "Authentication failed".to_string()),
+        ),
+        StatusCode::FORBIDDEN => GraphError::AuthorizationFailed(
+            body.unwrap_or_else(|| "Authorization failed".to_string()),
+        ),
         StatusCode::REQUEST_TIMEOUT | StatusCode::GATEWAY_TIMEOUT => GraphError::Timeout,
-        StatusCode::SERVICE_UNAVAILABLE =>
-            GraphError::ServiceUnavailable(
-                body.unwrap_or_else(|| "Service unavailable".to_string())
-            ),
-        s if s.is_client_error() =>
-            GraphError::InvalidQuery(body.unwrap_or_else(|| "Invalid query".to_string())),
+        StatusCode::SERVICE_UNAVAILABLE => GraphError::ServiceUnavailable(
+            body.unwrap_or_else(|| "Service unavailable".to_string()),
+        ),
+        s if s.is_client_error() => {
+            GraphError::InvalidQuery(body.unwrap_or_else(|| "Invalid query".to_string()))
+        }
         _ => {
             let message = match body {
                 Some(b) => format!("HTTP {status}: {b}"),

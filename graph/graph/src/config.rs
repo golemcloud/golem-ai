@@ -14,7 +14,7 @@ pub enum GraphError {
 pub fn with_graph_config<R>(
     key: impl AsRef<OsStr>,
     fail: impl FnOnce(GraphError) -> R,
-    succeed: impl FnOnce(String) -> R
+    succeed: impl FnOnce(String) -> R,
 ) -> R {
     let key_str = key.as_ref().to_string_lossy().to_string();
     match std::env::var(&key) {

@@ -1,53 +1,30 @@
 mod client;
 mod conversion;
 
-use golem_graph::exports::golem::graph::types::*;
-use golem_graph::exports::golem::graph::errors::GraphError;
-use golem_graph::exports::golem::graph::transactions::{
-    GuestTransaction,
-    Transaction,
-    TransactionBorrow,
-    VertexSpec,
-    EdgeSpec,
-};
-use golem_graph::exports::golem::graph::connection::{
-    ConnectionConfig,
-    Guest as ConnectionGuest,
-    GuestGraph,
-    GraphStatistics,
-    Graph,
-};
-use golem_graph::exports::golem::graph::traversal::{
-    Guest as TraversalGuest,
-    PathOptions,
-    NeighborhoodOptions,
-    Subgraph,
-    Path,
-    Direction,
-};
-use golem_graph::exports::golem::graph::query::{
-    Guest as QueryGuest,
-    QueryOptions,
-    QueryExecutionResult,
-    QueryResult,
-};
-use golem_graph::exports::golem::graph::schema::{
-    Guest as SchemaGuest,
-    GuestSchemaManager,
-    SchemaManager,
-    VertexLabelSchema,
-    EdgeLabelSchema,
-    IndexDefinition,
-    EdgeTypeDefinition,
-    ContainerType,
-    ContainerInfo,
-};
-use golem_graph::durability::{ DurableGraph, ExtendedGraphGuest };
-use std::cell::RefCell;
 use crate::client::ArangoClient;
 use crate::conversion::*;
-use golem_rust::{ FromValueAndType, IntoValue };
 use base64::Engine;
+use golem_graph::durability::{DurableGraph, ExtendedGraphGuest};
+use golem_graph::exports::golem::graph::connection::{
+    ConnectionConfig, Graph, GraphStatistics, Guest as ConnectionGuest, GuestGraph,
+};
+use golem_graph::exports::golem::graph::errors::GraphError;
+use golem_graph::exports::golem::graph::query::{
+    Guest as QueryGuest, QueryExecutionResult, QueryOptions, QueryResult,
+};
+use golem_graph::exports::golem::graph::schema::{
+    ContainerInfo, ContainerType, EdgeLabelSchema, EdgeTypeDefinition, Guest as SchemaGuest,
+    GuestSchemaManager, IndexDefinition, SchemaManager, VertexLabelSchema,
+};
+use golem_graph::exports::golem::graph::transactions::{
+    EdgeSpec, GuestTransaction, Transaction, TransactionBorrow, VertexSpec,
+};
+use golem_graph::exports::golem::graph::traversal::{
+    Direction, Guest as TraversalGuest, NeighborhoodOptions, Path, PathOptions, Subgraph,
+};
+use golem_graph::exports::golem::graph::types::*;
+use golem_rust::{FromValueAndType, IntoValue};
+use std::cell::RefCell;
 
 // Helper function to convert ElementId to string
 fn element_id_to_string(id: &ElementId) -> String {
@@ -71,17 +48,16 @@ fn property_value_to_json(value: &PropertyValue) -> serde_json::Value {
         PropertyValue::Uint16(u) => serde_json::Value::Number(serde_json::Number::from(*u as u64)),
         PropertyValue::Uint32(u) => serde_json::Value::Number(serde_json::Number::from(*u as u64)),
         PropertyValue::Uint64(u) => serde_json::Value::Number(serde_json::Number::from(*u)),
-        PropertyValue::Float32Value(f) =>
-            serde_json::Value::Number(
-                serde_json::Number::from_f64(*f as f64).unwrap_or(serde_json::Number::from(0))
-            ),
-        PropertyValue::Float64Value(f) =>
-            serde_json::Value::Number(
-                serde_json::Number::from_f64(*f).unwrap_or(serde_json::Number::from(0))
-            ),
+        PropertyValue::Float32Value(f) => serde_json::Value::Number(
+            serde_json::Number::from_f64(*f as f64).unwrap_or(serde_json::Number::from(0)),
+        ),
+        PropertyValue::Float64Value(f) => serde_json::Value::Number(
+            serde_json::Number::from_f64(*f).unwrap_or(serde_json::Number::from(0)),
+        ),
         PropertyValue::StringValue(s) => serde_json::Value::String(s.clone()),
-        PropertyValue::Bytes(b) =>
-            serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(b)),
+        PropertyValue::Bytes(b) => {
+            serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(b))
+        }
         PropertyValue::Date(_) => serde_json::Value::String("date".to_string()), // Simplified
         PropertyValue::Time(_) => serde_json::Value::String("time".to_string()), // Simplified
         PropertyValue::Datetime(_) => serde_json::Value::String("datetime".to_string()), // Simplified
@@ -121,18 +97,24 @@ pub struct ArangoSchemaManager {
 
 impl ArangoComponent {
     fn create_client(config: &ConnectionConfig) -> Result<ArangoClient, GraphError> {
-        let base_url = config.hosts
+        let base_url = config
+            .hosts
             .first()
             .ok_or_else(|| GraphError::InternalError("No hosts provided".to_string()))?
             .clone();
 
-        let username = config.username
+        let username = config
+            .username
             .as_ref()
             .ok_or_else(|| GraphError::InternalError("Username required".to_string()))?
             .clone();
 
         let password = config.password.as_ref().unwrap_or(&"".to_string()).clone();
-        let database = config.database_name.as_ref().unwrap_or(&"_system".to_string()).clone();
+        let database = config
+            .database_name
+            .as_ref()
+            .unwrap_or(&"_system".to_string())
+            .clone();
 
         Ok(ArangoClient::new(base_url, username, password, database))
     }
@@ -143,57 +125,61 @@ impl ConnectionGuest for ArangoComponent {
 
     fn connect(config: ConnectionConfig) -> Result<Graph, GraphError> {
         let client = Self::create_client(&config)?;
-        Ok(
-            Graph::new(ArangoGraph {
-                client: RefCell::new(client),
-            })
-        )
+        Ok(Graph::new(ArangoGraph {
+            client: RefCell::new(client),
+        }))
     }
 }
 
 impl GuestGraph for ArangoComponent {
     fn begin_transaction(&self) -> Result<Transaction, GraphError> {
-        Err(GraphError::InternalError("Use ArangoGraph for transactions".to_string()))
+        Err(GraphError::InternalError(
+            "Use ArangoGraph for transactions".to_string(),
+        ))
     }
 
     fn begin_read_transaction(&self) -> Result<Transaction, GraphError> {
-        Err(GraphError::InternalError("Use ArangoGraph for transactions".to_string()))
+        Err(GraphError::InternalError(
+            "Use ArangoGraph for transactions".to_string(),
+        ))
     }
 
     fn ping(&self) -> Result<(), GraphError> {
-        Err(GraphError::InternalError("Use ArangoGraph for ping".to_string()))
+        Err(GraphError::InternalError(
+            "Use ArangoGraph for ping".to_string(),
+        ))
     }
 
     fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
-        Err(GraphError::InternalError("Use ArangoGraph for statistics".to_string()))
+        Err(GraphError::InternalError(
+            "Use ArangoGraph for statistics".to_string(),
+        ))
     }
 
     fn close(&self) -> Result<(), GraphError> {
-        Err(GraphError::InternalError("Use ArangoGraph for close".to_string()))
+        Err(GraphError::InternalError(
+            "Use ArangoGraph for close".to_string(),
+        ))
     }
 }
 
 impl GuestGraph for ArangoGraph {
     fn begin_transaction(&self) -> Result<Transaction, GraphError> {
         let session_id = self.client.borrow_mut().begin_transaction()?;
-        Ok(
-            Transaction::new(ArangoTransaction {
-                client: RefCell::new(self.client.borrow().clone()),
-                session_id,
-                read_only: false,
-            })
-        )
+        Ok(Transaction::new(ArangoTransaction {
+            client: RefCell::new(self.client.borrow().clone()),
+            session_id,
+            read_only: false,
+        }))
     }
 
     fn begin_read_transaction(&self) -> Result<Transaction, GraphError> {
         let session_id = self.client.borrow_mut().begin_read_transaction()?;
-        Ok(
-            Transaction::new(ArangoTransaction {
-                client: RefCell::new(self.client.borrow().clone()),
-                session_id,
-                read_only: true,
-            })
-        )
+        Ok(Transaction::new(ArangoTransaction {
+            client: RefCell::new(self.client.borrow().clone()),
+            session_id,
+            read_only: true,
+        }))
     }
 
     fn ping(&self) -> Result<(), GraphError> {
@@ -212,7 +198,7 @@ impl GuestGraph for ArangoGraph {
 impl ExtendedGraphGuest for ArangoComponent {
     type ReplayState = ArangoReplayState;
     type Transaction = ArangoTransaction;
-    type SchemaManager = ArangoSchemaManager;
+    type SchemaManager = golem_graph::golem::graph::schema::SchemaManager;
 
     fn unwrapped_graph(_config: ConnectionConfig) -> Result<ArangoComponent, GraphError> {
         Ok(ArangoComponent)
@@ -231,26 +217,27 @@ impl ExtendedGraphGuest for ArangoComponent {
 
     fn graph_from_state(
         _state: &ArangoReplayState,
-        _config: ConnectionConfig
+        _config: ConnectionConfig,
     ) -> Result<ArangoComponent, GraphError> {
         Ok(ArangoComponent)
     }
 
     fn unwrapped_transaction(
         _graph: &ArangoComponent,
-        _read_only: bool
+        read_only: bool,
     ) -> Result<ArangoTransaction, GraphError> {
         let client = ArangoClient::new(
             "http://localhost:8529".to_string(),
             "".to_string(),
             "".to_string(),
-            "_system".to_string()
+            "_system".to_string(),
         );
-        Ok(ArangoTransaction {
+        let arango_transaction = ArangoTransaction {
             client: RefCell::new(client),
             session_id: "".to_string(),
-            read_only: false,
-        })
+            read_only,
+        };
+        Ok(arango_transaction)
     }
 
     fn transaction_to_state(transaction: &ArangoTransaction) -> ArangoReplayState {
@@ -268,22 +255,25 @@ impl ExtendedGraphGuest for ArangoComponent {
     fn transaction_from_state(
         state: &ArangoReplayState,
         _graph: &ArangoComponent,
-        read_only: bool
+        read_only: bool,
     ) -> Result<ArangoTransaction, GraphError> {
         let client = ArangoClient::new(
             state.base_url.clone(),
             state.username.clone(),
             state.password.clone(),
-            state.database.clone()
+            state.database.clone(),
         );
-        Ok(ArangoTransaction {
+        let arango_transaction = ArangoTransaction {
             client: RefCell::new(client),
             session_id: state.session_id.clone().unwrap_or_default(),
             read_only,
-        })
+        };
+        Ok(arango_transaction)
     }
 
-    fn schema_manager_to_state(_schema_manager: &ArangoSchemaManager) -> ArangoReplayState {
+    fn schema_manager_to_state(
+        _schema_manager: &golem_graph::golem::graph::schema::SchemaManager,
+    ) -> ArangoReplayState {
         ArangoReplayState {
             base_url: "http://localhost:8529".to_string(),
             username: "".to_string(),
@@ -295,17 +285,20 @@ impl ExtendedGraphGuest for ArangoComponent {
     }
 
     fn schema_manager_from_state(
-        state: &ArangoReplayState
-    ) -> Result<ArangoSchemaManager, GraphError> {
+        state: &ArangoReplayState,
+    ) -> Result<golem_graph::golem::graph::schema::SchemaManager, GraphError> {
         let client = ArangoClient::new(
             state.base_url.clone(),
             state.username.clone(),
             state.password.clone(),
-            state.database.clone()
+            state.database.clone(),
         );
-        Ok(ArangoSchemaManager {
+        let arango_schema_manager = ArangoSchemaManager {
             client: RefCell::new(client),
-        })
+        };
+        Ok(golem_graph::golem::graph::schema::SchemaManager::new(
+            arango_schema_manager,
+        ))
     }
 }
 
@@ -313,10 +306,13 @@ impl GuestTransaction for ArangoTransaction {
     fn create_vertex(
         &self,
         vertex_type: String,
-        properties: PropertyMap
+        properties: PropertyMap,
     ) -> Result<Vertex, GraphError> {
         let properties_json = property_map_to_arango_doc(&properties)?;
-        let response = self.client.borrow_mut().create_vertex(&vertex_type, properties_json)?;
+        let response = self
+            .client
+            .borrow_mut()
+            .create_vertex(&vertex_type, properties_json)?;
         parse_vertex_from_response(&response)
     }
 
@@ -324,7 +320,7 @@ impl GuestTransaction for ArangoTransaction {
         &self,
         vertex_type: String,
         additional_labels: Vec<String>,
-        properties: PropertyMap
+        properties: PropertyMap,
     ) -> Result<Vertex, GraphError> {
         // ArangoDB doesn't have separate labels concept, use vertex_type as primary
         let mut all_properties = properties;
@@ -350,21 +346,26 @@ impl GuestTransaction for ArangoTransaction {
     fn update_vertex(&self, id: ElementId, properties: PropertyMap) -> Result<Vertex, GraphError> {
         let id_str = element_id_to_string(&id);
         let properties_json = property_map_to_arango_doc(&properties)?;
-        let response = self.client.borrow_mut().update_vertex(&id_str, properties_json)?;
+        let response = self
+            .client
+            .borrow_mut()
+            .update_vertex(&id_str, properties_json)?;
         parse_vertex_from_response(&response)
     }
 
     fn update_vertex_properties(
         &self,
         id: ElementId,
-        updates: PropertyMap
+        updates: PropertyMap,
     ) -> Result<Vertex, GraphError> {
         self.update_vertex(id, updates)
     }
 
     fn delete_vertex(&self, id: ElementId, delete_edges: bool) -> Result<(), GraphError> {
         let id_str = element_id_to_string(&id);
-        self.client.borrow_mut().delete_vertex(&id_str, delete_edges)
+        self.client
+            .borrow_mut()
+            .delete_vertex(&id_str, delete_edges)
     }
 
     fn find_vertices(
@@ -373,7 +374,7 @@ impl GuestTransaction for ArangoTransaction {
         _filters: Option<Vec<FilterCondition>>,
         _sort: Option<Vec<SortSpec>>,
         limit: Option<u32>,
-        _offset: Option<u32>
+        _offset: Option<u32>,
     ) -> Result<Vec<Vertex>, GraphError> {
         let query = if let Some(vt) = vertex_type {
             format!("FOR v IN {} LIMIT {} RETURN v", vt, limit.unwrap_or(100))
@@ -390,15 +391,18 @@ impl GuestTransaction for ArangoTransaction {
         edge_type: String,
         from_vertex: ElementId,
         to_vertex: ElementId,
-        properties: PropertyMap
+        properties: PropertyMap,
     ) -> Result<Edge, GraphError> {
         let from_str = element_id_to_string(&from_vertex);
         let to_str = element_id_to_string(&to_vertex);
         let properties_json = property_map_to_arango_doc(&properties)?;
 
-        let response = self.client
-            .borrow_mut()
-            .create_edge(&edge_type, &from_str, &to_str, properties_json)?;
+        let response = self.client.borrow_mut().create_edge(
+            &edge_type,
+            &from_str,
+            &to_str,
+            properties_json,
+        )?;
         parse_edge_from_response(&response)
     }
 
@@ -415,14 +419,17 @@ impl GuestTransaction for ArangoTransaction {
     fn update_edge(&self, id: ElementId, properties: PropertyMap) -> Result<Edge, GraphError> {
         let id_str = element_id_to_string(&id);
         let properties_json = property_map_to_arango_doc(&properties)?;
-        let response = self.client.borrow_mut().update_edge(&id_str, properties_json)?;
+        let response = self
+            .client
+            .borrow_mut()
+            .update_edge(&id_str, properties_json)?;
         parse_edge_from_response(&response)
     }
 
     fn update_edge_properties(
         &self,
         id: ElementId,
-        updates: PropertyMap
+        updates: PropertyMap,
     ) -> Result<Edge, GraphError> {
         self.update_edge(id, updates)
     }
@@ -438,12 +445,12 @@ impl GuestTransaction for ArangoTransaction {
         _filters: Option<Vec<FilterCondition>>,
         _sort: Option<Vec<SortSpec>>,
         limit: Option<u32>,
-        _offset: Option<u32>
+        _offset: Option<u32>,
     ) -> Result<Vec<Edge>, GraphError> {
         let query = if let Some(types) = edge_types {
             let type_filter = types
                 .iter()
-                .map(|t| format!("'{}'", t))
+                .map(|t| format!("'{t}'"))
                 .collect::<Vec<_>>()
                 .join(", ");
             format!(
@@ -464,7 +471,7 @@ impl GuestTransaction for ArangoTransaction {
         vertex_id: ElementId,
         direction: Direction,
         edge_types: Option<Vec<String>>,
-        limit: Option<u32>
+        limit: Option<u32>,
     ) -> Result<Vec<Vertex>, GraphError> {
         let id_str = element_id_to_string(&vertex_id);
         let direction_str = match direction {
@@ -476,10 +483,10 @@ impl GuestTransaction for ArangoTransaction {
         let edge_filter = if let Some(types) = edge_types {
             let type_filter = types
                 .iter()
-                .map(|t| format!("'{}'", t))
+                .map(|t| format!("'{t}'"))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("FILTER e.type IN [{}]", type_filter)
+            format!("FILTER e.type IN [{type_filter}]")
         } else {
             "".to_string()
         };
@@ -502,7 +509,7 @@ impl GuestTransaction for ArangoTransaction {
         vertex_id: ElementId,
         direction: Direction,
         edge_types: Option<Vec<String>>,
-        limit: Option<u32>
+        limit: Option<u32>,
     ) -> Result<Vec<Edge>, GraphError> {
         let id_str = element_id_to_string(&vertex_id);
         let direction_str = match direction {
@@ -514,10 +521,10 @@ impl GuestTransaction for ArangoTransaction {
         let edge_filter = if let Some(types) = edge_types {
             let type_filter = types
                 .iter()
-                .map(|t| format!("'{}'", t))
+                .map(|t| format!("'{t}'"))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("FILTER e.type IN [{}]", type_filter)
+            format!("FILTER e.type IN [{type_filter}]")
         } else {
             "".to_string()
         };
@@ -577,7 +584,7 @@ impl GuestTransaction for ArangoTransaction {
                 &edge_spec.edge_type,
                 &element_id_to_string(&edge_spec.from_vertex),
                 &element_id_to_string(&edge_spec.to_vertex),
-                properties_json
+                properties_json,
             )?;
 
             if let Ok(edge) = parse_edge_from_response(&response) {
@@ -592,7 +599,7 @@ impl GuestTransaction for ArangoTransaction {
         &self,
         id: Option<ElementId>,
         vertex_type: String,
-        properties: PropertyMap
+        properties: PropertyMap,
     ) -> Result<Vertex, GraphError> {
         if let Some(vertex_id) = id {
             // Try to update existing vertex
@@ -611,7 +618,7 @@ impl GuestTransaction for ArangoTransaction {
         edge_type: String,
         from_vertex: ElementId,
         to_vertex: ElementId,
-        properties: PropertyMap
+        properties: PropertyMap,
     ) -> Result<Edge, GraphError> {
         if let Some(edge_id) = id {
             match self.get_edge(edge_id.clone())? {
@@ -628,11 +635,15 @@ impl GuestTransaction for ArangoTransaction {
     }
 
     fn commit(&self) -> Result<(), GraphError> {
-        self.client.borrow_mut().commit_transaction(&self.session_id)
+        self.client
+            .borrow_mut()
+            .commit_transaction(&self.session_id)
     }
 
     fn rollback(&self) -> Result<(), GraphError> {
-        self.client.borrow_mut().rollback_transaction(&self.session_id)
+        self.client
+            .borrow_mut()
+            .rollback_transaction(&self.session_id)
     }
 }
 
@@ -641,7 +652,7 @@ impl TraversalGuest for ArangoComponent {
         _transaction: TransactionBorrow<'_>,
         from_vertex: ElementId,
         to_vertex: ElementId,
-        _options: Option<PathOptions>
+        _options: Option<PathOptions>,
     ) -> Result<Option<Path>, GraphError> {
         let from_id = element_id_to_string(&from_vertex);
         let to_id = element_id_to_string(&to_vertex);
@@ -649,16 +660,16 @@ impl TraversalGuest for ArangoComponent {
             vertices: vec![
                 Vertex {
                     id: from_vertex,
-                    vertex_type: format!("vertex-{}", from_id),
+                    vertex_type: format!("vertex-{from_id}"),
                     additional_labels: vec![],
                     properties: vec![],
                 },
                 Vertex {
                     id: to_vertex,
-                    vertex_type: format!("vertex-{}", to_id),
+                    vertex_type: format!("vertex-{to_id}"),
                     additional_labels: vec![],
                     properties: vec![],
-                }
+                },
             ],
             edges: vec![],
             length: 1,
@@ -672,7 +683,7 @@ impl TraversalGuest for ArangoComponent {
         _from_vertex: ElementId,
         _to_vertex: ElementId,
         _options: Option<PathOptions>,
-        _limit: Option<u32>
+        _limit: Option<u32>,
     ) -> Result<Vec<Path>, GraphError> {
         Ok(vec![])
     }
@@ -681,7 +692,7 @@ impl TraversalGuest for ArangoComponent {
         _transaction: TransactionBorrow<'_>,
         _from_vertex: ElementId,
         _to_vertex: ElementId,
-        _options: Option<PathOptions>
+        _options: Option<PathOptions>,
     ) -> Result<bool, GraphError> {
         Ok(false)
     }
@@ -689,7 +700,7 @@ impl TraversalGuest for ArangoComponent {
     fn get_neighborhood(
         _transaction: TransactionBorrow<'_>,
         _center: ElementId,
-        _options: NeighborhoodOptions
+        _options: NeighborhoodOptions,
     ) -> Result<Subgraph, GraphError> {
         Ok(Subgraph {
             vertices: vec![],
@@ -702,7 +713,7 @@ impl TraversalGuest for ArangoComponent {
         _source: ElementId,
         _distance: u32,
         _direction: Direction,
-        _edge_types: Option<Vec<String>>
+        _edge_types: Option<Vec<String>>,
     ) -> Result<Vec<Vertex>, GraphError> {
         Ok(vec![])
     }
@@ -713,7 +724,7 @@ impl QueryGuest for ArangoComponent {
         _transaction: TransactionBorrow<'_>,
         _query: String,
         _parameters: Option<Vec<(String, PropertyValue)>>,
-        _options: Option<QueryOptions>
+        _options: Option<QueryOptions>,
     ) -> Result<QueryExecutionResult, GraphError> {
         Ok(QueryExecutionResult {
             query_result_value: QueryResult::Vertices(vec![]),
@@ -733,34 +744,40 @@ impl SchemaGuest for ArangoComponent {
             "http://localhost:8529".to_string(),
             "".to_string(),
             "".to_string(),
-            "_system".to_string()
+            "_system".to_string(),
         );
-        Ok(
-            SchemaManager::new(ArangoSchemaManager {
-                client: RefCell::new(client),
-            })
-        )
+        Ok(SchemaManager::new(ArangoSchemaManager {
+            client: RefCell::new(client),
+        }))
     }
 }
 
 impl GuestSchemaManager for ArangoSchemaManager {
     fn define_vertex_label(&self, _schema: VertexLabelSchema) -> Result<(), GraphError> {
-        Err(GraphError::UnsupportedOperation("Vertex label definition not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Vertex label definition not implemented".to_string(),
+        ))
     }
 
     fn define_edge_label(&self, _schema: EdgeLabelSchema) -> Result<(), GraphError> {
-        Err(GraphError::UnsupportedOperation("Edge label definition not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Edge label definition not implemented".to_string(),
+        ))
     }
 
     fn get_vertex_label_schema(
         &self,
-        _label: String
+        _label: String,
     ) -> Result<Option<VertexLabelSchema>, GraphError> {
-        Err(GraphError::UnsupportedOperation("Vertex label schema not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Vertex label schema not implemented".to_string(),
+        ))
     }
 
     fn get_edge_label_schema(&self, _label: String) -> Result<Option<EdgeLabelSchema>, GraphError> {
-        Err(GraphError::UnsupportedOperation("Edge label schema not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Edge label schema not implemented".to_string(),
+        ))
     }
 
     fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
@@ -802,39 +819,55 @@ impl GuestSchemaManager for ArangoSchemaManager {
     }
 
     fn create_index(&self, _index: IndexDefinition) -> Result<(), GraphError> {
-        Err(GraphError::UnsupportedOperation("Index creation not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Index creation not implemented".to_string(),
+        ))
     }
 
     fn drop_index(&self, _name: String) -> Result<(), GraphError> {
-        Err(GraphError::UnsupportedOperation("Index dropping not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Index dropping not implemented".to_string(),
+        ))
     }
 
     fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
-        Err(GraphError::UnsupportedOperation("Index listing not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Index listing not implemented".to_string(),
+        ))
     }
 
     fn get_index(&self, _name: String) -> Result<Option<IndexDefinition>, GraphError> {
-        Err(GraphError::UnsupportedOperation("Index retrieval not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Index retrieval not implemented".to_string(),
+        ))
     }
 
     fn define_edge_type(&self, _definition: EdgeTypeDefinition) -> Result<(), GraphError> {
-        Err(GraphError::UnsupportedOperation("Edge type definition not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Edge type definition not implemented".to_string(),
+        ))
     }
 
     fn list_edge_types(&self) -> Result<Vec<EdgeTypeDefinition>, GraphError> {
-        Err(GraphError::UnsupportedOperation("Edge type listing not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Edge type listing not implemented".to_string(),
+        ))
     }
 
     fn create_container(
         &self,
         _name: String,
-        _container_type: ContainerType
+        _container_type: ContainerType,
     ) -> Result<(), GraphError> {
-        Err(GraphError::UnsupportedOperation("Container creation not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Container creation not implemented".to_string(),
+        ))
     }
 
     fn list_containers(&self) -> Result<Vec<ContainerInfo>, GraphError> {
-        Err(GraphError::UnsupportedOperation("Container listing not implemented".to_string()))
+        Err(GraphError::UnsupportedOperation(
+            "Container listing not implemented".to_string(),
+        ))
     }
 }
 

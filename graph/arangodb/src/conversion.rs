@@ -1,8 +1,8 @@
 use crate::client::ArangoResponse;
-use golem_graph::exports::golem::graph::types::*;
-use golem_graph::exports::golem::graph::errors::GraphError;
-use serde_json::Value as JsonValue;
 use base64::Engine;
+use golem_graph::exports::golem::graph::errors::GraphError;
+use golem_graph::exports::golem::graph::types::*;
+use serde_json::Value as JsonValue;
 
 /// Convert PropertyMap to ArangoDB document
 pub fn property_map_to_arango_doc(properties: &PropertyMap) -> Result<JsonValue, GraphError> {
@@ -19,7 +19,8 @@ pub fn property_map_to_arango_doc(properties: &PropertyMap) -> Result<JsonValue,
 /// Convert ArangoDB response to Vertex
 pub fn parse_vertex_from_response(response: &ArangoResponse) -> Result<Vertex, GraphError> {
     if response.error {
-        let error_msg = response.error_message
+        let error_msg = response
+            .error_message
             .as_ref()
             .unwrap_or(&"Unknown error".to_string())
             .clone();
@@ -27,7 +28,9 @@ pub fn parse_vertex_from_response(response: &ArangoResponse) -> Result<Vertex, G
     }
 
     if response.result.is_empty() {
-        return Err(GraphError::InvalidQuery("No vertex data in response".to_string()));
+        return Err(GraphError::InvalidQuery(
+            "No vertex data in response".to_string(),
+        ));
     }
 
     let value = &response.result[0];
@@ -37,7 +40,8 @@ pub fn parse_vertex_from_response(response: &ArangoResponse) -> Result<Vertex, G
 /// Convert ArangoDB response to  Vertices
 pub fn parse_vertices_from_response(response: &ArangoResponse) -> Result<Vec<Vertex>, GraphError> {
     if response.error {
-        let error_msg = response.error_message
+        let error_msg = response
+            .error_message
             .as_ref()
             .unwrap_or(&"Unknown error".to_string())
             .clone();
@@ -56,7 +60,8 @@ pub fn parse_vertices_from_response(response: &ArangoResponse) -> Result<Vec<Ver
 /// Convert ArangoDB response to  Edge
 pub fn parse_edge_from_response(response: &ArangoResponse) -> Result<Edge, GraphError> {
     if response.error {
-        let error_msg = response.error_message
+        let error_msg = response
+            .error_message
             .as_ref()
             .unwrap_or(&"Unknown error".to_string())
             .clone();
@@ -64,7 +69,9 @@ pub fn parse_edge_from_response(response: &ArangoResponse) -> Result<Edge, Graph
     }
 
     if response.result.is_empty() {
-        return Err(GraphError::InvalidQuery("No edge data in response".to_string()));
+        return Err(GraphError::InvalidQuery(
+            "No edge data in response".to_string(),
+        ));
     }
 
     let value = &response.result[0];
@@ -74,7 +81,8 @@ pub fn parse_edge_from_response(response: &ArangoResponse) -> Result<Edge, Graph
 /// Convert ArangoDB response to Edges
 pub fn parse_edges_from_response(response: &ArangoResponse) -> Result<Vec<Edge>, GraphError> {
     if response.error {
-        let error_msg = response.error_message
+        let error_msg = response
+            .error_message
             .as_ref()
             .unwrap_or(&"Unknown error".to_string())
             .clone();
@@ -92,10 +100,11 @@ pub fn parse_edges_from_response(response: &ArangoResponse) -> Result<Vec<Edge>,
 
 /// Convert ArangoDB response to string list
 pub fn _parse_string_list_from_response(
-    response: &ArangoResponse
+    response: &ArangoResponse,
 ) -> Result<Vec<String>, GraphError> {
     if response.error {
-        let error_msg = response.error_message
+        let error_msg = response
+            .error_message
             .as_ref()
             .unwrap_or(&"Unknown error".to_string())
             .clone();
@@ -215,21 +224,16 @@ fn property_value_to_json(value: &PropertyValue) -> Result<JsonValue, GraphError
         PropertyValue::Uint16(u) => Ok(JsonValue::Number(serde_json::Number::from(*u))),
         PropertyValue::Uint32(u) => Ok(JsonValue::Number(serde_json::Number::from(*u))),
         PropertyValue::Uint64(u) => Ok(JsonValue::Number(serde_json::Number::from(*u))),
-        PropertyValue::Float32Value(f) => {
-            serde_json::Number
-                ::from_f64(*f as f64)
-                .map(JsonValue::Number)
-                .ok_or_else(|| GraphError::InternalError("Invalid float value".to_string()))
-        }
-        PropertyValue::Float64Value(f) => {
-            serde_json::Number
-                ::from_f64(*f)
-                .map(JsonValue::Number)
-                .ok_or_else(|| GraphError::InternalError("Invalid float value".to_string()))
-        }
+        PropertyValue::Float32Value(f) => serde_json::Number::from_f64(*f as f64)
+            .map(JsonValue::Number)
+            .ok_or_else(|| GraphError::InternalError("Invalid float value".to_string())),
+        PropertyValue::Float64Value(f) => serde_json::Number::from_f64(*f)
+            .map(JsonValue::Number)
+            .ok_or_else(|| GraphError::InternalError("Invalid float value".to_string())),
         PropertyValue::Boolean(b) => Ok(JsonValue::Bool(*b)),
-        PropertyValue::Bytes(b) =>
-            Ok(JsonValue::String(base64::engine::general_purpose::STANDARD.encode(b))),
+        PropertyValue::Bytes(b) => Ok(JsonValue::String(
+            base64::engine::general_purpose::STANDARD.encode(b),
+        )),
         PropertyValue::Date(date) => {
             let date_str = format!("{}-{:02}-{:02}", date.year, date.month, date.day);
             Ok(JsonValue::String(date_str))
@@ -259,19 +263,20 @@ fn property_value_to_json(value: &PropertyValue) -> Result<JsonValue, GraphError
             Ok(JsonValue::String(point_str))
         }
         PropertyValue::Linestring(linestring) => {
-            let coordinates: Vec<Vec<f64>> = linestring.coordinates
+            let coordinates: Vec<Vec<f64>> = linestring
+                .coordinates
                 .iter()
                 .map(|p| vec![p.longitude, p.latitude])
                 .collect();
-            let line_obj =
-                serde_json::json!({
+            let line_obj = serde_json::json!({
                 "type": "LineString",
                 "coordinates": coordinates
             });
             Ok(line_obj)
         }
         PropertyValue::Polygon(polygon) => {
-            let exterior: Vec<Vec<f64>> = polygon.exterior
+            let exterior: Vec<Vec<f64>> = polygon
+                .exterior
                 .iter()
                 .map(|p| vec![p.longitude, p.latitude])
                 .collect();
@@ -285,8 +290,7 @@ fn property_value_to_json(value: &PropertyValue) -> Result<JsonValue, GraphError
                     })
                     .collect::<Vec<_>>()
             });
-            let polygon_obj =
-                serde_json::json!({
+            let polygon_obj = serde_json::json!({
                 "type": "Polygon",
                 "coordinates": [exterior, holes.unwrap_or_default()]
             });
@@ -342,13 +346,17 @@ fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphError
             } else if let Some(f) = n.as_f64() {
                 Ok(PropertyValue::Float64Value(f))
             } else {
-                Err(GraphError::InternalError("Invalid number value".to_string()))
+                Err(GraphError::InternalError(
+                    "Invalid number value".to_string(),
+                ))
             }
         }
         JsonValue::Bool(b) => Ok(PropertyValue::Boolean(*b)),
         JsonValue::Array(_) => {
             // Arrays not supported in current PropertyValue enum
-            Err(GraphError::InternalError("Arrays not supported".to_string()))
+            Err(GraphError::InternalError(
+                "Arrays not supported".to_string(),
+            ))
         }
         JsonValue::Object(obj) => {
             // Check if it's a GeoJSON object
@@ -360,13 +368,11 @@ fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphError
                                 let longitude = coords[0].as_f64().unwrap_or(0.0);
                                 let latitude = coords[1].as_f64().unwrap_or(0.0);
                                 let altitude = coords.get(2).and_then(|a| a.as_f64());
-                                return Ok(
-                                    PropertyValue::Point(Point {
-                                        longitude,
-                                        latitude,
-                                        altitude,
-                                    })
-                                );
+                                return Ok(PropertyValue::Point(Point {
+                                    longitude,
+                                    latitude,
+                                    altitude,
+                                }));
                             }
                         }
                     }
@@ -383,31 +389,25 @@ fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphError
                                                 altitude: coord_arr.get(2).and_then(|a| a.as_f64()),
                                             })
                                         } else {
-                                            Err(
-                                                GraphError::InternalError(
-                                                    "Invalid coordinate".to_string()
-                                                )
-                                            )
+                                            Err(GraphError::InternalError(
+                                                "Invalid coordinate".to_string(),
+                                            ))
                                         }
                                     } else {
-                                        Err(
-                                            GraphError::InternalError(
-                                                "Invalid coordinate".to_string()
-                                            )
-                                        )
+                                        Err(GraphError::InternalError(
+                                            "Invalid coordinate".to_string(),
+                                        ))
                                     }
                                 })
                                 .collect();
-                            return Ok(
-                                PropertyValue::Linestring(Linestring {
-                                    coordinates: coordinates?,
-                                })
-                            );
+                            return Ok(PropertyValue::Linestring(Linestring {
+                                coordinates: coordinates?,
+                            }));
                         }
                     }
                     "Polygon" => {
                         if let Some(coords) = obj.get("coordinates").and_then(|c| c.as_array()) {
-                            if let Some(exterior) = coords.get(0).and_then(|e| e.as_array()) {
+                            if let Some(exterior) = coords.first().and_then(|e| e.as_array()) {
                                 let exterior_points: Result<Vec<Point>, _> = exterior
                                     .iter()
                                     .map(|coord| {
@@ -421,18 +421,14 @@ fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphError
                                                         .and_then(|a| a.as_f64()),
                                                 })
                                             } else {
-                                                Err(
-                                                    GraphError::InternalError(
-                                                        "Invalid coordinate".to_string()
-                                                    )
-                                                )
+                                                Err(GraphError::InternalError(
+                                                    "Invalid coordinate".to_string(),
+                                                ))
                                             }
                                         } else {
-                                            Err(
-                                                GraphError::InternalError(
-                                                    "Invalid coordinate".to_string()
-                                                )
-                                            )
+                                            Err(GraphError::InternalError(
+                                                "Invalid coordinate".to_string(),
+                                            ))
                                         }
                                     })
                                     .collect();
@@ -460,28 +456,23 @@ fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphError
                                                                         .and_then(|a| a.as_f64()),
                                                                 })
                                                             } else {
-                                                                Err(
-                                                                    GraphError::InternalError(
-                                                                        "Invalid coordinate".to_string()
-                                                                    )
-                                                                )
+                                                                Err(GraphError::InternalError(
+                                                                    "Invalid coordinate"
+                                                                        .to_string(),
+                                                                ))
                                                             }
                                                         } else {
-                                                            Err(
-                                                                GraphError::InternalError(
-                                                                    "Invalid coordinate".to_string()
-                                                                )
-                                                            )
+                                                            Err(GraphError::InternalError(
+                                                                "Invalid coordinate".to_string(),
+                                                            ))
                                                         }
                                                     })
                                                     .collect();
                                                 hole_points
                                             } else {
-                                                Err(
-                                                    GraphError::InternalError(
-                                                        "Invalid hole".to_string()
-                                                    )
-                                                )
+                                                Err(GraphError::InternalError(
+                                                    "Invalid hole".to_string(),
+                                                ))
                                             }
                                         })
                                         .collect();
@@ -490,12 +481,10 @@ fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphError
                                     None
                                 };
 
-                                return Ok(
-                                    PropertyValue::Polygon(Polygon {
-                                        exterior: exterior_points?,
-                                        holes,
-                                    })
-                                );
+                                return Ok(PropertyValue::Polygon(Polygon {
+                                    exterior: exterior_points?,
+                                    holes,
+                                }));
                             }
                         }
                     }
@@ -504,7 +493,9 @@ fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphError
             }
 
             // Regular object not supported in current PropertyValue enum
-            Err(GraphError::InternalError("Objects not supported".to_string()))
+            Err(GraphError::InternalError(
+                "Objects not supported".to_string(),
+            ))
         }
         JsonValue::Null => Ok(PropertyValue::NullValue),
     }
@@ -555,7 +546,12 @@ fn parse_time(s: &str) -> Result<Time, GraphError> {
             .parse::<u8>()
             .map_err(|_| GraphError::InternalError("Invalid second".to_string()))?;
 
-        Ok(Time { hour, minute, second, nanosecond: 0 })
+        Ok(Time {
+            hour,
+            minute,
+            second,
+            nanosecond: 0,
+        })
     } else {
         Err(GraphError::InternalError("Invalid time format".to_string()))
     }
@@ -571,9 +567,15 @@ fn parse_datetime(s: &str) -> Result<Datetime, GraphError> {
         let date = parse_date(date_part)?;
         let time = parse_time(time_part)?;
 
-        Ok(Datetime { date, time, timezone_offset_minutes: None })
+        Ok(Datetime {
+            date,
+            time,
+            timezone_offset_minutes: None,
+        })
     } else {
-        Err(GraphError::InternalError("Invalid datetime format".to_string()))
+        Err(GraphError::InternalError(
+            "Invalid datetime format".to_string(),
+        ))
     }
 }
 
@@ -582,12 +584,19 @@ fn parse_duration(s: &str) -> Result<Duration, GraphError> {
     // Simple duration parsing for PTnS format (ISO 8601)
     if s.starts_with("PT") && s.ends_with('S') {
         if let Ok(seconds) = s[2..s.len() - 1].parse::<i64>() {
-            Ok(Duration { seconds, nanoseconds: 0 })
+            Ok(Duration {
+                seconds,
+                nanoseconds: 0,
+            })
         } else {
-            Err(GraphError::InternalError("Invalid duration format".to_string()))
+            Err(GraphError::InternalError(
+                "Invalid duration format".to_string(),
+            ))
         }
     } else {
-        Err(GraphError::InternalError("Invalid duration format".to_string()))
+        Err(GraphError::InternalError(
+            "Invalid duration format".to_string(),
+        ))
     }
 }
 
@@ -605,11 +614,19 @@ fn parse_point(s: &str) -> Result<Point, GraphError> {
                 .parse::<f64>()
                 .map_err(|_| GraphError::InternalError("Invalid latitude".to_string()))?;
 
-            Ok(Point { longitude, latitude, altitude: None })
+            Ok(Point {
+                longitude,
+                latitude,
+                altitude: None,
+            })
         } else {
-            Err(GraphError::InternalError("Invalid point format".to_string()))
+            Err(GraphError::InternalError(
+                "Invalid point format".to_string(),
+            ))
         }
     } else {
-        Err(GraphError::InternalError("Invalid point format".to_string()))
+        Err(GraphError::InternalError(
+            "Invalid point format".to_string(),
+        ))
     }
 }

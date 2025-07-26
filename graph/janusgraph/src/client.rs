@@ -1,6 +1,6 @@
+use golem_graph::golem::graph::connection::{ConnectionConfig, GraphStatistics};
 use golem_graph::golem::graph::errors::GraphError;
-use golem_graph::golem::graph::connection::{ ConnectionConfig, GraphStatistics };
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 const JANUSGRAPH_BASE_URL: &str = "http://localhost:8182";
@@ -55,7 +55,7 @@ impl JanusGraphClient {
         base_url: String,
         username: Option<String>,
         password: Option<String>,
-        graph_name: String
+        graph_name: String,
     ) -> Self {
         let connection_config = ConnectionConfig {
             hosts: vec![base_url.clone()],
@@ -84,7 +84,11 @@ impl JanusGraphClient {
 
         let username = config.username.clone();
         let password = config.password.clone();
-        let graph_name = config.database_name.as_ref().unwrap_or(&"graph".to_string()).clone();
+        let graph_name = config
+            .database_name
+            .as_ref()
+            .unwrap_or(&"graph".to_string())
+            .clone();
 
         Ok(Self::new(base_url, username, password, graph_name))
     }
@@ -93,11 +97,15 @@ impl JanusGraphClient {
     }
 
     pub fn get_username(&self) -> Option<String> {
-        self.connection_config.as_ref().and_then(|c| c.username.clone())
+        self.connection_config
+            .as_ref()
+            .and_then(|c| c.username.clone())
     }
 
     pub fn get_password(&self) -> Option<String> {
-        self.connection_config.as_ref().and_then(|c| c.password.clone())
+        self.connection_config
+            .as_ref()
+            .and_then(|c| c.password.clone())
     }
 
     pub fn get_graph_name(&self) -> String {
@@ -109,7 +117,7 @@ impl JanusGraphClient {
     pub fn execute_gremlin_sync(
         &self,
         query: &str,
-        _bindings: Option<HashMap<String, serde_json::Value>>
+        _bindings: Option<HashMap<String, serde_json::Value>>,
     ) -> Result<GremlinResponse, GraphError> {
         if query == "1" {
             // Ping query
@@ -187,8 +195,7 @@ impl JanusGraphClient {
             });
         }
         if query.contains("addV") || query.contains("g.V(") {
-            let mock_vertex =
-                serde_json::json!({
+            let mock_vertex = serde_json::json!({
                 "id": 1,
                 "label": "Person",
                 "properties": {}
@@ -209,8 +216,7 @@ impl JanusGraphClient {
         }
 
         if query.contains("addE") || query.contains("g.E(") {
-            let mock_edge =
-                serde_json::json!({
+            let mock_edge = serde_json::json!({
                 "id": 1,
                 "label": "KNOWS",
                 "outV": 1,
@@ -248,19 +254,23 @@ impl JanusGraphClient {
     pub fn create_vertex(
         &mut self,
         vertex_type: &str,
-        properties: HashMap<String, serde_json::Value>
+        properties: HashMap<String, serde_json::Value>,
     ) -> Result<GremlinResponse, GraphError> {
-        let mut query = format!("g.addV('{}')", vertex_type);
+        let mut query = format!("g.addV('{vertex_type}')");
 
         if !properties.is_empty() {
             let props_str = properties
                 .iter()
-                .map(|(k, v)|
-                    format!("property('{}', {})", k, serde_json::to_string(v).unwrap_or_default())
-                )
+                .map(|(k, v)| {
+                    format!(
+                        "property('{}', {})",
+                        k,
+                        serde_json::to_string(v).unwrap_or_default()
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join(".");
-            query = format!("{}.{}", query, props_str);
+            query = format!("{query}.{props_str}");
         }
 
         query.push_str(".next()");
@@ -269,16 +279,16 @@ impl JanusGraphClient {
     }
 
     pub fn get_vertex(&self, id: &str) -> Result<GremlinResponse, GraphError> {
-        let query = format!("g.V('{}').next()", id);
+        let query = format!("g.V('{id}').next()");
         self.execute_gremlin_sync(&query, None)
     }
 
     pub fn update_vertex(
         &mut self,
         id: &str,
-        properties: HashMap<String, serde_json::Value>
+        properties: HashMap<String, serde_json::Value>,
     ) -> Result<GremlinResponse, GraphError> {
-        let mut query = format!("g.V('{}')", id);
+        let mut query = format!("g.V('{id}')");
 
         for (key, value) in properties {
             query = format!(
@@ -295,9 +305,9 @@ impl JanusGraphClient {
 
     pub fn delete_vertex(&mut self, id: &str, delete_edges: bool) -> Result<(), GraphError> {
         let query = if delete_edges {
-            format!("g.V('{}').drop()", id)
+            format!("g.V('{id}').drop()")
         } else {
-            format!("g.V('{}').drop()", id) // JanusGraph doesn't have separate edge deletion
+            format!("g.V('{id}').drop()") // JanusGraph doesn't have separate edge deletion
         };
 
         self.execute_gremlin_sync(&query, None)?;
@@ -309,14 +319,9 @@ impl JanusGraphClient {
         edge_type: &str,
         from_vertex: &str,
         to_vertex: &str,
-        properties: HashMap<String, serde_json::Value>
+        properties: HashMap<String, serde_json::Value>,
     ) -> Result<GremlinResponse, GraphError> {
-        let mut query = format!(
-            "g.V('{}').addE('{}').to(g.V('{}'))",
-            from_vertex,
-            edge_type,
-            to_vertex
-        );
+        let mut query = format!("g.V('{from_vertex}').addE('{edge_type}').to(g.V('{to_vertex}'))");
 
         if !properties.is_empty() {
             for (key, value) in properties {
@@ -334,16 +339,16 @@ impl JanusGraphClient {
     }
 
     pub fn get_edge(&self, id: &str) -> Result<GremlinResponse, GraphError> {
-        let query = format!("g.E('{}').next()", id);
+        let query = format!("g.E('{id}').next()");
         self.execute_gremlin_sync(&query, None)
     }
 
     pub fn update_edge(
         &mut self,
         id: &str,
-        properties: HashMap<String, serde_json::Value>
+        properties: HashMap<String, serde_json::Value>,
     ) -> Result<GremlinResponse, GraphError> {
-        let mut query = format!("g.E('{}')", id);
+        let mut query = format!("g.E('{id}')");
 
         for (key, value) in properties {
             query = format!(
@@ -359,7 +364,7 @@ impl JanusGraphClient {
     }
 
     pub fn delete_edge(&mut self, id: &str) -> Result<(), GraphError> {
-        let query = format!("g.E('{}').drop()", id);
+        let query = format!("g.E('{id}').drop()");
         self.execute_gremlin_sync(&query, None)?;
         Ok(())
     }
@@ -421,14 +426,18 @@ impl JanusGraphClient {
         // Get vertex count
         let vertex_query = "g.V().count().next()";
         let vertex_response = self.execute_gremlin_sync(vertex_query, None)?;
-        let vertex_count = vertex_response.result.data
+        let vertex_count = vertex_response
+            .result
+            .data
             .first()
             .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|i| i as u64)));
 
         // Get edge count
         let edge_query = "g.E().count().next()";
         let edge_response = self.execute_gremlin_sync(edge_query, None)?;
-        let edge_count = edge_response.result.data
+        let edge_count = edge_response
+            .result
+            .data
             .first()
             .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|i| i as u64)));
 
@@ -444,7 +453,7 @@ impl JanusGraphClient {
         from_vertex: &str,
         to_vertex: &str,
         edge_labels: Option<Vec<String>>,
-        max_depth: Option<u32>
+        max_depth: Option<u32>,
     ) -> Result<GremlinResponse, GraphError> {
         let _edge_filter = if let Some(labels) = edge_labels {
             format!(", {}", labels.join(","))
@@ -452,12 +461,10 @@ impl JanusGraphClient {
             String::new()
         };
 
-        let _depth_limit = max_depth.map(|d| format!(", {}", d)).unwrap_or_default();
+        let _depth_limit = max_depth.map(|d| format!(", {d}")).unwrap_or_default();
 
         let query = format!(
-            "g.V('{}').shortestPath().with(Distance.max, 10).to('{}').path()",
-            from_vertex,
-            to_vertex
+            "g.V('{from_vertex}').shortestPath().with(Distance.max, 10).to('{to_vertex}').path()"
         );
 
         self.execute_gremlin_sync(&query, None)
@@ -469,7 +476,7 @@ impl JanusGraphClient {
         from_vertex: &str,
         to_vertex: &str,
         edge_labels: Option<Vec<String>>,
-        max_depth: Option<u32>
+        max_depth: Option<u32>,
     ) -> Result<GremlinResponse, GraphError> {
         let _edge_filter = if let Some(labels) = edge_labels {
             format!(", {}", labels.join(","))
@@ -477,9 +484,9 @@ impl JanusGraphClient {
             String::new()
         };
 
-        let _depth_limit = max_depth.map(|d| format!(", {}", d)).unwrap_or_default();
+        let _depth_limit = max_depth.map(|d| format!(", {d}")).unwrap_or_default();
 
-        let query = format!("g.V('{}').allPath().to('{}').path()", from_vertex, to_vertex);
+        let query = format!("g.V('{from_vertex}').allPath().to('{to_vertex}').path()");
 
         self.execute_gremlin_sync(&query, None)
     }
@@ -489,7 +496,7 @@ impl JanusGraphClient {
         &self,
         vertex_id: &str,
         depth: u32,
-        edge_labels: Option<Vec<String>>
+        edge_labels: Option<Vec<String>>,
     ) -> Result<GremlinResponse, GraphError> {
         let _edge_filter = if let Some(labels) = edge_labels {
             format!(", {}", labels.join(","))
@@ -497,7 +504,7 @@ impl JanusGraphClient {
             String::new()
         };
 
-        let query = format!("g.V('{}').repeat(both()).times({}).dedup()", vertex_id, depth);
+        let query = format!("g.V('{vertex_id}').repeat(both()).times({depth}).dedup()");
 
         self.execute_gremlin_sync(&query, None)
     }
@@ -508,7 +515,7 @@ impl JanusGraphClient {
         from_vertex: &str,
         to_vertex: &str,
         edge_labels: Option<Vec<String>>,
-        max_depth: Option<u32>
+        max_depth: Option<u32>,
     ) -> Result<GremlinResponse, GraphError> {
         let _edge_filter = if let Some(labels) = edge_labels {
             format!(", {}", labels.join(","))
@@ -516,12 +523,10 @@ impl JanusGraphClient {
             String::new()
         };
 
-        let _depth_limit = max_depth.map(|d| format!(", {}", d)).unwrap_or_default();
+        let _depth_limit = max_depth.map(|d| format!(", {d}")).unwrap_or_default();
 
         let query = format!(
-            "g.V('{}').shortestPath().with(Distance.max, 10).to('{}').hasNext()",
-            from_vertex,
-            to_vertex
+            "g.V('{from_vertex}').shortestPath().with(Distance.max, 10).to('{to_vertex}').hasNext()"
         );
 
         self.execute_gremlin_sync(&query, None)
@@ -533,7 +538,7 @@ impl JanusGraphClient {
         vertex_id: &str,
         distance: u32,
         edge_labels: Option<Vec<String>>,
-        max_depth: Option<u32>
+        max_depth: Option<u32>,
     ) -> Result<GremlinResponse, GraphError> {
         let _edge_filter = if let Some(labels) = edge_labels {
             format!(", {}", labels.join(","))
@@ -541,9 +546,9 @@ impl JanusGraphClient {
             String::new()
         };
 
-        let _depth_limit = max_depth.map(|d| format!(", {}", d)).unwrap_or_default();
+        let _depth_limit = max_depth.map(|d| format!(", {d}")).unwrap_or_default();
 
-        let query = format!("g.V('{}').repeat(both()).times({}).dedup()", vertex_id, distance);
+        let query = format!("g.V('{vertex_id}').repeat(both()).times({distance}).dedup()");
 
         self.execute_gremlin_sync(&query, None)
     }
@@ -552,13 +557,13 @@ impl JanusGraphClient {
     pub fn execute_custom_query(
         &self,
         query: String,
-        bindings: Option<HashMap<String, serde_json::Value>>
+        bindings: Option<HashMap<String, serde_json::Value>>,
     ) -> Result<GremlinResponse, GraphError> {
         self.execute_gremlin_sync(&query, bindings)
     }
     /// Get schema information for a label
     pub fn get_label_schema(&self, label: &str) -> Result<GremlinResponse, GraphError> {
-        let query = format!("g.V().hasLabel('{}').properties().key().dedup()", label);
+        let query = format!("g.V().hasLabel('{label}').properties().key().dedup()");
         self.execute_gremlin_sync(&query, None)
     }
 }

@@ -1,14 +1,14 @@
 use crate::client::GremlinResponse;
-use golem_graph::golem::graph::types::*;
+use base64::Engine;
 use golem_graph::golem::graph::errors::GraphError;
 use golem_graph::golem::graph::schema::PropertyType;
+use golem_graph::golem::graph::types::*;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
-use base64::Engine;
 
 /// Convert  PropertyMap to Gremlin bindings
 pub fn property_map_to_gremlin_bindings(
-    properties: &PropertyMap
+    properties: &PropertyMap,
 ) -> Result<HashMap<String, JsonValue>, GraphError> {
     let mut bindings = HashMap::new();
 
@@ -31,10 +31,8 @@ fn json_to_vertex(value: &JsonValue) -> Result<Vertex, GraphError> {
         .and_then(|v| {
             if let Some(i) = v.as_i64() {
                 Some(ElementId::Int64(i))
-            } else if let Some(s) = v.as_str() {
-                Some(ElementId::StringValue(s.to_string()))
             } else {
-                None
+                v.as_str().map(|s| ElementId::StringValue(s.to_string()))
             }
         })
         .ok_or_else(|| GraphError::InternalError("Missing or invalid vertex ID".to_string()))?;
@@ -78,10 +76,8 @@ fn json_to_edge(value: &JsonValue) -> Result<Edge, GraphError> {
         .and_then(|v| {
             if let Some(i) = v.as_i64() {
                 Some(ElementId::Int64(i))
-            } else if let Some(s) = v.as_str() {
-                Some(ElementId::StringValue(s.to_string()))
             } else {
-                None
+                v.as_str().map(|s| ElementId::StringValue(s.to_string()))
             }
         })
         .ok_or_else(|| GraphError::InternalError("Missing or invalid edge ID".to_string()))?;
@@ -97,23 +93,21 @@ fn json_to_edge(value: &JsonValue) -> Result<Edge, GraphError> {
         .and_then(|v| {
             if let Some(i) = v.as_i64() {
                 Some(ElementId::Int64(i))
-            } else if let Some(s) = v.as_str() {
-                Some(ElementId::StringValue(s.to_string()))
             } else {
-                None
+                v.as_str().map(|s| ElementId::StringValue(s.to_string()))
             }
         })
-        .ok_or_else(|| GraphError::InternalError("Missing or invalid outV vertex ID".to_string()))?;
+        .ok_or_else(|| {
+            GraphError::InternalError("Missing or invalid outV vertex ID".to_string())
+        })?;
 
     let to_vertex = obj
         .get("inV")
         .and_then(|v| {
             if let Some(i) = v.as_i64() {
                 Some(ElementId::Int64(i))
-            } else if let Some(s) = v.as_str() {
-                Some(ElementId::StringValue(s.to_string()))
             } else {
-                None
+                v.as_str().map(|s| ElementId::StringValue(s.to_string()))
             }
         })
         .ok_or_else(|| GraphError::InternalError("Missing or invalid inV vertex ID".to_string()))?;
@@ -153,7 +147,9 @@ fn parse_date(s: &str) -> Result<Date, GraphError> {
 
         Ok(Date { year, month, day })
     } else {
-        Err(GraphError::InvalidPropertyType("Invalid date format".to_string()))
+        Err(GraphError::InvalidPropertyType(
+            "Invalid date format".to_string(),
+        ))
     }
 }
 
@@ -170,9 +166,16 @@ fn parse_time(s: &str) -> Result<Time, GraphError> {
         let second = parts.get(2).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
         let nanosecond = 0; // Default to 0 for simplicity
 
-        Ok(Time { hour, minute, second, nanosecond })
+        Ok(Time {
+            hour,
+            minute,
+            second,
+            nanosecond,
+        })
     } else {
-        Err(GraphError::InvalidPropertyType("Invalid time format".to_string()))
+        Err(GraphError::InvalidPropertyType(
+            "Invalid time format".to_string(),
+        ))
     }
 }
 
@@ -191,7 +194,9 @@ fn parse_datetime(s: &str) -> Result<Datetime, GraphError> {
             timezone_offset_minutes: None, // Default to None for simplicity
         })
     } else {
-        Err(GraphError::InvalidPropertyType("Invalid datetime format".to_string()))
+        Err(GraphError::InvalidPropertyType(
+            "Invalid datetime format".to_string(),
+        ))
     }
 }
 
@@ -199,12 +204,19 @@ fn parse_duration(s: &str) -> Result<Duration, GraphError> {
     // Simple duration parsing for PTnS format (ISO 8601)
     if s.starts_with("PT") && s.ends_with('S') {
         if let Ok(seconds) = s[2..s.len() - 1].parse::<i64>() {
-            Ok(Duration { seconds, nanoseconds: 0 })
+            Ok(Duration {
+                seconds,
+                nanoseconds: 0,
+            })
         } else {
-            Err(GraphError::InvalidPropertyType("Invalid duration format".to_string()))
+            Err(GraphError::InvalidPropertyType(
+                "Invalid duration format".to_string(),
+            ))
         }
     } else {
-        Err(GraphError::InvalidPropertyType("Invalid duration format".to_string()))
+        Err(GraphError::InvalidPropertyType(
+            "Invalid duration format".to_string(),
+        ))
     }
 }
 
@@ -220,9 +232,15 @@ fn parse_point(s: &str) -> Result<Point, GraphError> {
             .map_err(|_| GraphError::InvalidPropertyType("Invalid latitude".to_string()))?;
         let altitude = parts.get(2).and_then(|a| a.parse::<f64>().ok());
 
-        Ok(Point { longitude, latitude, altitude })
+        Ok(Point {
+            longitude,
+            latitude,
+            altitude,
+        })
     } else {
-        Err(GraphError::InvalidPropertyType("Invalid point format".to_string()))
+        Err(GraphError::InvalidPropertyType(
+            "Invalid point format".to_string(),
+        ))
     }
 }
 
@@ -238,21 +256,16 @@ pub fn property_value_to_json(value: &PropertyValue) -> Result<JsonValue, GraphE
         PropertyValue::Uint16(u) => Ok(JsonValue::Number(serde_json::Number::from(*u))),
         PropertyValue::Uint32(u) => Ok(JsonValue::Number(serde_json::Number::from(*u))),
         PropertyValue::Uint64(u) => Ok(JsonValue::Number(serde_json::Number::from(*u))),
-        PropertyValue::Float32Value(f) => {
-            serde_json::Number
-                ::from_f64(*f as f64)
-                .map(JsonValue::Number)
-                .ok_or_else(|| GraphError::InternalError("Invalid float value".to_string()))
-        }
-        PropertyValue::Float64Value(f) => {
-            serde_json::Number
-                ::from_f64(*f)
-                .map(JsonValue::Number)
-                .ok_or_else(|| GraphError::InternalError("Invalid float value".to_string()))
-        }
+        PropertyValue::Float32Value(f) => serde_json::Number::from_f64(*f as f64)
+            .map(JsonValue::Number)
+            .ok_or_else(|| GraphError::InternalError("Invalid float value".to_string())),
+        PropertyValue::Float64Value(f) => serde_json::Number::from_f64(*f)
+            .map(JsonValue::Number)
+            .ok_or_else(|| GraphError::InternalError("Invalid float value".to_string())),
         PropertyValue::Boolean(b) => Ok(JsonValue::Bool(*b)),
-        PropertyValue::Bytes(b) =>
-            Ok(JsonValue::String(base64::engine::general_purpose::STANDARD.encode(b))),
+        PropertyValue::Bytes(b) => Ok(JsonValue::String(
+            base64::engine::general_purpose::STANDARD.encode(b),
+        )),
         PropertyValue::Date(date) => {
             let date_str = format!("{}-{:02}-{:02}", date.year, date.month, date.day);
             Ok(JsonValue::String(date_str))
@@ -281,16 +294,12 @@ pub fn property_value_to_json(value: &PropertyValue) -> Result<JsonValue, GraphE
             let point_str = format!("POINT({} {})", point.longitude, point.latitude);
             Ok(JsonValue::String(point_str))
         }
-        PropertyValue::Linestring(_) => {
-            Err(
-                GraphError::UnsupportedOperation(
-                    "Linestring not supported in JanusGraph".to_string()
-                )
-            )
-        }
-        PropertyValue::Polygon(_) => {
-            Err(GraphError::UnsupportedOperation("Polygon not supported in JanusGraph".to_string()))
-        }
+        PropertyValue::Linestring(_) => Err(GraphError::UnsupportedOperation(
+            "Linestring not supported in JanusGraph".to_string(),
+        )),
+        PropertyValue::Polygon(_) => Err(GraphError::UnsupportedOperation(
+            "Polygon not supported in JanusGraph".to_string(),
+        )),
         PropertyValue::NullValue => Ok(JsonValue::Null),
     }
 }
@@ -338,16 +347,18 @@ pub fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphE
             } else if let Some(f) = n.as_f64() {
                 Ok(PropertyValue::Float64Value(f))
             } else {
-                Err(GraphError::InvalidPropertyType("Invalid number".to_string()))
+                Err(GraphError::InvalidPropertyType(
+                    "Invalid number".to_string(),
+                ))
             }
         }
         JsonValue::Bool(b) => Ok(PropertyValue::Boolean(*b)),
-        JsonValue::Array(_) => {
-            Err(GraphError::InvalidPropertyType("Arrays not supported".to_string()))
-        }
-        JsonValue::Object(_) => {
-            Err(GraphError::InvalidPropertyType("Objects not supported".to_string()))
-        }
+        JsonValue::Array(_) => Err(GraphError::InvalidPropertyType(
+            "Arrays not supported".to_string(),
+        )),
+        JsonValue::Object(_) => Err(GraphError::InvalidPropertyType(
+            "Objects not supported".to_string(),
+        )),
         JsonValue::Null => Ok(PropertyValue::NullValue),
     }
 }
@@ -397,7 +408,9 @@ pub fn parse_vertex_from_response(response: &GremlinResponse) -> Result<Vertex, 
         return Err(GraphError::InvalidQuery(response.status.message.clone()));
     }
 
-    let value = response.result.data
+    let value = response
+        .result
+        .data
         .first()
         .ok_or_else(|| GraphError::InvalidQuery("No data in response".to_string()))?;
 
@@ -410,7 +423,9 @@ pub fn parse_edge_from_response(response: &GremlinResponse) -> Result<Edge, Grap
         return Err(GraphError::InvalidQuery(response.status.message.clone()));
     }
 
-    let value = response.result.data
+    let value = response
+        .result
+        .data
         .first()
         .ok_or_else(|| GraphError::InvalidQuery("No data in response".to_string()))?;
 
@@ -419,7 +434,7 @@ pub fn parse_edge_from_response(response: &GremlinResponse) -> Result<Edge, Grap
 
 /// Parse string list from Gremlin response
 pub fn parse_string_list_from_response(
-    response: &GremlinResponse
+    response: &GremlinResponse,
 ) -> Result<Vec<String>, GraphError> {
     if response.status.code != 200 {
         return Err(GraphError::InvalidQuery(response.status.message.clone()));
@@ -445,7 +460,7 @@ pub fn property_type_to_gremlin_type(property_type: &PropertyType) -> String {
         PropertyType::Float64Type => "Double.class".to_string(),
         PropertyType::Boolean => "Boolean.class".to_string(),
         PropertyType::Bytes => "String.class".to_string(), // Store as base64 string
-        PropertyType::Date => "String.class".to_string(), // Store as ISO date string
+        PropertyType::Date => "String.class".to_string(),  // Store as ISO date string
         PropertyType::Datetime => "String.class".to_string(), // Store as ISO datetime string
         PropertyType::Point => "String.class".to_string(), // Store as WKT point string
         PropertyType::ListType => "String.class".to_string(), // Store as JSON string

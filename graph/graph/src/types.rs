@@ -1,4 +1,4 @@
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 /// A vertex result entry returned from graph operations.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

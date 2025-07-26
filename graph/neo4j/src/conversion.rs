@@ -1,19 +1,21 @@
-use golem_graph::exports::golem::graph::types::{ PropertyMap, ElementId, PropertyValue };
+use base64::Engine;
+use golem_graph::exports::golem::graph::types::{ElementId, PropertyMap, PropertyValue};
 use golem_graph::golem::graph::errors::GraphError;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
-use base64::Engine;
 
 /// Convert  PropertyMap to Neo4j parameters with proper escaping
 pub fn property_map_to_neo4j_params(
-    properties: &PropertyMap
+    properties: &PropertyMap,
 ) -> Result<HashMap<String, JsonValue>, GraphError> {
     let mut params = HashMap::new();
 
     for (key, value) in properties {
         // Validate property key (Neo4j property names have restrictions)
         if key.is_empty() || key.starts_with('_') {
-            return Err(GraphError::InvalidPropertyType(format!("Invalid property key: {}", key)));
+            return Err(GraphError::InvalidPropertyType(format!(
+                "Invalid property key: {key}"
+            )));
         }
 
         let json_value = property_value_to_neo4j_json(value)?;
@@ -36,25 +38,18 @@ pub fn property_value_to_neo4j_json(value: &PropertyValue) -> Result<JsonValue, 
         PropertyValue::Uint16(u) => Ok(JsonValue::Number((*u).into())),
         PropertyValue::Uint32(u) => Ok(JsonValue::Number((*u).into())),
         PropertyValue::Uint64(u) => Ok(JsonValue::Number((*u).into())),
-        PropertyValue::Float32Value(f) => {
-            serde_json::Number
-                ::from_f64(*f as f64)
-                .map(JsonValue::Number)
-                .ok_or_else(|| GraphError::InvalidPropertyType("Invalid float32 value".to_string()))
-        }
-        PropertyValue::Float64Value(f) => {
-            serde_json::Number
-                ::from_f64(*f)
-                .map(JsonValue::Number)
-                .ok_or_else(|| GraphError::InvalidPropertyType("Invalid float64 value".to_string()))
-        }
+        PropertyValue::Float32Value(f) => serde_json::Number::from_f64(*f as f64)
+            .map(JsonValue::Number)
+            .ok_or_else(|| GraphError::InvalidPropertyType("Invalid float32 value".to_string())),
+        PropertyValue::Float64Value(f) => serde_json::Number::from_f64(*f)
+            .map(JsonValue::Number)
+            .ok_or_else(|| GraphError::InvalidPropertyType("Invalid float64 value".to_string())),
         PropertyValue::StringValue(s) => Ok(JsonValue::String(s.clone())),
-        PropertyValue::Bytes(b) => {
-            Ok(JsonValue::String(base64::engine::general_purpose::STANDARD.encode(b)))
-        }
+        PropertyValue::Bytes(b) => Ok(JsonValue::String(
+            base64::engine::general_purpose::STANDARD.encode(b),
+        )),
         PropertyValue::Date(date) => {
-            let neo4j_date =
-                serde_json::json!({
+            let neo4j_date = serde_json::json!({
                 "year": date.year,
                 "month": date.month,
                 "day": date.day
@@ -62,8 +57,7 @@ pub fn property_value_to_neo4j_json(value: &PropertyValue) -> Result<JsonValue, 
             Ok(neo4j_date)
         }
         PropertyValue::Time(time) => {
-            let neo4j_time =
-                serde_json::json!({
+            let neo4j_time = serde_json::json!({
                 "hour": time.hour,
                 "minute": time.minute,
                 "second": time.second,
@@ -72,8 +66,7 @@ pub fn property_value_to_neo4j_json(value: &PropertyValue) -> Result<JsonValue, 
             Ok(neo4j_time)
         }
         PropertyValue::Datetime(datetime) => {
-            let neo4j_datetime =
-                serde_json::json!({
+            let neo4j_datetime = serde_json::json!({
                 "year": datetime.date.year,
                 "month": datetime.date.month,
                 "day": datetime.date.day,
@@ -86,8 +79,7 @@ pub fn property_value_to_neo4j_json(value: &PropertyValue) -> Result<JsonValue, 
             Ok(neo4j_datetime)
         }
         PropertyValue::Duration(duration) => {
-            let neo4j_duration =
-                serde_json::json!({
+            let neo4j_duration = serde_json::json!({
                 "seconds": duration.seconds,
                 "nanoseconds": duration.nanoseconds
             });
@@ -95,8 +87,7 @@ pub fn property_value_to_neo4j_json(value: &PropertyValue) -> Result<JsonValue, 
         }
         // Geospatial types - convert to Neo4j Point/Geography
         PropertyValue::Point(point) => {
-            let neo4j_point =
-                serde_json::json!({
+            let neo4j_point = serde_json::json!({
                 "crs": "wgs-84",
                 "latitude": point.latitude,
                 "longitude": point.longitude,
@@ -105,13 +96,13 @@ pub fn property_value_to_neo4j_json(value: &PropertyValue) -> Result<JsonValue, 
             Ok(neo4j_point)
         }
         PropertyValue::Linestring(linestring) => {
-            let coordinates: Vec<JsonValue> = linestring.coordinates
+            let coordinates: Vec<JsonValue> = linestring
+                .coordinates
                 .iter()
                 .map(|p| serde_json::json!([p.longitude, p.latitude, p.altitude]))
                 .collect();
 
-            let neo4j_linestring =
-                serde_json::json!({
+            let neo4j_linestring = serde_json::json!({
                 "type": "LineString",
                 "coordinates": coordinates,
             });
@@ -121,7 +112,8 @@ pub fn property_value_to_neo4j_json(value: &PropertyValue) -> Result<JsonValue, 
             let mut rings = vec![];
 
             // Exterior ring
-            let exterior: Vec<JsonValue> = polygon.exterior
+            let exterior: Vec<JsonValue> = polygon
+                .exterior
                 .iter()
                 .map(|p| serde_json::json!([p.longitude, p.latitude, p.altitude]))
                 .collect();
@@ -138,8 +130,7 @@ pub fn property_value_to_neo4j_json(value: &PropertyValue) -> Result<JsonValue, 
                 }
             }
 
-            let neo4j_polygon =
-                serde_json::json!({
+            let neo4j_polygon = serde_json::json!({
                 "type": "Polygon",
                 "coordinates": rings,
             });
@@ -148,9 +139,7 @@ pub fn property_value_to_neo4j_json(value: &PropertyValue) -> Result<JsonValue, 
     }
 }
 
-/// Convert  PropertyValue to JSON for general use
-
-/// Convert JSON to  PropertyValue
+/// Convert JSON to PropertyValue
 pub fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphError> {
     match value {
         JsonValue::Null => Ok(PropertyValue::NullValue),
@@ -179,17 +168,23 @@ pub fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphE
             } else if let Some(f) = n.as_f64() {
                 Ok(PropertyValue::Float64Value(f))
             } else {
-                Err(GraphError::InvalidPropertyType("Invalid number format".to_string()))
+                Err(GraphError::InvalidPropertyType(
+                    "Invalid number format".to_string(),
+                ))
             }
         }
         JsonValue::String(s) => Ok(PropertyValue::StringValue(s.clone())),
         JsonValue::Array(_) => {
             // Arrays not supported in current PropertyValue enum
-            Err(GraphError::InvalidPropertyType("Arrays not supported".to_string()))
+            Err(GraphError::InvalidPropertyType(
+                "Arrays not supported".to_string(),
+            ))
         }
         JsonValue::Object(_) => {
             // Objects not supported in current PropertyValue enum
-            Err(GraphError::InvalidPropertyType("Objects not supported".to_string()))
+            Err(GraphError::InvalidPropertyType(
+                "Objects not supported".to_string(),
+            ))
         }
     }
 }

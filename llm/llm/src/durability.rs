@@ -24,8 +24,9 @@ pub trait ExtendedGuest: Guest + 'static {
                 ContentPart::Text(
                     "You were asked the same question previously, but the response was interrupted before completion. \
                                         Please continue your response from where you left off. \
-                                        Do not include the part of the response that was already seen.".to_string()),
-                ContentPart::Text("Here is the original question:".to_string()),
+                                        Do not include the part of the response that was already seen.".to_string()
+                ),
+                ContentPart::Text("Here is the original question:".to_string())
             ],
         });
         extended_messages.extend_from_slice(original_messages);
@@ -39,7 +40,7 @@ pub trait ExtendedGuest: Guest + 'static {
                 for tool_call in tool_calls {
                     partial_result_as_content.push(ContentPart::Text(format!(
                         "<tool-call id=\"{}\" name=\"{}\" arguments=\"{}\"/>",
-                        tool_call.id, tool_call.name, tool_call.arguments_json,
+                        tool_call.id, tool_call.name, tool_call.arguments_json
                     )));
                 }
             }
@@ -378,7 +379,7 @@ mod durable_impl {
                 let mut state = self.state.borrow_mut();
                 match &mut *state {
                     Some(DurableChatStreamState::Live { .. }) => {
-                        unreachable!("Durable chat stream cannot be in live mode during replay")
+                        unreachable!("Durable chat stream cannot be in live mode during replay");
                     }
                     Some(DurableChatStreamState::Replay {
                         partial_result,
@@ -402,7 +403,7 @@ mod durable_impl {
                         }
                     }
                     None => {
-                        unreachable!()
+                        unreachable!();
                     }
                 }
                 result
@@ -427,7 +428,9 @@ mod durable_impl {
                         result.extend(events);
                         break result;
                     }
-                    None => continue,
+                    None => {
+                        continue;
+                    }
                 }
             }
         }
@@ -470,7 +473,7 @@ mod durable_impl {
             ToolCall, Usage,
         };
         use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
-        use golem_rust::wasm_rpc::WitTypeNode;
+
         use std::fmt::Debug;
 
         fn roundtrip_test<T: Debug + Clone + PartialEq + IntoValueAndType + FromValueAndType>(
@@ -685,7 +688,7 @@ mod durable_impl {
             println!("{encoded:#?}");
 
             for wit_type in encoded.typ.nodes {
-                if let WitTypeNode::ListType(idx) = wit_type {
+                if let golem_rust::wasm_rpc::WitTypeNode::ListType(idx) = wit_type.type_ {
                     assert!(idx >= 0);
                 }
             }

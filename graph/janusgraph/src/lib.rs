@@ -1,55 +1,30 @@
 mod client;
 mod conversion;
 
-use golem_graph::exports::golem::graph::types::*;
-use golem_graph::exports::golem::graph::errors::GraphError;
-use golem_graph::exports::golem::graph::transactions::{
-    GuestTransaction,
-    Transaction,
-    TransactionBorrow,
-    VertexSpec,
-    EdgeSpec,
-};
-use golem_graph::exports::golem::graph::connection::{
-    ConnectionConfig,
-    Guest as ConnectionGuest,
-    GuestGraph,
-    GraphStatistics,
-    Graph,
-};
-use golem_graph::exports::golem::graph::traversal::{
-    Guest as TraversalGuest,
-    PathOptions,
-    NeighborhoodOptions,
-    Subgraph,
-    Path,
-    Direction,
-};
-use golem_graph::exports::golem::graph::query::{
-    Guest as QueryGuest,
-    QueryOptions,
-    QueryExecutionResult,
-    QueryResult,
-};
-use golem_graph::exports::golem::graph::schema::{
-    Guest as SchemaGuest,
-    GuestSchemaManager,
-    SchemaManager,
-    VertexLabelSchema,
-    EdgeLabelSchema,
-    IndexDefinition,
-    IndexType,
-    PropertyDefinition,
-    PropertyType,
-    EdgeTypeDefinition,
-    ContainerType,
-    ContainerInfo,
-};
-use golem_graph::durability::{ DurableGraph, ExtendedGraphGuest };
-use std::cell::RefCell;
 use crate::client::JanusGraphClient;
 use crate::conversion::*;
-use golem_rust::{ FromValueAndType, IntoValue };
+use golem_graph::durability::{DurableGraph, ExtendedGraphGuest};
+use golem_graph::exports::golem::graph::connection::{
+    ConnectionConfig, Graph, GraphStatistics, Guest as ConnectionGuest, GuestGraph,
+};
+use golem_graph::exports::golem::graph::errors::GraphError;
+use golem_graph::exports::golem::graph::query::{
+    Guest as QueryGuest, QueryExecutionResult, QueryOptions, QueryResult,
+};
+use golem_graph::exports::golem::graph::schema::{
+    ContainerInfo, ContainerType, EdgeLabelSchema, EdgeTypeDefinition, Guest as SchemaGuest,
+    GuestSchemaManager, IndexDefinition, IndexType, PropertyDefinition, PropertyType,
+    SchemaManager, VertexLabelSchema,
+};
+use golem_graph::exports::golem::graph::transactions::{
+    EdgeSpec, GuestTransaction, Transaction, TransactionBorrow, VertexSpec,
+};
+use golem_graph::exports::golem::graph::traversal::{
+    Direction, Guest as TraversalGuest, NeighborhoodOptions, Path, PathOptions, Subgraph,
+};
+use golem_graph::exports::golem::graph::types::*;
+use golem_rust::{FromValueAndType, IntoValue};
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
@@ -90,71 +65,71 @@ impl ConnectionGuest for JanusGraphComponent {
 
     fn connect(config: ConnectionConfig) -> Result<Graph, GraphError> {
         let client = Self::create_client(&config)?;
-        Ok(
-            Graph::new(JanusGraphGraph {
-                client: RefCell::new(client),
-            })
-        )
+        Ok(Graph::new(JanusGraphGraph {
+            client: RefCell::new(client),
+        }))
     }
 }
 
 impl GuestGraph for JanusGraphComponent {
     fn begin_transaction(&self) -> Result<Transaction, GraphError> {
-        Err(GraphError::InternalError("Use JanusGraphGraph for transactions".to_string()))
+        Err(GraphError::InternalError(
+            "Use JanusGraphGraph for transactions".to_string(),
+        ))
     }
 
     fn begin_read_transaction(&self) -> Result<Transaction, GraphError> {
-        Err(GraphError::InternalError("Use JanusGraphGraph for transactions".to_string()))
+        Err(GraphError::InternalError(
+            "Use JanusGraphGraph for transactions".to_string(),
+        ))
     }
 
     fn ping(&self) -> Result<(), GraphError> {
-        Err(GraphError::InternalError("Use JanusGraphGraph for ping".to_string()))
+        Err(GraphError::InternalError(
+            "Use JanusGraphGraph for ping".to_string(),
+        ))
     }
 
     fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
-        Err(GraphError::InternalError("Use JanusGraphGraph for statistics".to_string()))
+        Err(GraphError::InternalError(
+            "Use JanusGraphGraph for statistics".to_string(),
+        ))
     }
 
     fn close(&self) -> Result<(), GraphError> {
-        Err(GraphError::InternalError("Use JanusGraphGraph for close".to_string()))
+        Err(GraphError::InternalError(
+            "Use JanusGraphGraph for close".to_string(),
+        ))
     }
 }
 
 impl GuestGraph for JanusGraphGraph {
     fn begin_transaction(&self) -> Result<Transaction, GraphError> {
         let session_id = self.client.borrow_mut().begin_transaction()?;
-        Ok(
-            Transaction::new(JanusGraphTransaction {
-                client: RefCell::new(
-                    JanusGraphClient::new(
-                        self.client.borrow().get_base_url(),
-                        self.client.borrow().get_username(),
-                        self.client.borrow().get_password(),
-                        self.client.borrow().get_graph_name()
-                    )
-                ),
-                session_id,
-                read_only: false,
-            })
-        )
+        Ok(Transaction::new(JanusGraphTransaction {
+            client: RefCell::new(JanusGraphClient::new(
+                self.client.borrow().get_base_url(),
+                self.client.borrow().get_username(),
+                self.client.borrow().get_password(),
+                self.client.borrow().get_graph_name(),
+            )),
+            session_id,
+            read_only: false,
+        }))
     }
 
     fn begin_read_transaction(&self) -> Result<Transaction, GraphError> {
         let session_id = self.client.borrow_mut().begin_read_transaction()?;
-        Ok(
-            Transaction::new(JanusGraphTransaction {
-                client: RefCell::new(
-                    JanusGraphClient::new(
-                        self.client.borrow().get_base_url(),
-                        self.client.borrow().get_username(),
-                        self.client.borrow().get_password(),
-                        self.client.borrow().get_graph_name()
-                    )
-                ),
-                session_id,
-                read_only: true,
-            })
-        )
+        Ok(Transaction::new(JanusGraphTransaction {
+            client: RefCell::new(JanusGraphClient::new(
+                self.client.borrow().get_base_url(),
+                self.client.borrow().get_username(),
+                self.client.borrow().get_password(),
+                self.client.borrow().get_graph_name(),
+            )),
+            session_id,
+            read_only: true,
+        }))
     }
 
     fn ping(&self) -> Result<(), GraphError> {
@@ -173,7 +148,7 @@ impl GuestGraph for JanusGraphGraph {
 impl ExtendedGraphGuest for JanusGraphComponent {
     type ReplayState = JanusGraphReplayState;
     type Transaction = JanusGraphTransaction;
-    type SchemaManager = JanusGraphSchemaManager;
+    type SchemaManager = golem_graph::golem::graph::schema::SchemaManager;
 
     fn unwrapped_graph(_config: ConnectionConfig) -> Result<JanusGraphComponent, GraphError> {
         Ok(JanusGraphComponent)
@@ -192,26 +167,27 @@ impl ExtendedGraphGuest for JanusGraphComponent {
 
     fn graph_from_state(
         _state: &JanusGraphReplayState,
-        _config: ConnectionConfig
+        _config: ConnectionConfig,
     ) -> Result<JanusGraphComponent, GraphError> {
         Ok(JanusGraphComponent)
     }
 
     fn unwrapped_transaction(
         _graph: &JanusGraphComponent,
-        _read_only: bool
+        read_only: bool,
     ) -> Result<JanusGraphTransaction, GraphError> {
         let client = JanusGraphClient::new(
             "ws://localhost:8182".to_string(),
             None,
             None,
-            "graph".to_string()
+            "graph".to_string(),
         );
-        Ok(JanusGraphTransaction {
+        let janus_transaction = JanusGraphTransaction {
             client: RefCell::new(client),
             session_id: "".to_string(),
-            read_only: false,
-        })
+            read_only,
+        };
+        Ok(janus_transaction)
     }
 
     fn transaction_to_state(transaction: &JanusGraphTransaction) -> JanusGraphReplayState {
@@ -229,22 +205,25 @@ impl ExtendedGraphGuest for JanusGraphComponent {
     fn transaction_from_state(
         state: &JanusGraphReplayState,
         _graph: &JanusGraphComponent,
-        read_only: bool
+        read_only: bool,
     ) -> Result<JanusGraphTransaction, GraphError> {
         let client = JanusGraphClient::new(
             state.base_url.clone(),
             state.username.clone(),
             state.password.clone(),
-            state.graph_name.clone()
+            state.graph_name.clone(),
         );
-        Ok(JanusGraphTransaction {
+        let janus_transaction = JanusGraphTransaction {
             client: RefCell::new(client),
             session_id: state.session_id.clone().unwrap_or_default(),
             read_only,
-        })
+        };
+        Ok(janus_transaction)
     }
 
-    fn schema_manager_to_state(_schema_manager: &JanusGraphSchemaManager) -> JanusGraphReplayState {
+    fn schema_manager_to_state(
+        _schema_manager: &golem_graph::golem::graph::schema::SchemaManager,
+    ) -> JanusGraphReplayState {
         JanusGraphReplayState {
             base_url: "ws://localhost:8182".to_string(),
             username: None,
@@ -256,17 +235,20 @@ impl ExtendedGraphGuest for JanusGraphComponent {
     }
 
     fn schema_manager_from_state(
-        state: &JanusGraphReplayState
-    ) -> Result<JanusGraphSchemaManager, GraphError> {
+        state: &JanusGraphReplayState,
+    ) -> Result<golem_graph::golem::graph::schema::SchemaManager, GraphError> {
         let client = JanusGraphClient::new(
             state.base_url.clone(),
             state.username.clone(),
             state.password.clone(),
-            state.graph_name.clone()
+            state.graph_name.clone(),
         );
-        Ok(JanusGraphSchemaManager {
+        let janus_schema_manager = JanusGraphSchemaManager {
             client: RefCell::new(client),
-        })
+        };
+        Ok(golem_graph::golem::graph::schema::SchemaManager::new(
+            janus_schema_manager,
+        ))
     }
 }
 
@@ -274,10 +256,13 @@ impl GuestTransaction for JanusGraphTransaction {
     fn create_vertex(
         &self,
         vertex_type: String,
-        properties: PropertyMap
+        properties: PropertyMap,
     ) -> Result<Vertex, GraphError> {
         let properties_json = property_map_to_gremlin_bindings(&properties)?;
-        let response = self.client.borrow_mut().create_vertex(&vertex_type, properties_json)?;
+        let response = self
+            .client
+            .borrow_mut()
+            .create_vertex(&vertex_type, properties_json)?;
         parse_vertex_from_response(&response)
     }
 
@@ -285,7 +270,7 @@ impl GuestTransaction for JanusGraphTransaction {
         &self,
         vertex_type: String,
         additional_labels: Vec<String>,
-        properties: PropertyMap
+        properties: PropertyMap,
     ) -> Result<Vertex, GraphError> {
         let mut all_properties = properties;
         if !additional_labels.is_empty() {
@@ -310,21 +295,26 @@ impl GuestTransaction for JanusGraphTransaction {
     fn update_vertex(&self, id: ElementId, properties: PropertyMap) -> Result<Vertex, GraphError> {
         let id_str = element_id_to_string(&id);
         let properties_json = property_map_to_gremlin_bindings(&properties)?;
-        let response = self.client.borrow_mut().update_vertex(&id_str, properties_json)?;
+        let response = self
+            .client
+            .borrow_mut()
+            .update_vertex(&id_str, properties_json)?;
         parse_vertex_from_response(&response)
     }
 
     fn update_vertex_properties(
         &self,
         id: ElementId,
-        updates: PropertyMap
+        updates: PropertyMap,
     ) -> Result<Vertex, GraphError> {
         self.update_vertex(id, updates)
     }
 
     fn delete_vertex(&self, id: ElementId, delete_edges: bool) -> Result<(), GraphError> {
         let id_str = element_id_to_string(&id);
-        self.client.borrow_mut().delete_vertex(&id_str, delete_edges)
+        self.client
+            .borrow_mut()
+            .delete_vertex(&id_str, delete_edges)
     }
 
     fn find_vertices(
@@ -333,7 +323,7 @@ impl GuestTransaction for JanusGraphTransaction {
         _filters: Option<Vec<FilterCondition>>,
         _sort: Option<Vec<SortSpec>>,
         limit: Option<u32>,
-        _offset: Option<u32>
+        _offset: Option<u32>,
     ) -> Result<Vec<Vertex>, GraphError> {
         let query = if let Some(vt) = vertex_type {
             format!("g.V().hasLabel('{}').limit({})", vt, limit.unwrap_or(100))
@@ -350,15 +340,18 @@ impl GuestTransaction for JanusGraphTransaction {
         edge_type: String,
         from_vertex: ElementId,
         to_vertex: ElementId,
-        properties: PropertyMap
+        properties: PropertyMap,
     ) -> Result<Edge, GraphError> {
         let from_str = element_id_to_string(&from_vertex);
         let to_str = element_id_to_string(&to_vertex);
         let properties_json = property_map_to_gremlin_bindings(&properties)?;
 
-        let response = self.client
-            .borrow_mut()
-            .create_edge(&edge_type, &from_str, &to_str, properties_json)?;
+        let response = self.client.borrow_mut().create_edge(
+            &edge_type,
+            &from_str,
+            &to_str,
+            properties_json,
+        )?;
         parse_edge_from_response(&response)
     }
 
@@ -375,14 +368,17 @@ impl GuestTransaction for JanusGraphTransaction {
     fn update_edge(&self, id: ElementId, properties: PropertyMap) -> Result<Edge, GraphError> {
         let id_str = element_id_to_string(&id);
         let properties_json = property_map_to_gremlin_bindings(&properties)?;
-        let response = self.client.borrow_mut().update_edge(&id_str, properties_json)?;
+        let response = self
+            .client
+            .borrow_mut()
+            .update_edge(&id_str, properties_json)?;
         parse_edge_from_response(&response)
     }
 
     fn update_edge_properties(
         &self,
         id: ElementId,
-        updates: PropertyMap
+        updates: PropertyMap,
     ) -> Result<Edge, GraphError> {
         self.update_edge(id, updates)
     }
@@ -398,15 +394,19 @@ impl GuestTransaction for JanusGraphTransaction {
         _filters: Option<Vec<FilterCondition>>,
         _sort: Option<Vec<SortSpec>>,
         limit: Option<u32>,
-        _offset: Option<u32>
+        _offset: Option<u32>,
     ) -> Result<Vec<Edge>, GraphError> {
         let query = if let Some(types) = edge_types {
             let type_filter = types
                 .iter()
-                .map(|t| format!("'{}'", t))
+                .map(|t| format!("'{t}'"))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("g.E().hasLabel({}).limit({})", type_filter, limit.unwrap_or(100))
+            format!(
+                "g.E().hasLabel({}).limit({})",
+                type_filter,
+                limit.unwrap_or(100)
+            )
         } else {
             format!("g.E().limit({})", limit.unwrap_or(100))
         };
@@ -420,7 +420,7 @@ impl GuestTransaction for JanusGraphTransaction {
         vertex_id: ElementId,
         _direction: Direction,
         edge_types: Option<Vec<String>>,
-        limit: Option<u32>
+        limit: Option<u32>,
     ) -> Result<Vec<Vertex>, GraphError> {
         let id_str = element_id_to_string(&vertex_id);
         let direction_str = match _direction {
@@ -432,10 +432,10 @@ impl GuestTransaction for JanusGraphTransaction {
         let edge_filter = if let Some(types) = edge_types {
             let type_filter = types
                 .iter()
-                .map(|t| format!("'{}'", t))
+                .map(|t| format!("'{t}'"))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!(".hasLabel({})", type_filter)
+            format!(".hasLabel({type_filter})")
         } else {
             "".to_string()
         };
@@ -457,7 +457,7 @@ impl GuestTransaction for JanusGraphTransaction {
         vertex_id: ElementId,
         direction: Direction,
         edge_types: Option<Vec<String>>,
-        limit: Option<u32>
+        limit: Option<u32>,
     ) -> Result<Vec<Edge>, GraphError> {
         let id_str = element_id_to_string(&vertex_id);
         let direction_str = match direction {
@@ -469,10 +469,10 @@ impl GuestTransaction for JanusGraphTransaction {
         let edge_filter = if let Some(types) = edge_types {
             let type_filter = types
                 .iter()
-                .map(|t| format!("'{}'", t))
+                .map(|t| format!("'{t}'"))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!(".hasLabel({})", type_filter)
+            format!(".hasLabel({type_filter})")
         } else {
             "".to_string()
         };
@@ -523,7 +523,7 @@ impl GuestTransaction for JanusGraphTransaction {
                 &edge_spec.edge_type,
                 &element_id_to_string(&edge_spec.from_vertex),
                 &element_id_to_string(&edge_spec.to_vertex),
-                properties_json
+                properties_json,
             )?;
 
             if let Ok(edge) = parse_edge_from_response(&response) {
@@ -538,7 +538,7 @@ impl GuestTransaction for JanusGraphTransaction {
         &self,
         id: Option<ElementId>,
         vertex_type: String,
-        properties: PropertyMap
+        properties: PropertyMap,
     ) -> Result<Vertex, GraphError> {
         if let Some(vertex_id) = id {
             match self.get_vertex(vertex_id.clone())? {
@@ -556,7 +556,7 @@ impl GuestTransaction for JanusGraphTransaction {
         edge_type: String,
         from_vertex: ElementId,
         to_vertex: ElementId,
-        properties: PropertyMap
+        properties: PropertyMap,
     ) -> Result<Edge, GraphError> {
         if let Some(edge_id) = id {
             match self.get_edge(edge_id.clone())? {
@@ -573,11 +573,15 @@ impl GuestTransaction for JanusGraphTransaction {
     }
 
     fn commit(&self) -> Result<(), GraphError> {
-        self.client.borrow_mut().commit_transaction(&self.session_id)
+        self.client
+            .borrow_mut()
+            .commit_transaction(&self.session_id)
     }
 
     fn rollback(&self) -> Result<(), GraphError> {
-        self.client.borrow_mut().rollback_transaction(&self.session_id)
+        self.client
+            .borrow_mut()
+            .rollback_transaction(&self.session_id)
     }
 }
 
@@ -586,20 +590,18 @@ impl TraversalGuest for JanusGraphComponent {
         transaction: TransactionBorrow<'_>,
         from_vertex: ElementId,
         to_vertex: ElementId,
-        options: Option<PathOptions>
+        options: Option<PathOptions>,
     ) -> Result<Option<Path>, GraphError> {
         let transaction_ref: &JanusGraphTransaction = transaction.get();
         let from_str = element_id_to_string(&from_vertex);
         let to_str = element_id_to_string(&to_vertex);
 
-        let max_depth = options
-            .as_ref()
-            .and_then(|o| o.max_depth)
-            .unwrap_or(10);
+        let max_depth = options.as_ref().and_then(|o| o.max_depth).unwrap_or(10);
         let edge_types = options.as_ref().and_then(|o| o.edge_types.clone());
 
         let client = transaction_ref.client.borrow();
-        let _response = client.find_shortest_path(&from_str, &to_str, edge_types, Some(max_depth))?;
+        let _response =
+            client.find_shortest_path(&from_str, &to_str, edge_types, Some(max_depth))?;
         let start_vertex = Vertex {
             id: from_vertex,
             vertex_type: "Vertex".to_string(),
@@ -628,16 +630,13 @@ impl TraversalGuest for JanusGraphComponent {
         from_vertex: ElementId,
         to_vertex: ElementId,
         options: Option<PathOptions>,
-        limit: Option<u32>
+        limit: Option<u32>,
     ) -> Result<Vec<Path>, GraphError> {
         let transaction_ref: &JanusGraphTransaction = transaction.get();
         let from_str = element_id_to_string(&from_vertex);
         let to_str = element_id_to_string(&to_vertex);
 
-        let max_depth = options
-            .as_ref()
-            .and_then(|o| o.max_depth)
-            .unwrap_or(10);
+        let max_depth = options.as_ref().and_then(|o| o.max_depth).unwrap_or(10);
         let edge_types = options.as_ref().and_then(|o| o.edge_types.clone());
         let _limit = limit;
 
@@ -675,7 +674,7 @@ impl TraversalGuest for JanusGraphComponent {
     fn get_neighborhood(
         transaction: TransactionBorrow<'_>,
         center: ElementId,
-        options: NeighborhoodOptions
+        options: NeighborhoodOptions,
     ) -> Result<Subgraph, GraphError> {
         let transaction_ref: &JanusGraphTransaction = transaction.get();
         let center_str = element_id_to_string(&center);
@@ -698,16 +697,13 @@ impl TraversalGuest for JanusGraphComponent {
         transaction: TransactionBorrow<'_>,
         from_vertex: ElementId,
         to_vertex: ElementId,
-        options: Option<PathOptions>
+        options: Option<PathOptions>,
     ) -> Result<bool, GraphError> {
         let transaction_ref: &JanusGraphTransaction = transaction.get();
         let from_str = element_id_to_string(&from_vertex);
         let to_str = element_id_to_string(&to_vertex);
 
-        let max_depth = options
-            .as_ref()
-            .and_then(|o| o.max_depth)
-            .unwrap_or(10);
+        let max_depth = options.as_ref().and_then(|o| o.max_depth).unwrap_or(10);
         let edge_types = options.as_ref().and_then(|o| o.edge_types.clone());
 
         let client = transaction_ref.client.borrow();
@@ -720,7 +716,7 @@ impl TraversalGuest for JanusGraphComponent {
         source: ElementId,
         distance: u32,
         _direction: Direction,
-        edge_types: Option<Vec<String>>
+        edge_types: Option<Vec<String>>,
     ) -> Result<Vec<Vertex>, GraphError> {
         let transaction_ref: &JanusGraphTransaction = transaction.get();
         let source_str = element_id_to_string(&source);
@@ -737,7 +733,7 @@ impl QueryGuest for JanusGraphComponent {
         transaction: TransactionBorrow<'_>,
         query: String,
         parameters: Option<Vec<(String, PropertyValue)>>,
-        _options: Option<QueryOptions>
+        _options: Option<QueryOptions>,
     ) -> Result<QueryExecutionResult, GraphError> {
         let transaction_ref: &JanusGraphTransaction = transaction.get();
         let client = transaction_ref.client.borrow();
@@ -763,10 +759,12 @@ impl QueryGuest for JanusGraphComponent {
             } else {
                 // Return as generic data
                 QueryResult::Values(
-                    response.result.data
+                    response
+                        .result
+                        .data
                         .into_iter()
-                        .map(|v| { json_to_property_value(&v).unwrap_or(PropertyValue::NullValue) })
-                        .collect()
+                        .map(|v| json_to_property_value(&v).unwrap_or(PropertyValue::NullValue))
+                        .collect(),
                 )
             }
         };
@@ -789,13 +787,11 @@ impl SchemaGuest for JanusGraphComponent {
             "ws://localhost:8182".to_string(),
             None,
             None,
-            "graph".to_string()
+            "graph".to_string(),
         );
-        Ok(
-            SchemaManager::new(JanusGraphSchemaManager {
-                client: RefCell::new(client),
-            })
-        )
+        Ok(SchemaManager::new(JanusGraphSchemaManager {
+            client: RefCell::new(client),
+        }))
     }
 }
 
@@ -862,7 +858,7 @@ impl GuestSchemaManager for JanusGraphSchemaManager {
 
     fn get_vertex_label_schema(
         &self,
-        label: String
+        label: String,
     ) -> Result<Option<VertexLabelSchema>, GraphError> {
         let client = self.client.borrow();
         let response = client.get_label_schema(&label)?;
@@ -885,13 +881,11 @@ impl GuestSchemaManager for JanusGraphSchemaManager {
             }
         }
 
-        Ok(
-            Some(VertexLabelSchema {
-                label,
-                properties,
-                container: None,
-            })
-        )
+        Ok(Some(VertexLabelSchema {
+            label,
+            properties,
+            container: None,
+        }))
     }
 
     fn get_edge_label_schema(&self, label: String) -> Result<Option<EdgeLabelSchema>, GraphError> {
@@ -916,15 +910,13 @@ impl GuestSchemaManager for JanusGraphSchemaManager {
             }
         }
 
-        Ok(
-            Some(EdgeLabelSchema {
-                label,
-                properties,
-                from_labels: None,
-                to_labels: None,
-                container: None,
-            })
-        )
+        Ok(Some(EdgeLabelSchema {
+            label,
+            properties,
+            from_labels: None,
+            to_labels: None,
+            container: None,
+        }))
     }
 
     fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
@@ -952,9 +944,7 @@ impl GuestSchemaManager for JanusGraphSchemaManager {
         let properties = index.properties.join(", ");
         let query = format!(
             "mgmt.buildIndex('{}', Vertex.class).addKey({}).build{}Index()",
-            index.name,
-            properties,
-            index_type
+            index.name, properties, index_type
         );
 
         client.execute_gremlin_sync(&query, None)?;
@@ -963,10 +953,8 @@ impl GuestSchemaManager for JanusGraphSchemaManager {
 
     fn drop_index(&self, name: String) -> Result<(), GraphError> {
         let client = self.client.borrow();
-        let _response = client.execute_gremlin_sync(
-            &format!("mgmt.getGraphIndex('{}')", name),
-            None
-        )?;
+        let _response =
+            client.execute_gremlin_sync(&format!("mgmt.getGraphIndex('{name}')"), None)?;
         Ok(())
     }
 
@@ -978,10 +966,8 @@ impl GuestSchemaManager for JanusGraphSchemaManager {
 
     fn get_index(&self, name: String) -> Result<Option<IndexDefinition>, GraphError> {
         let client = self.client.borrow();
-        let _response = client.execute_gremlin_sync(
-            &format!("mgmt.getGraphIndex('{}')", name),
-            None
-        )?;
+        let _response =
+            client.execute_gremlin_sync(&format!("mgmt.getGraphIndex('{name}')"), None)?;
         Ok(None)
     }
 
@@ -996,7 +982,7 @@ impl GuestSchemaManager for JanusGraphSchemaManager {
     fn create_container(
         &self,
         _name: String,
-        _container_type: ContainerType
+        _container_type: ContainerType,
     ) -> Result<(), GraphError> {
         Ok(())
     }

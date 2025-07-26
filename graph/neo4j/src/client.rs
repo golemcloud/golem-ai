@@ -1,9 +1,9 @@
 use golem_graph::error::from_reqwest_error;
+use golem_graph::golem::graph::connection::{ConnectionConfig, GraphStatistics};
 use golem_graph::golem::graph::errors::GraphError;
-use golem_graph::golem::graph::connection::{ ConnectionConfig, GraphStatistics };
-use log::{ trace };
+use log::trace;
 use reqwest::Method;
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -79,11 +79,13 @@ impl Neo4jClient {
     }
 
     pub fn create_client_from_config(config: &ConnectionConfig) -> Result<Self, GraphError> {
-        let base_url = config.hosts
+        let base_url = config
+            .hosts
             .first()
             .ok_or_else(|| GraphError::InternalError("No hosts provided".to_string()))?
             .clone();
-        let username = config.username
+        let username = config
+            .username
             .as_ref()
             .ok_or_else(|| GraphError::InternalError("Username required".to_string()))?
             .clone();
@@ -91,15 +93,15 @@ impl Neo4jClient {
         let password = config.password.as_ref().unwrap_or(&"".to_string()).clone();
         let database_name = config.database_name.clone();
         let timeout_seconds = config.timeout_seconds.unwrap_or(30);
-        let provider_config = config.provider_config
+        let provider_config = config
+            .provider_config
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect::<HashMap<String, String>>();
 
         // Create HTTP client with proper configuration
-        let client_builder = reqwest::Client
-            ::builder()
-            .timeout(Duration::from_secs(timeout_seconds as u64));
+        let client_builder =
+            reqwest::Client::builder().timeout(Duration::from_secs(timeout_seconds as u64));
 
         // Apply SSL/TLS configuration from provider_config
         if let Some(ssl_enabled) = provider_config.get("encryption") {
@@ -115,23 +117,20 @@ impl Neo4jClient {
         if let Some(trust_strategy) = provider_config.get("trust") {
             match trust_strategy.as_str() {
                 "TRUST_ALL_CERTIFICATES" => {
-                    // Note: In production, you should handle this more securely
                     trace!("Trust strategy: TRUST_ALL_CERTIFICATES");
                 }
                 "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES" => {
                     trace!("Trust strategy: TRUST_SYSTEM_CA_SIGNED_CERTIFICATES");
                 }
                 _ => {
-                    trace!("Unknown trust strategy: {}", trust_strategy);
+                    trace!("Unknown trust strategy: {trust_strategy}");
                 }
             }
         }
 
         let client = client_builder
             .build()
-            .map_err(|e|
-                GraphError::InternalError(format!("Failed to create HTTP client: {}", e))
-            )?;
+            .map_err(|e| GraphError::InternalError(format!("Failed to create HTTP client: {e}")))?;
 
         Ok(Neo4jClient {
             client,
@@ -158,9 +157,9 @@ impl Neo4jClient {
     pub fn execute_cypher(
         &self,
         query: String,
-        parameters: Option<HashMap<String, serde_json::Value>>
+        parameters: Option<HashMap<String, serde_json::Value>>,
     ) -> Result<Neo4jResponse, GraphError> {
-        trace!("Executing Cypher query: {}", query);
+        trace!("Executing Cypher query: {query}");
 
         let statement = Neo4jStatement {
             statement: query,
@@ -178,7 +177,8 @@ impl Neo4jClient {
             format!("{}/db/data/transaction/commit", self.base_url)
         };
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::POST, url)
             .header("Content-Type", "application/json")
             .basic_auth(&self.username, Some(&self.password))
@@ -197,7 +197,8 @@ impl Neo4jClient {
             format!("{}/db/data", self.base_url)
         };
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::GET, url)
             .basic_auth(&self.username, Some(&self.password))
             .send()
@@ -217,7 +218,7 @@ impl Neo4jClient {
                 let mut temp_client = Neo4jClient::new(
                     self.base_url.clone(),
                     self.username.clone(),
-                    self.password.clone()
+                    self.password.clone(),
                 );
                 let _ = temp_client.rollback_transaction(session_id);
             }
@@ -232,7 +233,11 @@ impl Neo4jClient {
 
         let node_count = if let Some(result) = response.results.first() {
             if let Some(data) = result.data.first() {
-                if let Some(value) = data.row.first() { value.as_u64().unwrap_or(0) } else { 0 }
+                if let Some(value) = data.row.first() {
+                    value.as_u64().unwrap_or(0)
+                } else {
+                    0
+                }
             } else {
                 0
             }
@@ -246,7 +251,11 @@ impl Neo4jClient {
 
         let edge_count = if let Some(result) = edge_response.results.first() {
             if let Some(data) = result.data.first() {
-                if let Some(value) = data.row.first() { value.as_u64().unwrap_or(0) } else { 0 }
+                if let Some(value) = data.row.first() {
+                    value.as_u64().unwrap_or(0)
+                } else {
+                    0
+                }
             } else {
                 0
             }
@@ -288,7 +297,8 @@ impl Neo4jClient {
             format!("{}/db/data/transaction", self.base_url)
         };
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::POST, url)
             .header("Content-Type", "application/json")
             .basic_auth(&self.username, Some(&self.password))
@@ -306,7 +316,7 @@ impl Neo4jClient {
 
         let session_id = location
             .split('/')
-            .last()
+            .next_back()
             .ok_or_else(|| GraphError::InternalError("Invalid transaction location".to_string()))?
             .to_string();
 
@@ -326,10 +336,14 @@ impl Neo4jClient {
         let url = if let Some(db_name) = &self.database_name {
             format!("{}/db/{}/tx/{}/commit", self.base_url, db_name, session_id)
         } else {
-            format!("{}/db/data/transaction/{}/commit", self.base_url, session_id)
+            format!(
+                "{}/db/data/transaction/{}/commit",
+                self.base_url, session_id
+            )
         };
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::POST, url)
             .basic_auth(&self.username, Some(&self.password))
             .send()
@@ -346,12 +360,19 @@ impl Neo4jClient {
     pub fn rollback_transaction(&mut self, session_id: &str) -> Result<(), GraphError> {
         // Build the URL with database name if specified
         let url = if let Some(db_name) = &self.database_name {
-            format!("{}/db/{}/tx/{}/rollback", self.base_url, db_name, session_id)
+            format!(
+                "{}/db/{}/tx/{}/rollback",
+                self.base_url, db_name, session_id
+            )
         } else {
-            format!("{}/db/data/transaction/{}/rollback", self.base_url, session_id)
+            format!(
+                "{}/db/data/transaction/{}/rollback",
+                self.base_url, session_id
+            )
         };
 
-        let response = self.client
+        let response = self
+            .client
             .request(Method::DELETE, url)
             .basic_auth(&self.username, Some(&self.password))
             .send()
@@ -367,15 +388,14 @@ impl Neo4jClient {
 
     fn parse_response(&self, response: reqwest::Response) -> Result<Neo4jResponse, GraphError> {
         if response.status().is_success() {
-            let neo4j_response: Neo4jResponse = response
-                .json()
-                .map_err(|err|
-                    GraphError::InternalError(format!("Failed to parse response: {}", err))
-                )?;
+            let neo4j_response: Neo4jResponse = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
 
             // Check for Neo4j errors
             if !neo4j_response.errors.is_empty() {
-                let error_msg = neo4j_response.errors
+                let error_msg = neo4j_response
+                    .errors
                     .iter()
                     .map(|e| format!("{}: {}", e.code, e.message))
                     .collect::<Vec<_>>()
@@ -385,12 +405,15 @@ impl Neo4jClient {
 
             Ok(neo4j_response)
         } else {
-            Err(GraphError::InternalError(format!("HTTP error: {}", response.status())))
+            Err(GraphError::InternalError(format!(
+                "HTTP error: {}",
+                response.status()
+            )))
         }
     }
     pub fn _execute_batch(
         &self,
-        statements: Vec<String>
+        statements: Vec<String>,
     ) -> Result<Vec<Neo4jResponse>, GraphError> {
         let mut responses = Vec::new();
         for statement in statements {
@@ -404,14 +427,10 @@ impl Neo4jClient {
         from_vertex: &str,
         to_vertex: &str,
         edge_filter: &str,
-        depth_limit: u32
+        depth_limit: u32,
     ) -> Result<Neo4jResponse, GraphError> {
         let query = format!(
-            "MATCH path = shortestPath((from:Vertex {{id: '{}'}})-[*..{}]-(to:Vertex {{id: '{}'}})) WHERE all(rel in relationships(path) WHERE {}) RETURN path",
-            from_vertex,
-            depth_limit,
-            to_vertex,
-            edge_filter
+            "MATCH path = shortestPath((from:Vertex {{id: '{from_vertex}'}})-[*..{depth_limit}]-(to:Vertex {{id: '{to_vertex}'}})) WHERE all(rel in relationships(path) WHERE {edge_filter}) RETURN path"
         );
         self.execute_cypher(query, None)
     }
@@ -423,15 +442,10 @@ impl Neo4jClient {
         to_vertex: &str,
         edge_filter: &str,
         depth_limit: u32,
-        result_limit: u32
+        result_limit: u32,
     ) -> Result<Neo4jResponse, GraphError> {
         let query = format!(
-            "MATCH path = (from:Vertex {{id: '{}'}})-[*..{}]-(to:Vertex {{id: '{}'}})) WHERE all(rel in relationships(path) WHERE {}) RETURN path LIMIT {}",
-            from_vertex,
-            depth_limit,
-            to_vertex,
-            edge_filter,
-            result_limit
+            "MATCH path = (from:Vertex {{id: '{from_vertex}'}})-[*..{depth_limit}]-(to:Vertex {{id: '{to_vertex}'}})) WHERE all(rel in relationships(path) WHERE {edge_filter}) RETURN path LIMIT {result_limit}"
         );
         self.execute_cypher(query, None)
     }
@@ -442,14 +456,11 @@ impl Neo4jClient {
         center_vertex: &str,
         direction: &str,
         depth: u32,
-        vertex_limit: u32
+        vertex_limit: u32,
     ) -> Result<Neo4jResponse, GraphError> {
         let _direction_used = direction;
         let query = format!(
-            "MATCH (center:Vertex {{id: '{}'}})-[*..{}]-(neighbor:Vertex) RETURN center, neighbor LIMIT {}",
-            center_vertex,
-            depth,
-            vertex_limit
+            "MATCH (center:Vertex {{id: '{center_vertex}'}})-[*..{depth}]-(neighbor:Vertex) RETURN center, neighbor LIMIT {vertex_limit}"
         );
         self.execute_cypher(query, None)
     }
@@ -460,14 +471,10 @@ impl Neo4jClient {
         from_vertex: &str,
         to_vertex: &str,
         edge_filter: &str,
-        depth_limit: u32
+        depth_limit: u32,
     ) -> Result<Neo4jResponse, GraphError> {
         let query = format!(
-            "MATCH path = shortestPath((from:Vertex {{id: '{}'}})-[*..{}]-(to:Vertex {{id: '{}'}})) WHERE all(rel in relationships(path) WHERE {}) RETURN count(path) > 0 as exists",
-            from_vertex,
-            depth_limit,
-            to_vertex,
-            edge_filter
+            "MATCH path = shortestPath((from:Vertex {{id: '{from_vertex}'}})-[*..{depth_limit}]-(to:Vertex {{id: '{to_vertex}'}})) WHERE all(rel in relationships(path) WHERE {edge_filter}) RETURN count(path) > 0 as exists"
         );
         self.execute_cypher(query, None)
     }
@@ -479,21 +486,17 @@ impl Neo4jClient {
         distance: u32,
         direction: &str,
         edge_types: Option<Vec<String>>,
-        vertex_limit: u32
+        vertex_limit: u32,
     ) -> Result<Neo4jResponse, GraphError> {
         let _direction_used = direction;
         let edge_filter = if let Some(types) = edge_types {
-            format!("type(rel) IN {:?}", types)
+            format!("type(rel) IN {types:?}")
         } else {
             "true".to_string()
         };
 
         let query = format!(
-            "MATCH (source:Vertex {{id: '{}'}})-[*{}]-(target:Vertex) WHERE all(rel in relationships(path) WHERE {}) RETURN target LIMIT {}",
-            source_vertex,
-            distance,
-            edge_filter,
-            vertex_limit
+            "MATCH (source:Vertex {{id: '{source_vertex}'}})-[*{distance}]-(target:Vertex) WHERE all(rel in relationships(path) WHERE {edge_filter}) RETURN target LIMIT {vertex_limit}"
         );
         self.execute_cypher(query, None)
     }
@@ -508,7 +511,7 @@ impl Neo4jClient {
         &self,
         label: &str,
         property: &str,
-        index_type: &str
+        index_type: &str,
     ) -> Result<Neo4jResponse, GraphError> {
         let query = format!(
             "CREATE INDEX {} IF NOT EXISTS FOR (n:{}) ON (n.{}) TYPE {}",
@@ -522,7 +525,7 @@ impl Neo4jClient {
 
     /// Drop index
     pub fn drop_index(&self, index_name: &str) -> Result<Neo4jResponse, GraphError> {
-        let query = format!("DROP INDEX {}", index_name);
+        let query = format!("DROP INDEX {index_name}");
         self.execute_cypher(query, None)
     }
 
@@ -534,7 +537,7 @@ impl Neo4jClient {
 
     /// Get index by name
     pub fn get_index(&self, index_name: &str) -> Result<Neo4jResponse, GraphError> {
-        let query = format!("SHOW INDEX {}", index_name);
+        let query = format!("SHOW INDEX {index_name}");
         self.execute_cypher(query, None)
     }
 
@@ -546,17 +549,18 @@ impl Neo4jClient {
 
     /// List all relationship types
     pub fn list_relationship_types(&self) -> Result<Neo4jResponse, GraphError> {
-        let query =
-            "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType".to_string();
+        let query = "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
+            .to_string();
         self.execute_cypher(query, None)
     }
 
     /// Get schema information for a label
     pub fn get_label_schema(&self, label: &str) -> Result<Neo4jResponse, GraphError> {
-        let query =
-            format!("MATCH (n:{}) 
+        let query = format!(
+            "MATCH (n:{label}) 
              RETURN DISTINCT keys(n) as properties, 
-                    labels(n) as labels", label);
+                    labels(n) as labels"
+        );
         self.execute_cypher(query, None)
     }
 }
