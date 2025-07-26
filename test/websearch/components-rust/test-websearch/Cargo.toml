@@ -28,8 +28,8 @@ path = "wit-generated"
 
 
 [package.metadata.component.target.dependencies]
-"wasi:io" = { path = "wit-generated/deps/io" }
 "wasi:clocks" = { path = "wit-generated/deps/clocks" }
+"wasi:io" = { path = "wit-generated/deps/io" }
 "golem:rpc" = { path = "wit-generated/deps/golem-rpc" }
 "golem:web-search" = { path = "wit-generated/deps/golem-web-search" }
 "test:helper-client" = { path = "wit-generated/deps/test_helper-client" }

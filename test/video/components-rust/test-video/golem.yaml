@@ -10,7 +10,7 @@ components:
   test:video:
     profiles:
       # DEBUG PROFILES
-      stability-debug:
+      stability-debug: 
         files:
           - sourcePath: ../../data/old.png
             targetPath: /data/old.png
