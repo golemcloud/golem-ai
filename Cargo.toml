@@ -23,8 +23,7 @@ members = [
     "graph/graph",
     "graph/neo4j",
     "graph/arangodb",
-    "graph/janusgraph"
-
+    "graph/janusgraph",
     "video/video",
     "video/kling",
     "video/runway",
