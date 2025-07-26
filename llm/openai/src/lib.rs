@@ -14,7 +14,6 @@ use golem_llm::golem::llm::llm::{
     ChatEvent, ChatStream, Config, ContentPart, Error, ErrorCode, Guest, Message, StreamDelta,
     StreamEvent, ToolCall, ToolResult,
 };
-use golem_llm::LOGGING_STATE;
 use golem_rust::wasm_rpc::Pollable;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
@@ -197,8 +196,6 @@ impl Guest for OpenAIComponent {
     type ChatStream = LlmChatStream<OpenAIChatStream>;
 
     fn send(messages: Vec<Message>, config: Config) -> ChatEvent {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         with_config_key(Self::ENV_VAR_NAME, ChatEvent::Error, |openai_api_key| {
             let client = ResponsesApi::new(openai_api_key);
 
@@ -212,8 +209,6 @@ impl Guest for OpenAIComponent {
         tool_results: Vec<(ToolCall, ToolResult)>,
         config: Config,
     ) -> ChatEvent {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         with_config_key(Self::ENV_VAR_NAME, ChatEvent::Error, |openai_api_key| {
             let client = ResponsesApi::new(openai_api_key);
 
@@ -230,8 +225,6 @@ impl Guest for OpenAIComponent {
 
 impl ExtendedGuest for OpenAIComponent {
     fn unwrapped_stream(messages: Vec<Message>, config: Config) -> Self::ChatStream {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         with_config_key(
             Self::ENV_VAR_NAME,
             OpenAIChatStream::failed,

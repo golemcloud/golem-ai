@@ -10,7 +10,6 @@ use golem_llm::{
         ChatEvent, ChatStream, Config, ContentPart, Error, FinishReason, Guest, Message,
         ResponseMetadata, Role, StreamDelta, StreamEvent, ToolCall, ToolResult, Usage,
     },
-    LOGGING_STATE,
 };
 use golem_rust::wasm_rpc::Pollable;
 use log::trace;
@@ -203,8 +202,6 @@ impl Guest for OllamaComponent {
     type ChatStream = LlmChatStream<OllamaChatStream>;
 
     fn send(messages: Vec<Message>, config: Config) -> ChatEvent {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = OllamaApi::new(config.model.clone());
         match messages_to_request(messages, config.clone(), None) {
             Ok(request) => Self::request(&client, request),
@@ -217,8 +214,6 @@ impl Guest for OllamaComponent {
         tool_results: Vec<(ToolCall, ToolResult)>,
         config: Config,
     ) -> ChatEvent {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = OllamaApi::new(config.model.clone());
 
         match messages_to_request(messages, config.clone(), Some(tool_results)) {
@@ -234,8 +229,6 @@ impl Guest for OllamaComponent {
 
 impl ExtendedGuest for OllamaComponent {
     fn unwrapped_stream(messages: Vec<Message>, config: Config) -> LlmChatStream<OllamaChatStream> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = OllamaApi::new(config.model.clone());
         match messages_to_request(messages, config.clone(), None) {
             Ok(request) => Self::streaming_request(&client, request),

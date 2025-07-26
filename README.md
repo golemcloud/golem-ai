@@ -6,20 +6,20 @@ WebAssembly Components providing a unified API for various LLM providers.
 
 There are 8 published WASM files for each release:
 
-| Name                                 | Description                                                                          |
-|--------------------------------------|--------------------------------------------------------------------------------------|
-| `golem-llm-anthropic.wasm`           | LLM implementation for Anthropic AI, using custom Golem specific durability features |
-| `golem-llm-ollama.wasm`           | LLM implementation for Ollama, using custom Golem specific durability features |
-| `golem-llm-grok.wasm`                | LLM implementation for xAI (Grok), using custom Golem specific durability features   |
-| `golem-llm-openai.wasm`              | LLM implementation for OpenAI, using custom Golem specific durability features       |
-| `golem-llm-openrouter.wasm`          | LLM implementation for OpenRouter, using custom Golem specific durability features   |
-| `golem-llm-bedrock.wasm`          | LLM implementation for Amazon Bedrock, using custom Golem specific durability features   |
-| `golem-llm-anthropic-portable.wasm`  | LLM implementation for Anthropic AI, with no Golem specific dependencies.            |
-| `golem-llm-ollama-portable.wasm`  | LLM implementation for Ollama, with no Golem specific dependencies.            |
-| `golem-llm-grok-portable.wasm`       | LLM implementation for xAI (Grok), with no Golem specific dependencies.              |
-| `golem-llm-openai-portable.wasm`     | LLM implementation for OpenAI, with no Golem specific dependencies.                  |
-| `golem-llm-openrouter-portable.wasm` | LLM implementation for OpenRouter, with no Golem specific dependencies.              |
-| `golem-llm-bedrock-portable.wasm` | LLM implementation for Amazon Bedrock, with no Golem specific dependencies.              |
+| Name                                 | Description                                                                            |
+|--------------------------------------|----------------------------------------------------------------------------------------|
+| `golem-llm-anthropic.wasm`           | LLM implementation for Anthropic AI, using custom Golem specific durability features   |
+| `golem-llm-ollama.wasm`              | LLM implementation for Ollama, using custom Golem specific durability features         |
+| `golem-llm-grok.wasm`                | LLM implementation for xAI (Grok), using custom Golem specific durability features     |
+| `golem-llm-openai.wasm`              | LLM implementation for OpenAI, using custom Golem specific durability features         |
+| `golem-llm-openrouter.wasm`          | LLM implementation for OpenRouter, using custom Golem specific durability features     |
+| `golem-llm-bedrock.wasm`             | LLM implementation for Amazon Bedrock, using custom Golem specific durability features |
+| `golem-llm-anthropic-portable.wasm`  | LLM implementation for Anthropic AI, with no Golem specific dependencies.              |
+| `golem-llm-ollama-portable.wasm`     | LLM implementation for Ollama, with no Golem specific dependencies.                    |
+| `golem-llm-grok-portable.wasm`       | LLM implementation for xAI (Grok), with no Golem specific dependencies.                |
+| `golem-llm-openai-portable.wasm`     | LLM implementation for OpenAI, with no Golem specific dependencies.                    |
+| `golem-llm-openrouter-portable.wasm` | LLM implementation for OpenRouter, with no Golem specific dependencies.                |
+| `golem-llm-bedrock-portable.wasm`    | LLM implementation for Amazon Bedrock, with no Golem specific dependencies.            |
 
 Every component **exports** the same `golem:llm` interface, [defined here](wit/golem-llm.wit).
 
@@ -32,13 +32,13 @@ advanced durability related features.
 
 Each provider has to be configured with an API key passed as an environment variable:
 
-| Provider   | Environment Variable |
-|------------|----------------------|
-| Anthropic  | `ANTHROPIC_API_KEY`  |
-| Grok       | `XAI_API_KEY`        |
-| OpenAI     | `OPENAI_API_KEY`     |
-| OpenRouter | `OPENROUTER_API_KEY` |
-| Ollama | `GOLEM_OLLAMA_BASE_URL` |
+| Provider       | Environment Variable                                                                          |
+|----------------|-----------------------------------------------------------------------------------------------|
+| Anthropic      | `ANTHROPIC_API_KEY`                                                                           |
+| Grok           | `XAI_API_KEY`                                                                                 |
+| OpenAI         | `OPENAI_API_KEY`                                                                              |
+| OpenRouter     | `OPENROUTER_API_KEY`                                                                          |
+| Ollama         | `GOLEM_OLLAMA_BASE_URL`                                                                       |
 | Amazon Bedrock | `AWS_ACCESS_KEY_ID`, `AWS_REGION`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN` (optional) |
 
 Additionally, setting the `GOLEM_LLM_LOG=trace` environment variable enables trace logging for all the communication
@@ -113,7 +113,7 @@ To use the LLM provider components in a WebAssembly project independent of Golem
 
 ## Examples
 
-Take the [test application](test/components-rust/test-llm/src/lib.rs) as an example of using `golem-llm` from Rust. The
+Take the [test application](test/llm/components-rust/test-llm/src/lib.rs) as an example of using `golem-llm` from Rust. The
 implemented test functions are demonstrating the following:
 
 | Function Name | Description                                                                                |
@@ -136,20 +136,21 @@ started with `golem server run`.
 stable release 1.2.2.
 
 Then build and deploy the _test application_. Select one of the following profiles to choose which provider to use:
-| Profile Name | Description |
-|--------------|-----------------------------------------------------------------------------------------------|
-| `anthropic-debug` | Uses the Anthropic LLM implementation and compiles the code in debug profile |
-| `anthropic-release` | Uses the Anthropic LLM implementation and compiles the code in release profile |
-| `ollama-debug` | Uses the Ollama LLM implementation and compiles the code in debug profile |
-| `ollama-release` | Uses the Ollama LLM implementation and compiles the code in release profile |
-| `grok-debug` | Uses the Grok LLM implementation and compiles the code in debug profile |
-| `grok-release` | Uses the Grok LLM implementation and compiles the code in release profile |
-| `openai-debug` | Uses the OpenAI LLM implementation and compiles the code in debug profile |
-| `openai-release` | Uses the OpenAI LLM implementation and compiles the code in release profile |
-| `openrouter-debug` | Uses the OpenRouter LLM implementation and compiles the code in debug profile |
-| `openrouter-release` | Uses the OpenRouter LLM implementation and compiles the code in release profile |
-| `bedrock-debug` | Uses the Amazon Bedrock LLM implementation and compiles the code in debug profile |
-| `bedrock-release` | Uses the Amazon Bedrock LLM implementation and compiles the code in release profile |
+
+| Profile Name         | Description                                                                           |
+|----------------------|---------------------------------------------------------------------------------------|
+| `anthropic-debug`    | Uses the Anthropic LLM implementation and compiles the code in debug profile          |
+| `anthropic-release`  | Uses the Anthropic LLM implementation and compiles the code in release profile        |
+| `ollama-debug`       | Uses the Ollama LLM implementation and compiles the code in debug profile             |
+| `ollama-release`     | Uses the Ollama LLM implementation and compiles the code in release profile           |
+| `grok-debug`         | Uses the Grok LLM implementation and compiles the code in debug profile               |
+| `grok-release`       | Uses the Grok LLM implementation and compiles the code in release profile             |
+| `openai-debug`       | Uses the OpenAI LLM implementation and compiles the code in debug profile             |
+| `openai-release`     | Uses the OpenAI LLM implementation and compiles the code in release profile           |
+| `openrouter-debug`   | Uses the OpenRouter LLM implementation and compiles the code in debug profile         |
+| `openrouter-release` | Uses the OpenRouter LLM implementation and compiles the code in release profile       |
+| `bedrock-debug`      | Uses the Amazon Bedrock LLM implementation and compiles the code in debug profile     |
+| `bedrock-release`    | Uses the Amazon Bedrock LLM implementation and compiles the code in release profile   |
 
 ```bash
 cd test

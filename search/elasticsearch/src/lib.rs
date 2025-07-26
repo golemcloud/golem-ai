@@ -12,7 +12,6 @@ use golem_search::golem::search::core::{Guest, GuestSearchStream, SearchStream};
 use golem_search::golem::search::types::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
-use golem_search::LOGGING_STATE;
 use log::trace;
 use std::cell::{Cell, RefCell};
 
@@ -231,8 +230,6 @@ impl Guest for ElasticsearchComponent {
     type SearchStream = ElasticsearchSearchStream;
 
     fn create_index(name: IndexName, schema: Option<Schema>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let settings = schema.map(schema_to_elasticsearch_settings);
 
@@ -240,15 +237,11 @@ impl Guest for ElasticsearchComponent {
     }
 
     fn delete_index(name: IndexName) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         client.delete_index(&name)
     }
 
     fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         match client.list_indices() {
             Ok(indices) => Ok(indices.into_iter().map(|idx| idx.index).collect()),
@@ -257,8 +250,6 @@ impl Guest for ElasticsearchComponent {
     }
 
     fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let document = doc_to_elasticsearch_document(doc).map_err(SearchError::InvalidQuery)?;
 
@@ -270,8 +261,6 @@ impl Guest for ElasticsearchComponent {
     }
 
     fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let bulk_operations =
             build_bulk_operations(&index, &docs, "index").map_err(SearchError::InvalidQuery)?;
@@ -291,15 +280,11 @@ impl Guest for ElasticsearchComponent {
     }
 
     fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         client.delete_document(&index, &id)
     }
 
     fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let bulk_operations =
             build_bulk_delete_operations(&index, &ids).map_err(SearchError::InvalidQuery)?;
@@ -319,8 +304,6 @@ impl Guest for ElasticsearchComponent {
     }
 
     fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         match client.get_document(&index, &id) {
             Ok(Some(document)) => Ok(Some(elasticsearch_document_to_doc(id, document))),
@@ -330,8 +313,6 @@ impl Guest for ElasticsearchComponent {
     }
 
     fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let es_query = search_query_to_elasticsearch_query(query);
 
@@ -342,16 +323,12 @@ impl Guest for ElasticsearchComponent {
     }
 
     fn stream_search(index: IndexName, query: SearchQuery) -> Result<SearchStream, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let stream = ElasticsearchSearchStream::new(client, index, query);
         Ok(SearchStream::new(stream))
     }
 
     fn get_schema(index: IndexName) -> Result<Schema, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         match client.get_mappings(&index) {
             Ok(mappings) => Ok(elasticsearch_mappings_to_schema(mappings, &index)),
@@ -360,8 +337,6 @@ impl Guest for ElasticsearchComponent {
     }
 
     fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let settings = schema_to_elasticsearch_settings(schema);
 
@@ -375,8 +350,6 @@ impl Guest for ElasticsearchComponent {
 
 impl ExtendedGuest for ElasticsearchComponent {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client().unwrap_or_else(|_| {
             ElasticsearchApi::new("http://localhost:9200".to_string(), None, None, None)
         });

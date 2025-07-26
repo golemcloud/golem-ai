@@ -25,7 +25,7 @@ use std::cell::RefCell;
 use std::str::FromStr;
 
 /// Internal state for configuring WASI log levels during runtime.
-pub struct LoggingState {
+struct LoggingState {
     logging_initialized: bool,
 }
 
@@ -45,10 +45,13 @@ impl LoggingState {
 }
 
 thread_local! {
-    /// Thread-local holder for logging state, initialized on first access.
-    pub static LOGGING_STATE: RefCell<LoggingState> = const {
+    static LOGGING_STATE: RefCell<LoggingState> = const {
         RefCell::new(LoggingState {
             logging_initialized: false,
         })
     };
+}
+
+pub fn init_logging() {
+    LOGGING_STATE.with_borrow_mut(|state| state.init());
 }

@@ -12,8 +12,6 @@ use golem_web_search::golem::web_search::web_search::{
     SearchSession,
 };
 
-use golem_web_search::LOGGING_STATE;
-
 // Define a custom ReplayState struct
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
 pub struct BraveReplayState {
@@ -129,14 +127,12 @@ impl Guest for BraveSearchComponent {
     type SearchSession = BraveSearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
         Self::start_search_session(params).map(SearchSession::new)
     }
 
     fn search_once(
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
         let (results, metadata) = Self::execute_search(params)?;
         Ok((results, Some(metadata)))
     }

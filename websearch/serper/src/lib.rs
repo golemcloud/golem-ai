@@ -12,8 +12,6 @@ use golem_web_search::golem::web_search::web_search::{
     SearchSession,
 };
 
-use golem_web_search::LOGGING_STATE;
-
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
 pub struct SerperReplayState {
     pub api_key: String,
@@ -128,7 +126,6 @@ impl Guest for SerperSearchComponent {
     type SearchSession = SerperSearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
         match Self::start_search_session(params) {
             Ok(session) => Ok(SearchSession::new(session)),
             Err(err) => Err(err),
@@ -138,7 +135,6 @@ impl Guest for SerperSearchComponent {
     fn search_once(
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
         let (results, metadata) = Self::execute_search(params)?;
         Ok((results, Some(metadata)))
     }

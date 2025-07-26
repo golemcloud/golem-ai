@@ -11,7 +11,6 @@ use golem_search::golem::search::core::{Guest, GuestSearchStream, SearchStream};
 use golem_search::golem::search::types::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
-use golem_search::LOGGING_STATE;
 use std::cell::{Cell, RefCell};
 
 mod client;
@@ -128,8 +127,6 @@ impl Guest for MeilisearchComponent {
     type SearchStream = MeilisearchSearchStream;
 
     fn create_index(name: IndexName, schema: Option<Schema>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         let create_request = client::MeilisearchCreateIndexRequest {
@@ -151,8 +148,6 @@ impl Guest for MeilisearchComponent {
     }
 
     fn delete_index(name: IndexName) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         let task = client.delete_index(&name)?;
@@ -162,8 +157,6 @@ impl Guest for MeilisearchComponent {
     }
 
     fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         let response = client.list_indexes()?;
@@ -175,8 +168,6 @@ impl Guest for MeilisearchComponent {
     }
 
     fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let meilisearch_doc =
             doc_to_meilisearch_document(doc).map_err(SearchError::InvalidQuery)?;
@@ -188,8 +179,6 @@ impl Guest for MeilisearchComponent {
     }
 
     fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let mut meilisearch_docs = Vec::new();
 
@@ -206,8 +195,6 @@ impl Guest for MeilisearchComponent {
     }
 
     fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         let task = client.delete_document(&index, &id)?;
@@ -217,8 +204,6 @@ impl Guest for MeilisearchComponent {
     }
 
     fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         let task = client.delete_documents(&index, &ids)?;
@@ -228,8 +213,6 @@ impl Guest for MeilisearchComponent {
     }
 
     fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         match client.get_document(&index, &id)? {
@@ -239,8 +222,6 @@ impl Guest for MeilisearchComponent {
     }
 
     fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let meilisearch_request = search_query_to_meilisearch_request(query);
 
@@ -249,16 +230,12 @@ impl Guest for MeilisearchComponent {
     }
 
     fn stream_search(index: IndexName, query: SearchQuery) -> Result<SearchStream, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let stream = MeilisearchSearchStream::new(client, index, query);
         Ok(SearchStream::new(stream))
     }
 
     fn get_schema(index: IndexName) -> Result<Schema, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         let settings = client.get_settings(&index)?;
@@ -266,8 +243,6 @@ impl Guest for MeilisearchComponent {
     }
 
     fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let settings = schema_to_meilisearch_settings(schema);
 
@@ -279,8 +254,6 @@ impl Guest for MeilisearchComponent {
 
 impl ExtendedGuest for MeilisearchComponent {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()
             .unwrap_or_else(|_| MeilisearchApi::new("http://localhost:7700".to_string(), None));
 

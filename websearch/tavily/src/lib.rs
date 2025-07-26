@@ -1,8 +1,6 @@
 mod client;
 mod conversions;
 
-use std::cell::RefCell;
-
 use crate::client::TavilySearchApi;
 use crate::conversions::{params_to_request, response_to_results, validate_search_params};
 use golem_web_search::durability::Durablewebsearch;
@@ -11,8 +9,7 @@ use golem_web_search::golem::web_search::web_search::{
     Guest, GuestSearchSession, SearchError, SearchMetadata, SearchParams, SearchResult,
     SearchSession,
 };
-
-use golem_web_search::LOGGING_STATE;
+use std::cell::RefCell;
 
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
 pub struct TavilyReplayState {
@@ -121,7 +118,6 @@ impl Guest for TavilySearchComponent {
     type SearchSession = TavilySearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
         match Self::start_search_session(params) {
             Ok(session) => Ok(SearchSession::new(session)),
             Err(err) => Err(err),
@@ -131,7 +127,6 @@ impl Guest for TavilySearchComponent {
     fn search_once(
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
         let (results, metadata) = Self::execute_search(params)?;
         Ok((results, Some(metadata)))
     }

@@ -31,17 +31,20 @@ mod passthrough_impl {
     use crate::golem::web_search::web_search::{
         SearchError, SearchMetadata, SearchParams, SearchResult,
     };
+    use crate::init_logging;
 
     impl<Impl: ExtendedwebsearchGuest> Guest for Durablewebsearch<Impl> {
         type SearchSession = Impl::SearchSession;
 
         fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
+            init_logging();
             Impl::start_search(params)
         }
 
         fn search_once(
             params: SearchParams,
         ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
+            init_logging();
             Impl::search_once(params)
         }
     }
@@ -62,6 +65,7 @@ mod durable_impl {
     use crate::exports::golem::web_search::web_search::{
         SearchError, SearchMetadata, SearchParams, SearchResult,
     };
+    use crate::init_logging;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
     use golem_rust::{with_persistence_level, PersistenceLevel};
@@ -81,6 +85,8 @@ mod durable_impl {
         type SearchSession = DurableSearchSession<Impl>;
 
         fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
+            init_logging();
+
             let durability = Durability::<Impl::ReplayState, SearchError>::new(
                 "golem_websearch",
                 "start_search",
@@ -115,6 +121,8 @@ mod durable_impl {
         fn search_once(
             params: SearchParams,
         ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
+            init_logging();
+
             let durability =
                 Durability::<(Vec<SearchResult>, Option<SearchMetadata>), SearchError>::new(
                     "golem_websearch",
@@ -126,26 +134,9 @@ mod durable_impl {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::search_once(params.clone())
                 });
-
-                match result {
-                    Ok((results, metadata)) => {
-                        durability
-                            .persist(params.clone(), Ok((results.clone(), metadata.clone())))?;
-                        Ok((results, metadata))
-                    }
-                    Err(error) => {
-                        let _ = durability
-                            .persist::<_, (Vec<SearchResult>, Option<SearchMetadata>), SearchError>(
-                                params.clone(),
-                                Err(error.clone()),
-                            );
-                        Err(error)
-                    }
-                }
+                durability.persist(params, result)
             } else {
-                let result = durability
-                    .replay::<(Vec<SearchResult>, Option<SearchMetadata>), SearchError>()?;
-                Ok(result)
+                durability.replay()
             }
         }
     }

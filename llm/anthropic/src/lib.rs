@@ -16,7 +16,6 @@ use golem_llm::golem::llm::llm::{
     ChatEvent, ChatStream, Config, ContentPart, Error, ErrorCode, Guest, Message, ResponseMetadata,
     Role, StreamDelta, StreamEvent, ToolCall, ToolResult,
 };
-use golem_llm::LOGGING_STATE;
 use golem_rust::wasm_rpc::Pollable;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
@@ -260,7 +259,6 @@ impl Guest for AnthropicComponent {
     type ChatStream = LlmChatStream<AnthropicChatStream>;
 
     fn send(messages: Vec<Message>, config: Config) -> ChatEvent {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
         with_config_key(Self::ENV_VAR_NAME, ChatEvent::Error, |anthropic_api_key| {
             let client = MessagesApi::new(anthropic_api_key);
 
@@ -276,8 +274,6 @@ impl Guest for AnthropicComponent {
         tool_results: Vec<(ToolCall, ToolResult)>,
         config: Config,
     ) -> ChatEvent {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         with_config_key(Self::ENV_VAR_NAME, ChatEvent::Error, |anthropic_api_key| {
             let client = MessagesApi::new(anthropic_api_key);
 
@@ -303,8 +299,6 @@ impl ExtendedGuest for AnthropicComponent {
         messages: Vec<Message>,
         config: Config,
     ) -> LlmChatStream<AnthropicChatStream> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         with_config_key(
             Self::ENV_VAR_NAME,
             AnthropicChatStream::failed,

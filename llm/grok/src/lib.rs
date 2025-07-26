@@ -14,7 +14,6 @@ use golem_llm::golem::llm::llm::{
     ChatEvent, ChatStream, Config, ContentPart, Error, FinishReason, Guest, Message,
     ResponseMetadata, StreamDelta, StreamEvent, ToolCall, ToolResult,
 };
-use golem_llm::LOGGING_STATE;
 use golem_rust::wasm_rpc::Pollable;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
@@ -145,8 +144,6 @@ impl Guest for GrokComponent {
     type ChatStream = LlmChatStream<GrokChatStream>;
 
     fn send(messages: Vec<Message>, config: Config) -> ChatEvent {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         with_config_key(Self::ENV_VAR_NAME, ChatEvent::Error, |xai_api_key| {
             let client = CompletionsApi::new(xai_api_key);
 
@@ -162,8 +159,6 @@ impl Guest for GrokComponent {
         tool_results: Vec<(ToolCall, ToolResult)>,
         config: Config,
     ) -> ChatEvent {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         with_config_key(Self::ENV_VAR_NAME, ChatEvent::Error, |xai_api_key| {
             let client = CompletionsApi::new(xai_api_key);
 
@@ -186,8 +181,6 @@ impl Guest for GrokComponent {
 
 impl ExtendedGuest for GrokComponent {
     fn unwrapped_stream(messages: Vec<Message>, config: Config) -> LlmChatStream<GrokChatStream> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         with_config_key(Self::ENV_VAR_NAME, GrokChatStream::failed, |xai_api_key| {
             let client = CompletionsApi::new(xai_api_key);
 

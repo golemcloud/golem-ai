@@ -136,22 +136,22 @@ modules = array websearch brave google serper tavily
 
 for module in ${modules}
     rm -r ${module}/wit/deps
-    mkdir ${module}/wit/deps/golem-websearch
-    cp wit/golem-websearch.wit ${module}/wit/deps/golem-websearch/golem-websearch.wit
+    mkdir ${module}/wit/deps/golem-web-search
+    cp wit/golem-web-search.wit ${module}/wit/deps/golem-web-search/golem-web-search.wit
     cp wit/deps/wasi:io ${module}/wit/deps
 
     echo "Copied WIT for module websearch::${module}"
 end
 
 # Copy WIT files for integration tests
-rm -r ../test/wit
-mkdir ../test/wit/deps/golem-websearch
-mkdir ../test/wit/deps/io
-cp wit/golem-websearch.wit ../test/wit/deps/golem-websearch/golem-websearch.wit
-cp wit/deps/wasi:io/error.wit ../test/wit/deps/io/error.wit
-cp wit/deps/wasi:io/poll.wit ../test/wit/deps/io/poll.wit
-cp wit/deps/wasi:io/streams.wit ../test/wit/deps/io/streams.wit
-cp wit/deps/wasi:io/world.wit ../test/wit/deps/io/world.wit
+rm -r ../test/websearch/wit
+mkdir ../test/websearch/wit/deps/golem-websearch
+mkdir ../test/websearch/wit/deps/io
+cp wit/golem-web-search.wit ../test/websearch/wit/deps/golem-web-search/golem-web-search.wit
+cp wit/deps/wasi:io/error.wit ../test/websearch/wit/deps/io/error.wit
+cp wit/deps/wasi:io/poll.wit ../test/websearch/wit/deps/io/poll.wit
+cp wit/deps/wasi:io/streams.wit ../test/websearch/wit/deps/io/streams.wit
+cp wit/deps/wasi:io/world.wit ../test/websearch/wit/deps/io/world.wit
 
 echo "Copied WIT for module test"
 """
@@ -161,9 +161,9 @@ dependencies = ["build"]
 install_crate = "cargo-binstall"
 description = "Builds websearch test components with golem-cli"
 script = '''
-cargo-binstall golem-cli@1.2.2-dev.11 --locked --no-confirm
+cargo-binstall golem-cli@1.2.5 --locked --no-confirm
 cargo-binstall wac-cli --locked --no-confirm
-cd ../test
+cd ../test/websearch
 
 golem-cli --version
 golem-cli app clean

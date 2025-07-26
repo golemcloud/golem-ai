@@ -11,7 +11,6 @@ use golem_search::golem::search::core::{Guest, GuestSearchStream, SearchStream};
 use golem_search::golem::search::types::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
-use golem_search::LOGGING_STATE;
 use std::cell::{Cell, RefCell};
 
 mod client;
@@ -119,8 +118,6 @@ impl Guest for AlgoliaComponent {
     type SearchStream = AlgoliaSearchStream;
 
     fn create_index(_name: IndexName, _schema: Option<Schema>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         // Algolia doesn't require explicit index creation - indices are created automatically
         // when you first add documents.
         // providers that don't support index creation should return unsupported.
@@ -128,8 +125,6 @@ impl Guest for AlgoliaComponent {
     }
 
     fn delete_index(name: IndexName) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         match client.delete_index(&name) {
@@ -142,8 +137,6 @@ impl Guest for AlgoliaComponent {
     }
 
     fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         match client.list_indexes() {
@@ -153,8 +146,6 @@ impl Guest for AlgoliaComponent {
     }
 
     fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let algolia_object = doc_to_algolia_object(doc).map_err(SearchError::InvalidQuery)?;
 
@@ -168,8 +159,6 @@ impl Guest for AlgoliaComponent {
     }
 
     fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let mut algolia_objects = Vec::new();
 
@@ -188,8 +177,6 @@ impl Guest for AlgoliaComponent {
     }
 
     fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         match client.delete_object(&index, &id) {
@@ -202,8 +189,6 @@ impl Guest for AlgoliaComponent {
     }
 
     fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         match client.delete_objects(&index, &ids) {
@@ -216,8 +201,6 @@ impl Guest for AlgoliaComponent {
     }
 
     fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         match client.get_object(&index, &id) {
@@ -228,8 +211,6 @@ impl Guest for AlgoliaComponent {
     }
 
     fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let algolia_query = search_query_to_algolia_query(query);
 
@@ -240,16 +221,12 @@ impl Guest for AlgoliaComponent {
     }
 
     fn stream_search(index: IndexName, query: SearchQuery) -> Result<SearchStream, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let stream = AlgoliaSearchStream::new(client, index, query);
         Ok(SearchStream::new(stream))
     }
 
     fn get_schema(index: IndexName) -> Result<Schema, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         match client.get_settings(&index) {
@@ -259,8 +236,6 @@ impl Guest for AlgoliaComponent {
     }
 
     fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let settings = schema_to_algolia_settings(schema);
 
@@ -272,8 +247,6 @@ impl Guest for AlgoliaComponent {
 
 impl ExtendedGuest for AlgoliaComponent {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()
             .unwrap_or_else(|_| AlgoliaSearchApi::new("dummy".to_string(), "dummy".to_string()));
 

@@ -20,15 +20,15 @@ args = ["test"]
 script_runner = "@duckscript"
 script = '''
 
-domains = array llm embed websearch search
+domains = array llm embed websearch search video
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
     for domain in ${domains}
-        exec cargo make --cwd ${domain} build
+        exec --fail-on-error cargo make --cwd ${domain} build
     end
 else
-    exec cargo make --cwd ${1} build
+    exec --fail-on-error cargo make --cwd ${1} build
 end
 '''
 
@@ -36,15 +36,15 @@ end
 script_runner = "@duckscript"
 script = '''
 
-domains = array llm embed websearch search
+domains = array llm embed websearch search video
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
     for domain in ${domains}
-        exec cargo make --cwd ${domain} release-build
+        exec --fail-on-error cargo make --cwd ${domain} release-build
     end
 else
-    exec cargo make --cwd ${1} release-build
+    exec --fail-on-error cargo make --cwd ${1} release-build
 end
 '''
 
@@ -53,16 +53,16 @@ script_runner = "@duckscript"
 script = '''
 #!/bin/bash
 
-domains = array llm embed websearch search
+domains = array llm embed websearch search video
 
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
     for domain in ${domains}
-        exec cargo make --cwd ${domain} build-portable
+        exec --fail-on-error cargo make --cwd ${domain} build-portable
     end
 else
-    exec cargo make --cwd ${1} build-portable
+    exec --fail-on-error cargo make --cwd ${1} build-portable
 end
 '''
 
@@ -77,10 +77,10 @@ domains = array llm embed websearch search
 # if there is no domain passed run for every domain
 if is_empty ${1}
     for domain in ${domains}
-        exec cargo make --cwd ${domain} release-build-portable
+        exec --fail-on-error cargo make --cwd ${domain} release-build-portable
     end
 else
-    exec cargo make --cwd ${1} release-build-portable
+    exec --fail-on-error cargo make --cwd ${1} release-build-portable
 end
 '''
 
@@ -88,16 +88,16 @@ end
 script_runner = "@duckscript"
 script = '''
 
-domains = array llm embed websearch search
+domains = array llm embed websearch search video
 
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
     for domain in ${domains}
-        exec cargo make --cwd ${domain} wit
+        exec --fail-on-error cargo make --cwd ${domain} wit
     end
 else
-    exec cargo make --cwd ${1} wit
+    exec --fail-on-error cargo make --cwd ${1} wit
 end
 '''
 
@@ -106,16 +106,16 @@ description = "Builds all test components with golem-cli"
 script_runner = "@duckscript"
 script = '''
 
-domains = array llm embed websearch search
+domains = array llm embed websearch search video
 
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
     for domain in ${domains}
-        exec cargo make --cwd ${domain} build-test-components
+        exec --fail-on-error cargo make --cwd ${domain} build-test-components
     end
 else
-    exec cargo make --cwd ${1} build-test-components
+    exec --fail-on-error cargo make --cwd ${1} build-test-components
 end
 '''
 
@@ -161,7 +161,7 @@ environment = get_env "ENVIRONMENT"
 is_dev = eq ${environment} "dev"
 
 
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability
 
 
 for target in ${targets}
@@ -212,7 +212,7 @@ is_dev = eq ${environment} "dev"
 
 
 
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama  websearch_brave websearch_google websearch_serper websearch_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama  websearch_brave websearch_google websearch_serper websearch_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability
 
 
 for target in ${targets}

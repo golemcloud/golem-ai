@@ -7,7 +7,6 @@ use golem_search::golem::search::core::{Guest, GuestSearchStream, SearchStream};
 use golem_search::golem::search::types::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
-use golem_search::LOGGING_STATE;
 use log::trace;
 use std::cell::{Cell, RefCell};
 
@@ -116,8 +115,6 @@ impl Guest for TypesenseComponent {
     type SearchStream = TypesenseSearchStream;
 
     fn create_index(name: IndexName, schema: Option<Schema>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         let typesense_schema = schema
@@ -143,16 +140,12 @@ impl Guest for TypesenseComponent {
     }
 
     fn delete_index(name: IndexName) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         client.delete_collection(&name)?;
         Ok(())
     }
 
     fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let response = client.list_collections()?;
         Ok(response
@@ -163,8 +156,6 @@ impl Guest for TypesenseComponent {
     }
 
     fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let typesense_doc = doc_to_typesense_document(doc).map_err(SearchError::Internal)?;
         client.upsert_document(&index, &typesense_doc)?;
@@ -172,8 +163,6 @@ impl Guest for TypesenseComponent {
     }
 
     fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let typesense_docs: Result<Vec<_>, _> = docs
             .iter()
@@ -185,16 +174,12 @@ impl Guest for TypesenseComponent {
     }
 
     fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         client.delete_document(&index, &id)?;
         Ok(())
     }
 
     fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         // Typesense doesn't have bulk delete by IDs, so we use filter_by
         let filter = format!("id:[{}]", ids.join(","));
@@ -203,8 +188,6 @@ impl Guest for TypesenseComponent {
     }
 
     fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         // Typesense doesn't have a direct get document endpoint
@@ -232,8 +215,6 @@ impl Guest for TypesenseComponent {
     }
 
     fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
         let typesense_query = search_query_to_typesense_query(query);
         let response = client.search(&index, &typesense_query)?;
@@ -241,8 +222,6 @@ impl Guest for TypesenseComponent {
     }
 
     fn stream_search(index: IndexName, query: SearchQuery) -> Result<SearchStream, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client()?;
 
         let stream = TypesenseSearchStream::new(client, index, query);
@@ -313,8 +292,6 @@ impl Guest for TypesenseComponent {
 
 impl ExtendedGuest for TypesenseComponent {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let client = Self::create_client().unwrap_or_else(|_e| {
             TypesenseSearchApi::new("dummy".to_string(), "http://localhost:8108".to_string())
         });

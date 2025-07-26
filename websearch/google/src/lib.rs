@@ -9,7 +9,6 @@ use golem_web_search::golem::web_search::web_search::{
     Guest, GuestSearchSession, SearchError, SearchMetadata, SearchParams, SearchResult,
     SearchSession,
 };
-use golem_web_search::LOGGING_STATE;
 use std::cell::RefCell;
 
 /// Start index for google search api pagination (which is 1-index based)
@@ -137,7 +136,6 @@ impl Guest for GoogleCustomSearchComponent {
     type SearchSession = GoogleSearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
         match Self::start_search_session(params) {
             Ok(session) => Ok(SearchSession::new(session)),
             Err(err) => Err(err),
@@ -147,7 +145,6 @@ impl Guest for GoogleCustomSearchComponent {
     fn search_once(
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
         Self::execute_search(params)
     }
 }

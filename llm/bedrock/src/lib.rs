@@ -3,7 +3,6 @@ use client::Bedrock;
 use golem_llm::{
     durability::{DurableLLM, ExtendedGuest},
     golem::llm::llm::{self, ChatEvent, ChatStream, Config, Guest, Message, ToolCall, ToolResult},
-    LOGGING_STATE,
 };
 use golem_rust::bindings::wasi::clocks::monotonic_clock;
 use stream::BedrockChatStream;
@@ -20,8 +19,6 @@ impl Guest for BedrockComponent {
     type ChatStream = BedrockChatStream;
 
     fn send(messages: Vec<Message>, config: Config) -> ChatEvent {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let runtime = get_async_runtime();
 
         runtime.block_on(async {
@@ -39,8 +36,6 @@ impl Guest for BedrockComponent {
         tool_results: Vec<(ToolCall, ToolResult)>,
         config: Config,
     ) -> ChatEvent {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let runtime = get_async_runtime();
 
         runtime.block_on(async {
@@ -63,8 +58,6 @@ impl ExtendedGuest for BedrockComponent {
         messages: Vec<golem_llm::golem::llm::llm::Message>,
         config: golem_llm::golem::llm::llm::Config,
     ) -> Self::ChatStream {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
-
         let runtime = get_async_runtime();
 
         runtime.block_on(async {
