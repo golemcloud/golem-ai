@@ -161,10 +161,30 @@ environment = get_env "ENVIRONMENT"
 is_dev = eq ${environment} "dev"
 
 
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama embed_openai embed_cohere embed_hugging_face embed_voyageai web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense
 
 
 for target in ${targets}
+    if ${is_portable}
+        if ${is_dev}
+            cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}-portable-dev.wasm
+        else
+            cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}-portable.wasm
+        end
+    else
+        if ${is_dev}
+            cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}-dev.wasm
+        else
+            cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}.wasm
+        end
+    end
+end
+
+
+
+embed_targets = array  embed_openai embed_cohere embed_hugging_face embed_voyageai 
+
+for target in ${embed_targets}
     if ${is_portable}
         if ${is_dev}
             cp target/wasm32-wasip1/debug/golem_${target}.wasm components/debug/golem_${target}-portable-dev.wasm
@@ -192,10 +212,29 @@ is_dev = eq ${environment} "dev"
 
 
 
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama embed_openai embed_cohere embed_hugging_face embed_voyageai websearch_brave websearch_google websearch_serper websearch_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama  websearch_brave websearch_google websearch_serper websearch_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense
 
 
 for target in ${targets}
+    if ${is_portable}
+        if ${is_dev}
+            cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-portable-dev.wasm
+        else
+            cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-portable.wasm
+        end
+    else
+        if ${is_dev}
+            cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-dev.wasm
+        else
+            cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}.wasm
+        end
+    end
+end
+
+
+embed_targets = array  embed_openai embed_cohere embed_hugging_face embed_voyageai 
+
+for target in ${embed_targets}
     if ${is_portable}
         if ${is_dev}
             cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-portable-dev.wasm

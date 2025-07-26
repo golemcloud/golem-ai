@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
 use golem_embed::{
     error::{error_code_from_status, from_reqwest_error},
@@ -120,6 +120,8 @@ pub struct EmbeddingRequest {
     pub output_dtype: Option<OutputDtype>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoding_format: Option<EncodingFormat>,
+    #[serde(flatten)]
+    pub provider_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -153,10 +155,18 @@ pub struct EmbeddingResponse {
     pub usage: EmbeddingUsage,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Embedding {
+    Float(Vec<f32>),
+    Integer(Vec<i8>),
+    Base64(String),
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EmbeddingData {
     pub object: String,
-    pub embedding: Vec<f32>,
+    pub embedding: Embedding,
     pub index: u32,
 }
 
@@ -171,11 +181,9 @@ pub struct RerankRequest {
     pub documents: Vec<String>,
     pub model: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_k: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub return_documents: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub truncation: Option<bool>,
+    #[serde(flatten)]
+    pub provider_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

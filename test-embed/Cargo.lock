@@ -66,6 +66,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1628fb46dfa0b37568d12e5edd512553eccf6a22a78e8bde00bb4aed84d5bdbf"
 
 [[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
+
+[[package]]
 name = "bytes"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -110,6 +116,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e3a13707ac958681c13b39b458c073d0d9bc8a22cb1b2f4c8e55eb72c13f362"
 dependencies = [
  "shlex",
+]
+
+[[package]]
+name = "cfb"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d38f2da7a0a2c4ccf0065be06397cc26a81f4e528be095826eee9d4adbb8c60f"
+dependencies = [
+ "byteorder",
+ "fnv",
+ "uuid",
 ]
 
 [[package]]
@@ -576,6 +593,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "infer"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc150e5ce2330295b8616ce0e3f53250e53af31759a9dbedad1621ba29151847"
+dependencies = [
+ "cfb",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -864,34 +890,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_embed"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "golem-rust",
+ "infer",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
 name = "test_helper"
 version = "0.0.0"
 dependencies = [
  "golem-rust",
- "reqwest",
- "serde",
- "serde_json",
- "wit-bindgen-rt 0.40.0",
-]
-
-[[package]]
-name = "test_llm"
-version = "0.0.0"
-dependencies = [
- "golem-rust",
- "log",
- "reqwest",
- "serde",
- "serde_json",
- "wit-bindgen-rt 0.40.0",
-]
-
-[[package]]
-name = "test_websearch"
-version = "0.0.0"
-dependencies = [
- "golem-rust",
- "log",
  "reqwest",
  "serde",
  "serde_json",

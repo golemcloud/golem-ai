@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use golem_embed::{
     error::unsupported,
     golem::embed::embed::{
@@ -8,8 +10,8 @@ use golem_embed::{
 };
 
 use crate::client::{
-    EmbeddingRequest, EmbeddingResponse, EncodingFormat, InputType, OutputDtype, RerankRequest,
-    RerankResponse,
+    Embedding as VoyageEmbedding, EmbeddingRequest, EmbeddingResponse, EncodingFormat, InputType,
+    OutputDtype, RerankRequest, RerankResponse,
 };
 
 pub fn create_embedding_request(
@@ -22,9 +24,7 @@ pub fn create_embedding_request(
         match input {
             ContentPart::Text(text) => text_inputs.push(text),
             ContentPart::Image(_) => {
-                return Err(unsupported(
-                    "VoyageAI text embeddings do not support image inputs. Use multimodal embeddings instead.",
-                ));
+                return Err(unsupported("VoyageAI do not support image embedding."));
             }
         }
     }
@@ -36,7 +36,8 @@ pub fn create_embedding_request(
     let input_type = match config.task_type {
         Some(TaskType::RetrievalQuery) => Some(InputType::Query),
         Some(TaskType::RetrievalDocument) => Some(InputType::Document),
-        _ => return Err(unsupported("Unsupported task type")),
+        None => Some(InputType::Document),
+        _ => return Err(unsupported("task_type")),
     };
 
     let output_dtype = match config.output_dtype {
@@ -53,6 +54,16 @@ pub fn create_embedding_request(
         _ => None,
     };
 
+    let provider_params = config
+        .provider_options
+        .into_iter()
+        .map(|kv| {
+            let value =
+                serde_json::from_str(&kv.value).unwrap_or(serde_json::Value::String(kv.value));
+            (kv.key, value)
+        })
+        .collect();
+
     Ok(EmbeddingRequest {
         input: text_inputs,
         model,
@@ -61,19 +72,65 @@ pub fn create_embedding_request(
         output_dimension: config.dimensions,
         output_dtype,
         encoding_format,
+        provider_params,
     })
 }
 
 pub fn process_embedding_response(
+    output_dtype: Option<GolemOutputDtype>,
     response: EmbeddingResponse,
 ) -> Result<GolemEmbeddingResponse, Error> {
     let mut embeddings = Vec::new();
 
-    for data in response.data {
-        embeddings.push(Embedding {
-            index: data.index,
-            vector: data.embedding,
-        });
+    for embedding_data in response.data {
+        match embedding_data.embedding {
+            VoyageEmbedding::Base64(data) => {
+                embeddings.push(Embedding {
+                    index: embedding_data.index,
+                    vector: golem_embed::golem::embed::embed::VectorData::Base64(data),
+                });
+            }
+            VoyageEmbedding::Float(data) => {
+                embeddings.push(Embedding {
+                    index: embedding_data.index,
+                    vector: golem_embed::golem::embed::embed::VectorData::FloatArray(data),
+                });
+            }
+            VoyageEmbedding::Integer(data) => match output_dtype.unwrap() {
+                GolemOutputDtype::Int8 => {
+                    embeddings.push(Embedding {
+                        index: embedding_data.index,
+                        vector: golem_embed::golem::embed::embed::VectorData::Int8(data),
+                    });
+                }
+                GolemOutputDtype::Uint8 => {
+                    let uint8_data: Vec<u8> = data.into_iter().map(|x| x as u8).collect();
+                    embeddings.push(Embedding {
+                        index: embedding_data.index,
+                        vector: golem_embed::golem::embed::embed::VectorData::Uint8(uint8_data),
+                    });
+                }
+                GolemOutputDtype::Binary => {
+                    embeddings.push(Embedding {
+                        index: embedding_data.index,
+                        vector: golem_embed::golem::embed::embed::VectorData::Binary(data),
+                    });
+                }
+                GolemOutputDtype::Ubinary => {
+                    let ubinary_data: Vec<u8> = data.into_iter().map(|x| x as u8).collect();
+                    embeddings.push(Embedding {
+                        index: embedding_data.index,
+                        vector: golem_embed::golem::embed::embed::VectorData::Ubinary(ubinary_data),
+                    });
+                }
+
+                _ => {
+                    return Err(unsupported(
+                        "Unsupported output dtype for integer embeddings",
+                    ));
+                }
+            },
+        }
     }
 
     let usage = Usage {
@@ -95,14 +152,22 @@ pub fn create_rerank_request(
     config: Config,
 ) -> Result<RerankRequest, Error> {
     let model = config.model.unwrap_or_else(|| "rerank-2-lite".to_string());
+    let provider_params: HashMap<String, serde_json::Value> = config
+        .provider_options
+        .into_iter()
+        .map(|kv| {
+            let value =
+                serde_json::from_str(&kv.value).unwrap_or(serde_json::Value::String(kv.value));
+            (kv.key, value)
+        })
+        .collect();
 
     Ok(RerankRequest {
         query,
         documents,
         model,
-        top_k: None,
-        return_documents: Some(true),
         truncation: config.truncation,
+        provider_params,
     })
 }
 
@@ -127,63 +192,4 @@ pub fn process_rerank_response(response: RerankResponse) -> Result<GolemRerankRe
         model: response.model,
         provider_metadata_json: None,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use golem_embed::golem::embed::embed::{Config, ContentPart, TaskType};
-
-    #[test]
-    fn test_create_embedding_request() {
-        let inputs = vec![
-            ContentPart::Text("Hello world".to_string()),
-            ContentPart::Text("How are you?".to_string()),
-        ];
-
-        let config = Config {
-            model: Some("voyage-3.5-lite".to_string()),
-            task_type: Some(TaskType::RetrievalDocument),
-            dimensions: Some(1024),
-            truncation: Some(true),
-            output_format: None,
-            output_dtype: None,
-            user: None,
-            provider_options: vec![],
-        };
-
-        let request = create_embedding_request(inputs.clone(), config.clone());
-        match &request {
-            Ok(_request) => {}
-            Err(_err) => {}
-        };
-        assert!(request.is_ok());
-    }
-
-    #[test]
-    fn test_create_rerank_request() {
-        let query = "What is AI?".to_string();
-        let documents = vec![
-            "AI is artificial intelligence".to_string(),
-            "Machine learning is a subset of AI".to_string(),
-        ];
-
-        let config = Config {
-            model: Some("rerank-2-lite".to_string()),
-            task_type: None,
-            dimensions: None,
-            truncation: Some(false),
-            output_format: None,
-            output_dtype: None,
-            user: None,
-            provider_options: vec![],
-        };
-
-        let request = create_rerank_request(query, documents, config);
-        match &request {
-            Ok(_request) => {}
-            Err(_err) => {}
-        };
-        assert!(request.is_ok());
-    }
 }

@@ -75,9 +75,18 @@ interface embed {
     total-tokens: option<u32>,
   }
 
+  variant vector-data {
+    float-array(list<f32>),
+    int8(list<s8>),
+    uint8(list<u8>),
+    binary(list<s8>),
+    ubinary(list<u8>),
+    base64(string),
+  }
+
   record embedding {
     index: u32,
-    vector: list<f32>,
+    vector: vector-data
   }
 
   record embedding-response {

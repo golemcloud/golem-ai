@@ -53,7 +53,7 @@ mod durable_impl {
 
     impl<Impl: ExtendedGuest> Guest for DurableEmbed<Impl> {
         fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
-            let durability = Durability::<Result<EmbeddingResponse, Error>, UnusedError>::new(
+            let durability = Durability::<EmbeddingResponse, Error>::new(
                 "golem_embed",
                 "generate",
                 DurableFunctionType::WriteRemote,
@@ -62,9 +62,9 @@ mod durable_impl {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::generate(inputs.clone(), config.clone())
                 });
-                durability.persist_infallible(GenerateInput { inputs, config }, result.clone())
+                durability.persist(GenerateInput { inputs, config }, result)
             } else {
-                durability.replay_infallible()
+                durability.replay()
             }
         }
 
@@ -73,7 +73,7 @@ mod durable_impl {
             documents: Vec<String>,
             config: Config,
         ) -> Result<RerankResponse, Error> {
-            let durability = Durability::<Result<RerankResponse, Error>, UnusedError>::new(
+            let durability = Durability::<RerankResponse, Error>::new(
                 "golem_embed",
                 "rerank",
                 DurableFunctionType::WriteRemote,
@@ -82,16 +82,16 @@ mod durable_impl {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::rerank(query.clone(), documents.clone(), config.clone())
                 });
-                durability.persist_infallible(
+                durability.persist(
                     RerankInput {
                         query,
                         documents,
                         config,
                     },
-                    result.clone(),
+                    result,
                 )
             } else {
-                durability.replay_infallible()
+                durability.replay()
             }
         }
     }
@@ -115,6 +115,12 @@ mod durable_impl {
     impl Display for UnusedError {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             write!(f, "UnusedError")
+        }
+    }
+
+    impl From<&Error> for Error {
+        fn from(err: &Error) -> Self {
+            err.clone()
         }
     }
 

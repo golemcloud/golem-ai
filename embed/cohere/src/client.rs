@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
 use golem_embed::{
     error::{error_code_from_status, from_reqwest_error},
@@ -121,44 +121,40 @@ pub struct EmbeddingRequest {
     pub input_type: InputType,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub embedding_types: Option<Vec<EmbeddingType>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub texts: Option<Vec<String>>,
 
+    /// DataUri format:jpeg,png    
     #[serde(skip_serializing_if = "Option::is_none")]
     pub images: Option<Vec<String>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_tokens: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub output_dimension: Option<u32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub truncate: Option<Truncate>,
+    pub embedding_types: Option<Vec<EmbeddingType>>,
+
+    #[serde(flatten)]
+    pub provider_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EmbeddingResponse {
     pub id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub images: Option<Vec<ImageRespnse>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub texts: Option<Vec<String>>,
 
     pub embeddings: EmbeddingData,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub meta: Option<Meta>,
+    pub images: Option<Vec<ImageResponse>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub response_type: Option<String>,
+    pub texts: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meta: Option<Meta>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ImageRespnse {
+pub struct ImageResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub width: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -195,10 +191,9 @@ pub struct RerankRequest {
     pub model: String,
     pub query: String,
     pub documents: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_n: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_tokens_per_doc: Option<u32>,
+
+    #[serde(flatten)]
+    pub provider_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -208,6 +203,8 @@ pub struct RerankResponse {
     pub id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meta: Option<Meta>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warnings: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -225,7 +222,7 @@ pub struct Meta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tokens: Option<MetaTokens>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub warning: Option<Vec<String>>,
+    pub warnings: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

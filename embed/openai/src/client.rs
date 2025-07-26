@@ -1,6 +1,5 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
-use base64::{engine::general_purpose, Engine};
 use golem_embed::{
     error::{error_code_from_status, from_reqwest_error},
     golem::embed::embed::Error,
@@ -86,6 +85,9 @@ pub struct EmbeddingRequest {
     pub dimension: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
+
+    #[serde(flatten)]
+    pub provider_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -102,42 +104,18 @@ pub struct EmbeddingUsage {
     pub total_tokens: u32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct EmbeddingData {
-    pub object: String,
-    pub embedding: EmbeddingVector,
-    pub index: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmbeddingVector {
-    FloatArray(Vec<f32>),
+pub enum Embedding {
+    Float32(Vec<f32>),
     Base64(String),
 }
 
-impl EmbeddingVector {
-    pub fn to_float_vec(&self) -> Result<Vec<f32>, String> {
-        match self {
-            EmbeddingVector::FloatArray(vec) => Ok(vec.clone()),
-            EmbeddingVector::Base64(base64_str) => {
-                let bytes = general_purpose::STANDARD
-                    .decode(base64_str)
-                    .map_err(|e| format!("Failed to decode base64: {e}"))?;
-
-                if bytes.len() % 4 != 0 {
-                    return Err("Invalid base64 data: length not divisible by 4".to_string());
-                }
-
-                let mut floats: Vec<f32> = Vec::with_capacity(bytes.len() / 4);
-                for chunk in bytes.chunks_exact(4) {
-                    floats.push(f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
-                }
-
-                Ok(floats)
-            }
-        }
-    }
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EmbeddingData {
+    pub object: String,
+    pub embedding: Embedding,
+    pub index: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

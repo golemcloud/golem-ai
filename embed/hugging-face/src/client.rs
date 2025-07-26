@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
 use golem_embed::{
     error::{error_code_from_status, from_reqwest_error},
@@ -12,7 +12,8 @@ const BASE_URL: &str = "https://router.huggingface.co/hf-inference";
 
 /// The Hugging Face API client for creating embeddings.
 ///
-/// Based on https://huggingface.co/docs/api-inference/index
+/// Based on https://huggingface.co/docs/inference-providers/providers/hf-inference#feature-extraction
+/// Request body schemma https://huggingface.co/docs/inference-providers/tasks/feature-extraction
 pub struct EmbeddingsApi {
     huggingface_api_key: String,
     client: Client,
@@ -73,21 +74,12 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmbeddingRequest {
     pub inputs: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub normalize: Option<bool>,
-    /// The name of the prompt that should be used by for encoding.
-    /// If not set, no prompt will be applied. Must be a key in the
-    /// `sentence-transformers` configuration `prompts` dictionary.
-    /// For example if `prompt_name` is "query" and the `prompts` is {"query": "query: ", …},
-    /// then the sentence "What is the capital of France?" will be encoded as
-    /// "query: What is the capital of France?" because the prompt text will
-    /// be prepended before any text to encode.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prompt_name: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub truncate: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub truncate_direction: Option<TruncateDirection>,
+
+    #[serde(flatten)]
+    pub provider_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,6 +100,9 @@ pub struct RerankRequest {
     pub top_k: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub return_documents: Option<bool>,
+
+    #[serde(flatten)]
+    pub provider_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

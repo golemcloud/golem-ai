@@ -136,14 +136,14 @@ for module in ${modules}
 end
 
 # Copy WIT files for integration tests
-rm -r test/wit
-mkdir test/wit/deps/golem-embed
-mkdir test/wit/deps/io
-cp wit/golem-embed.wit test/wit/deps/golem-embed/golem-embed.wit
-cp wit/deps/wasi:io/error.wit test/wit/deps/io/error.wit
-cp wit/deps/wasi:io/poll.wit test/wit/deps/io/poll.wit
-cp wit/deps/wasi:io/streams.wit test/wit/deps/io/streams.wit
-cp wit/deps/wasi:io/world.wit test/wit/deps/io/world.wit
+rm -r ../test-embed/wit
+mkdir ../test-embed/wit/deps/golem-embed
+mkdir ../test-embed/wit/deps/io
+cp wit/golem-embed.wit ../test-embed/wit/deps/golem-embed/golem-embed.wit
+cp wit/deps/wasi:io/error.wit ../test-embed/wit/deps/io/error.wit
+cp wit/deps/wasi:io/poll.wit ../test-embed/wit/deps/io/poll.wit
+cp wit/deps/wasi:io/streams.wit ../test-embed/wit/deps/io/streams.wit
+cp wit/deps/wasi:io/world.wit ../test-embed/wit/deps/io/world.wit
 
 echo "Copied WIT for module test"
 """
@@ -155,7 +155,7 @@ description = "Builds embed test components with golem-cli"
 script = '''
 cargo-binstall golem-cli@1.2.2-dev.11 --locked --no-confirm
 cargo-binstall wac-cli --locked --no-confirm
-cd test
+cd ../test-embed
 
 golem-cli --version
 golem-cli app clean

@@ -29,7 +29,7 @@ impl VoyageAIApiComponent {
         let request = create_embedding_request(inputs, config.clone());
         match request {
             Ok(request) => match client.generate_embedding(request) {
-                Ok(response) => process_embedding_response(response),
+                Ok(response) => process_embedding_response(config.output_dtype, response),
                 Err(err) => Err(err),
             },
             Err(err) => Err(err),
