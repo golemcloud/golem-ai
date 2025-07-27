@@ -115,7 +115,8 @@ jobs:
         run: |
           set -e
           docker run -d --name ollama -p 11434:11434 ollama/ollama:latest
-          timeout 60 bash -c 'until curl -f http://localhost:11434/api/version; do sleep 2; done'
+          echo "Waiting for Ollama to be ready..."
+          timeout 300 bash -c 'until curl -f http://localhost:11434/api/version; do sleep 5; done'
           echo "Pulling Qwen3:1.7b"
           docker exec ollama ollama pull qwen3:1.7b
           echo "Pulling Gemma3:4b"
@@ -179,28 +180,44 @@ jobs:
         run: |
           set -e
           docker network create graph-net || true
-          docker run -d --name arangodb --network graph-net -e ARANGO_NO_AUTH=1 -p 8529:8529 arangodb/arangodb:latest
-          timeout 60 bash -c 'until curl -f http://localhost:8529/_api/version; do sleep 2; done'
+          
+          # Start ArangoDB with pinned version and increased timeout
+          docker run -d --name arangodb --network graph-net -e ARANGO_NO_AUTH=1 -p 8529:8529 arangodb/arangodb:3.12.4
+          echo "Waiting for ArangoDB to be ready..."
+          timeout 300 bash -c 'until curl -f http://localhost:8529/_api/version; do sleep 5; done'
           curl -X POST http://localhost:8529/_api/database \
             -H "Content-Type: application/json" \
             -d '{"name": "test"}' || echo "Database might already exist"
+          
+          # Start Cassandra with pinned version and increased timeout
           docker run -d --name cassandra --network graph-net -p 9042:9042 cassandra:3.11
-          timeout 120 bash -c 'until docker exec cassandra cqlsh -e "DESCRIBE KEYSPACES" > /dev/null 2>&1; do sleep 5; done'
+          echo "Waiting for Cassandra to be ready..."
+          timeout 300 bash -c 'until docker exec cassandra cqlsh -e "DESCRIBE KEYSPACES" > /dev/null 2>&1; do sleep 10; done'
+          
+          # Start JanusGraph with pinned version and increased timeout
           docker run -d --name janusgraph --network graph-net \
             -e storage.backend=cassandra \
             -e storage.hostname=cassandra \
             -e gremlinserver.channelizer=org.apache.tinkerpop.gremlin.server.channel.WsAndHttpChannelizer \
             -e GREMLIN_OPTS="-Dtx.max-commit-time=60000 -Dstorage.cassandra.read-consistency-level=ONE -Dstorage.cassandra.write-consistency-level=ONE" \
-            -p 8182:8182 janusgraph/janusgraph:latest
-          timeout 60 bash -c 'until curl -f http://localhost:8182/status > /dev/null 2>&1; do sleep 3; done'
+            -p 8182:8182 janusgraph/janusgraph:0.6.0
+          echo "Waiting for JanusGraph to be ready..."
+          timeout 300 bash -c 'until curl -f http://localhost:8182/status > /dev/null 2>&1; do sleep 5; done'
+          
+          # Start Neo4j with pinned version and increased timeout
           docker run -d --name neo4j --network graph-net \
             --publish=7474:7474 --publish=7687:7687 \
             --env=NEO4J_AUTH=neo4j/password \
-            neo4j:latest
-          timeout 120 bash -c 'until curl -f http://localhost:7474/ > /dev/null 2>&1; do sleep 5; done'
-          curl -f http://localhost:8529/_api/version || exit 1
-          curl -f http://localhost:8182/status || exit 1
-          curl -f http://localhost:7474/ || exit 1
+            neo4j:4.4
+          echo "Waiting for Neo4j to be ready..."
+          timeout 300 bash -c 'until curl -f http://localhost:7474/ > /dev/null 2>&1; do sleep 5; done'
+          
+          # Final health checks with better error reporting
+          echo "Performing final health checks..."
+          curl -f http://localhost:8529/_api/version || { echo "ArangoDB health check failed"; exit 1; }
+          curl -f http://localhost:8182/status || { echo "JanusGraph health check failed"; exit 1; }
+          curl -f http://localhost:7474/ || { echo "Neo4j health check failed"; exit 1; }
+          echo "All graph databases are ready!"
       - name: Install and Run latest Golem Server
         run: |
           set -e
