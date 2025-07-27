@@ -266,7 +266,7 @@ impl Guest for Component {
     fn test3() -> String {
         let config = get_connection_config();
 
-        let graph = match connect(&config) {
+        let _graph = match connect(&config) {
             Ok(g) => g,
             Err(e) => {
                 return format!("Connection failed: {:?}", e);
