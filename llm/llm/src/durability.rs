@@ -40,7 +40,7 @@ pub trait ExtendedGuest: Guest + 'static {
                 for tool_call in tool_calls {
                     partial_result_as_content.push(ContentPart::Text(format!(
                         "<tool-call id=\"{}\" name=\"{}\" arguments=\"{}\"/>",
-                        tool_call.id, tool_call.name, tool_call.arguments_json
+                        tool_call.id, tool_call.name, tool_call.arguments_json,
                     )));
                 }
             }
@@ -379,7 +379,7 @@ mod durable_impl {
                 let mut state = self.state.borrow_mut();
                 match &mut *state {
                     Some(DurableChatStreamState::Live { .. }) => {
-                        unreachable!("Durable chat stream cannot be in live mode during replay");
+                        unreachable!("Durable chat stream cannot be in live mode during replay")
                     }
                     Some(DurableChatStreamState::Replay {
                         partial_result,
@@ -403,7 +403,7 @@ mod durable_impl {
                         }
                     }
                     None => {
-                        unreachable!();
+                        unreachable!()
                     }
                 }
                 result
@@ -428,9 +428,7 @@ mod durable_impl {
                         result.extend(events);
                         break result;
                     }
-                    None => {
-                        continue;
-                    }
+                    None => continue
                 }
             }
         }
@@ -473,7 +471,7 @@ mod durable_impl {
             ToolCall, Usage,
         };
         use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
-
+        use golem_rust::wasm_rpc::WitTypeNode;
         use std::fmt::Debug;
 
         fn roundtrip_test<T: Debug + Clone + PartialEq + IntoValueAndType + FromValueAndType>(
@@ -688,7 +686,7 @@ mod durable_impl {
             println!("{encoded:#?}");
 
             for wit_type in encoded.typ.nodes {
-                if let golem_rust::wasm_rpc::WitTypeNode::ListType(idx) = wit_type.type_ {
+                if let WitTypeNode::ListType(idx) = wit_type {
                     assert!(idx >= 0);
                 }
             }
