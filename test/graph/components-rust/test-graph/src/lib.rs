@@ -19,7 +19,6 @@ use crate::bindings::golem::graph::schema::{
     IndexType,
     IndexDefinition,
 };
-
 use crate::bindings::golem::graph::query::execute_query;
 use crate::bindings::golem::graph::traversal::{
     find_shortest_path,
@@ -41,7 +40,6 @@ impl Guest for Component {
     /// test1: Basic CRUD operations - create, read, update, delete vertices and edges
     fn test1() -> String {
         let config = get_connection_config();
-        println!("Running basic CRUD test with {} provider...", PROVIDER);
 
         let graph = match connect(&config) {
             Ok(g) => g,
@@ -53,7 +51,6 @@ impl Guest for Component {
         let mut output = String::new();
         output.push_str(&format!("Connected to {} successfully!\n\n", PROVIDER));
 
-        // Test within a transaction
         let transaction = match graph.begin_transaction() {
             Ok(tx) => tx,
             Err(e) => {
@@ -72,7 +69,7 @@ impl Guest for Component {
             ("industry".to_string(), PropertyValue::StringValue("Technology".to_string()))
         ];
 
-        let alice = match transaction.create_vertex("Person".to_string(), person_props) {
+        let alice = match transaction.create_vertex("Person", &person_props) {
             Ok(v) => {
                 output.push_str(
                     &format!("Created vertex: {} ({})\n", v.vertex_type, format_element_id(&v.id))
@@ -84,7 +81,7 @@ impl Guest for Component {
             }
         };
 
-        let techcorp = match transaction.create_vertex("Company".to_string(), company_props) {
+        let techcorp = match transaction.create_vertex("Company", &company_props) {
             Ok(v) => {
                 output.push_str(
                     &format!("Created vertex: {} ({})\n", v.vertex_type, format_element_id(&v.id))
@@ -102,12 +99,12 @@ impl Guest for Component {
             ("position".to_string(), PropertyValue::StringValue("Developer".to_string()))
         ];
 
-        let works_edge = match
+        let _works_edge = match
             transaction.create_edge(
-                "WORKS_FOR".to_string(),
-                alice.id.clone(),
-                techcorp.id.clone(),
-                works_props
+                "WORKS_FOR",
+                &alice.id.clone(),
+                &techcorp.id.clone(),
+                &works_props
             )
         {
             Ok(e) => {
@@ -122,7 +119,7 @@ impl Guest for Component {
         };
 
         // Read operations
-        match transaction.get_vertex(alice.id.clone()) {
+        match transaction.get_vertex(&alice.id.clone()) {
             Ok(Some(vertex)) => {
                 output.push_str(
                     &format!("Retrieved Alice: {} properties\n", vertex.properties.len())
@@ -141,7 +138,7 @@ impl Guest for Component {
             ("city".to_string(), PropertyValue::StringValue("San Francisco".to_string()))
         ];
 
-        match transaction.update_vertex(alice.id.clone(), updated_props) {
+        match transaction.update_vertex(&alice.id.clone(), &updated_props) {
             Ok(_) => output.push_str("Updated Alice vertex successfully\n"),
             Err(e) => {
                 return format!("Failed to update Alice vertex: {:?}", e);
@@ -163,7 +160,6 @@ impl Guest for Component {
     /// test2: Transaction lifecycle with crash simulation and recovery
     fn test2() -> String {
         let config = get_connection_config();
-        println!("Running transaction lifecycle test with crash simulation using {} provider...", PROVIDER);
 
         let graph = match connect(&config) {
             Ok(g) => g,
@@ -178,7 +174,6 @@ impl Guest for Component {
         let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
         let mut round = 0;
 
-        // Begin transaction
         let transaction = match graph.begin_transaction() {
             Ok(tx) => {
                 output.push_str("Transaction started successfully\n");
@@ -189,13 +184,12 @@ impl Guest for Component {
             }
         };
 
-        // Create some test data
         let props1 = vec![
             ("name".to_string(), PropertyValue::StringValue("Node1".to_string())),
             ("value".to_string(), PropertyValue::Int32(100))
         ];
 
-        let vertex1 = match transaction.create_vertex("TestNode".to_string(), props1) {
+        let vertex1 = match transaction.create_vertex("TestNode", &props1) {
             Ok(v) => {
                 output.push_str(&format!("Created first vertex: {}\n", format_element_id(&v.id)));
                 v
@@ -207,7 +201,6 @@ impl Guest for Component {
 
         round += 1;
 
-        // Crash simulation before creating second vertex
         if round == 1 {
             atomically(|| {
                 let client = TestHelperApi::new(&name);
@@ -218,13 +211,12 @@ impl Guest for Component {
             });
         }
 
-        // After recovery, continue with transaction
         let props2 = vec![
             ("name".to_string(), PropertyValue::StringValue("Node2".to_string())),
             ("value".to_string(), PropertyValue::Int32(200))
         ];
 
-        let vertex2 = match transaction.create_vertex("TestNode".to_string(), props2) {
+        let vertex2 = match transaction.create_vertex("TestNode", &props2) {
             Ok(v) => {
                 output.push_str(
                     &format!("Created second vertex after recovery: {}\n", format_element_id(&v.id))
@@ -236,25 +228,22 @@ impl Guest for Component {
             }
         };
 
-        // Create edge between vertices
         let edge_props = vec![(
             "relationship".to_string(),
             PropertyValue::StringValue("connects".to_string()),
         )];
 
-        match transaction.create_edge("CONNECTS".to_string(), vertex1.id, vertex2.id, edge_props) {
+        match transaction.create_edge("CONNECTS", &vertex1.id, &vertex2.id, &edge_props) {
             Ok(e) => output.push_str(&format!("Created edge: {}\n", format_element_id(&e.id))),
             Err(e) => {
                 return format!("Failed to create edge: {:?}", e);
             }
         }
 
-        // Check transaction is still active
         if transaction.is_active() {
             output.push_str("Transaction is still active before commit\n");
         }
 
-        // Commit transaction
         match transaction.commit() {
             Ok(_) => {
                 output.push_str("Transaction committed successfully after crash recovery\n");
@@ -276,7 +265,6 @@ impl Guest for Component {
     /// test3: Schema operations - type definitions, indexes, constraints
     fn test3() -> String {
         let config = get_connection_config();
-        println!("Running schema operations test using {} provider...", PROVIDER);
 
         let graph = match connect(&config) {
             Ok(g) => g,
@@ -298,27 +286,26 @@ impl Guest for Component {
             }
         };
 
-        // Define vertex label schema
         let user_schema = VertexLabelSchema {
             label: "User".to_string(),
             properties: vec![
                 PropertyDefinition {
                     name: "username".to_string(),
-                    type_: PropertyType::StringType,
+                    property_type: PropertyType::StringType,
                     required: true,
                     unique: true,
                     default_value: None,
                 },
                 PropertyDefinition {
                     name: "email".to_string(),
-                    type_: PropertyType::StringType,
+                    property_type: PropertyType::StringType,
                     required: true,
                     unique: true,
                     default_value: None,
                 },
                 PropertyDefinition {
                     name: "age".to_string(),
-                    type_: PropertyType::Int32,
+                    property_type: PropertyType::Int32,
                     required: false,
                     unique: false,
                     default_value: Some(PropertyValue::Int32(0)),
@@ -327,27 +314,25 @@ impl Guest for Component {
             container: None,
         };
 
-        match schema_manager.define_vertex_label(user_schema) {
+        match schema_manager.define_vertex_label(&user_schema) {
             Ok(_) => output.push_str("Defined User vertex label schema\n"),
             Err(e) => output.push_str(&format!("Failed to define User schema: {:?}\n", e)),
         }
 
-        // Create index
         let username_index = IndexDefinition {
             name: "idx_username".to_string(),
             label: "User".to_string(),
             properties: vec!["username".to_string()],
-            type_: IndexType::Exact,
+            index_type: IndexType::Exact,
             unique: true,
             container: None,
         };
 
-        match schema_manager.create_index(username_index) {
+        match schema_manager.create_index(&username_index) {
             Ok(_) => output.push_str("Created username index\n"),
             Err(e) => output.push_str(&format!("Failed to create username index: {:?}\n", e)),
         }
 
-        // List vertex labels
         match schema_manager.list_vertex_labels() {
             Ok(labels) => {
                 output.push_str(&format!("Vertex labels: {}\n", labels.join(", ")));
@@ -355,12 +340,13 @@ impl Guest for Component {
             Err(e) => output.push_str(&format!("Failed to list vertex labels: {:?}\n", e)),
         }
 
-        // List indexes
         match schema_manager.list_indexes() {
             Ok(indexes) => {
                 output.push_str(&format!("Found {} indexes\n", indexes.len()));
                 for idx in indexes {
-                    output.push_str(&format!("  - {}: {} on {}\n", idx.name, idx.type_, idx.label));
+                    output.push_str(
+                        &format!("  - {}: {:?} on {}\n", idx.name, idx.index_type, idx.label)
+                    );
                 }
             }
             Err(e) => output.push_str(&format!("Failed to list indexes: {:?}\n", e)),
@@ -375,7 +361,6 @@ impl Guest for Component {
     /// test4: Query execution with various complexity levels
     fn test4() -> String {
         let config = get_connection_config();
-        println!("Running query execution test using {} provider...", PROVIDER);
 
         let graph = match connect(&config) {
             Ok(g) => g,
@@ -394,13 +379,12 @@ impl Guest for Component {
             }
         };
 
-        // Create test data first
         let props = vec![
             ("name".to_string(), PropertyValue::StringValue("QueryTest".to_string())),
             ("score".to_string(), PropertyValue::Int32(95))
         ];
 
-        match transaction.create_vertex("TestEntity".to_string(), props) {
+        match transaction.create_vertex("TestEntity", &props) {
             Ok(v) =>
                 output.push_str(&format!("Created test vertex: {}\n", format_element_id(&v.id))),
             Err(e) => {
@@ -408,7 +392,6 @@ impl Guest for Component {
             }
         }
 
-        // Execute unified query using find_vertices
         let filter_condition = crate::bindings::golem::graph::types::FilterCondition {
             property: "score".to_string(),
             operator: crate::bindings::golem::graph::types::ComparisonOperator::GreaterThan,
@@ -417,8 +400,8 @@ impl Guest for Component {
 
         match
             transaction.find_vertices(
-                Some("TestEntity".to_string()),
-                Some(vec![filter_condition]),
+                Some("TestEntity"),
+                Some(&vec![filter_condition]),
                 None,
                 Some(100),
                 None
@@ -429,10 +412,9 @@ impl Guest for Component {
                 output.push_str(&format!("Found {} vertices with score > 90\n", vertices.len()));
 
                 for vertex in vertices.iter().take(5) {
-                    // Show first 5 results
                     if let Some(name) = vertex.properties.iter().find(|(k, _)| k == "name") {
                         if let Some(score) = vertex.properties.iter().find(|(k, _)| k == "score") {
-                            output.push_str(&format!("  - {}: {:?}\n", name.1, score.1));
+                            output.push_str(&format!("  - {:?}: {:?}\n", name.1, score.1));
                         }
                     }
                 }
@@ -454,7 +436,6 @@ impl Guest for Component {
     /// test5: Traversal operations - pathfinding, neighborhood exploration
     fn test5() -> String {
         let config = get_connection_config();
-        println!("Running traversal operations test using {} provider...", PROVIDER);
 
         let graph = match connect(&config) {
             Ok(g) => g,
@@ -473,11 +454,10 @@ impl Guest for Component {
             }
         };
 
-        // Create a small graph for traversal testing
         let node_a = match
             transaction.create_vertex(
-                "Node".to_string(),
-                vec![("name".to_string(), PropertyValue::StringValue("A".to_string()))]
+                "Node",
+                &vec![("name".to_string(), PropertyValue::StringValue("A".to_string()))]
             )
         {
             Ok(v) => v,
@@ -488,8 +468,8 @@ impl Guest for Component {
 
         let node_b = match
             transaction.create_vertex(
-                "Node".to_string(),
-                vec![("name".to_string(), PropertyValue::StringValue("B".to_string()))]
+                "Node",
+                &vec![("name".to_string(), PropertyValue::StringValue("B".to_string()))]
             )
         {
             Ok(v) => v,
@@ -500,8 +480,8 @@ impl Guest for Component {
 
         let node_c = match
             transaction.create_vertex(
-                "Node".to_string(),
-                vec![("name".to_string(), PropertyValue::StringValue("C".to_string()))]
+                "Node",
+                &vec![("name".to_string(), PropertyValue::StringValue("C".to_string()))]
             )
         {
             Ok(v) => v,
@@ -510,37 +490,21 @@ impl Guest for Component {
             }
         };
 
-        // Create edges A->B->C
-        match
-            transaction.create_edge(
-                "CONNECTS".to_string(),
-                node_a.id.clone(),
-                node_b.id.clone(),
-                vec![]
-            )
-        {
+        match transaction.create_edge("CONNECTS", &node_a.id.clone(), &node_b.id.clone(), &vec![]) {
             Ok(_) => output.push_str("Created edge A->B\n"),
             Err(e) => {
                 return format!("Failed to create edge A->B: {:?}", e);
             }
         }
 
-        match
-            transaction.create_edge(
-                "CONNECTS".to_string(),
-                node_b.id.clone(),
-                node_c.id.clone(),
-                vec![]
-            )
-        {
+        match transaction.create_edge("CONNECTS", &node_b.id.clone(), &node_c.id.clone(), &vec![]) {
             Ok(_) => output.push_str("Created edge B->C\n"),
             Err(e) => {
                 return format!("Failed to create edge B->C: {:?}", e);
             }
         }
 
-        // Test pathfinding
-        match find_shortest_path(&transaction, node_a.id.clone(), node_c.id.clone(), None) {
+        match find_shortest_path(&transaction, &node_a.id.clone(), &node_c.id.clone(), None) {
             Ok(Some(path)) => {
                 output.push_str(&format!("Found shortest path A->C: length {}\n", path.length));
                 output.push_str(
@@ -555,7 +519,6 @@ impl Guest for Component {
             Err(e) => output.push_str(&format!("Pathfinding failed: {:?}\n", e)),
         }
 
-        // Test neighborhood exploration
         let neighborhood_opts = NeighborhoodOptions {
             depth: 2,
             direction: Direction::Outgoing,
@@ -563,7 +526,7 @@ impl Guest for Component {
             max_vertices: Some(10),
         };
 
-        match get_neighborhood(&transaction, node_a.id.clone(), neighborhood_opts) {
+        match get_neighborhood(&transaction, &node_a.id.clone(), &neighborhood_opts) {
             Ok(subgraph) => {
                 output.push_str(
                     &format!(
@@ -576,8 +539,7 @@ impl Guest for Component {
             Err(e) => output.push_str(&format!("Neighborhood exploration failed: {:?}\n", e)),
         }
 
-        // Test adjacent vertices
-        match transaction.get_adjacent_vertices(node_b.id, Direction::Both, None, None) {
+        match transaction.get_adjacent_vertices(&node_b.id, Direction::Both, None, None) {
             Ok(adjacent) => {
                 output.push_str(&format!("Node B has {} adjacent vertices\n", adjacent.len()));
             }
@@ -600,7 +562,6 @@ impl Guest for Component {
     /// test6: Batch operations and upserts
     fn test6() -> String {
         let config = get_connection_config();
-        println!("Running batch operations test using {} provider...", PROVIDER);
 
         let graph = match connect(&config) {
             Ok(g) => g,
@@ -619,7 +580,6 @@ impl Guest for Component {
             }
         };
 
-        // Batch create vertices
         let vertex_specs = vec![
             crate::bindings::golem::graph::transactions::VertexSpec {
                 vertex_type: "BatchNode".to_string(),
@@ -647,7 +607,7 @@ impl Guest for Component {
             }
         ];
 
-        let created_vertices = match transaction.create_vertices(vertex_specs) {
+        let created_vertices = match transaction.create_vertices(&vertex_specs) {
             Ok(vertices) => {
                 output.push_str(&format!("Batch created {} vertices\n", vertices.len()));
                 vertices
@@ -657,7 +617,6 @@ impl Guest for Component {
             }
         };
 
-        // Batch create edges
         if created_vertices.len() >= 2 {
             let edge_specs = vec![
                 crate::bindings::golem::graph::transactions::EdgeSpec {
@@ -674,7 +633,7 @@ impl Guest for Component {
                 }
             ];
 
-            match transaction.create_edges(edge_specs) {
+            match transaction.create_edges(&edge_specs) {
                 Ok(edges) => output.push_str(&format!("Batch created {} edges\n", edges.len())),
                 Err(e) => {
                     return format!("Failed to batch create edges: {:?}", e);
@@ -682,35 +641,25 @@ impl Guest for Component {
             }
         }
 
-        // Test upsert operations
         let upsert_props = vec![
             ("name".to_string(), PropertyValue::StringValue("UpsertTest".to_string())),
             ("value".to_string(), PropertyValue::Int32(999))
         ];
 
-        match transaction.upsert_vertex(None, "UpsertNode".to_string(), upsert_props.clone()) {
+        match transaction.upsert_vertex(None, "UpsertNode", &upsert_props.clone()) {
             Ok(_) => output.push_str("Upserted vertex (created new)\n"),
             Err(e) => {
                 return format!("Failed to upsert vertex: {:?}", e);
             }
         }
 
-        // Find vertices by type and filters
         let filters = vec![FilterCondition {
             property: "value".to_string(),
             operator: ComparisonOperator::GreaterThan,
             value: PropertyValue::Int32(15),
         }];
 
-        match
-            transaction.find_vertices(
-                Some("BatchNode".to_string()),
-                Some(filters),
-                None,
-                None,
-                None
-            )
-        {
+        match transaction.find_vertices(Some("BatchNode"), Some(&filters), None, None, None) {
             Ok(found_vertices) => {
                 output.push_str(
                     &format!("Found {} vertices with value > 15\n", found_vertices.len())
@@ -735,7 +684,6 @@ impl Guest for Component {
     /// test7: Error handling for unsupported operations
     fn test7() -> String {
         let config = get_connection_config();
-        println!("Running error handling test using {} provider...", PROVIDER);
 
         let graph = match connect(&config) {
             Ok(g) => g,
@@ -754,9 +702,8 @@ impl Guest for Component {
             }
         };
 
-        // Test invalid query
         let invalid_query = "THIS IS NOT A VALID QUERY SYNTAX!!!";
-        match execute_query(&transaction, invalid_query.to_string(), None, None) {
+        match execute_query(&transaction, invalid_query, None, None) {
             Ok(_) => output.push_str("WARNING: Invalid query unexpectedly succeeded\n"),
             Err(GraphError::InvalidQuery(msg)) => {
                 output.push_str(&format!("Correctly caught invalid query error: {}\n", msg));
@@ -765,11 +712,10 @@ impl Guest for Component {
                 output.push_str(&format!("Invalid query returned different error: {:?}\n", e)),
         }
 
-        // Test accessing non-existent element
         let fake_id = crate::bindings::golem::graph::types::ElementId::StringValue(
             "non-existent-id".to_string()
         );
-        match transaction.get_vertex(fake_id.clone()) {
+        match transaction.get_vertex(&fake_id.clone()) {
             Ok(None) => output.push_str("Correctly returned None for non-existent vertex\n"),
             Ok(Some(_)) => output.push_str("WARNING: Non-existent vertex unexpectedly found\n"),
             Err(GraphError::ElementNotFound(_)) => {
@@ -781,7 +727,6 @@ impl Guest for Component {
                 ),
         }
 
-        // Test unsupported property type (if applicable)
         let vertex_with_complex_props = vec![
             ("name".to_string(), PropertyValue::StringValue("Test".to_string())),
             (
@@ -790,7 +735,7 @@ impl Guest for Component {
             )
         ];
 
-        match transaction.create_vertex("ComplexTest".to_string(), vertex_with_complex_props) {
+        match transaction.create_vertex("ComplexTest", &vertex_with_complex_props) {
             Ok(_) => output.push_str("Complex property types supported\n"),
             Err(GraphError::InvalidPropertyType(msg)) => {
                 output.push_str(&format!("Complex property type not supported: {}\n", msg));
@@ -798,7 +743,6 @@ impl Guest for Component {
             Err(e) => output.push_str(&format!("Complex property creation failed: {:?}\n", e)),
         }
 
-        // Test constraint violation (duplicate unique property)
         let user1_props = vec![
             ("username".to_string(), PropertyValue::StringValue("duplicate_user".to_string())),
             ("email".to_string(), PropertyValue::StringValue("user@test.com".to_string()))
@@ -809,14 +753,12 @@ impl Guest for Component {
             ("email".to_string(), PropertyValue::StringValue("user2@test.com".to_string()))
         ];
 
-        // Create first user
-        match transaction.create_vertex("User".to_string(), user1_props) {
+        match transaction.create_vertex("User", &user1_props) {
             Ok(_) => output.push_str("Created first user\n"),
             Err(e) => output.push_str(&format!("Failed to create first user: {:?}\n", e)),
         }
 
-        // Try to create duplicate user
-        match transaction.create_vertex("User".to_string(), user2_props) {
+        match transaction.create_vertex("User", &user2_props) {
             Ok(_) =>
                 output.push_str(
                     "WARNING: Duplicate user creation succeeded (no constraints enforced)\n"
@@ -846,14 +788,11 @@ impl Guest for Component {
 
     /// test8: Connection management and configuration with durability verification
     fn test8() -> String {
-        println!("Running connection management and durability test using {} provider...", PROVIDER);
-
         let mut output = String::new();
         output.push_str(
             &format!("Testing connection management and durability with {} provider\n\n", PROVIDER)
         );
 
-        // Test connection configuration
         let config = get_connection_config();
         output.push_str(&format!("Connection config created for {}\n", PROVIDER));
 
@@ -867,7 +806,6 @@ impl Guest for Component {
             }
         };
 
-        // Test connection health
         match graph.ping() {
             Ok(_) => output.push_str("Connection health check passed\n"),
             Err(e) => {
@@ -875,7 +813,6 @@ impl Guest for Component {
             }
         }
 
-        // Test durability by creating data, disconnecting, and reconnecting
         let transaction = match graph.begin_transaction() {
             Ok(tx) => {
                 output.push_str("Transaction started for durability test\n");
@@ -886,7 +823,6 @@ impl Guest for Component {
             }
         };
 
-        // Create persistent test data
         let persistent_props = vec![
             ("name".to_string(), PropertyValue::StringValue("DurabilityTest".to_string())),
             (
@@ -903,8 +839,8 @@ impl Guest for Component {
             ("test_id".to_string(), PropertyValue::StringValue("durability_test_node".to_string()))
         ];
 
-        let persistent_vertex = match
-            transaction.create_vertex("PersistentNode".to_string(), persistent_props)
+        let _persistent_vertex = match
+            transaction.create_vertex("PersistentNode", &persistent_props)
         {
             Ok(v) => {
                 output.push_str(
@@ -960,8 +896,8 @@ impl Guest for Component {
 
         match
             verify_transaction.find_vertices(
-                Some("PersistentNode".to_string()),
-                Some(filters),
+                Some("PersistentNode"),
+                Some(&filters),
                 None,
                 None,
                 None
@@ -1025,7 +961,7 @@ impl Guest for Component {
             ("thread_id".to_string(), PropertyValue::StringValue("main".to_string()))
         ];
 
-        match isolation_transaction.create_vertex("ConcurrentNode".to_string(), concurrent_props) {
+        match isolation_transaction.create_vertex("ConcurrentNode", &concurrent_props) {
             Ok(v) =>
                 output.push_str(
                     &format!("Created concurrent test vertex: {}\n", format_element_id(&v.id))
@@ -1043,7 +979,7 @@ impl Guest for Component {
                 ("iteration".to_string(), PropertyValue::Int32(i))
             ];
 
-            match isolation_transaction.create_vertex("RapidNode".to_string(), rapid_props) {
+            match isolation_transaction.create_vertex("RapidNode", &rapid_props) {
                 Ok(v) =>
                     output.push_str(
                         &format!("Rapid operation {} successful: {}\n", i, format_element_id(&v.id))

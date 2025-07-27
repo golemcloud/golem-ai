@@ -1,13 +1,6 @@
-# Schema for IDEA:
-# $schema: https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
-# Schema for vscode-yaml
-# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
-
-# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
-
 components:
   test:graph:
-    defaultProfile: janusgraph-debug
+    defaultProfile: neo4j-debug
     profiles:
       # DEBUG PROFILES
       neo4j-debug:
@@ -17,11 +10,11 @@ components:
               - src
               - wit-generated
             targets:
-              - ../../target/wasm32-wasip1/debug/test-graph.wasm
-          - command: wac plug --plug ../../../target/wasm32-wasip1/debug/golem_graph_neo4j.wasm ../../target/wasm32-wasip1/debug/test-graph.wasm -o ../../target/wasm32-wasip1/debug/test_neo4j_plugged.wasm
+              - ../../target/wasm32-wasip1/debug/test_graph.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_graph_neo4j.wasm ../../target/wasm32-wasip1/debug/test_graph.wasm -o ../../target/wasm32-wasip1/debug/test_neo4j_plugged.wasm
             sources:
-              - ../../target/wasm32-wasip1/debug/test-graph.wasm
-              - ../../../target/wasm32-wasip1/debug/golem_graph_neo4j.wasm
+              - ../../target/wasm32-wasip1/debug/test_graph.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_graph_neo4j.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_neo4j_plugged.wasm
         sourceWit: wit
@@ -31,45 +24,45 @@ components:
         clean:
           - src/bindings.rs
 
-      arangodb-debug:
+      janusgraph-debug:
         build:
-          - command: cargo component build --no-default-features --features arangodb
+          - command: cargo component build --no-default-features --features janus
             sources:
               - src
               - wit-generated
             targets:
-              - ../../target/wasm32-wasip1/debug/test-graph.wasm
-          - command: wac plug --plug ../../../target/wasm32-wasip1/debug/golem_graph_arangodb.wasm ../../target/wasm32-wasip1/debug/test-graph.wasm -o ../../target/wasm32-wasip1/debug/test_arangodb_plugged.wasm
+              - ../../target/wasm32-wasip1/debug/test_graph.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_graph_janus.wasm ../../target/wasm32-wasip1/debug/test_graph.wasm -o ../../target/wasm32-wasip1/debug/test_janus_plugged.wasm
             sources:
-              - ../../target/wasm32-wasip1/debug/test-graph.wasm
-              - ../../../target/wasm32-wasip1/debug/golem_graph_arangodb.wasm
+              - ../../target/wasm32-wasip1/debug/test_graph.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_graph_janus.wasm
             targets:
-              - ../../target/wasm32-wasip1/debug/test_arangodb_plugged.wasm
+              - ../../target/wasm32-wasip1/debug/test_janus_plugged.wasm
         sourceWit: wit
         generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_arangodb_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_arangodb_debug.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/test_janus_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_janus_debug.wasm
         clean:
           - src/bindings.rs
 
-      janusgraph-debug:
+      arangodb-debug:
         build:
-          - command: cargo component build --no-default-features --features janusgraph
+          - command: cargo component build --no-default-features --features arango
             sources:
               - src
               - wit-generated
             targets:
-              - ../../target/wasm32-wasip1/debug/test-graph.wasm
-          - command: wac plug --plug ../../../target/wasm32-wasip1/debug/golem_graph_janusgraph.wasm ../../target/wasm32-wasip1/debug/test-graph.wasm -o ../../target/wasm32-wasip1/debug/test_janusgraph_plugged.wasm
+              - ../../target/wasm32-wasip1/debug/test_graph.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_graph_arango.wasm ../../target/wasm32-wasip1/debug/test_graph.wasm -o ../../target/wasm32-wasip1/debug/test_arango_plugged.wasm
             sources:
-              - ../../target/wasm32-wasip1/debug/test-graph.wasm
-              - ../../../target/wasm32-wasip1/debug/golem_graph_janusgraph.wasm
+              - ../../target/wasm32-wasip1/debug/test_graph.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_graph_arango.wasm
             targets:
-              - ../../target/wasm32-wasip1/debug/test_janusgraph_plugged.wasm
+              - ../../target/wasm32-wasip1/debug/test_arango_plugged.wasm
         sourceWit: wit
         generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_janusgraph_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_janusgraph_debug.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/test_arango_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_arango_debug.wasm
         clean:
           - src/bindings.rs
 
@@ -81,11 +74,11 @@ components:
               - src
               - wit-generated
             targets:
-              - ../../target/wasm32-wasip1/release/test-graph.wasm
-          - command: wac plug --plug ../../../target/wasm32-wasip1/release/golem_graph_neo4j.wasm ../../target/wasm32-wasip1/release/test-graph.wasm -o ../../target/wasm32-wasip1/release/test_neo4j_plugged.wasm
+              - ../../target/wasm32-wasip1/release/test_graph.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_graph_neo4j.wasm ../../target/wasm32-wasip1/release/test_graph.wasm -o ../../target/wasm32-wasip1/release/test_neo4j_plugged.wasm
             sources:
-              - ../../target/wasm32-wasip1/release/test-graph.wasm
-              - ../../../target/wasm32-wasip1/release/golem_graph_neo4j.wasm
+              - ../../target/wasm32-wasip1/release/test_graph.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_graph_neo4j.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_neo4j_plugged.wasm
         sourceWit: wit
@@ -95,48 +88,47 @@ components:
         clean:
           - src/bindings.rs
 
-      arangodb-release:
-        build:
-          - command: cargo component build --release --no-default-features --features arangodb
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/release/test-graph.wasm
-          - command: wac plug --plug ../../../target/wasm32-wasip1/release/golem_graph_arangodb.wasm ../../target/wasm32-wasip1/release/test-graph.wasm -o ../../target/wasm32-wasip1/release/test_arangodb_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test-graph.wasm
-              - ../../../target/wasm32-wasip1/release/golem_graph_arangodb.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_arangodb_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_arangodb_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_arangodb_release.wasm
-        clean:
-          - src/bindings.rs
-
       janusgraph-release:
         build:
-          - command: cargo component build --release --no-default-features --features janusgraph
+          - command: cargo component build --release --no-default-features --features janus
             sources:
               - src
               - wit-generated
             targets:
-              - ../../target/wasm32-wasip1/release/test-graph.wasm
-          - command: wac plug --plug ../../../target/wasm32-wasip1/release/golem_graph_janusgraph.wasm ../../target/wasm32-wasip1/release/test-graph.wasm -o ../../target/wasm32-wasip1/release/test_janusgraph_plugged.wasm
+              - ../../target/wasm32-wasip1/release/test_graph.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_graph_janus.wasm ../../target/wasm32-wasip1/release/test_graph.wasm -o ../../target/wasm32-wasip1/release/test_janus_plugged.wasm
             sources:
-              - ../../target/wasm32-wasip1/release/test-graph.wasm
-              - ../../../target/wasm32-wasip1/release/golem_graph_janusgraph.wasm
+              - ../../target/wasm32-wasip1/release/test_graph.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_graph_janus.wasm
             targets:
-              - ../../target/wasm32-wasip1/release/test_janusgraph_plugged.wasm
+              - ../../target/wasm32-wasip1/release/test_janus_plugged.wasm
         sourceWit: wit
         generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_janusgraph_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_janusgraph_release.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/test_janus_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_janus_release.wasm
         clean:
           - src/bindings.rs
 
+      arangodb-release:
+        build:
+          - command: cargo component build --release --no-default-features --features arango
+            sources:
+              - src
+              - wit-generated
+            targets:
+              - ../../target/wasm32-wasip1/release/test_graph.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_graph_arango.wasm ../../target/wasm32-wasip1/release/test_graph.wasm -o ../../target/wasm32-wasip1/release/test_arango_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_graph.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_graph_arango.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_arango_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_arango_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_arango_release.wasm
+        clean:
+          - src/bindings.rs
 dependencies:
   test:graph:
     - target: test:helper

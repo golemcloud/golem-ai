@@ -16,7 +16,7 @@ janusgraph = []
 
 [dependencies]
 golem-rust = { workspace = true }
-log = { workspace = true }
+log = { version = "0.4.27" }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -26,10 +26,10 @@ wit-bindgen-rt = { workspace = true }
 path = "wit-generated"
 
 [package.metadata.component.target.dependencies]
+"golem:graph" = { path = "wit-generated/deps/golem-graph" }
 "wasi:io" = { path = "wit-generated/deps/io" }
 "wasi:clocks" = { path = "wit-generated/deps/clocks" }
 "golem:rpc" = { path = "wit-generated/deps/golem-rpc" }
-"golem:graph" = { path = "wit-generated/deps/golem-graph" }
 "test:helper-client" = { path = "wit-generated/deps/test_helper-client" }
 "test:graph-exports" = { path = "wit-generated/deps/test_graph-exports" }
 

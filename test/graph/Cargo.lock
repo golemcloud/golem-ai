@@ -864,10 +864,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "test_helper"
+name = "test-graph"
 version = "0.0.0"
 dependencies = [
  "golem-rust",
+ "log",
  "reqwest",
  "serde",
  "serde_json",
@@ -875,11 +876,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "test_websearch"
+name = "test_helper"
 version = "0.0.0"
 dependencies = [
  "golem-rust",
- "log",
  "reqwest",
  "serde",
  "serde_json",

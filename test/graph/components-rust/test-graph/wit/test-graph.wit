@@ -2,7 +2,7 @@ package test:graph;
 
 // See https://component-model.bytecodealliance.org/design/wit.html for more details about the WIT syntax
 
-interface test-websearch-api {
+interface test-graph-api {
   test1: func() -> string;
   test2: func() -> string;
   test3: func() -> string;
@@ -13,7 +13,7 @@ interface test-websearch-api {
   test8: func() -> string;
 }
 
-world test-websearch {
+world test-graph {
   import  golem:graph/types@1.0.0;
   import  golem:graph/errors@1.0.0;
   import  golem:graph/connection@1.0.0;
