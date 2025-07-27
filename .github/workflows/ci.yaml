@@ -116,7 +116,7 @@ jobs:
           set -e
           docker run -d --name ollama -p 11434:11434 ollama/ollama:latest
           echo "Waiting for Ollama to be ready..."
-          timeout 300 bash -c 'until curl -f http://localhost:11434/api/version; do sleep 5; done'
+          timeout 180 bash -c 'until curl -f http://localhost:11434/api/version; do sleep 5; done'
           echo "Pulling Qwen3:1.7b"
           docker exec ollama ollama pull qwen3:1.7b
           echo "Pulling Gemma3:4b"
@@ -194,6 +194,10 @@ jobs:
           echo "Waiting for Cassandra to be ready..."
           timeout 300 bash -c 'until docker exec cassandra cqlsh -e "DESCRIBE KEYSPACES" > /dev/null 2>&1; do sleep 10; done'
           
+          # Give Cassandra extra time to fully initialize before starting JanusGraph
+          echo "Waiting additional time for Cassandra to fully initialize..."
+          sleep 30
+          
           # Start JanusGraph with pinned version and increased timeout
           docker run -d --name janusgraph --network graph-net \
             -e storage.backend=cassandra \
@@ -202,7 +206,7 @@ jobs:
             -e GREMLIN_OPTS="-Dtx.max-commit-time=60000 -Dstorage.cassandra.read-consistency-level=ONE -Dstorage.cassandra.write-consistency-level=ONE" \
             -p 8182:8182 janusgraph/janusgraph:0.6.0
           echo "Waiting for JanusGraph to be ready..."
-          timeout 300 bash -c 'until curl -f http://localhost:8182/status > /dev/null 2>&1; do sleep 5; done'
+          timeout 450 bash -c 'until curl -f http://localhost:8182/status > /dev/null 2>&1; do sleep 10; done'
           
           # Start Neo4j with pinned version and increased timeout
           docker run -d --name neo4j --network graph-net \

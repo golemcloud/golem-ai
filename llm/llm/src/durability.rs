@@ -428,7 +428,7 @@ mod durable_impl {
                         result.extend(events);
                         break result;
                     }
-                    None => continue
+                    None => continue,
                 }
             }
         }
