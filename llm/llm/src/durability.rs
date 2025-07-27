@@ -471,7 +471,6 @@ mod durable_impl {
             ToolCall, Usage,
         };
         use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
-        use golem_rust::wasm_rpc::WitTypeNode;
         use std::fmt::Debug;
 
         fn roundtrip_test<T: Debug + Clone + PartialEq + IntoValueAndType + FromValueAndType>(
@@ -686,7 +685,7 @@ mod durable_impl {
             println!("{encoded:#?}");
 
             for wit_type in encoded.typ.nodes {
-                if let WitTypeNode::ListType(idx) = wit_type {
+                if let golem_rust::wasm_rpc::WitTypeNode::ListType(idx) = wit_type.type_ {
                     assert!(idx >= 0);
                 }
             }
