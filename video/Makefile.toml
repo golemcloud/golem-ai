@@ -148,16 +148,8 @@ echo "Copied WIT for module video"
 
 [tasks.build-test-components]
 dependencies = ["build"]
-install_crate = "cargo-binstall"
 description = "Builds video test components with golem-cli"
-# Bug - on cargo-component 0.20.0 - error happens in wac plug command
-# cannot merge used type `input-stream` as it is expected to be 
-# from interface `wasi:io/streams@0.2.0` but it is from interface `wasi:io/streams@0.2.3`
-# works with cargo-component 0.21.1
 script = '''
-cargo-binstall cargo-component@0.21.1 --locked --no-confirm
-cargo-binstall golem-cli@1.2.5 --locked --no-confirm
-cargo-binstall wac-cli --locked --no-confirm
 cd ../test/video
 
 golem-cli --version
