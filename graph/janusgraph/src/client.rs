@@ -213,6 +213,7 @@ impl JanusGraphClient {
         }
     }
 
+    #[allow(dead_code)]
     pub fn close(&mut self) -> Result<(), GraphError> {
         // Close any active session
         if let Some(state) = &self.session_state {

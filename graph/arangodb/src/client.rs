@@ -125,6 +125,7 @@ impl ArangoClient {
         })
     }
 
+    #[allow(dead_code)]
     fn authenticate(&mut self) -> Result<(), GraphError> {
         Ok(())
     }
@@ -178,11 +179,12 @@ impl ArangoClient {
         }
     }
 
+    #[allow(dead_code)]
     pub fn execute_simple_query(
         &self,
         collection: &str,
-        filter_property: &str,
-        filter_value: &str,
+        _filter_property: &str,
+        _filter_value: &str,
     ) -> Result<ArangoResponse, GraphError> {
         // Use document API instead of cursor API for simple queries
         let url = format!(

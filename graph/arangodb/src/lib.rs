@@ -425,15 +425,15 @@ impl GuestTransaction for ArangoTransaction {
 
     fn find_vertices(
         &self,
-        vertex_type: Option<String>,
-        filters: Option<Vec<FilterCondition>>,
+        _vertex_type: Option<String>,
+        _filters: Option<Vec<FilterCondition>>,
         _sort: Option<Vec<SortSpec>>,
         limit: Option<u32>,
         _offset: Option<u32>,
     ) -> Result<Vec<Vertex>, GraphError> {
-        let client = self.client.borrow();
+        let _client = self.client.borrow();
         let all_vertices = Vec::new();
-        let total_limit = limit.unwrap_or(100);
+        let _total_limit = limit.unwrap_or(100);
         eprintln!(
             "[arangodb] find_vertices: returning empty results due to cursor API limitations"
         );
@@ -737,10 +737,10 @@ impl GuestTransaction for ArangoTransaction {
 
 impl TraversalGuest for ArangoComponent {
     fn find_shortest_path(
-        transaction: TransactionBorrow<'_>,
-        from_vertex: ElementId,
-        to_vertex: ElementId,
-        options: Option<PathOptions>,
+        _transaction: TransactionBorrow<'_>,
+        _from_vertex: ElementId,
+        _to_vertex: ElementId,
+        _options: Option<PathOptions>,
     ) -> Result<Option<Path>, GraphError> {
         eprintln!("[arangodb] find_shortest_path: returning None due to cursor API limitations");
 
@@ -767,9 +767,9 @@ impl TraversalGuest for ArangoComponent {
     }
 
     fn get_neighborhood(
-        transaction: TransactionBorrow<'_>,
-        center: ElementId,
-        options: NeighborhoodOptions,
+        _transaction: TransactionBorrow<'_>,
+        _center: ElementId,
+        _options: NeighborhoodOptions,
     ) -> Result<Subgraph, GraphError> {
         eprintln!(
             "[arangodb] get_neighborhood: returning empty subgraph due to cursor API limitations"

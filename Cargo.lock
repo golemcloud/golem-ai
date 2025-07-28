@@ -843,7 +843,7 @@ dependencies = [
 name = "golem-graph-arangodb"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "golem-graph",
  "golem-rust",
  "log",
@@ -860,7 +860,7 @@ dependencies = [
 name = "golem-graph-janusgraph"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "golem-graph",
  "golem-rust",
  "log",
@@ -878,7 +878,7 @@ dependencies = [
 name = "golem-graph-neo4j"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "golem-graph",
  "golem-rust",
  "js-sys",

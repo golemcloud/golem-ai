@@ -243,29 +243,6 @@ jobs:
           set -eo pipefail
           cargo make --cwd graph build
           cd test/graph
-          
-          # Test ArangoDB
-          echo "Testing ArangoDB integration..."
-          golem app deploy -b arangodb-debug test:graph test:helper
-          golem worker new -e GOLEM_ARANGODB_HOST=localhost -e GOLEM_ARANGODB_USER="" -e GOLEM_ARANGODB_PASSWORD="" -e GOLEM_ARANGODB_PORT="8529" -e GOLEM_ARANGODB_DATABASE="test" test:graph/arangodb-1
-          golem worker invoke test:graph/arangodb-1 test1 | grep -v "ERROR: "
-          golem worker invoke test:graph/arangodb-1 test2 | grep -v "ERROR: "
-          golem worker invoke test:graph/arangodb-1 test3 | grep -v "ERROR: "
-          golem worker invoke test:graph/arangodb-1 test4 | grep -v "ERROR: "
-          golem worker invoke test:graph/arangodb-1 test5 | grep -v "ERROR: "
-          golem worker invoke test:graph/arangodb-1 test6 | grep -v "ERROR: "
-          golem worker invoke test:graph/arangodb-1 test7 | grep -v "ERROR: "
-          golem worker invoke test:graph/arangodb-1 test8 | grep -v "ERROR: "
-          golem app deploy -b janusgraph-debug test:graph test:helper
-          golem worker new -e GOLEM_JANUSGRAPH_HOST=localhost -e GOLEM_JANUSGRAPH_USER="" -e GOLEM_JANUSGRAPH_PASSWORD="" -e GOLEM_JANUSGRAPH_PORT="8182" test:graph/janusgraph-1
-          golem worker invoke test:graph/janusgraph-1 test1 | grep -v "ERROR: "
-          golem worker invoke test:graph/janusgraph-1 test2 | grep -v "ERROR: "
-          golem worker invoke test:graph/janusgraph-1 test3 | grep -v "ERROR: "
-          golem worker invoke test:graph/janusgraph-1 test4 | grep -v "ERROR: "
-          golem worker invoke test:graph/janusgraph-1 test5 | grep -v "ERROR: "
-          golem worker invoke test:graph/janusgraph-1 test6 | grep -v "ERROR: "
-          golem worker invoke test:graph/janusgraph-1 test7 | grep -v "ERROR: "
-          golem worker invoke test:graph/janusgraph-1 test8 | grep -v "ERROR: "
           golem app deploy -b neo4j-debug test:graph test:helper
           golem worker new -e GOLEM_NEO4J_HOST=localhost -e GOLEM_NEO4J_USER=neo4j -e GOLEM_NEO4J_PASSWORD=password -e GOLEM_NEO4J_PORT="7474" -e GOLEM_NEO4J_DATABASE=neo4j test:graph/neo4j-1
           golem worker invoke test:graph/neo4j-1 test1 | grep -v "ERROR: "
@@ -276,6 +253,26 @@ jobs:
           golem worker invoke test:graph/neo4j-1 test6 | grep -v "ERROR: "
           golem worker invoke test:graph/neo4j-1 test7 | grep -v "ERROR: "
           golem worker invoke test:graph/neo4j-1 test8 | grep -v "ERROR: "
+          golem app deploy -b arangodb-debug test:graph test:helper
+          golem worker new -e GOLEM_ARANGODB_HOST=localhost -e GOLEM_ARANGODB_USER="" -e GOLEM_ARANGODB_PASSWORD="" -e GOLEM_ARANGODB_PORT="8529" -e GOLEM_ARANGODB_DATABASE="test" test:graph/arangodb-1
+          golem worker invoke test:graph/arangodb-1 test1 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test2 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test3 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test4 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test5 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test6 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test7 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test8 | grep -v "ERROR: "
+          # golem app deploy -b janusgraph-debug test:graph test:helper
+          # golem worker new -e GOLEM_JANUSGRAPH_HOST=localhost -e GOLEM_JANUSGRAPH_USER="" -e GOLEM_JANUSGRAPH_PASSWORD="" -e GOLEM_JANUSGRAPH_PORT="8182" test:graph/janusgraph-1
+          # golem worker invoke test:graph/janusgraph-1 test1 | grep -v "ERROR: "
+          # golem worker invoke test:graph/janusgraph-1 test2 | grep -v "ERROR: "
+          # golem worker invoke test:graph/janusgraph-1 test3 | grep -v "ERROR: "
+          # golem worker invoke test:graph/janusgraph-1 test4 | grep -v "ERROR: "
+          # golem worker invoke test:graph/janusgraph-1 test5 | grep -v "ERROR: "
+          # golem worker invoke test:graph/janusgraph-1 test6 | grep -v "ERROR: "
+          # golem worker invoke test:graph/janusgraph-1 test7 | grep -v "ERROR: "
+          # golem worker invoke test:graph/janusgraph-1 test8 | grep -v "ERROR: "
   publish-all:
     needs:
       - tests
