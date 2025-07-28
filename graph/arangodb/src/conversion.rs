@@ -127,11 +127,11 @@ fn json_to_vertex(value: &JsonValue) -> Result<Vertex, GraphError> {
         .as_object()
         .ok_or_else(|| GraphError::InternalError("Expected object for vertex".to_string()))?;
 
-    let key = obj
-        .get("_key")
+    let id_value = obj
+        .get("_id")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| GraphError::InternalError("Missing vertex _key".to_string()))?;
-    let id = ElementId::StringValue(key.to_string());
+        .ok_or_else(|| GraphError::InternalError("Missing vertex _id".to_string()))?;
+    let id = ElementId::StringValue(id_value.to_string());
 
     let vertex_type = obj
         .get("_vertex_type")
@@ -171,11 +171,11 @@ fn json_to_edge(value: &JsonValue) -> Result<Edge, GraphError> {
         .as_object()
         .ok_or_else(|| GraphError::InternalError("Expected object for edge".to_string()))?;
 
-    let key = obj
-        .get("_key")
+    let id_value = obj
+        .get("_id")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| GraphError::InternalError("Missing edge _key".to_string()))?;
-    let id = ElementId::StringValue(key.to_string());
+        .ok_or_else(|| GraphError::InternalError("Missing edge _id".to_string()))?;
+    let id = ElementId::StringValue(id_value.to_string());
 
     let edge_type = obj
         .get("_edge_type")
@@ -301,7 +301,7 @@ fn property_value_to_json(value: &PropertyValue) -> Result<JsonValue, GraphError
 }
 
 /// Convert JSON to  PropertyValue
-fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphError> {
+pub fn json_to_property_value(value: &JsonValue) -> Result<PropertyValue, GraphError> {
     match value {
         JsonValue::String(s) => {
             // Try to parse as date/time types first

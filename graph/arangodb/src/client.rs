@@ -12,7 +12,6 @@ pub struct ArangoRequest {
     #[serde(rename = "batchSize")]
     pub batch_size: Option<u32>,
     pub count: Option<bool>,
-    #[serde(rename = "ttl")]
     pub ttl: Option<u32>,
 }
 
@@ -71,35 +70,63 @@ impl ArangoClient {
         }
     }
 
-    fn authenticate(&mut self) -> Result<(), GraphError> {
-        if self.jwt_token.is_some() {
-            return Ok(());
-        }
+    pub fn create_client_from_config(
+        config: &golem_graph::golem::graph::connection::ConnectionConfig,
+    ) -> Result<Self, golem_graph::golem::graph::errors::GraphError> {
+        let host = config
+            .hosts
+            .first()
+            .ok_or_else(|| {
+                golem_graph::golem::graph::errors::GraphError::InternalError(
+                    "No hosts provided".to_string(),
+                )
+            })?
+            .clone();
+        let username = config
+            .username
+            .as_ref()
+            .ok_or_else(|| {
+                golem_graph::golem::graph::errors::GraphError::InternalError(
+                    "Username required".to_string(),
+                )
+            })?
+            .clone();
 
-        let auth_url = format!("{}/_open/auth", self.base_url);
-        let auth_request = ArangoAuthRequest {
-            username: self.username.clone(),
-            password: self.password.clone(),
-        };
+        let password = config.password.as_ref().unwrap_or(&"".to_string()).clone();
+        let database = config
+            .database_name
+            .as_ref()
+            .unwrap_or(&"_system".to_string())
+            .clone();
+        let timeout_seconds = config.timeout_seconds.unwrap_or(30);
 
-        let response = self
-            .client
-            .request(Method::POST, auth_url)
-            .json(&auth_request)
-            .send()
-            .map_err(|err| from_reqwest_error("Authentication failed", err))?;
+        // Construct the base URL with protocol and port
+        let port = config.port.unwrap_or(8529); // Default to ArangoDB port
+        let base_url = format!("http://{host}:{port}");
 
-        if response.status().is_success() {
-            let auth_response: ArangoAuthResponse = response.json().map_err(|err| {
-                GraphError::InternalError(format!("Failed to parse auth response: {err}"))
-            })?;
-            self.jwt_token = Some(auth_response.jwt);
-            Ok(())
-        } else {
-            Err(GraphError::InternalError(
-                "Authentication failed".to_string(),
+        // Create HTTP client with proper configuration for WASI
+        let client_builder = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(timeout_seconds as u64));
+
+        let client = client_builder.build().map_err(|e| {
+            golem_graph::golem::graph::errors::GraphError::InternalError(format!(
+                "Failed to create HTTP client: {e}"
             ))
-        }
+        })?;
+
+        Ok(ArangoClient {
+            client,
+            base_url,
+            database,
+            username,
+            password,
+            jwt_token: None,
+            session_state: None,
+        })
+    }
+
+    fn authenticate(&mut self) -> Result<(), GraphError> {
+        Ok(())
     }
 
     pub fn execute_query(
@@ -107,9 +134,6 @@ impl ArangoClient {
         query: &str,
         bind_vars: Option<HashMap<String, serde_json::Value>>,
     ) -> Result<ArangoResponse, GraphError> {
-        let mut temp_client = self.clone();
-        temp_client.authenticate()?;
-
         let url = format!("{}/_db/{}/_api/cursor", self.base_url, self.database);
         let request = ArangoRequest {
             query: query.to_string(),
@@ -118,14 +142,17 @@ impl ArangoClient {
             count: Some(true),
             ttl: Some(60),
         };
+        match serde_json::to_string(&request) {
+            Ok(json) => eprintln!("[arangodb debug] request body: {json}"),
+            Err(e) => eprintln!("[arangodb debug] failed to serialize request: {e}"),
+        }
 
-        let response = temp_client
+        let response = self
             .client
             .request(Method::POST, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", temp_client.jwt_token.unwrap()),
-            )
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .basic_auth(&self.username, Some(&self.password))
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Query execution failed", err))?;
@@ -151,152 +178,13 @@ impl ArangoClient {
         }
     }
 
-    pub fn begin_transaction(&mut self) -> Result<String, GraphError> {
-        self.authenticate()?;
-
-        let url = format!("{}/_db/{}/_api/transaction", self.base_url, self.database);
-        let request = serde_json::json!({
-            "collections": {
-                "write": ["*"],
-                "read": ["*"]
-            }
-        });
-
-        let response = self
-            .client
-            .request(Method::POST, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
-            )
-            .json(&request)
-            .send()
-            .map_err(|err| from_reqwest_error("Begin transaction failed", err))?;
-
-        if response.status().is_success() {
-            let result: serde_json::Value = response.json().map_err(|err| {
-                GraphError::InternalError(format!("Failed to parse response: {err}"))
-            })?;
-
-            let tx_id = result["result"]["id"]
-                .as_str()
-                .ok_or_else(|| {
-                    GraphError::InternalError("No transaction ID in response".to_string())
-                })?
-                .to_string();
-
-            self.session_state = Some(SessionState {});
-
-            Ok(tx_id)
-        } else {
-            Err(GraphError::TransactionFailed(
-                "Begin transaction failed".to_string(),
-            ))
-        }
-    }
-
-    pub fn begin_read_transaction(&mut self) -> Result<String, GraphError> {
-        self.authenticate()?;
-
-        let url = format!("{}/_db/{}/_api/transaction", self.base_url, self.database);
-        let request = serde_json::json!({
-            "collections": {
-                "read": ["*"]
-            }
-        });
-
-        let response = self
-            .client
-            .request(Method::POST, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
-            )
-            .json(&request)
-            .send()
-            .map_err(|err| from_reqwest_error("Begin read transaction failed", err))?;
-
-        if response.status().is_success() {
-            let result: serde_json::Value = response.json().map_err(|err| {
-                GraphError::InternalError(format!("Failed to parse response: {err}"))
-            })?;
-
-            let tx_id = result["result"]["id"]
-                .as_str()
-                .ok_or_else(|| {
-                    GraphError::InternalError("No transaction ID in response".to_string())
-                })?
-                .to_string();
-
-            self.session_state = Some(SessionState {});
-
-            Ok(tx_id)
-        } else {
-            Err(GraphError::TransactionFailed(
-                "Begin read transaction failed".to_string(),
-            ))
-        }
-    }
-
-    pub fn commit_transaction(&mut self, tx_id: &str) -> Result<(), GraphError> {
-        self.authenticate()?;
-
-        let url = format!(
-            "{}/_db/{}/_api/transaction/{}",
-            self.base_url, self.database, tx_id
-        );
-
-        let response = self
-            .client
-            .request(Method::PUT, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
-            )
-            .send()
-            .map_err(|err| from_reqwest_error("Commit failed", err))?;
-
-        if response.status().is_success() {
-            self.session_state = None;
-            Ok(())
-        } else {
-            Err(GraphError::TransactionFailed("Commit failed".to_string()))
-        }
-    }
-
-    pub fn rollback_transaction(&mut self, tx_id: &str) -> Result<(), GraphError> {
-        self.authenticate()?;
-
-        let url = format!(
-            "{}/_db/{}/_api/transaction/{}",
-            self.base_url, self.database, tx_id
-        );
-
-        let response = self
-            .client
-            .request(Method::DELETE, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
-            )
-            .send()
-            .map_err(|err| from_reqwest_error("Rollback failed", err))?;
-
-        if response.status().is_success() {
-            self.session_state = None;
-            Ok(())
-        } else {
-            Err(GraphError::TransactionFailed("Rollback failed".to_string()))
-        }
-    }
-
-    pub fn create_vertex(
-        &mut self,
+    pub fn execute_simple_query(
+        &self,
         collection: &str,
-        properties: serde_json::Value,
+        filter_property: &str,
+        filter_value: &str,
     ) -> Result<ArangoResponse, GraphError> {
-        self.authenticate()?;
-
+        // Use document API instead of cursor API for simple queries
         let url = format!(
             "{}/_db/{}/_api/document/{}",
             self.base_url, self.database, collection
@@ -304,12 +192,105 @@ impl ArangoClient {
 
         let response = self
             .client
-            .request(Method::POST, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
-            )
-            .json(&properties)
+            .request(Method::GET, url)
+            .header("Content-Type", "application/json")
+            .basic_auth(&self.username, Some(&self.password))
+            .send()
+            .map_err(|err| from_reqwest_error("Simple query failed", err))?;
+
+        if response.status().is_success() {
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
+
+            Ok(ArangoResponse {
+                result: vec![result],
+                has_more: false,
+                count: Some(1),
+                error: false,
+                code: 200,
+                error_message: None,
+                error_num: None,
+            })
+        } else {
+            Err(GraphError::InternalError(format!(
+                "HTTP error: {}",
+                response.status()
+            )))
+        }
+    }
+
+    pub fn begin_transaction(&mut self) -> Result<String, GraphError> {
+        // ArangoDB doesn't use transaction IDs
+        let tx_id = format!(
+            "tx_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        );
+
+        self.session_state = Some(SessionState {});
+        Ok(tx_id)
+    }
+
+    pub fn begin_read_transaction(&mut self) -> Result<String, GraphError> {
+        // ArangoDB doesn't use transaction IDs
+        let tx_id = format!(
+            "tx_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        );
+
+        self.session_state = Some(SessionState {});
+        Ok(tx_id)
+    }
+
+    pub fn commit_transaction(&mut self, _tx_id: &str) -> Result<(), GraphError> {
+        // ArangoDB doesn't use transaction IDs
+        // commit is a no-op
+        self.session_state = None;
+        Ok(())
+    }
+
+    pub fn rollback_transaction(&mut self, _tx_id: &str) -> Result<(), GraphError> {
+        // ArangoDB doesn't use transaction IDs
+        // rollback is a no-op
+        self.session_state = None;
+        Ok(())
+    }
+
+    pub fn create_vertex(
+        &mut self,
+        collection: &str,
+        properties: serde_json::Value,
+    ) -> Result<ArangoResponse, GraphError> {
+        let mut vertex_properties = properties
+            .as_object()
+            .ok_or_else(|| GraphError::InternalError("Properties must be an object".to_string()))?
+            .clone();
+        vertex_properties.insert(
+            "_vertex_type".to_string(),
+            serde_json::Value::String(collection.to_string()),
+        );
+
+        let url = format!(
+            "{}/_db/{}/_api/document/{}",
+            self.base_url, self.database, collection
+        );
+
+        let json_body = serde_json::to_string(&vertex_properties)
+            .map_err(|e| GraphError::InternalError(format!("Failed to serialize request: {e}")))?;
+
+        let response = self
+            .client
+            .request(Method::POST, &url)
+            .header("Content-Type", "application/json")
+            .header("Content-Length", json_body.len().to_string())
+            .basic_auth(&self.username, Some(&self.password))
+            .body(json_body.clone())
             .send()
             .map_err(|err| from_reqwest_error("Create vertex failed", err))?;
 
@@ -328,28 +309,67 @@ impl ArangoClient {
                 error_num: None,
             })
         } else {
-            Err(GraphError::InternalError(
-                "Create vertex failed".to_string(),
-            ))
+            let error_text = response
+                .text()
+                .unwrap_or_else(|_| "Unknown error".to_string());
+
+            // If collection doesn't exist, try to create it and retry
+            if error_text.contains("collection or view not found") {
+                // Create the collection
+                self._create_collection(collection, "document")?;
+
+                // Retry the create vertex operation
+                let retry_response = self
+                    .client
+                    .request(Method::POST, &url)
+                    .header("Content-Type", "application/json")
+                    .header("Content-Length", json_body.len().to_string())
+                    .basic_auth(&self.username, Some(&self.password))
+                    .body(json_body.clone())
+                    .send()
+                    .map_err(|err| from_reqwest_error("Create vertex failed on retry", err))?;
+
+                if retry_response.status().is_success() {
+                    let result: serde_json::Value = retry_response.json().map_err(|err| {
+                        GraphError::InternalError(format!("Failed to parse response: {err}"))
+                    })?;
+
+                    Ok(ArangoResponse {
+                        result: vec![result],
+                        has_more: false,
+                        count: Some(1),
+                        error: false,
+                        code: 200,
+                        error_message: None,
+                        error_num: None,
+                    })
+                } else {
+                    let retry_error_text = retry_response
+                        .text()
+                        .unwrap_or_else(|_| "Unknown error".to_string());
+                    Err(GraphError::InternalError(format!(
+                        "Create vertex failed on retry: {retry_error_text}"
+                    )))
+                }
+            } else {
+                Err(GraphError::InternalError(format!(
+                    "Create vertex failed: {error_text}"
+                )))
+            }
         }
     }
 
     pub fn get_vertex(&self, id: &str) -> Result<ArangoResponse, GraphError> {
-        let mut temp_client = self.clone();
-        temp_client.authenticate()?;
-
         let url = format!(
             "{}/_db/{}/_api/document/{}",
             self.base_url, self.database, id
         );
 
-        let response = temp_client
+        let response = self
             .client
             .request(Method::GET, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", temp_client.jwt_token.unwrap()),
-            )
+            .header("Content-Type", "application/json")
+            .basic_auth(&self.username, Some(&self.password))
             .send()
             .map_err(|err| from_reqwest_error("Get vertex failed", err))?;
 
@@ -387,21 +407,21 @@ impl ArangoClient {
         id: &str,
         properties: serde_json::Value,
     ) -> Result<ArangoResponse, GraphError> {
-        self.authenticate()?;
-
         let url = format!(
             "{}/_db/{}/_api/document/{}",
             self.base_url, self.database, id
         );
 
+        let json_body = serde_json::to_string(&properties)
+            .map_err(|e| GraphError::InternalError(format!("Failed to serialize request: {e}")))?;
+
         let response = self
             .client
             .request(Method::PATCH, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
-            )
-            .json(&properties)
+            .header("Content-Type", "application/json")
+            .header("Content-Length", json_body.len().to_string())
+            .basic_auth(&self.username, Some(&self.password))
+            .body(json_body)
             .send()
             .map_err(|err| from_reqwest_error("Update vertex failed", err))?;
 
@@ -427,8 +447,6 @@ impl ArangoClient {
     }
 
     pub fn delete_vertex(&mut self, id: &str, _delete_edges: bool) -> Result<(), GraphError> {
-        self.authenticate()?;
-
         let url = format!(
             "{}/_db/{}/_api/document/{}",
             self.base_url, self.database, id
@@ -437,10 +455,8 @@ impl ArangoClient {
         let response = self
             .client
             .request(Method::DELETE, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
-            )
+            .header("Content-Type", "application/json")
+            .basic_auth(&self.username, Some(&self.password))
             .send()
             .map_err(|err| from_reqwest_error("Delete vertex failed", err))?;
 
@@ -460,8 +476,6 @@ impl ArangoClient {
         to_id: &str,
         properties: serde_json::Value,
     ) -> Result<ArangoResponse, GraphError> {
-        self.authenticate()?;
-
         let mut edge_properties = properties.as_object().unwrap().clone();
         edge_properties.insert(
             "_from".to_string(),
@@ -471,27 +485,49 @@ impl ArangoClient {
             "_to".to_string(),
             serde_json::Value::String(to_id.to_string()),
         );
+        edge_properties.insert(
+            "_edge_type".to_string(),
+            serde_json::Value::String(collection.to_string()),
+        );
 
         let url = format!(
             "{}/_db/{}/_api/document/{}",
             self.base_url, self.database, collection
         );
 
+        let json_body = serde_json::to_string(&edge_properties)
+            .map_err(|e| GraphError::InternalError(format!("Failed to serialize request: {e}")))?;
+
         let response = self
             .client
-            .request(Method::POST, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
-            )
-            .json(&edge_properties)
+            .request(Method::POST, &url)
+            .header("Content-Type", "application/json")
+            .header("Content-Length", json_body.len().to_string())
+            .basic_auth(&self.username, Some(&self.password))
+            .body(json_body.clone())
             .send()
             .map_err(|err| from_reqwest_error("Create edge failed", err))?;
 
         if response.status().is_success() {
-            let result: serde_json::Value = response.json().map_err(|err| {
+            let mut result: serde_json::Value = response.json().map_err(|err| {
                 GraphError::InternalError(format!("Failed to parse response: {err}"))
             })?;
+
+            // Add _from and _to to the result since ArangoDB create response doesn't include them
+            if let Some(obj) = result.as_object_mut() {
+                obj.insert(
+                    "_from".to_string(),
+                    serde_json::Value::String(from_id.to_string()),
+                );
+                obj.insert(
+                    "_to".to_string(),
+                    serde_json::Value::String(to_id.to_string()),
+                );
+                obj.insert(
+                    "_edge_type".to_string(),
+                    serde_json::Value::String(collection.to_string()),
+                );
+            }
 
             Ok(ArangoResponse {
                 result: vec![result],
@@ -503,26 +539,83 @@ impl ArangoClient {
                 error_num: None,
             })
         } else {
-            Err(GraphError::InternalError("Create edge failed".to_string()))
+            let error_text = response
+                .text()
+                .unwrap_or_else(|_| "Unknown error".to_string());
+
+            // If collection doesn't exist, try to create it and retry
+            if error_text.contains("collection or view not found") {
+                // Create the collection
+                self._create_collection(collection, "edge")?;
+
+                // Retry the create edge operation
+                let retry_response = self
+                    .client
+                    .request(Method::POST, &url)
+                    .header("Content-Type", "application/json")
+                    .header("Content-Length", json_body.len().to_string())
+                    .basic_auth(&self.username, Some(&self.password))
+                    .body(json_body.clone())
+                    .send()
+                    .map_err(|err| from_reqwest_error("Create edge failed on retry", err))?;
+
+                if retry_response.status().is_success() {
+                    let mut result: serde_json::Value = retry_response.json().map_err(|err| {
+                        GraphError::InternalError(format!("Failed to parse response: {err}"))
+                    })?;
+
+                    // Add _from and _to to the result since ArangoDB create response doesn't include them
+                    if let Some(obj) = result.as_object_mut() {
+                        obj.insert(
+                            "_from".to_string(),
+                            serde_json::Value::String(from_id.to_string()),
+                        );
+                        obj.insert(
+                            "_to".to_string(),
+                            serde_json::Value::String(to_id.to_string()),
+                        );
+                        obj.insert(
+                            "_edge_type".to_string(),
+                            serde_json::Value::String(collection.to_string()),
+                        );
+                    }
+
+                    Ok(ArangoResponse {
+                        result: vec![result],
+                        has_more: false,
+                        count: Some(1),
+                        error: false,
+                        code: 200,
+                        error_message: None,
+                        error_num: None,
+                    })
+                } else {
+                    let retry_error_text = retry_response
+                        .text()
+                        .unwrap_or_else(|_| "Unknown error".to_string());
+                    Err(GraphError::InternalError(format!(
+                        "Create edge failed on retry: {retry_error_text}"
+                    )))
+                }
+            } else {
+                Err(GraphError::InternalError(format!(
+                    "Create edge failed: {error_text}"
+                )))
+            }
         }
     }
 
     pub fn get_edge(&self, id: &str) -> Result<ArangoResponse, GraphError> {
-        let mut temp_client = self.clone();
-        temp_client.authenticate()?;
-
         let url = format!(
             "{}/_db/{}/_api/document/{}",
             self.base_url, self.database, id
         );
 
-        let response = temp_client
+        let response = self
             .client
             .request(Method::GET, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", temp_client.jwt_token.unwrap()),
-            )
+            .header("Content-Type", "application/json")
+            .basic_auth(&self.username, Some(&self.password))
             .send()
             .map_err(|err| from_reqwest_error("Get edge failed", err))?;
 
@@ -560,21 +653,21 @@ impl ArangoClient {
         id: &str,
         properties: serde_json::Value,
     ) -> Result<ArangoResponse, GraphError> {
-        self.authenticate()?;
-
         let url = format!(
             "{}/_db/{}/_api/document/{}",
             self.base_url, self.database, id
         );
 
+        let json_body = serde_json::to_string(&properties)
+            .map_err(|e| GraphError::InternalError(format!("Failed to serialize request: {e}")))?;
+
         let response = self
             .client
             .request(Method::PATCH, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
-            )
-            .json(&properties)
+            .header("Content-Type", "application/json")
+            .header("Content-Length", json_body.len().to_string())
+            .basic_auth(&self.username, Some(&self.password))
+            .body(json_body)
             .send()
             .map_err(|err| from_reqwest_error("Update edge failed", err))?;
 
@@ -598,8 +691,6 @@ impl ArangoClient {
     }
 
     pub fn delete_edge(&mut self, id: &str) -> Result<(), GraphError> {
-        self.authenticate()?;
-
         let url = format!(
             "{}/_db/{}/_api/document/{}",
             self.base_url, self.database, id
@@ -608,10 +699,8 @@ impl ArangoClient {
         let response = self
             .client
             .request(Method::DELETE, url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.jwt_token.as_ref().unwrap()),
-            )
+            .header("Content-Type", "application/json")
+            .basic_auth(&self.username, Some(&self.password))
             .send()
             .map_err(|err| from_reqwest_error("Delete edge failed", err))?;
 
@@ -628,6 +717,7 @@ impl ArangoClient {
         let response = self
             .client
             .request(Method::GET, url)
+            .basic_auth(&self.username, Some(&self.password))
             .send()
             .map_err(|err| from_reqwest_error("Ping failed", err))?;
 
@@ -685,6 +775,10 @@ impl ArangoClient {
 
     pub fn get_database(&self) -> String {
         self.database.clone()
+    }
+
+    pub fn is_session_active(&self) -> bool {
+        self.session_state.is_some()
     }
 
     pub fn _execute_batch(&self, queries: Vec<String>) -> Result<Vec<ArangoResponse>, GraphError> {
@@ -813,8 +907,48 @@ impl ArangoClient {
         name: &str,
         collection_type: &str,
     ) -> Result<ArangoResponse, GraphError> {
-        let query = format!("db._create('{name}', {{ type: '{collection_type}' }})");
-        self.execute_query(&query, None)
+        let url = format!("{}/_db/{}/_api/collection", self.base_url, self.database);
+
+        let request_body = serde_json::json!({
+            "name": name,
+            "type": if collection_type == "edge" { 3 } else { 2 }
+        });
+
+        let json_body = serde_json::to_string(&request_body)
+            .map_err(|e| GraphError::InternalError(format!("Failed to serialize request: {e}")))?;
+
+        let response = self
+            .client
+            .request(Method::POST, url)
+            .header("Content-Type", "application/json")
+            .header("Content-Length", json_body.len().to_string())
+            .basic_auth(&self.username, Some(&self.password))
+            .body(json_body)
+            .send()
+            .map_err(|err| from_reqwest_error("Create collection failed", err))?;
+
+        if response.status().is_success() {
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
+
+            Ok(ArangoResponse {
+                result: vec![result],
+                has_more: false,
+                count: Some(1),
+                error: false,
+                code: 200,
+                error_message: None,
+                error_num: None,
+            })
+        } else {
+            let error_text = response
+                .text()
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            Err(GraphError::InternalError(format!(
+                "Create collection failed: {error_text}"
+            )))
+        }
     }
 
     pub fn _drop_collection(&self, name: &str) -> Result<ArangoResponse, GraphError> {

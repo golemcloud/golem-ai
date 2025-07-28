@@ -33,7 +33,33 @@ pub struct Neo4jResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Neo4jData {
     pub row: Vec<serde_json::Value>,
+    #[serde(deserialize_with = "deserialize_meta_array")]
     pub meta: Vec<Neo4jMeta>,
+}
+
+fn deserialize_meta_array<'de, D>(deserializer: D) -> Result<Vec<Neo4jMeta>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let values: Vec<serde_json::Value> = Vec::deserialize(deserializer)?;
+    let mut metas = Vec::new();
+
+    for value in values {
+        if value.is_null() {
+            metas.push(Neo4jMeta {
+                id: None,
+                meta_type: None,
+                deleted: None,
+            });
+        } else {
+            let meta: Neo4jMeta = serde_json::from_value(value).map_err(|e| {
+                serde::de::Error::custom(format!("Failed to deserialize Neo4jMeta: {e}"))
+            })?;
+            metas.push(meta);
+        }
+    }
+
+    Ok(metas)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,7 +105,7 @@ impl Neo4jClient {
     }
 
     pub fn create_client_from_config(config: &ConnectionConfig) -> Result<Self, GraphError> {
-        let base_url = config
+        let host = config
             .hosts
             .first()
             .ok_or_else(|| GraphError::InternalError("No hosts provided".to_string()))?
@@ -98,6 +124,10 @@ impl Neo4jClient {
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect::<HashMap<String, String>>();
+
+        // Construct the base URL with protocol and port
+        let port = config.port.unwrap_or(7474); // Default to HTTP port
+        let base_url = format!("http://{host}:{port}");
 
         // Create HTTP client with proper configuration
         let client_builder =
@@ -154,6 +184,10 @@ impl Neo4jClient {
         self.password.clone()
     }
 
+    pub fn is_session_active(&self) -> bool {
+        self.session_state.is_some()
+    }
+
     pub fn execute_cypher(
         &self,
         query: String,
@@ -162,7 +196,7 @@ impl Neo4jClient {
         trace!("Executing Cypher query: {query}");
 
         let statement = Neo4jStatement {
-            statement: query,
+            statement: query.clone(),
             parameters,
         };
 
@@ -186,16 +220,14 @@ impl Neo4jClient {
             .send()
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        self.parse_response(response)
+        let parsed_response = self.parse_response(response)?;
+
+        Ok(parsed_response)
     }
 
     pub fn ping(&self) -> Result<(), GraphError> {
-        // Build the URL with database name if specified
-        let url = if let Some(db_name) = &self.database_name {
-            format!("{}/db/{}/", self.base_url, db_name)
-        } else {
-            format!("{}/db/data", self.base_url)
-        };
+        // Use the root endpoint for ping - this is the standard Neo4j health check endpoint
+        let url = format!("{}/", self.base_url);
 
         let response = self
             .client
@@ -329,32 +361,6 @@ impl Neo4jClient {
 
     pub fn begin_read_transaction(&mut self) -> Result<String, GraphError> {
         self.begin_transaction()
-    }
-
-    pub fn commit_transaction(&mut self, session_id: &str) -> Result<(), GraphError> {
-        // Build the URL with database name if specified
-        let url = if let Some(db_name) = &self.database_name {
-            format!("{}/db/{}/tx/{}/commit", self.base_url, db_name, session_id)
-        } else {
-            format!(
-                "{}/db/data/transaction/{}/commit",
-                self.base_url, session_id
-            )
-        };
-
-        let response = self
-            .client
-            .request(Method::POST, url)
-            .basic_auth(&self.username, Some(&self.password))
-            .send()
-            .map_err(|err| from_reqwest_error("Commit failed", err))?;
-
-        if response.status().is_success() {
-            self.session_state = None;
-            Ok(())
-        } else {
-            Err(GraphError::TransactionFailed("Commit failed".to_string()))
-        }
     }
 
     pub fn rollback_transaction(&mut self, session_id: &str) -> Result<(), GraphError> {

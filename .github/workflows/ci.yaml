@@ -147,10 +147,10 @@ jobs:
           golem worker invoke test:llm/ollama-1 test2 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test3 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test4 | grep -v "ERROR: "
-          golem worker invoke test:llm/ollama-1 test5 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test6 | grep -v "ERROR: "
-          golem worker invoke test:llm/ollama-1 test7 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test8 | grep -v "ERROR: "
+          golem worker invoke test:llm/ollama-1 test5 | grep -v "ERROR: "
+          golem worker invoke test:llm/ollama-1 test7 | grep -v "ERROR: "
   graph-integration-tests:
     runs-on: ubuntu-latest
     steps:
@@ -199,14 +199,15 @@ jobs:
           sleep 30
           
           # Start JanusGraph with pinned version and increased timeout
+          # Updated configuration to reduce lock timeouts
           docker run -d --name janusgraph --network graph-net \
             -e storage.backend=cassandra \
             -e storage.hostname=cassandra \
             -e gremlinserver.channelizer=org.apache.tinkerpop.gremlin.server.channel.WsAndHttpChannelizer \
-            -e GREMLIN_OPTS="-Dtx.max-commit-time=60000 -Dstorage.cassandra.read-consistency-level=ONE -Dstorage.cassandra.write-consistency-level=ONE" \
+            -e GREMLIN_OPTS="-Dtx.max-commit-time=60000 -Dstorage.cassandra.read-consistency-level=ONE -Dstorage.cassandra.write-consistency-level=ONE -Dstorage.lock.wait-time=10000 -Dstorage.lock.retries=10" \
             -p 8182:8182 janusgraph/janusgraph:0.6.0
           echo "Waiting for JanusGraph to be ready..."
-          timeout 450 bash -c 'until curl -f http://localhost:8182/status > /dev/null 2>&1; do sleep 10; done'
+          timeout 900 bash -c 'until curl -X POST http://localhost:8182 -H "Content-Type: application/json" -d '"'"'{"gremlin": "1+1"}'"'"' > /dev/null 2>&1; do echo "JanusGraph not ready yet, checking logs..."; docker logs --tail 10 janusgraph; sleep 15; done'
           
           # Start Neo4j with pinned version and increased timeout
           docker run -d --name neo4j --network graph-net \
@@ -219,7 +220,7 @@ jobs:
           # Final health checks with better error reporting
           echo "Performing final health checks..."
           curl -f http://localhost:8529/_api/version || { echo "ArangoDB health check failed"; exit 1; }
-          curl -f http://localhost:8182/status || { echo "JanusGraph health check failed"; exit 1; }
+          curl -X POST http://localhost:8182 -H "Content-Type: application/json" -d '{"gremlin": "1+1"}' || { echo "JanusGraph health check failed"; exit 1; }
           curl -f http://localhost:7474/ || { echo "Neo4j health check failed"; exit 1; }
           echo "All graph databases are ready!"
       - name: Install and Run latest Golem Server
@@ -236,10 +237,13 @@ jobs:
       - name: Build and test Graph integration
         run: |
           set -eo pipefail
-          cargo make --cwd graph build-graph
+          cargo make --cwd graph build
           cd test/graph
+          
+          # Test ArangoDB
+          echo "Testing ArangoDB integration..."
           golem app deploy -b arangodb-debug test:graph test:helper
-          golem worker new -e ARANGODB_HOST=localhost -e ARANGODB_USER="" -e ARANGODB_PASSWORD="" -e ARANGODB_PORT="8529" -e ARANGODB_DATABASE="test" test:graph/arangodb-1
+          golem worker new -e GOLEM_ARANGODB_HOST=localhost -e GOLEM_ARANGODB_USER="" -e GOLEM_ARANGODB_PASSWORD="" -e GOLEM_ARANGODB_PORT="8529" -e GOLEM_ARANGODB_DATABASE="test" test:graph/arangodb-1
           golem worker invoke test:graph/arangodb-1 test1 | grep -v "ERROR: "
           golem worker invoke test:graph/arangodb-1 test2 | grep -v "ERROR: "
           golem worker invoke test:graph/arangodb-1 test3 | grep -v "ERROR: "
@@ -249,7 +253,7 @@ jobs:
           golem worker invoke test:graph/arangodb-1 test7 | grep -v "ERROR: "
           golem worker invoke test:graph/arangodb-1 test8 | grep -v "ERROR: "
           golem app deploy -b janusgraph-debug test:graph test:helper
-          golem worker new -e JANUSGRAPH_HOST=localhost -e JANUSGRAPH_USER="" -e JANUSGRAPH_PASSWORD="" -e JANUSGRAPH_PORT="8182" test:graph/janusgraph-1
+          golem worker new -e GOLEM_JANUSGRAPH_HOST=localhost -e GOLEM_JANUSGRAPH_USER="" -e GOLEM_JANUSGRAPH_PASSWORD="" -e GOLEM_JANUSGRAPH_PORT="8182" test:graph/janusgraph-1
           golem worker invoke test:graph/janusgraph-1 test1 | grep -v "ERROR: "
           golem worker invoke test:graph/janusgraph-1 test2 | grep -v "ERROR: "
           golem worker invoke test:graph/janusgraph-1 test3 | grep -v "ERROR: "
@@ -259,7 +263,7 @@ jobs:
           golem worker invoke test:graph/janusgraph-1 test7 | grep -v "ERROR: "
           golem worker invoke test:graph/janusgraph-1 test8 | grep -v "ERROR: "
           golem app deploy -b neo4j-debug test:graph test:helper
-          golem worker new -e NEO4J_HOST=localhost -e NEO4J_USER=neo4j -e NEO4J_PASSWORD=password -e NEO4J_PORT="7474" -e NEO4J_DATABASE=neo4j test:graph/neo4j-1
+          golem worker new -e GOLEM_NEO4J_HOST=localhost -e GOLEM_NEO4J_USER=neo4j -e GOLEM_NEO4J_PASSWORD=password -e GOLEM_NEO4J_PORT="7474" -e GOLEM_NEO4J_DATABASE=neo4j test:graph/neo4j-1
           golem worker invoke test:graph/neo4j-1 test1 | grep -v "ERROR: "
           golem worker invoke test:graph/neo4j-1 test2 | grep -v "ERROR: "
           golem worker invoke test:graph/neo4j-1 test3 | grep -v "ERROR: "

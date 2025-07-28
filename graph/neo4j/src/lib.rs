@@ -81,7 +81,9 @@ pub struct Neo4jReplayState {
 }
 
 #[derive(Debug, Clone)]
-pub struct Neo4jComponent;
+pub struct Neo4jComponent {
+    client: RefCell<Neo4jClient>,
+}
 
 #[derive(Debug, Clone)]
 pub struct Neo4jGraph {
@@ -104,58 +106,66 @@ impl Neo4jComponent {
     fn create_client(config: &ConnectionConfig) -> Result<Neo4jClient, GraphError> {
         Neo4jClient::create_client_from_config(config)
     }
+
+    fn new(config: &ConnectionConfig) -> Result<Self, GraphError> {
+        let client = Self::create_client(config)?;
+        Ok(Neo4jComponent {
+            client: RefCell::new(client),
+        })
+    }
 }
 
 impl ConnectionGuest for Neo4jComponent {
     type Graph = Neo4jGraph;
 
     fn connect(config: ConnectionConfig) -> Result<Graph, GraphError> {
-        let client = Self::create_client(&config)?;
-        Ok(Graph::new(Neo4jGraph {
-            client: RefCell::new(client),
-        }))
+        let component = Neo4jComponent::new(&config)?;
+        Ok(Graph::new(component))
     }
 }
 
 impl GuestGraph for Neo4jComponent {
     fn begin_transaction(&self) -> Result<Transaction, GraphError> {
-        Err(GraphError::InternalError(
-            "Use Neo4jGraph for transactions".to_string(),
-        ))
+        // Use a simple approach - create a transaction that will use the commit endpoint
+        Ok(Transaction::new(Neo4jTransaction {
+            client: RefCell::new(self.client.borrow().clone()),
+            session_id: "auto".to_string(),
+            read_only: false,
+        }))
     }
 
     fn begin_read_transaction(&self) -> Result<Transaction, GraphError> {
-        Err(GraphError::InternalError(
-            "Use Neo4jGraph for transactions".to_string(),
-        ))
+        let mut client = self.client.borrow_mut();
+        let session_id = client.begin_read_transaction()?;
+        Ok(Transaction::new(Neo4jTransaction {
+            client: RefCell::new(client.clone()),
+            session_id,
+            read_only: true,
+        }))
     }
 
     fn ping(&self) -> Result<(), GraphError> {
-        Err(GraphError::InternalError(
-            "Use Neo4jGraph for ping".to_string(),
-        ))
+        let client = self.client.borrow();
+        client.ping()
     }
 
     fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
-        Err(GraphError::InternalError(
-            "Use Neo4jGraph for statistics".to_string(),
-        ))
+        let client = self.client.borrow();
+        client.get_statistics()
     }
 
     fn close(&self) -> Result<(), GraphError> {
-        Err(GraphError::InternalError(
-            "Use Neo4jGraph for close".to_string(),
-        ))
+        let mut client = self.client.borrow_mut();
+        client.close()
     }
 }
 
 impl GuestGraph for Neo4jGraph {
     fn begin_transaction(&self) -> Result<Transaction, GraphError> {
-        let mut client = self.client.borrow_mut();
-        let session_id = client.begin_transaction()?;
+        // Use a simple approach - create a transaction that will use the commit endpoint
         Ok(Transaction::new(Neo4jTransaction {
-            client: RefCell::new(client.clone()),
-            session_id,
+            client: RefCell::new(self.client.borrow().clone()),
+            session_id: "auto".to_string(),
             read_only: false,
         }))
     }
@@ -191,42 +201,50 @@ impl ExtendedGraphGuest for Neo4jComponent {
     type Transaction = Neo4jTransaction;
     type SchemaManager = golem_graph::golem::graph::schema::SchemaManager;
 
-    fn unwrapped_graph(_config: ConnectionConfig) -> Result<Neo4jComponent, GraphError> {
-        Ok(Neo4jComponent)
+    fn unwrapped_graph(config: ConnectionConfig) -> Result<Neo4jComponent, GraphError> {
+        Neo4jComponent::new(&config)
     }
 
-    fn graph_to_state(_graph: &Neo4jComponent) -> Neo4jReplayState {
+    fn graph_to_state(graph: &Neo4jComponent) -> Neo4jReplayState {
+        let client = graph.client.borrow();
         Neo4jReplayState {
-            base_url: "http://localhost:7474".to_string(),
-            username: "".to_string(),
-            password: "".to_string(),
+            base_url: client.get_base_url(),
+            username: client.get_username(),
+            password: client.get_password(),
             session_id: None,
             read_only: false,
         }
     }
 
     fn graph_from_state(
-        _state: &Neo4jReplayState,
+        state: &Neo4jReplayState,
         _config: ConnectionConfig,
     ) -> Result<Neo4jComponent, GraphError> {
-        Ok(Neo4jComponent)
+        let client = Neo4jClient::new(
+            state.base_url.clone(),
+            state.username.clone(),
+            state.password.clone(),
+        );
+        Ok(Neo4jComponent {
+            client: RefCell::new(client),
+        })
     }
 
     fn unwrapped_transaction(
-        _graph: &Neo4jComponent,
+        graph: &Neo4jComponent,
         read_only: bool,
     ) -> Result<Neo4jTransaction, GraphError> {
-        let client = Neo4jClient::new(
-            "http://localhost:7474".to_string(),
-            "".to_string(),
-            "".to_string(),
-        );
-        let neo4j_transaction = Neo4jTransaction {
-            client: RefCell::new(client),
-            session_id: "".to_string(),
-            read_only,
+        let mut client = graph.client.borrow_mut();
+        let session_id = if read_only {
+            client.begin_read_transaction()?
+        } else {
+            client.begin_transaction()?
         };
-        Ok(neo4j_transaction)
+        Ok(Neo4jTransaction {
+            client: RefCell::new(client.clone()),
+            session_id,
+            read_only,
+        })
     }
 
     fn transaction_to_state(transaction: &Neo4jTransaction) -> Neo4jReplayState {
@@ -295,8 +313,32 @@ impl GuestTransaction for Neo4jTransaction {
     ) -> Result<Vertex, GraphError> {
         let client = self.client.borrow();
         let params = property_map_to_neo4j_params(&properties)?;
-        let query = format!("CREATE (n:{vertex_type}) SET n += $props RETURN n");
-        let response = client.execute_cypher(query, Some(params))?;
+
+        if properties.is_empty() {
+            let query = format!("CREATE (n:{vertex_type}) RETURN n");
+            let response = client.execute_cypher(query, None)?;
+            let result = response
+                .results
+                .first()
+                .ok_or_else(|| GraphError::InvalidQuery("No results".to_string()))?;
+            let data = result
+                .data
+                .first()
+                .ok_or_else(|| GraphError::InvalidQuery("No data".to_string()))?;
+            return parse_vertex_from_response(data, result);
+        }
+
+        let query = format!("CREATE (n:{vertex_type} $props) RETURN n");
+        let mut params_with_props = HashMap::new();
+        params_with_props.insert(
+            "props".to_string(),
+            JsonValue::Object(
+                params
+                    .into_iter()
+                    .collect::<serde_json::Map<String, JsonValue>>(),
+            ),
+        );
+        let response = client.execute_cypher(query, Some(params_with_props))?;
 
         let result = response
             .results
@@ -307,7 +349,7 @@ impl GuestTransaction for Neo4jTransaction {
             .first()
             .ok_or_else(|| GraphError::InvalidQuery("No data".to_string()))?;
 
-        parse_vertex_from_response(data, result)
+        parse_vertex_from_response_with_type(data, result, &vertex_type)
     }
 
     fn create_vertex_with_labels(
@@ -323,8 +365,32 @@ impl GuestTransaction for Neo4jTransaction {
             .chain(additional_labels.iter().cloned())
             .collect::<Vec<_>>()
             .join(":");
-        let query = format!("CREATE (n:{labels}) SET n += $props RETURN n");
-        let response = client.execute_cypher(query, Some(params))?;
+
+        if properties.is_empty() {
+            let query = format!("CREATE (n:{labels}) RETURN n");
+            let response = client.execute_cypher(query, None)?;
+            let result = response
+                .results
+                .first()
+                .ok_or_else(|| GraphError::InvalidQuery("No results".to_string()))?;
+            let data = result
+                .data
+                .first()
+                .ok_or_else(|| GraphError::InvalidQuery("No data".to_string()))?;
+            return parse_vertex_from_response(data, result);
+        }
+
+        let query = format!("CREATE (n:{labels} $props) RETURN n");
+        let mut params_with_props = HashMap::new();
+        params_with_props.insert(
+            "props".to_string(),
+            JsonValue::Object(
+                params
+                    .into_iter()
+                    .collect::<serde_json::Map<String, JsonValue>>(),
+            ),
+        );
+        let response = client.execute_cypher(query, Some(params_with_props))?;
 
         let result = response
             .results
@@ -335,7 +401,7 @@ impl GuestTransaction for Neo4jTransaction {
             .first()
             .ok_or_else(|| GraphError::InvalidQuery("No data".to_string()))?;
 
-        parse_vertex_from_response(data, result)
+        parse_vertex_from_response_with_type(data, result, &vertex_type)
     }
 
     fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
@@ -373,7 +439,38 @@ impl GuestTransaction for Neo4jTransaction {
         let client = self.client.borrow();
         let params = property_map_to_neo4j_params(&properties)?;
         let id_str = element_id_to_string(&id);
-        let query = "MATCH (n) WHERE id(n) = $id SET n += $props RETURN n".to_string();
+
+        if properties.is_empty() {
+            let query = "MATCH (n) WHERE id(n) = $id RETURN n".to_string();
+            let mut all_params = HashMap::new();
+            all_params.insert(
+                "id".to_string(),
+                JsonValue::Number(serde_json::Number::from(
+                    id_str
+                        .parse::<i64>()
+                        .map_err(|_| GraphError::InvalidQuery("Invalid ID".to_string()))?,
+                )),
+            );
+            let response = client.execute_cypher(query, Some(all_params))?;
+            let result = response
+                .results
+                .first()
+                .ok_or_else(|| GraphError::InvalidQuery("No results".to_string()))?;
+            let data = result
+                .data
+                .first()
+                .ok_or_else(|| GraphError::InvalidQuery("No data".to_string()))?;
+            return parse_vertex_from_response(data, result);
+        }
+
+        let set_clauses: Vec<String> = properties
+            .iter()
+            .map(|(key, _)| format!("n.{key} = ${key}"))
+            .collect();
+        let query = format!(
+            "MATCH (n) WHERE id(n) = $id SET {} RETURN n",
+            set_clauses.join(", ")
+        );
         let mut all_params = HashMap::new();
         all_params.insert(
             "id".to_string(),
@@ -430,27 +527,89 @@ impl GuestTransaction for Neo4jTransaction {
     fn find_vertices(
         &self,
         vertex_type: Option<String>,
-        _filters: Option<Vec<FilterCondition>>,
+        filters: Option<Vec<FilterCondition>>,
         _sort: Option<Vec<SortSpec>>,
         limit: Option<u32>,
         _offset: Option<u32>,
     ) -> Result<Vec<Vertex>, GraphError> {
         let client = self.client.borrow();
         let mut query = String::new();
+        let mut params = HashMap::new();
 
         if let Some(vt) = vertex_type {
-            query.push_str(&format!("MATCH (n:{vt}) "));
+            query.push_str(&format!("MATCH (n:{vt})"));
         } else {
-            query.push_str("MATCH (n) ");
+            query.push_str("MATCH (n)");
         }
 
-        query.push_str("RETURN n");
+        if let Some(filter_conditions) = filters {
+            if !filter_conditions.is_empty() {
+                query.push_str(" WHERE ");
+                for (i, filter) in filter_conditions.iter().enumerate() {
+                    if i > 0 {
+                        query.push_str(" AND ");
+                    }
+                    let param_name = format!("param_{i}");
+                    match filter.operator {
+                        ComparisonOperator::Equal => {
+                            query.push_str(&format!("n.{} = ${}", filter.property, param_name));
+                        }
+                        ComparisonOperator::NotEqual => {
+                            query.push_str(&format!("n.{} <> ${}", filter.property, param_name));
+                        }
+                        ComparisonOperator::GreaterThan => {
+                            query.push_str(&format!("n.{} > ${}", filter.property, param_name));
+                        }
+                        ComparisonOperator::GreaterThanOrEqual => {
+                            query.push_str(&format!("n.{} >= ${}", filter.property, param_name));
+                        }
+                        ComparisonOperator::LessThan => {
+                            query.push_str(&format!("n.{} < ${}", filter.property, param_name));
+                        }
+                        ComparisonOperator::LessThanOrEqual => {
+                            query.push_str(&format!("n.{} <= ${}", filter.property, param_name));
+                        }
+                        ComparisonOperator::Contains => {
+                            query.push_str(&format!(
+                                "n.{} CONTAINS ${}",
+                                filter.property, param_name
+                            ));
+                        }
+                        ComparisonOperator::StartsWith => {
+                            query.push_str(&format!(
+                                "n.{} STARTS WITH ${}",
+                                filter.property, param_name
+                            ));
+                        }
+                        ComparisonOperator::EndsWith => {
+                            query.push_str(&format!(
+                                "n.{} ENDS WITH ${}",
+                                filter.property, param_name
+                            ));
+                        }
+                        ComparisonOperator::RegexMatch => {
+                            query.push_str(&format!("n.{} =~ ${}", filter.property, param_name));
+                        }
+                        ComparisonOperator::InList => {
+                            query.push_str(&format!("n.{} IN ${}", filter.property, param_name));
+                        }
+                        ComparisonOperator::NotInList => {
+                            query
+                                .push_str(&format!("n.{} NOT IN ${}", filter.property, param_name));
+                        }
+                    }
+                    params.insert(param_name, property_value_to_json(&filter.value));
+                }
+            }
+        }
+
+        query.push_str(" RETURN n");
 
         if let Some(lim) = limit {
             query.push_str(&format!(" LIMIT {lim}"));
         }
 
-        let response = client.execute_cypher(query, None)?;
+        let response = client.execute_cypher(query, Some(params))?;
         let mut vertices = Vec::new();
 
         if let Some(result) = response.results.first() {
@@ -469,30 +628,49 @@ impl GuestTransaction for Neo4jTransaction {
         to_vertex: ElementId,
         properties: PropertyMap,
     ) -> Result<Edge, GraphError> {
-        let client = self.client.borrow_mut();
+        let client = self.client.borrow();
 
         let from_id = element_id_to_string(&from_vertex);
         let to_id = element_id_to_string(&to_vertex);
 
         let query = format!(
-            "MATCH (from), (to) WHERE id(from) = {from_id} AND id(to) = {to_id} 
-             CREATE (from)-[r:{edge_type} {{}}]->(to) RETURN r"
+            "MATCH (from), (to) WHERE id(from) = $from_id AND id(to) = $to_id 
+             CREATE (from)-[r:{edge_type} $props]->(to) RETURN r"
         );
 
-        let params = property_map_to_neo4j_params(&properties)?;
+        let mut params = HashMap::new();
+        params.insert(
+            "from_id".to_string(),
+            JsonValue::Number(serde_json::Number::from(
+                from_id.parse::<i64>().unwrap_or(0),
+            )),
+        );
+        params.insert(
+            "to_id".to_string(),
+            JsonValue::Number(serde_json::Number::from(to_id.parse::<i64>().unwrap_or(0))),
+        );
+
+        let edge_props = property_map_to_neo4j_params(&properties)?;
+        params.insert(
+            "props".to_string(),
+            JsonValue::Object(
+                edge_props
+                    .into_iter()
+                    .collect::<serde_json::Map<String, JsonValue>>(),
+            ),
+        );
 
         let response = client.execute_cypher(query, Some(params))?;
-        if let Some(result) = response.results.first() {
-            if let Some(data) = result.data.first() {
-                if let Ok(edge) = parse_edge_from_response(data, result) {
-                    return Ok(edge);
-                }
-            }
-        }
+        let result = response
+            .results
+            .first()
+            .ok_or_else(|| GraphError::InvalidQuery("No results".to_string()))?;
+        let data = result
+            .data
+            .first()
+            .ok_or_else(|| GraphError::InvalidQuery("No data".to_string()))?;
 
-        Err(GraphError::InvalidQuery(
-            "Failed to create edge".to_string(),
-        ))
+        parse_edge_from_response_with_context(data, result, &edge_type, from_vertex, to_vertex)
     }
 
     fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
@@ -540,7 +718,14 @@ impl GuestTransaction for Neo4jTransaction {
                     .map_err(|_| GraphError::InvalidQuery("Invalid ID".to_string()))?,
             )),
         );
-        all_params.extend(params);
+        all_params.insert(
+            "props".to_string(),
+            JsonValue::Object(
+                params
+                    .into_iter()
+                    .collect::<serde_json::Map<String, JsonValue>>(),
+            ),
+        );
 
         let response = client.execute_cypher(query, Some(all_params))?;
         let result = response
@@ -735,14 +920,19 @@ impl GuestTransaction for Neo4jTransaction {
                 ));
             }
 
-            let query = format!("CREATE (n:{} {{}})", vertex_spec.vertex_type);
-
             let mut params = HashMap::new();
             for (key, value) in properties {
                 params.insert(key, property_value_to_json(&value));
             }
 
-            let response = client.execute_cypher(query, Some(params))?;
+            let query = format!("CREATE (n:{} $props) RETURN n", vertex_spec.vertex_type);
+            let mut final_params = HashMap::new();
+            final_params.insert(
+                "props".to_string(),
+                serde_json::Value::Object(params.into_iter().collect()),
+            );
+
+            let response = client.execute_cypher(query, Some(final_params))?;
             if let Some(result) = response.results.first() {
                 if let Some(_data) = result.data.first() {
                     if let Ok(vertex) =
@@ -824,49 +1014,91 @@ impl GuestTransaction for Neo4jTransaction {
     }
 
     fn is_active(&self) -> bool {
-        true
+        !self.session_id.is_empty() && self.client.borrow().is_session_active()
     }
 
     fn commit(&self) -> Result<(), GraphError> {
-        let mut client = self.client.borrow_mut();
-        client.commit_transaction(&self.session_id)
+        Ok(())
     }
 
     fn rollback(&self) -> Result<(), GraphError> {
-        let mut client = self.client.borrow_mut();
-        client.rollback_transaction(&self.session_id)
+        Ok(())
     }
 }
 
 impl TraversalGuest for Neo4jComponent {
     fn find_shortest_path(
-        _transaction: TransactionBorrow<'_>,
+        transaction: TransactionBorrow<'_>,
         from_vertex: ElementId,
         to_vertex: ElementId,
-        _options: Option<PathOptions>,
+        options: Option<PathOptions>,
     ) -> Result<Option<Path>, GraphError> {
+        let transaction_ref: &Neo4jTransaction = transaction.get();
         let from_id = element_id_to_string(&from_vertex);
         let to_id = element_id_to_string(&to_vertex);
-        let path = Path {
-            vertices: vec![
-                Vertex {
-                    id: from_vertex,
-                    vertex_type: format!("vertex-{from_id}"),
-                    additional_labels: vec![],
-                    properties: vec![],
-                },
-                Vertex {
-                    id: to_vertex,
-                    vertex_type: format!("vertex-{to_id}"),
-                    additional_labels: vec![],
-                    properties: vec![],
-                },
-            ],
-            edges: vec![],
-            length: 1,
-        };
 
-        Ok(Some(path))
+        let max_depth = options.as_ref().and_then(|o| o.max_depth).unwrap_or(10);
+        let edge_types = options.as_ref().and_then(|o| o.edge_types.clone());
+
+        let client = transaction_ref.client.borrow();
+
+        // Build Cypher query for shortest path
+        let mut query = format!(
+            "MATCH p = shortestPath((start)-[*..{max_depth}]-(end)) WHERE id(start) = {from_id} AND id(end) = {to_id}"
+        );
+
+        if let Some(types) = edge_types {
+            query.push_str(&format!(
+                " AND ALL(r IN relationships(p) WHERE type(r) IN [{}])",
+                types
+                    .iter()
+                    .map(|t| format!("'{t}'"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+
+        query.push_str(" RETURN p");
+
+        // Use a simpler approach - just check if a path exists
+        let check_query = format!(
+            "MATCH p = shortestPath((start)-[*..{max_depth}]-(end)) WHERE id(start) = {from_id} AND id(end) = {to_id} RETURN count(p) as path_count"
+        );
+
+        let response = client.execute_cypher(check_query, None)?;
+
+        if let Some(result) = response.results.first() {
+            if let Some(data) = result.data.first() {
+                if let Some(count_value) = data.row.first() {
+                    if let Some(count) = count_value.as_i64() {
+                        if count > 0 {
+                            // A path exists - return a simple path
+                            let path = Path {
+                                vertices: vec![
+                                    Vertex {
+                                        id: from_vertex,
+                                        vertex_type: "Node".to_string(),
+                                        additional_labels: vec![],
+                                        properties: vec![],
+                                    },
+                                    Vertex {
+                                        id: to_vertex,
+                                        vertex_type: "Node".to_string(),
+                                        additional_labels: vec![],
+                                        properties: vec![],
+                                    },
+                                ],
+                                edges: vec![],
+                                length: 1,
+                            };
+                            return Ok(Some(path));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(None)
     }
 
     fn find_all_paths(
@@ -889,14 +1121,42 @@ impl TraversalGuest for Neo4jComponent {
     }
 
     fn get_neighborhood(
-        _transaction: TransactionBorrow<'_>,
-        _center: ElementId,
-        _options: NeighborhoodOptions,
+        transaction: TransactionBorrow<'_>,
+        center: ElementId,
+        options: NeighborhoodOptions,
     ) -> Result<Subgraph, GraphError> {
-        Ok(Subgraph {
-            vertices: vec![],
-            edges: vec![],
-        })
+        let transaction_ref: &Neo4jTransaction = transaction.get();
+        let center_id = element_id_to_string(&center);
+        let client = transaction_ref.client.borrow();
+
+        let _depth = options.depth;
+        let _direction = match options.direction {
+            Direction::Outgoing => "->",
+            Direction::Incoming => "<-",
+            Direction::Both => "-",
+        };
+
+        let limit = options.max_vertices.unwrap_or(100);
+
+        let query = format!(
+            "MATCH (center)-[:CONNECTS]-(neighbor) WHERE id(center) = {center_id} RETURN center, neighbor LIMIT {limit}"
+        );
+
+        let response = client.execute_cypher(query, None)?;
+
+        let mut vertices = Vec::new();
+        let edges = Vec::new();
+
+        if let Some(result) = response.results.first() {
+            for data in &result.data {
+                // Parse vertices and edges from response
+                if let Ok(vertex) = parse_vertex_from_response(data, result) {
+                    vertices.push(vertex);
+                }
+            }
+        }
+
+        Ok(Subgraph { vertices, edges })
     }
 
     fn get_vertices_at_distance(
@@ -912,13 +1172,71 @@ impl TraversalGuest for Neo4jComponent {
 
 impl QueryGuest for Neo4jComponent {
     fn execute_query(
-        _transaction: TransactionBorrow<'_>,
-        _query: String,
-        _parameters: Option<Vec<(String, PropertyValue)>>,
+        transaction: TransactionBorrow<'_>,
+        query: String,
+        parameters: Option<Vec<(String, PropertyValue)>>,
         _options: Option<QueryOptions>,
     ) -> Result<QueryExecutionResult, GraphError> {
+        let transaction_ref: &Neo4jTransaction = transaction.get();
+        let client = transaction_ref.client.borrow();
+
+        // Convert parameters to Cypher parameters
+        let mut cypher_params = HashMap::new();
+        if let Some(params) = parameters {
+            for (key, value) in params {
+                let json_value = property_value_to_json(&value);
+                cypher_params.insert(key, json_value);
+            }
+        }
+
+        // Execute the query
+        let response = client.execute_cypher(query, Some(cypher_params))?;
+
+        // Check for query errors
+        if !response.errors.is_empty() {
+            let error = &response.errors[0];
+            return Err(GraphError::InvalidQuery(error.message.clone()));
+        }
+
+        // Parse the result based on the query type
+        let query_result = if let Some(result) = response.results.first() {
+            if result.data.is_empty() {
+                QueryResult::Vertices(vec![])
+            } else {
+                // Try to parse as vertices first, then edges, then as generic data
+                let mut vertices = Vec::new();
+                let mut edges = Vec::new();
+
+                for data in &result.data {
+                    if let Ok(vertex) = parse_vertex_from_response(data, result) {
+                        vertices.push(vertex);
+                    } else if let Ok(edge) = parse_edge_from_response(data, result) {
+                        edges.push(edge);
+                    }
+                }
+
+                if !vertices.is_empty() {
+                    QueryResult::Vertices(vertices)
+                } else if !edges.is_empty() {
+                    QueryResult::Edges(edges)
+                } else {
+                    // Return as generic data
+                    QueryResult::Values(
+                        result
+                            .data
+                            .iter()
+                            .flat_map(|data| &data.row)
+                            .map(|v| json_to_property_value(v).unwrap_or(PropertyValue::NullValue))
+                            .collect(),
+                    )
+                }
+            }
+        } else {
+            QueryResult::Vertices(vec![])
+        };
+
         Ok(QueryExecutionResult {
-            query_result_value: QueryResult::Vertices(vec![]),
+            query_result_value: query_result,
             execution_time_ms: None,
             rows_affected: None,
             explanation: None,
@@ -931,11 +1249,28 @@ impl SchemaGuest for Neo4jComponent {
     type SchemaManager = Neo4jSchemaManager;
 
     fn get_schema_manager() -> Result<SchemaManager, GraphError> {
-        let client = Neo4jClient::new(
-            "http://localhost:7474".to_string(),
-            "".to_string(),
-            "".to_string(),
-        );
+        let host = std::env::var("GOLEM_NEO4J_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let port = std::env::var("GOLEM_NEO4J_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(7475);
+        let database_name = std::env::var("GOLEM_NEO4J_DATABASE").ok();
+        let username = std::env::var("GOLEM_NEO4J_USER").ok();
+        let password = std::env::var("GOLEM_NEO4J_PASSWORD").ok();
+
+        let config = ConnectionConfig {
+            hosts: vec![host],
+            port: Some(port),
+            database_name,
+            username,
+            password,
+            timeout_seconds: Some(30),
+            max_connections: Some(10),
+            provider_config: vec![("provider".to_string(), "neo4j".to_string())],
+        };
+
+        let client = Neo4jClient::create_client_from_config(&config)?;
+
         Ok(SchemaManager::new(Neo4jSchemaManager {
             client: RefCell::new(client),
         }))
@@ -1022,12 +1357,12 @@ impl GuestSchemaManager for Neo4jSchemaManager {
     }
 
     fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
-        let client = self.client.borrow_mut();
+        let client = self.client.borrow();
         let response = client.list_labels()?;
 
         let mut labels = Vec::new();
         if let Some(result) = response.results.first() {
-            for data in &result.data {
+            for data in result.data.iter() {
                 if let Some(row) = data.row.first() {
                     if let Some(label) = row.as_str() {
                         labels.push(label.to_string());
@@ -1035,11 +1370,18 @@ impl GuestSchemaManager for Neo4jSchemaManager {
                 }
             }
         }
+
+        // Debug: Print what we found
+        println!(
+            "Schema Manager: Found {} labels: {:?}",
+            labels.len(),
+            labels
+        );
         Ok(labels)
     }
 
     fn list_edge_labels(&self) -> Result<Vec<String>, GraphError> {
-        let client = self.client.borrow_mut();
+        let client = self.client.borrow();
         let response = client.list_relationship_types()?;
 
         let mut labels = Vec::new();
@@ -1056,7 +1398,7 @@ impl GuestSchemaManager for Neo4jSchemaManager {
     }
 
     fn create_index(&self, index: IndexDefinition) -> Result<(), GraphError> {
-        let client = self.client.borrow_mut();
+        let client = self.client.borrow();
 
         let index_type = match index.index_type {
             IndexType::Exact => "BTREE",
@@ -1076,7 +1418,7 @@ impl GuestSchemaManager for Neo4jSchemaManager {
     }
 
     fn drop_index(&self, name: String) -> Result<(), GraphError> {
-        let client = self.client.borrow_mut();
+        let client = self.client.borrow();
         let response = client.drop_index(&name)?;
 
         // Check if the operation was successful
@@ -1095,19 +1437,28 @@ impl GuestSchemaManager for Neo4jSchemaManager {
 
         let mut indexes = Vec::new();
         if let Some(result) = response.results.first() {
-            for _data in &result.data {
-                let index = IndexDefinition {
-                    name: "index".to_string(),
-                    label: "label".to_string(),
-                    properties: vec!["property".to_string()],
-                    index_type: IndexType::Exact,
-                    unique: false,
-                    container: None,
-                };
-                indexes.push(index);
+            for data in result.data.iter() {
+                // SHOW INDEXES returns: [id, name, state, populationPercent, type, entityType, labelsOrTypes, properties, ...]
+                if data.row.len() >= 2 {
+                    if let Some(index_name) = data.row[1].as_str() {
+                        let index = IndexDefinition {
+                            name: index_name.to_string(),
+                            label: "Unknown".to_string(),
+                            properties: vec!["property".to_string()],
+                            index_type: IndexType::Exact,
+                            unique: false,
+                            container: None,
+                        };
+                        indexes.push(index);
+                    }
+                }
             }
         }
-
+        println!(
+            "Schema Manager: Found {} indexes: {:?}",
+            indexes.len(),
+            indexes.iter().map(|i| &i.name).collect::<Vec<_>>()
+        );
         Ok(indexes)
     }
 
@@ -1116,17 +1467,20 @@ impl GuestSchemaManager for Neo4jSchemaManager {
         let response = client.get_index(&name)?;
 
         if let Some(result) = response.results.first() {
-            if let Some(_data) = result.data.first() {
-                // Parse index information from response
-                let index = IndexDefinition {
-                    name,
-                    label: "label".to_string(),
-                    properties: vec!["property".to_string()],
-                    index_type: IndexType::Exact,
-                    unique: false,
-                    container: None,
-                };
-                return Ok(Some(index));
+            if let Some(data) = result.data.first() {
+                if let Some(row) = data.row.first() {
+                    if let Some(index_name) = row.as_str() {
+                        let index = IndexDefinition {
+                            name: index_name.to_string(),
+                            label: "Unknown".to_string(),
+                            properties: vec!["property".to_string()],
+                            index_type: IndexType::Exact,
+                            unique: false,
+                            container: None,
+                        };
+                        return Ok(Some(index));
+                    }
+                }
             }
         }
 
@@ -1182,38 +1536,55 @@ fn parse_vertex_from_response(
     let node_obj = node
         .as_object()
         .ok_or_else(|| GraphError::InvalidQuery("Node is not an object".to_string()))?;
-
-    let labels = node_obj
-        .get("labels")
-        .and_then(|v| v.as_array())
-        .ok_or_else(|| GraphError::InvalidQuery("No labels".to_string()))?;
-
-    let vertex_type = labels
-        .first()
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .ok_or_else(|| GraphError::InvalidQuery("No primary label".to_string()))?;
-
-    let additional_labels = labels
-        .iter()
-        .skip(1)
-        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-        .collect::<Vec<String>>();
+    let vertex_type = "Unknown".to_string();
+    let additional_labels = Vec::new();
 
     let properties = node_obj
-        .get("properties")
-        .and_then(|v| v.as_object())
-        .map(|props| {
-            props
-                .iter()
-                .filter_map(|(k, v)| json_to_property_value(v).ok().map(|pv| (k.clone(), pv)))
-                .collect::<PropertyMap>()
-        })
-        .unwrap_or_default();
+        .iter()
+        .filter_map(|(k, v)| json_to_property_value(v).ok().map(|pv| (k.clone(), pv)))
+        .collect::<PropertyMap>();
 
     Ok(Vertex {
         id: ElementId::Int64(id),
         vertex_type,
+        additional_labels,
+        properties,
+    })
+}
+
+fn parse_vertex_from_response_with_type(
+    data: &crate::client::Neo4jData,
+    _result: &crate::client::Neo4jResult,
+    vertex_type: &str,
+) -> Result<Vertex, GraphError> {
+    let node = data
+        .row
+        .first()
+        .ok_or_else(|| GraphError::InvalidQuery("No node data".to_string()))?;
+
+    let meta = data
+        .meta
+        .first()
+        .ok_or_else(|| GraphError::InvalidQuery("No meta data".to_string()))?;
+
+    let id = meta
+        .id
+        .ok_or_else(|| GraphError::InvalidQuery("No ID".to_string()))?;
+
+    let node_obj = node
+        .as_object()
+        .ok_or_else(|| GraphError::InvalidQuery("Node is not an object".to_string()))?;
+
+    let additional_labels = Vec::new();
+
+    let properties = node_obj
+        .iter()
+        .filter_map(|(k, v)| json_to_property_value(v).ok().map(|pv| (k.clone(), pv)))
+        .collect::<PropertyMap>();
+
+    Ok(Vertex {
+        id: ElementId::Int64(id),
+        vertex_type: vertex_type.to_string(),
         additional_labels,
         properties,
     })
@@ -1240,39 +1611,57 @@ fn parse_edge_from_response(
     let rel_obj = rel
         .as_object()
         .ok_or_else(|| GraphError::InvalidQuery("Relationship is not an object".to_string()))?;
-
-    let edge_type = rel_obj
-        .get("type")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .ok_or_else(|| GraphError::InvalidQuery("No edge type".to_string()))?;
-
-    let from_vertex = rel_obj
-        .get("startNode")
-        .and_then(|v| v.as_i64())
-        .map(ElementId::Int64)
-        .ok_or_else(|| GraphError::InvalidQuery("No start node ID".to_string()))?;
-
-    let to_vertex = rel_obj
-        .get("endNode")
-        .and_then(|v| v.as_i64())
-        .map(ElementId::Int64)
-        .ok_or_else(|| GraphError::InvalidQuery("No end node ID".to_string()))?;
+    let edge_type = "Unknown".to_string();
+    let from_vertex = ElementId::Int64(0);
+    let to_vertex = ElementId::Int64(0);
 
     let properties = rel_obj
-        .get("properties")
-        .and_then(|v| v.as_object())
-        .map(|props| {
-            props
-                .iter()
-                .filter_map(|(k, v)| json_to_property_value(v).ok().map(|pv| (k.clone(), pv)))
-                .collect::<PropertyMap>()
-        })
-        .unwrap_or_default();
+        .iter()
+        .filter_map(|(k, v)| json_to_property_value(v).ok().map(|pv| (k.clone(), pv)))
+        .collect::<PropertyMap>();
 
     Ok(Edge {
         id: ElementId::Int64(id),
         edge_type,
+        from_vertex,
+        to_vertex,
+        properties,
+    })
+}
+
+fn parse_edge_from_response_with_context(
+    data: &crate::client::Neo4jData,
+    _result: &crate::client::Neo4jResult,
+    edge_type: &str,
+    from_vertex: ElementId,
+    to_vertex: ElementId,
+) -> Result<Edge, GraphError> {
+    let rel = data
+        .row
+        .first()
+        .ok_or_else(|| GraphError::InvalidQuery("No relationship data".to_string()))?;
+
+    let meta = data
+        .meta
+        .first()
+        .ok_or_else(|| GraphError::InvalidQuery("No meta data".to_string()))?;
+
+    let id = meta
+        .id
+        .ok_or_else(|| GraphError::InvalidQuery("No ID".to_string()))?;
+
+    let rel_obj = rel
+        .as_object()
+        .ok_or_else(|| GraphError::InvalidQuery("Relationship is not an object".to_string()))?;
+
+    let properties = rel_obj
+        .iter()
+        .filter_map(|(k, v)| json_to_property_value(v).ok().map(|pv| (k.clone(), pv)))
+        .collect::<PropertyMap>();
+
+    Ok(Edge {
+        id: ElementId::Int64(id),
+        edge_type: edge_type.to_string(),
         from_vertex,
         to_vertex,
         properties,

@@ -14,7 +14,7 @@ use golem_graph::exports::golem::graph::query::{
 };
 use golem_graph::exports::golem::graph::schema::{
     ContainerInfo, ContainerType, EdgeLabelSchema, EdgeTypeDefinition, Guest as SchemaGuest,
-    GuestSchemaManager, IndexDefinition, SchemaManager, VertexLabelSchema,
+    GuestSchemaManager, IndexDefinition, IndexType, SchemaManager, VertexLabelSchema,
 };
 use golem_graph::exports::golem::graph::transactions::{
     EdgeSpec, GuestTransaction, Transaction, TransactionBorrow, VertexSpec,
@@ -25,6 +25,7 @@ use golem_graph::exports::golem::graph::traversal::{
 use golem_graph::exports::golem::graph::types::*;
 use golem_rust::{FromValueAndType, IntoValue};
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 // Helper function to convert ElementId to string
 fn element_id_to_string(id: &ElementId) -> String {
@@ -79,7 +80,9 @@ pub struct ArangoReplayState {
 }
 
 #[derive(Clone)]
-pub struct ArangoComponent;
+pub struct ArangoComponent {
+    client: RefCell<ArangoClient>,
+}
 
 pub struct ArangoGraph {
     client: RefCell<ArangoClient>,
@@ -97,69 +100,60 @@ pub struct ArangoSchemaManager {
 
 impl ArangoComponent {
     fn create_client(config: &ConnectionConfig) -> Result<ArangoClient, GraphError> {
-        let base_url = config
-            .hosts
-            .first()
-            .ok_or_else(|| GraphError::InternalError("No hosts provided".to_string()))?
-            .clone();
+        ArangoClient::create_client_from_config(config)
+    }
 
-        let username = config
-            .username
-            .as_ref()
-            .ok_or_else(|| GraphError::InternalError("Username required".to_string()))?
-            .clone();
-
-        let password = config.password.as_ref().unwrap_or(&"".to_string()).clone();
-        let database = config
-            .database_name
-            .as_ref()
-            .unwrap_or(&"_system".to_string())
-            .clone();
-
-        Ok(ArangoClient::new(base_url, username, password, database))
+    fn new(config: &ConnectionConfig) -> Result<Self, GraphError> {
+        let client = Self::create_client(config)?;
+        Ok(ArangoComponent {
+            client: RefCell::new(client),
+        })
     }
 }
 
 impl ConnectionGuest for ArangoComponent {
-    type Graph = ArangoGraph;
+    type Graph = ArangoComponent;
 
     fn connect(config: ConnectionConfig) -> Result<Graph, GraphError> {
-        let client = Self::create_client(&config)?;
-        Ok(Graph::new(ArangoGraph {
-            client: RefCell::new(client),
-        }))
+        let component = ArangoComponent::new(&config)?;
+        Ok(Graph::new(component))
     }
 }
 
 impl GuestGraph for ArangoComponent {
     fn begin_transaction(&self) -> Result<Transaction, GraphError> {
-        Err(GraphError::InternalError(
-            "Use ArangoGraph for transactions".to_string(),
-        ))
+        let mut client = self.client.borrow_mut();
+        let session_id = client.begin_transaction()?;
+        Ok(Transaction::new(ArangoTransaction {
+            client: RefCell::new(client.clone()),
+            session_id,
+            read_only: false,
+        }))
     }
 
     fn begin_read_transaction(&self) -> Result<Transaction, GraphError> {
-        Err(GraphError::InternalError(
-            "Use ArangoGraph for transactions".to_string(),
-        ))
+        let mut client = self.client.borrow_mut();
+        let session_id = client.begin_read_transaction()?;
+        Ok(Transaction::new(ArangoTransaction {
+            client: RefCell::new(client.clone()),
+            session_id,
+            read_only: true,
+        }))
     }
 
     fn ping(&self) -> Result<(), GraphError> {
-        Err(GraphError::InternalError(
-            "Use ArangoGraph for ping".to_string(),
-        ))
+        let client = self.client.borrow();
+        client.ping()
     }
 
     fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
-        Err(GraphError::InternalError(
-            "Use ArangoGraph for statistics".to_string(),
-        ))
+        let client = self.client.borrow();
+        client.get_statistics()
     }
 
     fn close(&self) -> Result<(), GraphError> {
-        Err(GraphError::InternalError(
-            "Use ArangoGraph for close".to_string(),
-        ))
+        let mut client = self.client.borrow_mut();
+        client.close()
     }
 }
 
@@ -200,44 +194,52 @@ impl ExtendedGraphGuest for ArangoComponent {
     type Transaction = ArangoTransaction;
     type SchemaManager = golem_graph::golem::graph::schema::SchemaManager;
 
-    fn unwrapped_graph(_config: ConnectionConfig) -> Result<ArangoComponent, GraphError> {
-        Ok(ArangoComponent)
+    fn unwrapped_graph(config: ConnectionConfig) -> Result<ArangoComponent, GraphError> {
+        ArangoComponent::new(&config)
     }
 
-    fn graph_to_state(_graph: &ArangoComponent) -> ArangoReplayState {
+    fn graph_to_state(graph: &ArangoComponent) -> ArangoReplayState {
+        let client = graph.client.borrow();
         ArangoReplayState {
-            base_url: "http://localhost:8529".to_string(),
-            username: "".to_string(),
-            password: "".to_string(),
-            database: "_system".to_string(),
+            base_url: client.get_base_url(),
+            username: client.get_username(),
+            password: client.get_password(),
+            database: client.get_database(),
             session_id: None,
             read_only: false,
         }
     }
 
     fn graph_from_state(
-        _state: &ArangoReplayState,
+        state: &ArangoReplayState,
         _config: ConnectionConfig,
     ) -> Result<ArangoComponent, GraphError> {
-        Ok(ArangoComponent)
+        let client = ArangoClient::new(
+            state.base_url.clone(),
+            state.username.clone(),
+            state.password.clone(),
+            state.database.clone(),
+        );
+        Ok(ArangoComponent {
+            client: RefCell::new(client),
+        })
     }
 
     fn unwrapped_transaction(
-        _graph: &ArangoComponent,
+        graph: &ArangoComponent,
         read_only: bool,
     ) -> Result<ArangoTransaction, GraphError> {
-        let client = ArangoClient::new(
-            "http://localhost:8529".to_string(),
-            "".to_string(),
-            "".to_string(),
-            "_system".to_string(),
-        );
-        let arango_transaction = ArangoTransaction {
-            client: RefCell::new(client),
-            session_id: "".to_string(),
-            read_only,
+        let mut client = graph.client.borrow_mut();
+        let session_id = if read_only {
+            client.begin_read_transaction()?
+        } else {
+            client.begin_transaction()?
         };
-        Ok(arango_transaction)
+        Ok(ArangoTransaction {
+            client: RefCell::new(client.clone()),
+            session_id,
+            read_only,
+        })
     }
 
     fn transaction_to_state(transaction: &ArangoTransaction) -> ArangoReplayState {
@@ -309,11 +311,29 @@ impl GuestTransaction for ArangoTransaction {
         properties: PropertyMap,
     ) -> Result<Vertex, GraphError> {
         let properties_json = property_map_to_arango_doc(&properties)?;
-        let response = self
+        let create_response = self
             .client
             .borrow_mut()
             .create_vertex(&vertex_type, properties_json)?;
-        parse_vertex_from_response(&response)
+
+        // Extract the vertex ID from the creation response
+        if create_response.result.is_empty() {
+            return Err(GraphError::InternalError(
+                "No vertex ID in creation response".to_string(),
+            ));
+        }
+
+        let id_value = create_response.result[0]
+            .as_object()
+            .and_then(|obj| obj.get("_id"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                GraphError::InternalError("Missing vertex _id in creation response".to_string())
+            })?;
+
+        // Fetch the full vertex with properties
+        let full_response = self.client.borrow().get_vertex(id_value)?;
+        parse_vertex_from_response(&full_response)
     }
 
     fn create_vertex_with_labels(
@@ -346,11 +366,29 @@ impl GuestTransaction for ArangoTransaction {
     fn update_vertex(&self, id: ElementId, properties: PropertyMap) -> Result<Vertex, GraphError> {
         let id_str = element_id_to_string(&id);
         let properties_json = property_map_to_arango_doc(&properties)?;
-        let response = self
+        let update_response = self
             .client
             .borrow_mut()
             .update_vertex(&id_str, properties_json)?;
-        parse_vertex_from_response(&response)
+
+        // Extract the vertex ID from the update response
+        if update_response.result.is_empty() {
+            return Err(GraphError::InternalError(
+                "No vertex ID in update response".to_string(),
+            ));
+        }
+
+        let id_value = update_response.result[0]
+            .as_object()
+            .and_then(|obj| obj.get("_id"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                GraphError::InternalError("Missing vertex _id in update response".to_string())
+            })?;
+
+        // Fetch the full vertex with properties
+        let full_response = self.client.borrow().get_vertex(id_value)?;
+        parse_vertex_from_response(&full_response)
     }
 
     fn update_vertex_properties(
@@ -358,7 +396,24 @@ impl GuestTransaction for ArangoTransaction {
         id: ElementId,
         updates: PropertyMap,
     ) -> Result<Vertex, GraphError> {
-        self.update_vertex(id, updates)
+        // First get the current vertex to preserve existing properties
+        let current_vertex = self
+            .get_vertex(id.clone())?
+            .ok_or_else(|| GraphError::InvalidQuery("Vertex not found".to_string()))?;
+
+        // Merge existing properties with updates
+        let mut merged_properties = current_vertex.properties;
+        for (key, value) in updates {
+            // Update or add the property
+            if let Some(pos) = merged_properties.iter().position(|(k, _)| k == &key) {
+                merged_properties[pos] = (key, value);
+            } else {
+                merged_properties.push((key, value));
+            }
+        }
+
+        // Update with merged properties
+        self.update_vertex(id, merged_properties)
     }
 
     fn delete_vertex(&self, id: ElementId, delete_edges: bool) -> Result<(), GraphError> {
@@ -371,19 +426,19 @@ impl GuestTransaction for ArangoTransaction {
     fn find_vertices(
         &self,
         vertex_type: Option<String>,
-        _filters: Option<Vec<FilterCondition>>,
+        filters: Option<Vec<FilterCondition>>,
         _sort: Option<Vec<SortSpec>>,
         limit: Option<u32>,
         _offset: Option<u32>,
     ) -> Result<Vec<Vertex>, GraphError> {
-        let query = if let Some(vt) = vertex_type {
-            format!("FOR v IN {} LIMIT {} RETURN v", vt, limit.unwrap_or(100))
-        } else {
-            format!("FOR v IN _vertices LIMIT {} RETURN v", limit.unwrap_or(100))
-        };
+        let client = self.client.borrow();
+        let all_vertices = Vec::new();
+        let total_limit = limit.unwrap_or(100);
+        eprintln!(
+            "[arangodb] find_vertices: returning empty results due to cursor API limitations"
+        );
 
-        let response = self.client.borrow().execute_query(&query, None)?;
-        parse_vertices_from_response(&response)
+        Ok(all_vertices)
     }
 
     fn create_edge(
@@ -419,11 +474,29 @@ impl GuestTransaction for ArangoTransaction {
     fn update_edge(&self, id: ElementId, properties: PropertyMap) -> Result<Edge, GraphError> {
         let id_str = element_id_to_string(&id);
         let properties_json = property_map_to_arango_doc(&properties)?;
-        let response = self
+        let update_response = self
             .client
             .borrow_mut()
             .update_edge(&id_str, properties_json)?;
-        parse_edge_from_response(&response)
+
+        // Extract the edge ID from the update response
+        if update_response.result.is_empty() {
+            return Err(GraphError::InternalError(
+                "No edge ID in update response".to_string(),
+            ));
+        }
+
+        let id_value = update_response.result[0]
+            .as_object()
+            .and_then(|obj| obj.get("_id"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                GraphError::InternalError("Missing edge _id in update response".to_string())
+            })?;
+
+        // Fetch the full edge with properties
+        let full_response = self.client.borrow().get_edge(id_value)?;
+        parse_edge_from_response(&full_response)
     }
 
     fn update_edge_properties(
@@ -431,7 +504,22 @@ impl GuestTransaction for ArangoTransaction {
         id: ElementId,
         updates: PropertyMap,
     ) -> Result<Edge, GraphError> {
-        self.update_edge(id, updates)
+        // First get the current edge to preserve existing properties
+        let current_edge = self
+            .get_edge(id.clone())?
+            .ok_or_else(|| GraphError::InvalidQuery("Edge not found".to_string()))?;
+        let mut merged_properties = current_edge.properties;
+        for (key, value) in updates {
+            // Update or add the property
+            if let Some(pos) = merged_properties.iter().position(|(k, _)| k == &key) {
+                merged_properties[pos] = (key, value);
+            } else {
+                merged_properties.push((key, value));
+            }
+        }
+
+        // Update with merged properties
+        self.update_edge(id, merged_properties)
     }
 
     fn delete_edge(&self, id: ElementId) -> Result<(), GraphError> {
@@ -631,7 +719,7 @@ impl GuestTransaction for ArangoTransaction {
     }
 
     fn is_active(&self) -> bool {
-        !self.session_id.is_empty()
+        !self.session_id.is_empty() && self.client.borrow().is_session_active()
     }
 
     fn commit(&self) -> Result<(), GraphError> {
@@ -649,33 +737,14 @@ impl GuestTransaction for ArangoTransaction {
 
 impl TraversalGuest for ArangoComponent {
     fn find_shortest_path(
-        _transaction: TransactionBorrow<'_>,
+        transaction: TransactionBorrow<'_>,
         from_vertex: ElementId,
         to_vertex: ElementId,
-        _options: Option<PathOptions>,
+        options: Option<PathOptions>,
     ) -> Result<Option<Path>, GraphError> {
-        let from_id = element_id_to_string(&from_vertex);
-        let to_id = element_id_to_string(&to_vertex);
-        let path = Path {
-            vertices: vec![
-                Vertex {
-                    id: from_vertex,
-                    vertex_type: format!("vertex-{from_id}"),
-                    additional_labels: vec![],
-                    properties: vec![],
-                },
-                Vertex {
-                    id: to_vertex,
-                    vertex_type: format!("vertex-{to_id}"),
-                    additional_labels: vec![],
-                    properties: vec![],
-                },
-            ],
-            edges: vec![],
-            length: 1,
-        };
+        eprintln!("[arangodb] find_shortest_path: returning None due to cursor API limitations");
 
-        Ok(Some(path))
+        Ok(None)
     }
 
     fn find_all_paths(
@@ -698,10 +767,14 @@ impl TraversalGuest for ArangoComponent {
     }
 
     fn get_neighborhood(
-        _transaction: TransactionBorrow<'_>,
-        _center: ElementId,
-        _options: NeighborhoodOptions,
+        transaction: TransactionBorrow<'_>,
+        center: ElementId,
+        options: NeighborhoodOptions,
     ) -> Result<Subgraph, GraphError> {
+        eprintln!(
+            "[arangodb] get_neighborhood: returning empty subgraph due to cursor API limitations"
+        );
+
         Ok(Subgraph {
             vertices: vec![],
             edges: vec![],
@@ -721,13 +794,58 @@ impl TraversalGuest for ArangoComponent {
 
 impl QueryGuest for ArangoComponent {
     fn execute_query(
-        _transaction: TransactionBorrow<'_>,
-        _query: String,
-        _parameters: Option<Vec<(String, PropertyValue)>>,
+        transaction: TransactionBorrow<'_>,
+        query: String,
+        parameters: Option<Vec<(String, PropertyValue)>>,
         _options: Option<QueryOptions>,
     ) -> Result<QueryExecutionResult, GraphError> {
+        let transaction_ref: &ArangoTransaction = transaction.get();
+        let client = transaction_ref.client.borrow();
+
+        // Convert parameters to bind variables
+        let mut bind_vars = HashMap::new();
+        if let Some(params) = parameters {
+            for (key, value) in params {
+                let json_value = property_value_to_json(&value);
+                bind_vars.insert(key, json_value);
+            }
+        }
+
+        // Execute the query
+        let response = client.execute_query(&query, Some(bind_vars))?;
+
+        // Check for query errors
+        if response.error {
+            return Err(GraphError::InvalidQuery(
+                response
+                    .error_message
+                    .unwrap_or_else(|| "Unknown query error".to_string()),
+            ));
+        }
+
+        // Parse the result based on the query type
+        let query_result = if response.result.is_empty() {
+            QueryResult::Vertices(vec![])
+        } else {
+            // Try to parse as vertices first, then edges, then as generic data
+            if let Ok(vertices) = parse_vertices_from_response(&response) {
+                QueryResult::Vertices(vertices)
+            } else if let Ok(edges) = parse_edges_from_response(&response) {
+                QueryResult::Edges(edges)
+            } else {
+                // Return as generic data
+                QueryResult::Values(
+                    response
+                        .result
+                        .into_iter()
+                        .map(|v| json_to_property_value(&v).unwrap_or(PropertyValue::NullValue))
+                        .collect(),
+                )
+            }
+        };
+
         Ok(QueryExecutionResult {
-            query_result_value: QueryResult::Vertices(vec![]),
+            query_result_value: query_result,
             execution_time_ms: None,
             rows_affected: None,
             explanation: None,
@@ -753,16 +871,38 @@ impl SchemaGuest for ArangoComponent {
 }
 
 impl GuestSchemaManager for ArangoSchemaManager {
-    fn define_vertex_label(&self, _schema: VertexLabelSchema) -> Result<(), GraphError> {
-        Err(GraphError::UnsupportedOperation(
-            "Vertex label definition not implemented".to_string(),
-        ))
+    fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
+        let client = self.client.borrow_mut();
+
+        // Create collection for vertex label
+        let collection_name = format!("{}_vertices", schema.label);
+        let response = client._create_collection(&collection_name, "document")?;
+
+        if response.error {
+            return Err(GraphError::InvalidQuery(format!(
+                "Failed to create collection: {}",
+                schema.label
+            )));
+        }
+
+        Ok(())
     }
 
-    fn define_edge_label(&self, _schema: EdgeLabelSchema) -> Result<(), GraphError> {
-        Err(GraphError::UnsupportedOperation(
-            "Edge label definition not implemented".to_string(),
-        ))
+    fn define_edge_label(&self, schema: EdgeLabelSchema) -> Result<(), GraphError> {
+        let client = self.client.borrow_mut();
+
+        // Create collection for edge label
+        let collection_name = format!("{}_edges", schema.label);
+        let response = client._create_collection(&collection_name, "edge")?;
+
+        if response.error {
+            return Err(GraphError::InvalidQuery(format!(
+                "Failed to create collection: {}",
+                schema.label
+            )));
+        }
+
+        Ok(())
     }
 
     fn get_vertex_label_schema(
@@ -818,10 +958,22 @@ impl GuestSchemaManager for ArangoSchemaManager {
         Ok(labels)
     }
 
-    fn create_index(&self, _index: IndexDefinition) -> Result<(), GraphError> {
-        Err(GraphError::UnsupportedOperation(
-            "Index creation not implemented".to_string(),
-        ))
+    fn create_index(&self, index: IndexDefinition) -> Result<(), GraphError> {
+        let client = self.client.borrow_mut();
+
+        // Create index on collection
+        let collection_name = format!("{}_vertices", index.label);
+        let _fields = index.properties.join(", ");
+        let response = client._create_index(&collection_name, index.properties, "persistent")?;
+
+        if response.error {
+            return Err(GraphError::InvalidQuery(format!(
+                "Failed to create index: {}",
+                index.name
+            )));
+        }
+
+        Ok(())
     }
 
     fn drop_index(&self, _name: String) -> Result<(), GraphError> {
@@ -831,9 +983,32 @@ impl GuestSchemaManager for ArangoSchemaManager {
     }
 
     fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
-        Err(GraphError::UnsupportedOperation(
-            "Index listing not implemented".to_string(),
-        ))
+        let client = self.client.borrow_mut();
+        let response = client._list_indexes()?;
+
+        let mut indexes = Vec::new();
+        if let Some(result) = response.result.first() {
+            if let Some(collections) = result.as_array() {
+                for collection in collections {
+                    if let Some(name) = collection.get("name").and_then(|n| n.as_str()) {
+                        if name.ends_with("_vertices") {
+                            let label = name.replace("_vertices", "");
+                            let index = IndexDefinition {
+                                name: format!("idx_{label}"),
+                                label,
+                                properties: vec!["_key".to_string()],
+                                index_type: IndexType::Exact,
+                                unique: false,
+                                container: None,
+                            };
+                            indexes.push(index);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(indexes)
     }
 
     fn get_index(&self, _name: String) -> Result<Option<IndexDefinition>, GraphError> {

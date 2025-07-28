@@ -37,8 +37,10 @@ pub struct JanusGraphReplayState {
     pub read_only: bool,
 }
 
-#[derive(Clone)]
-pub struct JanusGraphComponent;
+#[derive(Debug, Clone)]
+pub struct JanusGraphComponent {
+    client: RefCell<JanusGraphClient>,
+}
 
 pub struct JanusGraphGraph {
     client: RefCell<JanusGraphClient>,
@@ -58,48 +60,63 @@ impl JanusGraphComponent {
     fn create_client(config: &ConnectionConfig) -> Result<JanusGraphClient, GraphError> {
         JanusGraphClient::create_client_from_config(config)
     }
+
+    fn new(config: &ConnectionConfig) -> Result<Self, GraphError> {
+        let client = Self::create_client(config)?;
+        Ok(JanusGraphComponent {
+            client: RefCell::new(client),
+        })
+    }
 }
 
 impl ConnectionGuest for JanusGraphComponent {
     type Graph = JanusGraphGraph;
 
     fn connect(config: ConnectionConfig) -> Result<Graph, GraphError> {
-        let client = Self::create_client(&config)?;
-        Ok(Graph::new(JanusGraphGraph {
-            client: RefCell::new(client),
-        }))
+        let component = JanusGraphComponent::new(&config)?;
+        Ok(Graph::new(component))
     }
 }
 
 impl GuestGraph for JanusGraphComponent {
     fn begin_transaction(&self) -> Result<Transaction, GraphError> {
-        Err(GraphError::InternalError(
-            "Use JanusGraphGraph for transactions".to_string(),
-        ))
+        let session_id = self.client.borrow_mut().begin_transaction()?;
+        Ok(Transaction::new(JanusGraphTransaction {
+            client: RefCell::new(JanusGraphClient::new(
+                self.client.borrow().get_base_url(),
+                self.client.borrow().get_username(),
+                self.client.borrow().get_password(),
+                self.client.borrow().get_graph_name(),
+            )),
+            session_id,
+            read_only: false,
+        }))
     }
 
     fn begin_read_transaction(&self) -> Result<Transaction, GraphError> {
-        Err(GraphError::InternalError(
-            "Use JanusGraphGraph for transactions".to_string(),
-        ))
+        let session_id = self.client.borrow_mut().begin_read_transaction()?;
+        Ok(Transaction::new(JanusGraphTransaction {
+            client: RefCell::new(JanusGraphClient::new(
+                self.client.borrow().get_base_url(),
+                self.client.borrow().get_username(),
+                self.client.borrow().get_password(),
+                self.client.borrow().get_graph_name(),
+            )),
+            session_id,
+            read_only: true,
+        }))
     }
 
     fn ping(&self) -> Result<(), GraphError> {
-        Err(GraphError::InternalError(
-            "Use JanusGraphGraph for ping".to_string(),
-        ))
+        self.client.borrow().ping()
     }
 
     fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
-        Err(GraphError::InternalError(
-            "Use JanusGraphGraph for statistics".to_string(),
-        ))
+        self.client.borrow().get_statistics()
     }
 
     fn close(&self) -> Result<(), GraphError> {
-        Err(GraphError::InternalError(
-            "Use JanusGraphGraph for close".to_string(),
-        ))
+        Ok(())
     }
 }
 
@@ -150,53 +167,63 @@ impl ExtendedGraphGuest for JanusGraphComponent {
     type Transaction = JanusGraphTransaction;
     type SchemaManager = golem_graph::golem::graph::schema::SchemaManager;
 
-    fn unwrapped_graph(_config: ConnectionConfig) -> Result<JanusGraphComponent, GraphError> {
-        Ok(JanusGraphComponent)
+    fn unwrapped_graph(config: ConnectionConfig) -> Result<JanusGraphComponent, GraphError> {
+        JanusGraphComponent::new(&config)
     }
 
-    fn graph_to_state(_graph: &JanusGraphComponent) -> JanusGraphReplayState {
+    fn graph_to_state(graph: &JanusGraphComponent) -> JanusGraphReplayState {
         JanusGraphReplayState {
-            base_url: "ws://localhost:8182".to_string(),
-            username: None,
-            password: None,
-            graph_name: "graph".to_string(),
+            base_url: graph.client.borrow().get_base_url(),
+            username: graph.client.borrow().get_username(),
+            password: graph.client.borrow().get_password(),
+            graph_name: graph.client.borrow().get_graph_name(),
             session_id: None,
             read_only: false,
         }
     }
 
     fn graph_from_state(
-        _state: &JanusGraphReplayState,
+        state: &JanusGraphReplayState,
         _config: ConnectionConfig,
     ) -> Result<JanusGraphComponent, GraphError> {
-        Ok(JanusGraphComponent)
+        let client = JanusGraphClient::new(
+            state.base_url.clone(),
+            state.username.clone(),
+            state.password.clone(),
+            state.graph_name.clone(),
+        );
+        Ok(JanusGraphComponent {
+            client: RefCell::new(client),
+        })
     }
 
     fn unwrapped_transaction(
-        _graph: &JanusGraphComponent,
+        graph: &JanusGraphComponent,
         read_only: bool,
     ) -> Result<JanusGraphTransaction, GraphError> {
-        let client = JanusGraphClient::new(
-            "ws://localhost:8182".to_string(),
-            None,
-            None,
-            "graph".to_string(),
-        );
-        let janus_transaction = JanusGraphTransaction {
-            client: RefCell::new(client),
-            session_id: "".to_string(),
-            read_only,
+        let session_id = if read_only {
+            graph.client.borrow_mut().begin_read_transaction()?
+        } else {
+            graph.client.borrow_mut().begin_transaction()?
         };
-        Ok(janus_transaction)
+        Ok(JanusGraphTransaction {
+            client: RefCell::new(JanusGraphClient::new(
+                graph.client.borrow().get_base_url(),
+                graph.client.borrow().get_username(),
+                graph.client.borrow().get_password(),
+                graph.client.borrow().get_graph_name(),
+            )),
+            session_id,
+            read_only,
+        })
     }
 
     fn transaction_to_state(transaction: &JanusGraphTransaction) -> JanusGraphReplayState {
-        let client = transaction.client.borrow();
         JanusGraphReplayState {
-            base_url: client.get_base_url(),
-            username: client.get_username(),
-            password: client.get_password(),
-            graph_name: client.get_graph_name(),
+            base_url: transaction.client.borrow().get_base_url(),
+            username: transaction.client.borrow().get_username(),
+            password: transaction.client.borrow().get_password(),
+            graph_name: transaction.client.borrow().get_graph_name(),
             session_id: Some(transaction.session_id.clone()),
             read_only: transaction.read_only,
         }
@@ -213,12 +240,11 @@ impl ExtendedGraphGuest for JanusGraphComponent {
             state.password.clone(),
             state.graph_name.clone(),
         );
-        let janus_transaction = JanusGraphTransaction {
+        Ok(JanusGraphTransaction {
             client: RefCell::new(client),
             session_id: state.session_id.clone().unwrap_or_default(),
             read_only,
-        };
-        Ok(janus_transaction)
+        })
     }
 
     fn schema_manager_to_state(
@@ -243,11 +269,11 @@ impl ExtendedGraphGuest for JanusGraphComponent {
             state.password.clone(),
             state.graph_name.clone(),
         );
-        let janus_schema_manager = JanusGraphSchemaManager {
+        let schema_manager = JanusGraphSchemaManager {
             client: RefCell::new(client),
         };
         Ok(golem_graph::golem::graph::schema::SchemaManager::new(
-            janus_schema_manager,
+            schema_manager,
         ))
     }
 }
@@ -285,7 +311,13 @@ impl GuestTransaction for JanusGraphTransaction {
     fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
         let id_str = element_id_to_string(&id);
         let response = self.client.borrow().get_vertex(&id_str)?;
-        if response.result.data.is_empty() {
+        let data_array = response
+            .result
+            .data
+            .get("@value")
+            .and_then(|v| v.as_array());
+
+        if data_array.map(|arr| arr.is_empty()).unwrap_or(true) {
             Ok(None)
         } else {
             parse_vertex_from_response(&response).map(Some)
@@ -320,16 +352,111 @@ impl GuestTransaction for JanusGraphTransaction {
     fn find_vertices(
         &self,
         vertex_type: Option<String>,
-        _filters: Option<Vec<FilterCondition>>,
+        filters: Option<Vec<FilterCondition>>,
         _sort: Option<Vec<SortSpec>>,
         limit: Option<u32>,
         _offset: Option<u32>,
     ) -> Result<Vec<Vertex>, GraphError> {
-        let query = if let Some(vt) = vertex_type {
-            format!("g.V().hasLabel('{}').limit({})", vt, limit.unwrap_or(100))
+        let mut query = String::new();
+
+        if let Some(vt) = vertex_type {
+            query.push_str(&format!("g.V().hasLabel('{vt}')"));
         } else {
-            format!("g.V().limit({})", limit.unwrap_or(100))
-        };
+            query.push_str("g.V()");
+        }
+
+        if let Some(filter_conditions) = filters {
+            for filter in filter_conditions {
+                match filter.operator {
+                    ComparisonOperator::Equal => {
+                        query.push_str(&format!(
+                            ".has('{}', {})",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::NotEqual => {
+                        query.push_str(&format!(
+                            ".hasNot('{}', {})",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::GreaterThan => {
+                        query.push_str(&format!(
+                            ".has('{}', gt({}))",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::GreaterThanOrEqual => {
+                        query.push_str(&format!(
+                            ".has('{}', gte({}))",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::LessThan => {
+                        query.push_str(&format!(
+                            ".has('{}', lt({}))",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::LessThanOrEqual => {
+                        query.push_str(&format!(
+                            ".has('{}', lte({}))",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::Contains => {
+                        query.push_str(&format!(
+                            ".has('{}', containing({}))",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::StartsWith => {
+                        query.push_str(&format!(
+                            ".has('{}', startingWith({}))",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::EndsWith => {
+                        query.push_str(&format!(
+                            ".has('{}', endingWith({}))",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::RegexMatch => {
+                        query.push_str(&format!(
+                            ".has('{}', regex({}))",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::InList => {
+                        query.push_str(&format!(
+                            ".has('{}', within({}))",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                    ComparisonOperator::NotInList => {
+                        query.push_str(&format!(
+                            ".has('{}', without({}))",
+                            filter.property,
+                            property_value_to_gremlin_string(&filter.value)?
+                        ));
+                    }
+                }
+            }
+        }
+
+        query.push_str(&format!(".limit({})", limit.unwrap_or(100)));
 
         let response = self.client.borrow().execute_gremlin_sync(&query, None)?;
         parse_vertices_from_response(&response)
@@ -358,7 +485,13 @@ impl GuestTransaction for JanusGraphTransaction {
     fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
         let id_str = element_id_to_string(&id);
         let response = self.client.borrow().get_edge(&id_str)?;
-        if response.result.data.is_empty() {
+        let data_array = response
+            .result
+            .data
+            .get("@value")
+            .and_then(|v| v.as_array());
+
+        if data_array.map(|arr| arr.is_empty()).unwrap_or(true) {
             Ok(None)
         } else {
             parse_edge_from_response(&response).map(Some)
@@ -569,7 +702,7 @@ impl GuestTransaction for JanusGraphTransaction {
     }
 
     fn is_active(&self) -> bool {
-        !self.session_id.is_empty()
+        !self.session_id.is_empty() && self.client.borrow().is_session_active()
     }
 
     fn commit(&self) -> Result<(), GraphError> {
@@ -600,8 +733,20 @@ impl TraversalGuest for JanusGraphComponent {
         let edge_types = options.as_ref().and_then(|o| o.edge_types.clone());
 
         let client = transaction_ref.client.borrow();
-        let _response =
+        let response =
             client.find_shortest_path(&from_str, &to_str, edge_types, Some(max_depth))?;
+
+        let data_array = response
+            .result
+            .data
+            .get("@value")
+            .and_then(|v| v.as_array());
+
+        if data_array.map(|arr| arr.is_empty()).unwrap_or(true) {
+            return Ok(None);
+        }
+
+        // Parse path from response
         let start_vertex = Vertex {
             id: from_vertex,
             vertex_type: "Vertex".to_string(),
@@ -645,7 +790,13 @@ impl TraversalGuest for JanusGraphComponent {
 
         // Parse paths from response
         let mut paths = Vec::new();
-        if !response.result.data.is_empty() {
+        let data_array = response
+            .result
+            .data
+            .get("@value")
+            .and_then(|v| v.as_array());
+
+        if data_array.map(|arr| !arr.is_empty()).unwrap_or(false) {
             let start_vertex = Vertex {
                 id: from_vertex,
                 vertex_type: "Vertex".to_string(),
@@ -748,7 +899,13 @@ impl QueryGuest for JanusGraphComponent {
         let response = client.execute_custom_query(query, Some(bindings))?;
 
         // Parse the result based on the query type
-        let query_result = if response.result.data.is_empty() {
+        let data_array = response
+            .result
+            .data
+            .get("@value")
+            .and_then(|v| v.as_array());
+
+        let query_result = if data_array.map(|arr| arr.is_empty()).unwrap_or(true) {
             QueryResult::Vertices(vec![])
         } else {
             // Try to parse as vertices first, then edges, then as generic data
@@ -759,11 +916,10 @@ impl QueryGuest for JanusGraphComponent {
             } else {
                 // Return as generic data
                 QueryResult::Values(
-                    response
-                        .result
-                        .data
-                        .into_iter()
-                        .map(|v| json_to_property_value(&v).unwrap_or(PropertyValue::NullValue))
+                    data_array
+                        .unwrap_or(&vec![])
+                        .iter()
+                        .map(|v| json_to_property_value(v).unwrap_or(PropertyValue::NullValue))
                         .collect(),
                 )
             }
@@ -863,50 +1019,68 @@ impl GuestSchemaManager for JanusGraphSchemaManager {
         let client = self.client.borrow();
         let response = client.get_label_schema(&label)?;
 
-        if response.result.data.is_empty() {
+        let data_array = response
+            .result
+            .data
+            .get("@value")
+            .and_then(|v| v.as_array());
+
+        if data_array.map(|arr| arr.is_empty()).unwrap_or(true) {
             return Ok(None);
         }
 
         // Parse properties from response
         let mut properties = Vec::new();
-        for value in &response.result.data {
-            if let Some(prop_name) = value.as_str() {
-                properties.push(PropertyDefinition {
-                    name: prop_name.to_string(),
-                    property_type: PropertyType::StringType, // Default to string
-                    required: false,
-                    unique: false,
-                    default_value: None,
-                });
+        if let Some(arr) = data_array {
+            for value in arr {
+                if let Some(prop_name) = value.as_str() {
+                    properties.push(PropertyDefinition {
+                        name: prop_name.to_string(),
+                        property_type: PropertyType::StringType, // Default to string
+                        required: false,
+                        unique: false,
+                        default_value: None,
+                    });
+                }
             }
-        }
 
-        Ok(Some(VertexLabelSchema {
-            label,
-            properties,
-            container: None,
-        }))
+            Ok(Some(VertexLabelSchema {
+                label,
+                properties,
+                container: None,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     fn get_edge_label_schema(&self, label: String) -> Result<Option<EdgeLabelSchema>, GraphError> {
         let client = self.client.borrow();
         let response = client.get_label_schema(&label)?;
 
-        if response.result.data.is_empty() {
+        let data_array = response
+            .result
+            .data
+            .get("@value")
+            .and_then(|v| v.as_array());
+
+        if data_array.map(|arr| arr.is_empty()).unwrap_or(true) {
             return Ok(None);
         }
 
         // Parse properties from response
         let mut properties = Vec::new();
-        for value in &response.result.data {
-            if let Some(prop_name) = value.as_str() {
-                properties.push(PropertyDefinition {
-                    name: prop_name.to_string(),
-                    property_type: PropertyType::StringType, // Default to string
-                    required: false,
-                    unique: false,
-                    default_value: None,
-                });
+        if let Some(arr) = data_array {
+            for value in arr {
+                if let Some(prop_name) = value.as_str() {
+                    properties.push(PropertyDefinition {
+                        name: prop_name.to_string(),
+                        property_type: PropertyType::StringType, // Default to string
+                        required: false,
+                        unique: false,
+                        default_value: None,
+                    });
+                }
             }
         }
 
@@ -960,14 +1134,57 @@ impl GuestSchemaManager for JanusGraphSchemaManager {
 
     fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
         let client = self.client.borrow();
-        let _response = client.execute_gremlin_sync("mgmt.getGraphIndexes(Vertex.class)", None)?;
-        Ok(vec![])
+        let response = client.execute_gremlin_sync("mgmt.getGraphIndexes(Vertex.class)", None)?;
+
+        let mut indexes = Vec::new();
+        let data_array = response
+            .result
+            .data
+            .get("@value")
+            .and_then(|v| v.as_array());
+
+        if let Some(arr) = data_array {
+            for value in arr {
+                if let Some(index_name) = value.as_str() {
+                    let index = IndexDefinition {
+                        name: index_name.to_string(),
+                        label: "Unknown".to_string(),
+                        properties: vec!["property".to_string()],
+                        index_type: IndexType::Exact,
+                        unique: false,
+                        container: None,
+                    };
+                    indexes.push(index);
+                }
+            }
+        }
+
+        Ok(indexes)
     }
 
     fn get_index(&self, name: String) -> Result<Option<IndexDefinition>, GraphError> {
         let client = self.client.borrow();
-        let _response =
+        let response =
             client.execute_gremlin_sync(&format!("mgmt.getGraphIndex('{name}')"), None)?;
+
+        let data_array = response
+            .result
+            .data
+            .get("@value")
+            .and_then(|v| v.as_array());
+
+        if data_array.map(|arr| !arr.is_empty()).unwrap_or(false) {
+            let index = IndexDefinition {
+                name,
+                label: "Unknown".to_string(),
+                properties: vec!["property".to_string()],
+                index_type: IndexType::Exact,
+                unique: false,
+                container: None,
+            };
+            return Ok(Some(index));
+        }
+
         Ok(None)
     }
 
@@ -991,7 +1208,6 @@ impl GuestSchemaManager for JanusGraphSchemaManager {
         Ok(vec![])
     }
 }
-
 type DurableJanusGraphComponent = DurableGraph<JanusGraphComponent>;
 
 golem_graph::export_graph!(DurableJanusGraphComponent with_types_in golem_graph);

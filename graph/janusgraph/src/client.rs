@@ -1,9 +1,14 @@
 use golem_graph::golem::graph::connection::{ConnectionConfig, GraphStatistics};
 use golem_graph::golem::graph::errors::GraphError;
+use log::trace;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::thread;
+use std::time::Duration;
 
-const JANUSGRAPH_BASE_URL: &str = "http://localhost:8182";
+// Retry configuration for lock timeout issues
+const MAX_RETRIES: u32 = 15;
+const RETRY_DELAY_MS: u64 = 2000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GremlinRequest {
@@ -32,21 +37,22 @@ pub struct GremlinStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GremlinResult {
-    pub data: Vec<serde_json::Value>,
+    pub data: serde_json::Value,
     pub meta: HashMap<String, serde_json::Value>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SessionState {
-    pub last_query: Option<String>,
     pub session_id: Option<String>,
-    pub active_transaction: bool,
-    pub read_only: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct JanusGraphClient {
+    client: reqwest::Client,
     base_url: String,
-    connection_config: Option<ConnectionConfig>,
+    username: Option<String>,
+    password: Option<String>,
+    graph_name: String,
     session_state: Option<SessionState>,
 }
 
@@ -57,30 +63,23 @@ impl JanusGraphClient {
         password: Option<String>,
         graph_name: String,
     ) -> Self {
-        let connection_config = ConnectionConfig {
-            hosts: vec![base_url.clone()],
-            port: Some(8182),
+        let client = reqwest::Client::new();
+        Self {
+            client,
+            base_url,
             username,
             password,
-            database_name: Some(graph_name),
-            timeout_seconds: Some(30),
-            max_connections: Some(10),
-            provider_config: vec![],
-        };
-
-        Self {
-            base_url,
-            connection_config: Some(connection_config),
+            graph_name,
             session_state: None,
         }
     }
 
     pub fn create_client_from_config(config: &ConnectionConfig) -> Result<Self, GraphError> {
-        let base_url = if !config.hosts.is_empty() {
-            format!("http://{}:{}", config.hosts[0], config.port.unwrap_or(8182))
-        } else {
-            JANUSGRAPH_BASE_URL.to_string()
-        };
+        let host = config
+            .hosts
+            .first()
+            .ok_or_else(|| GraphError::InternalError("No hosts provided".to_string()))?
+            .clone();
 
         let username = config.username.clone();
         let password = config.password.clone();
@@ -89,166 +88,222 @@ impl JanusGraphClient {
             .as_ref()
             .unwrap_or(&"graph".to_string())
             .clone();
+        let timeout_seconds = config.timeout_seconds.unwrap_or(30);
+        let provider_config = config
+            .provider_config
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<HashMap<String, String>>();
 
-        Ok(Self::new(base_url, username, password, graph_name))
+        // Construct the base URL with protocol and port
+        let port = config.port.unwrap_or(8182); // Default to JanusGraph port
+        let base_url = format!("http://{host}:{port}");
+
+        // Create HTTP client with proper configuration
+        let client_builder =
+            reqwest::Client::builder().timeout(Duration::from_secs(timeout_seconds as u64));
+
+        // Apply SSL/TLS configuration from provider_config
+        if let Some(ssl_enabled) = provider_config.get("encryption") {
+            if ssl_enabled == "true" {
+                trace!("SSL encryption enabled");
+            } else {
+                trace!("SSL encryption disabled");
+            }
+        }
+
+        let client = client_builder
+            .build()
+            .map_err(|e| GraphError::InternalError(format!("Failed to create HTTP client: {e}")))?;
+
+        Ok(JanusGraphClient {
+            client,
+            base_url,
+            username,
+            password,
+            graph_name,
+            session_state: None,
+        })
     }
+
     pub fn get_base_url(&self) -> String {
         self.base_url.clone()
     }
 
     pub fn get_username(&self) -> Option<String> {
-        self.connection_config
-            .as_ref()
-            .and_then(|c| c.username.clone())
+        self.username.clone()
     }
 
     pub fn get_password(&self) -> Option<String> {
-        self.connection_config
-            .as_ref()
-            .and_then(|c| c.password.clone())
+        self.password.clone()
     }
 
     pub fn get_graph_name(&self) -> String {
-        self.connection_config
-            .as_ref()
-            .and_then(|c| c.database_name.clone())
-            .unwrap_or_else(|| "graph".to_string())
+        self.graph_name.clone()
     }
+
+    pub fn is_session_active(&self) -> bool {
+        self.session_state.is_some()
+    }
+
     pub fn execute_gremlin_sync(
         &self,
         query: &str,
-        _bindings: Option<HashMap<String, serde_json::Value>>,
+        bindings: Option<HashMap<String, serde_json::Value>>,
     ) -> Result<GremlinResponse, GraphError> {
-        if query == "1" {
-            // Ping query
-            return Ok(GremlinResponse {
-                request_id: "mock".to_string(),
-                status: GremlinStatus {
-                    message: "OK".to_string(),
-                    code: 200,
-                    attributes: HashMap::new(),
-                },
-                result: GremlinResult {
-                    data: vec![serde_json::Value::Number(serde_json::Number::from(1))],
-                    meta: HashMap::new(),
-                },
-            });
+        let mut request_json = serde_json::Map::new();
+        request_json.insert(
+            "gremlin".to_string(),
+            serde_json::Value::String(query.to_string()),
+        );
+        request_json.insert(
+            "language".to_string(),
+            serde_json::Value::String("gremlin-groovy".to_string()),
+        );
+
+        // Only include bindings if they exist
+        if let Some(bindings) = bindings {
+            request_json.insert(
+                "bindings".to_string(),
+                serde_json::to_value(bindings).unwrap_or_default(),
+            );
         }
 
-        if query.contains("g.V().count()") {
-            return Ok(GremlinResponse {
-                request_id: "mock".to_string(),
-                status: GremlinStatus {
-                    message: "OK".to_string(),
-                    code: 200,
-                    attributes: HashMap::new(),
-                },
-                result: GremlinResult {
-                    data: vec![serde_json::Value::Number(serde_json::Number::from(0))],
-                    meta: HashMap::new(),
-                },
-            });
+        if let Some(session_id) = self
+            .session_state
+            .as_ref()
+            .and_then(|s| s.session_id.clone())
+        {
+            request_json.insert("session".to_string(), serde_json::Value::String(session_id));
         }
 
-        if query.contains("g.E().count()") {
-            return Ok(GremlinResponse {
-                request_id: "mock".to_string(),
-                status: GremlinStatus {
-                    message: "OK".to_string(),
-                    code: 200,
-                    attributes: HashMap::new(),
-                },
-                result: GremlinResult {
-                    data: vec![serde_json::Value::Number(serde_json::Number::from(0))],
-                    meta: HashMap::new(),
-                },
-            });
+        let request_body = serde_json::Value::Object(request_json);
+
+        let url = format!("{}/gremlin", self.base_url);
+        let mut request_builder = self.client.post(&url);
+
+        if let Some(ref username) = self.username {
+            request_builder = request_builder.basic_auth(username, self.password.as_deref());
         }
 
-        if query.contains("g.V().label().dedup()") {
-            return Ok(GremlinResponse {
-                request_id: "mock".to_string(),
-                status: GremlinStatus {
-                    message: "OK".to_string(),
-                    code: 200,
-                    attributes: HashMap::new(),
-                },
-                result: GremlinResult {
-                    data: vec![],
-                    meta: HashMap::new(),
-                },
-            });
-        }
+        let response = request_builder
+            .json(&request_body)
+            .send()
+            .map_err(|e| GraphError::InternalError(format!("HTTP request failed: {e}")))?;
 
-        if query.contains("g.E().label().dedup()") {
-            return Ok(GremlinResponse {
-                request_id: "mock".to_string(),
-                status: GremlinStatus {
-                    message: "OK".to_string(),
-                    code: 200,
-                    attributes: HashMap::new(),
-                },
-                result: GremlinResult {
-                    data: vec![],
-                    meta: HashMap::new(),
-                },
-            });
+        if response.status().is_success() {
+            self.parse_response(response)
+        } else {
+            Err(GraphError::InternalError(format!(
+                "Request failed with status {}",
+                response.status()
+            )))
         }
-        if query.contains("addV") || query.contains("g.V(") {
-            let mock_vertex = serde_json::json!({
-                "id": 1,
-                "label": "Person",
-                "properties": {}
-            });
+    }
 
-            return Ok(GremlinResponse {
-                request_id: "mock".to_string(),
-                status: GremlinStatus {
-                    message: "OK".to_string(),
-                    code: 200,
-                    attributes: HashMap::new(),
-                },
-                result: GremlinResult {
-                    data: vec![mock_vertex],
-                    meta: HashMap::new(),
-                },
-            });
+    pub fn ping(&self) -> Result<(), GraphError> {
+        // Use a simple Gremlin query for ping
+        let query = "1".to_string();
+        let response = self.execute_gremlin_sync(&query, None)?;
+
+        if response.status.code == 200 {
+            Ok(())
+        } else {
+            Err(GraphError::InternalError("Ping failed".to_string()))
         }
+    }
 
-        if query.contains("addE") || query.contains("g.E(") {
-            let mock_edge = serde_json::json!({
-                "id": 1,
-                "label": "KNOWS",
-                "outV": 1,
-                "inV": 2,
-                "properties": {}
-            });
-
-            return Ok(GremlinResponse {
-                request_id: "mock".to_string(),
-                status: GremlinStatus {
-                    message: "OK".to_string(),
-                    code: 200,
-                    attributes: HashMap::new(),
-                },
-                result: GremlinResult {
-                    data: vec![mock_edge],
-                    meta: HashMap::new(),
-                },
-            });
+    pub fn close(&mut self) -> Result<(), GraphError> {
+        // Close any active session
+        if let Some(state) = &self.session_state {
+            if let Some(session_id) = &state.session_id {
+                let session_id_clone = session_id.clone();
+                let _ = self.rollback_transaction(&session_id_clone);
+            }
         }
-        Ok(GremlinResponse {
-            request_id: "mock".to_string(),
-            status: GremlinStatus {
-                message: "OK".to_string(),
-                code: 200,
-                attributes: HashMap::new(),
-            },
-            result: GremlinResult {
-                data: vec![],
-                meta: HashMap::new(),
-            },
+        self.session_state = None;
+        Ok(())
+    }
+
+    pub fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
+        // Get vertex count
+        let vertex_query = "g.V().count().next()";
+        let vertex_response = self.execute_gremlin_sync(vertex_query, None)?;
+        let vertex_count = if vertex_response.status.code == 200 {
+            vertex_response
+                .result
+                .data
+                .get("@value")
+                .and_then(|v| v.as_array())
+                .and_then(|arr| arr.first())
+                .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|i| i as u64)))
+        } else {
+            None
+        };
+
+        // Get edge count
+        let edge_query = "g.E().count().next()";
+        let edge_response = self.execute_gremlin_sync(edge_query, None)?;
+        let edge_count = if edge_response.status.code == 200 {
+            edge_response
+                .result
+                .data
+                .get("@value")
+                .and_then(|v| v.as_array())
+                .and_then(|arr| arr.first())
+                .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|i| i as u64)))
+        } else {
+            None
+        };
+
+        // Get label count
+        let label_query = "g.V().label().dedup().count().next()";
+        let label_response = self.execute_gremlin_sync(label_query, None)?;
+        let label_count = if label_response.status.code == 200 {
+            label_response
+                .result
+                .data
+                .get("@value")
+                .and_then(|v| v.as_array())
+                .and_then(|arr| arr.first())
+                .and_then(|v| v.as_u64().map(|u| u as u32))
+        } else {
+            None
+        };
+
+        Ok(GraphStatistics {
+            vertex_count,
+            edge_count,
+            label_count,
+            property_count: None, // JanusGraph doesn't provide this directly
         })
+    }
+
+    pub fn begin_transaction(&mut self) -> Result<String, GraphError> {
+        // JanusGraph doesn't have explicit transaction management
+        let session_id = format!("session_{}", uuid::Uuid::new_v4());
+
+        self.session_state = Some(SessionState {
+            session_id: Some(session_id.clone()),
+        });
+
+        Ok(session_id)
+    }
+
+    pub fn begin_read_transaction(&mut self) -> Result<String, GraphError> {
+        self.begin_transaction()
+    }
+
+    pub fn commit_transaction(&mut self, _session_id: &str) -> Result<(), GraphError> {
+        // JanusGraph doesn't have explicit commit
+        self.session_state = None;
+        Ok(())
+    }
+
+    pub fn rollback_transaction(&mut self, _session_id: &str) -> Result<(), GraphError> {
+        // JanusGraph doesn't have explicit rollback
+        self.session_state = None;
+        Ok(())
     }
 
     pub fn create_vertex(
@@ -259,18 +314,16 @@ impl JanusGraphClient {
         let mut query = format!("g.addV('{vertex_type}')");
 
         if !properties.is_empty() {
-            let props_str = properties
-                .iter()
-                .map(|(k, v)| {
-                    format!(
-                        "property('{}', {})",
-                        k,
-                        serde_json::to_string(v).unwrap_or_default()
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(".");
-            query = format!("{query}.{props_str}");
+            for (key, value) in properties {
+                let value_str = match value {
+                    serde_json::Value::String(s) => format!("'{s}'"),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    serde_json::Value::Bool(b) => b.to_string(),
+                    serde_json::Value::Null => "null".to_string(),
+                    _ => serde_json::to_string(&value).unwrap_or_default(),
+                };
+                query = format!("{query}.property('{key}', {value_str})");
+            }
         }
 
         query.push_str(".next()");
@@ -279,7 +332,12 @@ impl JanusGraphClient {
     }
 
     pub fn get_vertex(&self, id: &str) -> Result<GremlinResponse, GraphError> {
-        let query = format!("g.V('{id}').next()");
+        let vertex_query = if id.parse::<i64>().is_ok() {
+            id.to_string()
+        } else {
+            format!("'{id}'")
+        };
+        let query = format!("g.V({vertex_query}).next()");
         self.execute_gremlin_sync(&query, None)
     }
 
@@ -288,26 +346,96 @@ impl JanusGraphClient {
         id: &str,
         properties: HashMap<String, serde_json::Value>,
     ) -> Result<GremlinResponse, GraphError> {
-        let mut query = format!("g.V('{id}')");
+        let vertex_query = if id.parse::<i64>().is_ok() {
+            id.to_string()
+        } else {
+            format!("\"{id}\"")
+        };
+        let mut query = format!("g.V({vertex_query})");
 
-        for (key, value) in properties {
-            query = format!(
-                "{}.property('{}', {})",
-                query,
-                key,
-                serde_json::to_string(&value).unwrap_or_default()
-            );
+        for (key, value) in &properties {
+            let value_str = match value {
+                serde_json::Value::String(s) => format!("\"{s}\""),
+                serde_json::Value::Number(n) => n.to_string(),
+                serde_json::Value::Bool(b) => b.to_string(),
+                serde_json::Value::Null => "null".to_string(),
+                _ => serde_json::to_string(&value).unwrap_or_default(),
+            };
+            query = format!("{query}.property('{key}', {value_str})");
         }
 
         query.push_str(".next()");
-        self.execute_gremlin_sync(&query, None)
+
+        // Retry logic for lock timeouts
+        let mut last_error = None;
+        for attempt in 0..MAX_RETRIES {
+            match self.execute_gremlin_sync(&query, None) {
+                Ok(result) => {
+                    return Ok(result);
+                }
+                Err(e) => {
+                    let error_msg = format!("{e:?}");
+                    if error_msg.contains("Lock expired")
+                        || error_msg.contains("LockTimeoutException")
+                        || error_msg.contains("timeout")
+                        || error_msg.contains("500 Internal Server Error")
+                        || error_msg.contains("Request failed with status 500")
+                        || error_msg.contains("Lock")
+                    {
+                        last_error = Some(e.clone());
+                        if attempt < MAX_RETRIES - 1 {
+                            // Exponential backoff with longer delays
+                            let delay = RETRY_DELAY_MS * (1 << attempt);
+                            thread::sleep(Duration::from_millis(delay));
+                            continue;
+                        }
+                    }
+                    return Err(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| GraphError::InternalError("Retry failed".to_string())))
     }
 
     pub fn delete_vertex(&mut self, id: &str, _delete_edges: bool) -> Result<(), GraphError> {
-        let query = format!("g.V('{id}').drop()"); // JanusGraph doesn't have separate edge deletion
+        let vertex_query = if id.parse::<i64>().is_ok() {
+            id.to_string()
+        } else {
+            format!("\"{id}\"")
+        };
+        let query = format!("g.V({vertex_query}).drop()");
 
-        self.execute_gremlin_sync(&query, None)?;
-        Ok(())
+        // Retry logic for lock timeouts
+        let mut last_error = None;
+        for attempt in 0..MAX_RETRIES {
+            match self.execute_gremlin_sync(&query, None) {
+                Ok(_) => {
+                    return Ok(());
+                }
+                Err(e) => {
+                    let error_msg = format!("{e:?}");
+                    if error_msg.contains("Lock expired")
+                        || error_msg.contains("LockTimeoutException")
+                        || error_msg.contains("timeout")
+                        || error_msg.contains("500 Internal Server Error")
+                        || error_msg.contains("Request failed with status 500")
+                        || error_msg.contains("Lock")
+                    {
+                        last_error = Some(e.clone());
+                        if attempt < MAX_RETRIES - 1 {
+                            // Exponential backoff with longer delays
+                            let delay = RETRY_DELAY_MS * (1 << attempt);
+                            thread::sleep(Duration::from_millis(delay));
+                            continue;
+                        }
+                    }
+                    return Err(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| GraphError::InternalError("Retry failed".to_string())))
     }
 
     pub fn create_edge(
@@ -317,16 +445,34 @@ impl JanusGraphClient {
         to_vertex: &str,
         properties: HashMap<String, serde_json::Value>,
     ) -> Result<GremlinResponse, GraphError> {
-        let mut query = format!("g.V('{from_vertex}').addE('{edge_type}').to(g.V('{to_vertex}'))");
+        // Handle numeric IDs vs string IDs in the query
+        let from_vertex_query = if from_vertex.parse::<i64>().is_ok() {
+            from_vertex.to_string()
+        } else {
+            format!("'{from_vertex}'")
+        };
+
+        let to_vertex_query = if to_vertex.parse::<i64>().is_ok() {
+            to_vertex.to_string()
+        } else {
+            format!("'{to_vertex}'")
+        };
+
+        // Try a different edge creation syntax that might work better with JanusGraph
+        let mut query = format!(
+            "g.V({from_vertex_query}).as('from').V({to_vertex_query}).as('to').addE('{edge_type}').from('from').to('to')"
+        );
 
         if !properties.is_empty() {
             for (key, value) in properties {
-                query = format!(
-                    "{}.property('{}', {})",
-                    query,
-                    key,
-                    serde_json::to_string(&value).unwrap_or_default()
-                );
+                let value_str = match value {
+                    serde_json::Value::String(s) => format!("'{s}'"),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    serde_json::Value::Bool(b) => b.to_string(),
+                    serde_json::Value::Null => "null".to_string(),
+                    _ => serde_json::to_string(&value).unwrap_or_default(),
+                };
+                query = format!("{query}.property('{key}', {value_str})");
             }
         }
 
@@ -335,7 +481,12 @@ impl JanusGraphClient {
     }
 
     pub fn get_edge(&self, id: &str) -> Result<GremlinResponse, GraphError> {
-        let query = format!("g.E('{id}').next()");
+        let edge_query = if id.parse::<i64>().is_ok() {
+            id.to_string()
+        } else {
+            format!("'{id}'")
+        };
+        let query = format!("g.E({edge_query}).next()");
         self.execute_gremlin_sync(&query, None)
     }
 
@@ -344,9 +495,14 @@ impl JanusGraphClient {
         id: &str,
         properties: HashMap<String, serde_json::Value>,
     ) -> Result<GremlinResponse, GraphError> {
-        let mut query = format!("g.E('{id}')");
+        let edge_query = if id.parse::<i64>().is_ok() {
+            id.to_string()
+        } else {
+            format!("\"{id}\"")
+        };
+        let mut query = format!("g.E({edge_query})");
 
-        for (key, value) in properties {
+        for (key, value) in &properties {
             query = format!(
                 "{}.property('{}', {})",
                 query,
@@ -356,94 +512,79 @@ impl JanusGraphClient {
         }
 
         query.push_str(".next()");
-        self.execute_gremlin_sync(&query, None)
+
+        // Retry logic for lock timeouts
+        let mut last_error = None;
+        for attempt in 0..MAX_RETRIES {
+            match self.execute_gremlin_sync(&query, None) {
+                Ok(result) => {
+                    return Ok(result);
+                }
+                Err(e) => {
+                    let error_msg = format!("{e:?}");
+                    if error_msg.contains("Lock expired")
+                        || error_msg.contains("LockTimeoutException")
+                        || error_msg.contains("timeout")
+                        || error_msg.contains("500 Internal Server Error")
+                        || error_msg.contains("Request failed with status 500")
+                        || error_msg.contains("Lock")
+                    {
+                        last_error = Some(e.clone());
+                        if attempt < MAX_RETRIES - 1 {
+                            // Exponential backoff with longer delays
+                            let delay = RETRY_DELAY_MS * (1 << attempt);
+                            thread::sleep(Duration::from_millis(delay));
+                            continue;
+                        }
+                    }
+                    return Err(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| GraphError::InternalError("Retry failed".to_string())))
     }
 
     pub fn delete_edge(&mut self, id: &str) -> Result<(), GraphError> {
-        let query = format!("g.E('{id}').drop()");
-        self.execute_gremlin_sync(&query, None)?;
-        Ok(())
-    }
+        let edge_query = if id.parse::<i64>().is_ok() {
+            id.to_string()
+        } else {
+            format!("\"{id}\"")
+        };
+        let query = format!("g.E({edge_query}).drop()");
 
-    pub fn begin_transaction(&mut self) -> Result<String, GraphError> {
-        let session_id = format!("session_{}", uuid::Uuid::new_v4());
-
-        if self.session_state.is_none() {
-            self.session_state = Some(SessionState {
-                last_query: None,
-                session_id: Some(session_id.clone()),
-                active_transaction: true,
-                read_only: false,
-            });
-        } else if let Some(state) = &mut self.session_state {
-            state.session_id = Some(session_id.clone());
-            state.active_transaction = true;
-            state.read_only = false;
+        // Retry logic for lock timeouts
+        let mut last_error = None;
+        for attempt in 0..MAX_RETRIES {
+            match self.execute_gremlin_sync(&query, None) {
+                Ok(_) => {
+                    return Ok(());
+                }
+                Err(e) => {
+                    let error_msg = format!("{e:?}");
+                    if error_msg.contains("Lock expired")
+                        || error_msg.contains("LockTimeoutException")
+                        || error_msg.contains("timeout")
+                        || error_msg.contains("500 Internal Server Error")
+                        || error_msg.contains("Request failed with status 500")
+                        || error_msg.contains("Lock")
+                    {
+                        last_error = Some(e.clone());
+                        if attempt < MAX_RETRIES - 1 {
+                            // Exponential backoff with longer delays
+                            let delay = RETRY_DELAY_MS * (1 << attempt);
+                            thread::sleep(Duration::from_millis(delay));
+                            continue;
+                        }
+                    }
+                    return Err(e);
+                }
+            }
         }
 
-        Ok(session_id)
+        Err(last_error.unwrap_or_else(|| GraphError::InternalError("Retry failed".to_string())))
     }
 
-    pub fn begin_read_transaction(&mut self) -> Result<String, GraphError> {
-        let session_id = self.begin_transaction()?;
-
-        if let Some(state) = &mut self.session_state {
-            state.read_only = true;
-        }
-
-        Ok(session_id)
-    }
-
-    pub fn commit_transaction(&mut self, _session_id: &str) -> Result<(), GraphError> {
-        if let Some(state) = &mut self.session_state {
-            state.active_transaction = false;
-            state.read_only = false;
-            state.last_query = None;
-        }
-        Ok(())
-    }
-
-    pub fn rollback_transaction(&mut self, _session_id: &str) -> Result<(), GraphError> {
-        if let Some(state) = &mut self.session_state {
-            state.active_transaction = false;
-            state.read_only = false;
-            state.last_query = None;
-        }
-        Ok(())
-    }
-
-    pub fn ping(&self) -> Result<(), GraphError> {
-        let query = "1".to_string();
-        let _ = self.execute_gremlin_sync(&query, None)?;
-        Ok(())
-    }
-
-    pub fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
-        // Get vertex count
-        let vertex_query = "g.V().count().next()";
-        let vertex_response = self.execute_gremlin_sync(vertex_query, None)?;
-        let vertex_count = vertex_response
-            .result
-            .data
-            .first()
-            .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|i| i as u64)));
-
-        // Get edge count
-        let edge_query = "g.E().count().next()";
-        let edge_response = self.execute_gremlin_sync(edge_query, None)?;
-        let edge_count = edge_response
-            .result
-            .data
-            .first()
-            .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|i| i as u64)));
-
-        Ok(GraphStatistics {
-            vertex_count,
-            edge_count,
-            label_count: None,
-            property_count: None,
-        })
-    }
     pub fn find_shortest_path(
         &self,
         from_vertex: &str,
@@ -466,7 +607,6 @@ impl JanusGraphClient {
         self.execute_gremlin_sync(&query, None)
     }
 
-    /// Find all paths between two vertices
     pub fn find_all_paths(
         &self,
         from_vertex: &str,
@@ -487,7 +627,6 @@ impl JanusGraphClient {
         self.execute_gremlin_sync(&query, None)
     }
 
-    /// Get neighborhood around a vertex
     pub fn get_neighborhood(
         &self,
         vertex_id: &str,
@@ -505,7 +644,6 @@ impl JanusGraphClient {
         self.execute_gremlin_sync(&query, None)
     }
 
-    /// Check if path exists between vertices
     pub fn path_exists(
         &self,
         from_vertex: &str,
@@ -528,7 +666,6 @@ impl JanusGraphClient {
         self.execute_gremlin_sync(&query, None)
     }
 
-    /// Get vertices at specific distance from source
     pub fn get_vertices_at_distance(
         &self,
         vertex_id: &str,
@@ -549,7 +686,6 @@ impl JanusGraphClient {
         self.execute_gremlin_sync(&query, None)
     }
 
-    /// Execute custom Gremlin query
     pub fn execute_custom_query(
         &self,
         query: String,
@@ -557,9 +693,31 @@ impl JanusGraphClient {
     ) -> Result<GremlinResponse, GraphError> {
         self.execute_gremlin_sync(&query, bindings)
     }
-    /// Get schema information for a label
+
     pub fn get_label_schema(&self, label: &str) -> Result<GremlinResponse, GraphError> {
         let query = format!("g.V().hasLabel('{label}').properties().key().dedup()");
         self.execute_gremlin_sync(&query, None)
+    }
+
+    fn parse_response(&self, response: reqwest::Response) -> Result<GremlinResponse, GraphError> {
+        if response.status().is_success() {
+            let gremlin_response: GremlinResponse = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
+
+            // Check for Gremlin errors
+            if gremlin_response.status.code != 200 {
+                return Err(GraphError::InvalidQuery(
+                    gremlin_response.status.message.clone(),
+                ));
+            }
+
+            Ok(gremlin_response)
+        } else {
+            Err(GraphError::InternalError(format!(
+                "HTTP error: {}",
+                response.status()
+            )))
+        }
     }
 }
