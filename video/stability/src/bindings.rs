@@ -2,8 +2,8 @@
 // Options used:
 //   * runtime_path: "wit_bindgen_rt"
 //   * with "golem:video-generation/advanced@1.0.0" = "golem_video::golem::video_generation::advanced"
-//   * with "golem:video-generation/lip-sync@1.0.0" = "golem_video::golem::video_generation::lip_sync"
 //   * with "golem:video-generation/types@1.0.0" = "golem_video::golem::video_generation::types"
+//   * with "golem:video-generation/lip-sync@1.0.0" = "golem_video::golem::video_generation::lip_sync"
 //   * with "golem:video-generation/video-generation@1.0.0" = "golem_video::golem::video_generation::video_generation"
 //   * generate_unused_types
 use golem_video::golem::video_generation::types as __with_name0;

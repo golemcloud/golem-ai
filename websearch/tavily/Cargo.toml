@@ -46,4 +46,4 @@ path = "wit"
 
 [package.metadata.component.target.dependencies]
 "golem:websearch" = { path = "wit/deps/golem-web-search" }
-"wasi:io" = { path = "wit/deps/wasi:io" }
+

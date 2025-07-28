@@ -84,6 +84,10 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-component
         run: cargo binstall --force cargo-component@0.20.0
+      - name: Install golem-cli
+        run: cargo binstall --force golem-cli@1.2.5 --locked --no-confirm
+      - name: Install wac-cli
+        run: cargo binstall --force wac-cli --locked --no-confirm
       - name: Build all test components
         run: cargo make build-test-components
   ollama-integration-tests:

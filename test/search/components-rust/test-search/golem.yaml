@@ -10,10 +10,6 @@ components:
     profiles:
       # DEBUG PROFILES
       algolia-debug:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
         build:
           - command: cargo component build --no-default-features --features algolia
             sources:
@@ -36,10 +32,6 @@ components:
           - src/bindings.rs
 
       elasticsearch-debug:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
         build:
           - command: cargo component build --no-default-features --features elasticsearch
             sources:
@@ -62,10 +54,6 @@ components:
           - src/bindings.rs
 
       meilisearch-debug:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
         build:
           - command: cargo component build --no-default-features --features meilisearch
             sources:
@@ -88,10 +76,6 @@ components:
           - src/bindings.rs
 
       opensearch-debug:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
         build:
           - command: cargo component build --no-default-features --features opensearch
             sources:
@@ -114,10 +98,6 @@ components:
           - src/bindings.rs
           
       typesense-debug:
-        files:
-        - sourcePath: ../../data/cat.png
-          targetPath: /data/cat.png
-          permissions: read-only
         build:
           - command: cargo component build --no-default-features --features typesense
             sources:
@@ -141,10 +121,6 @@ components:
 
       # RELEASE PROFILES
       algolia-release:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
         build:
           - command: cargo component build --release --no-default-features --features algolia
             sources:
@@ -167,10 +143,6 @@ components:
           - src/bindings.rs
 
       elasticsearch-release:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
         build:
           - command: cargo component build --release --no-default-features --features elasticsearch
             sources:
@@ -193,10 +165,6 @@ components:
           - src/bindings.rs
 
       meilisearch-release:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
         build:
           - command: cargo component build --release --no-default-features --features meilisearch
             sources:
@@ -219,10 +187,6 @@ components:
           - src/bindings.rs
 
       opensearch-release:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
         build:
           - command: cargo component build --release --no-default-features --features opensearch
             sources:
@@ -245,10 +209,6 @@ components:
           - src/bindings.rs
 
       typesense-release:
-        files:
-        - sourcePath: ../../data/cat.png
-          targetPath: /data/cat.png
-          permissions: read-only
         build:
           - command: cargo component build --release --no-default-features --features typesense
             sources:
