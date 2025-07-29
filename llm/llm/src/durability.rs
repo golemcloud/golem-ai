@@ -24,8 +24,9 @@ pub trait ExtendedGuest: Guest + 'static {
                 ContentPart::Text(
                     "You were asked the same question previously, but the response was interrupted before completion. \
                                         Please continue your response from where you left off. \
-                                        Do not include the part of the response that was already seen.".to_string()),
-                ContentPart::Text("Here is the original question:".to_string()),
+                                        Do not include the part of the response that was already seen.".to_string()
+                ),
+                ContentPart::Text("Here is the original question:".to_string())
             ],
         });
         extended_messages.extend_from_slice(original_messages);
@@ -470,7 +471,6 @@ mod durable_impl {
             ToolCall, Usage,
         };
         use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
-        use golem_rust::wasm_rpc::WitTypeNode;
         use std::fmt::Debug;
 
         fn roundtrip_test<T: Debug + Clone + PartialEq + IntoValueAndType + FromValueAndType>(
@@ -685,7 +685,7 @@ mod durable_impl {
             println!("{encoded:#?}");
 
             for wit_type in encoded.typ.nodes {
-                if let WitTypeNode::ListType(idx) = wit_type {
+                if let golem_rust::wasm_rpc::WitTypeNode::ListType(idx) = wit_type.type_ {
                     assert!(idx >= 0);
                 }
             }

@@ -5,3 +5,8 @@ target
 tmp
 components
 .DS_Store
+
+# Generated files
+**/bindings.rs
+**/wit-generated/
+**/golem-temp/

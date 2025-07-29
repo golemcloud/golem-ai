@@ -1,0 +1,11 @@
+package golem:graph-library@1.0.0;
+
+world graph-library {
+    export golem:graph/types@1.0.0;
+    export golem:graph/errors@1.0.0;
+    export golem:graph/connection@1.0.0;
+    export golem:graph/transactions@1.0.0;
+    export golem:graph/schema@1.0.0;
+    export golem:graph/query@1.0.0;
+    export golem:graph/traversal@1.0.0;
+}
