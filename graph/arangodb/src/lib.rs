@@ -425,20 +425,67 @@ impl GuestTransaction for ArangoTransaction {
 
     fn find_vertices(
         &self,
-        _vertex_type: Option<String>,
+        vertex_type: Option<String>,
         _filters: Option<Vec<FilterCondition>>,
         _sort: Option<Vec<SortSpec>>,
         limit: Option<u32>,
         _offset: Option<u32>,
     ) -> Result<Vec<Vertex>, GraphError> {
-        let _client = self.client.borrow();
-        let all_vertices = Vec::new();
-        let _total_limit = limit.unwrap_or(100);
+        let client = self.client.borrow();
+
         eprintln!(
-            "[arangodb] find_vertices: returning empty results due to cursor API limitations"
+            "[arango debug] find_vertices called with type: {vertex_type:?}, limit: {limit:?}"
         );
 
-        Ok(all_vertices)
+        if let Some(v_type) = vertex_type {
+            let response = client.get_all_documents(&v_type)?;
+            eprintln!(
+                "[arango debug] Got {} documents from collection {}",
+                response.result.len(),
+                v_type
+            );
+
+            let vertices = parse_vertices_from_response(&response)?;
+
+            if let Some(limit_val) = limit {
+                Ok(vertices.into_iter().take(limit_val as usize).collect())
+            } else {
+                Ok(vertices)
+            }
+        } else {
+            // Get all vertex collections
+            let collections_response = client.list_collections()?;
+            let mut all_vertices = Vec::new();
+
+            for collection in &collections_response.result {
+                if let Some(name) = collection["name"].as_str() {
+                    let collection_type = collection["type"].as_u64().unwrap_or(2);
+                    if !name.starts_with('_') && collection_type != 3 {
+                        if let Ok(response) = client.get_all_documents(name) {
+                            if let Ok(vertices) = parse_vertices_from_response(&response) {
+                                eprintln!(
+                                    "[arango debug] Added {} vertices from collection {}",
+                                    vertices.len(),
+                                    name
+                                );
+                                all_vertices.extend(vertices);
+                            }
+                        }
+                    }
+                }
+            }
+
+            eprintln!(
+                "[arango debug] Total vertices found: {}",
+                all_vertices.len()
+            );
+
+            if let Some(limit_val) = limit {
+                Ok(all_vertices.into_iter().take(limit_val as usize).collect())
+            } else {
+                Ok(all_vertices)
+            }
+        }
     }
 
     fn create_edge(
@@ -737,16 +784,73 @@ impl GuestTransaction for ArangoTransaction {
 
 impl TraversalGuest for ArangoComponent {
     fn find_shortest_path(
-        _transaction: TransactionBorrow<'_>,
-        _from_vertex: ElementId,
-        _to_vertex: ElementId,
+        transaction: TransactionBorrow<'_>,
+        from_vertex: ElementId,
+        to_vertex: ElementId,
         _options: Option<PathOptions>,
     ) -> Result<Option<Path>, GraphError> {
-        eprintln!("[arangodb] find_shortest_path: returning None due to cursor API limitations");
+        let transaction_ref: &ArangoTransaction = transaction.get();
+        let client = transaction_ref.client.borrow();
 
-        Ok(None)
+        let from_str = element_id_to_string(&from_vertex);
+        let to_str = element_id_to_string(&to_vertex);
+
+        let response = client.find_simple_path(&from_str, &to_str, 10)?;
+
+        if response.result.is_empty() {
+            Ok(None)
+        } else {
+            // Convert result to Path structure
+            let path_data = &response.result[0];
+            if let Some(vertices) = path_data["vertices"].as_array() {
+                let vertex_ids: Vec<ElementId> = vertices
+                    .iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| ElementId::StringValue(s.to_string()))
+                    .collect();
+
+                Ok(Some(Path {
+                    vertices: vec![], // Simplified - use empty vertices for now
+                    edges: vec![],    // Simplified - could be enhanced
+                    length: vertex_ids.len() as u32,
+                }))
+            } else {
+                Ok(None)
+            }
+        }
     }
 
+    fn get_neighborhood(
+        transaction: TransactionBorrow<'_>,
+        center: ElementId,
+        options: NeighborhoodOptions,
+    ) -> Result<Subgraph, GraphError> {
+        let transaction_ref: &ArangoTransaction = transaction.get();
+        let client = transaction_ref.client.borrow();
+
+        let center_str = element_id_to_string(&center);
+        let direction = match options.direction {
+            Direction::Outgoing => "OUTBOUND",
+            Direction::Incoming => "INBOUND",
+            Direction::Both => "ANY",
+        };
+
+        let response = client.find_adjacent_vertices(
+            &center_str,
+            direction,
+            options.edge_types,
+            options.max_vertices.unwrap_or(100),
+        )?;
+
+        let vertices = parse_vertices_from_response(&response)?;
+
+        Ok(Subgraph {
+            vertices,
+            edges: vec![], // Simplified - could be enhanced
+        })
+    }
+
+    // Keep other methods as they were, but now they won't fail completely
     fn find_all_paths(
         _transaction: TransactionBorrow<'_>,
         _from_vertex: ElementId,
@@ -754,31 +858,18 @@ impl TraversalGuest for ArangoComponent {
         _options: Option<PathOptions>,
         _limit: Option<u32>,
     ) -> Result<Vec<Path>, GraphError> {
-        Ok(vec![])
+        Ok(vec![]) // Return empty instead of error
     }
 
     fn path_exists(
-        _transaction: TransactionBorrow<'_>,
-        _from_vertex: ElementId,
-        _to_vertex: ElementId,
-        _options: Option<PathOptions>,
+        transaction: TransactionBorrow<'_>,
+        from_vertex: ElementId,
+        to_vertex: ElementId,
+        options: Option<PathOptions>,
     ) -> Result<bool, GraphError> {
-        Ok(false)
-    }
-
-    fn get_neighborhood(
-        _transaction: TransactionBorrow<'_>,
-        _center: ElementId,
-        _options: NeighborhoodOptions,
-    ) -> Result<Subgraph, GraphError> {
-        eprintln!(
-            "[arangodb] get_neighborhood: returning empty subgraph due to cursor API limitations"
-        );
-
-        Ok(Subgraph {
-            vertices: vec![],
-            edges: vec![],
-        })
+        // Use the shortest path function to check if path exists
+        let path = Self::find_shortest_path(transaction, from_vertex, to_vertex, options)?;
+        Ok(path.is_some())
     }
 
     fn get_vertices_at_distance(
@@ -788,7 +879,7 @@ impl TraversalGuest for ArangoComponent {
         _direction: Direction,
         _edge_types: Option<Vec<String>>,
     ) -> Result<Vec<Vertex>, GraphError> {
-        Ok(vec![])
+        Ok(vec![]) // Return empty instead of error
     }
 }
 
@@ -858,12 +949,21 @@ impl SchemaGuest for ArangoComponent {
     type SchemaManager = ArangoSchemaManager;
 
     fn get_schema_manager() -> Result<SchemaManager, GraphError> {
-        let client = ArangoClient::new(
-            "http://localhost:8529".to_string(),
-            "".to_string(),
-            "".to_string(),
-            "_system".to_string(),
-        );
+        // Get connection details from environment variables
+        let host = std::env::var("GOLEM_ARANGODB_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let port = std::env::var("GOLEM_ARANGODB_PORT").unwrap_or_else(|_| "8529".to_string());
+        let username = std::env::var("GOLEM_ARANGODB_USER").unwrap_or_else(|_| "root".to_string());
+        let password = std::env::var("GOLEM_ARANGODB_PASSWORD")
+            .unwrap_or_else(|_| "test_password".to_string());
+        let database =
+            std::env::var("GOLEM_ARANGODB_DATABASE").unwrap_or_else(|_| "test".to_string());
+
+        let base_url = format!("http://{host}:{port}");
+
+        eprintln!("[schema debug] Creating schema manager with URL: {base_url}");
+
+        let client = ArangoClient::new(base_url, username, password, database);
+
         Ok(SchemaManager::new(ArangoSchemaManager {
             client: RefCell::new(client),
         }))
@@ -871,6 +971,80 @@ impl SchemaGuest for ArangoComponent {
 }
 
 impl GuestSchemaManager for ArangoSchemaManager {
+    fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
+        let client = self.client.borrow();
+
+        // Debug: Check if client is properly configured
+        eprintln!(
+            "[schema debug] Listing collections from: {}",
+            client.get_base_url()
+        );
+
+        let response = client.list_collections()?;
+        eprintln!(
+            "[schema debug] Collections response: {:?}",
+            response.result.len()
+        );
+
+        let mut labels = Vec::new();
+        for collection in &response.result {
+            if let Some(name) = collection["name"].as_str() {
+                let collection_type = collection["type"].as_u64().unwrap_or(2);
+                eprintln!("[schema debug] Collection: {name} (type: {collection_type})");
+
+                // Skip system collections and edge collections
+                if !name.starts_with('_') && collection_type != 3 {
+                    labels.push(name.to_string());
+                }
+            }
+        }
+
+        eprintln!("[schema debug] Found vertex labels: {labels:?}");
+        Ok(labels)
+    }
+
+    fn list_edge_labels(&self) -> Result<Vec<String>, GraphError> {
+        let client = self.client.borrow();
+        let response = client.list_collections()?;
+
+        let mut labels = Vec::new();
+        for collection in &response.result {
+            if let Some(name) = collection["name"].as_str() {
+                let collection_type = collection["type"].as_u64().unwrap_or(2);
+                // Only include edge collections (type 3)
+                if !name.starts_with('_') && collection_type == 3 {
+                    labels.push(name.to_string());
+                }
+            }
+        }
+        Ok(labels)
+    }
+
+    fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
+        let client = self.client.borrow();
+        let collections_response = client.list_collections()?;
+
+        let mut indexes = Vec::new();
+        for collection in &collections_response.result {
+            if let Some(name) = collection["name"].as_str() {
+                if !name.starts_with('_') {
+                    // Create a basic index definition for each collection
+                    let index_def = IndexDefinition {
+                        name: format!("primary_{name}"),
+                        label: name.to_string(),
+                        properties: vec!["_key".to_string()],
+                        index_type: IndexType::Exact,
+                        unique: true,
+                        container: None,
+                    };
+                    indexes.push(index_def);
+                }
+            }
+        }
+
+        Ok(indexes)
+    }
+
     fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
         let client = self.client.borrow_mut();
 
@@ -905,6 +1079,36 @@ impl GuestSchemaManager for ArangoSchemaManager {
         Ok(())
     }
 
+    fn create_index(&self, index: IndexDefinition) -> Result<(), GraphError> {
+        let client = self.client.borrow_mut();
+
+        // Create index on the collection
+        let response = client._create_index(&index.label, index.properties, "persistent")?;
+
+        if response.error {
+            return Err(GraphError::InvalidQuery(format!(
+                "Failed to create index: {}",
+                index.name
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn drop_index(&self, index_name: String) -> Result<(), GraphError> {
+        let client = self.client.borrow_mut();
+
+        let response = client._drop_index(&index_name)?;
+
+        if response.error {
+            return Err(GraphError::InvalidQuery(format!(
+                "Failed to drop index: {index_name}"
+            )));
+        }
+
+        Ok(())
+    }
+
     fn get_vertex_label_schema(
         &self,
         _label: String,
@@ -920,112 +1124,21 @@ impl GuestSchemaManager for ArangoSchemaManager {
         ))
     }
 
-    fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
-        let client = self.client.borrow_mut();
-        let response = client.list_collections()?;
-
-        let mut labels = Vec::new();
-        if let Some(result) = response.result.first() {
-            if let Some(collections) = result.as_array() {
-                for collection in collections {
-                    if let Some(name) = collection.get("name").and_then(|n| n.as_str()) {
-                        if name.ends_with("_vertices") {
-                            labels.push(name.replace("_vertices", ""));
-                        }
-                    }
-                }
-            }
-        }
-        Ok(labels)
-    }
-
-    fn list_edge_labels(&self) -> Result<Vec<String>, GraphError> {
-        let client = self.client.borrow_mut();
-        let response = client.list_collections()?;
-
-        let mut labels = Vec::new();
-        if let Some(result) = response.result.first() {
-            if let Some(collections) = result.as_array() {
-                for collection in collections {
-                    if let Some(name) = collection.get("name").and_then(|n| n.as_str()) {
-                        if name.ends_with("_edges") {
-                            labels.push(name.replace("_edges", ""));
-                        }
-                    }
-                }
-            }
-        }
-        Ok(labels)
-    }
-
-    fn create_index(&self, index: IndexDefinition) -> Result<(), GraphError> {
-        let client = self.client.borrow_mut();
-
-        // Create index on collection
-        let collection_name = format!("{}_vertices", index.label);
-        let _fields = index.properties.join(", ");
-        let response = client._create_index(&collection_name, index.properties, "persistent")?;
-
-        if response.error {
-            return Err(GraphError::InvalidQuery(format!(
-                "Failed to create index: {}",
-                index.name
-            )));
-        }
-
-        Ok(())
-    }
-
-    fn drop_index(&self, _name: String) -> Result<(), GraphError> {
-        Err(GraphError::UnsupportedOperation(
-            "Index dropping not implemented".to_string(),
-        ))
-    }
-
-    fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
-        let client = self.client.borrow_mut();
-        let response = client._list_indexes()?;
-
-        let mut indexes = Vec::new();
-        if let Some(result) = response.result.first() {
-            if let Some(collections) = result.as_array() {
-                for collection in collections {
-                    if let Some(name) = collection.get("name").and_then(|n| n.as_str()) {
-                        if name.ends_with("_vertices") {
-                            let label = name.replace("_vertices", "");
-                            let index = IndexDefinition {
-                                name: format!("idx_{label}"),
-                                label,
-                                properties: vec!["_key".to_string()],
-                                index_type: IndexType::Exact,
-                                unique: false,
-                                container: None,
-                            };
-                            indexes.push(index);
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(indexes)
-    }
-
     fn get_index(&self, _name: String) -> Result<Option<IndexDefinition>, GraphError> {
         Err(GraphError::UnsupportedOperation(
-            "Index retrieval not implemented".to_string(),
+            "Get index not implemented".to_string(),
         ))
     }
 
     fn define_edge_type(&self, _definition: EdgeTypeDefinition) -> Result<(), GraphError> {
         Err(GraphError::UnsupportedOperation(
-            "Edge type definition not implemented".to_string(),
+            "Define edge type not implemented".to_string(),
         ))
     }
 
     fn list_edge_types(&self) -> Result<Vec<EdgeTypeDefinition>, GraphError> {
         Err(GraphError::UnsupportedOperation(
-            "Edge type listing not implemented".to_string(),
+            "List edge types not implemented".to_string(),
         ))
     }
 
@@ -1035,14 +1148,35 @@ impl GuestSchemaManager for ArangoSchemaManager {
         _container_type: ContainerType,
     ) -> Result<(), GraphError> {
         Err(GraphError::UnsupportedOperation(
-            "Container creation not implemented".to_string(),
+            "Create container not implemented".to_string(),
         ))
     }
 
     fn list_containers(&self) -> Result<Vec<ContainerInfo>, GraphError> {
-        Err(GraphError::UnsupportedOperation(
-            "Container listing not implemented".to_string(),
-        ))
+        let client = self.client.borrow();
+        let response = client.list_collections()?;
+
+        let mut containers = Vec::new();
+        for collection in &response.result {
+            if let Some(name) = collection["name"].as_str() {
+                if !name.starts_with('_') {
+                    let container_type = if collection["type"].as_u64() == Some(3) {
+                        ContainerType::EdgeContainer
+                    } else {
+                        ContainerType::VertexContainer
+                    };
+
+                    let container_info = ContainerInfo {
+                        name: name.to_string(),
+                        container_type,
+                        element_count: collection["count"].as_u64(),
+                    };
+                    containers.push(container_info);
+                }
+            }
+        }
+
+        Ok(containers)
     }
 }
 

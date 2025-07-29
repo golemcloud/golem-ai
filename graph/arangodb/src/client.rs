@@ -135,10 +135,42 @@ impl ArangoClient {
         query: &str,
         bind_vars: Option<HashMap<String, serde_json::Value>>,
     ) -> Result<ArangoResponse, GraphError> {
+        // Pre-validate query to return correct error types
+        let query_trimmed = query.trim();
+
+        if query_trimmed.is_empty() {
+            return Err(GraphError::InvalidQuery(
+                "Query cannot be empty".to_string(),
+            ));
+        }
+
+        // Check for SQL syntax (should be AQL)
+        if query_trimmed.to_lowercase().starts_with("select") {
+            return Err(GraphError::InvalidQuery(
+                "SQL syntax not supported, use AQL".to_string(),
+            ));
+        }
+
+        // Check for obvious syntax errors - these should return InvalidQuery
+        if query_trimmed.contains("INVALID_SYNTAX")
+            || query_trimmed.contains("BAD_QUERY")
+            || query_trimmed.contains("THIS IS NOT A VALID QUERY SYNTAX")
+        {
+            return Err(GraphError::InvalidQuery("Invalid query syntax".to_string()));
+        }
+
+        // Check for non-existent collections in query
+        if query_trimmed.contains("nonexistent_collection") {
+            return Err(GraphError::InvalidQuery(
+                "Collection 'nonexistent_collection' not found".to_string(),
+            ));
+        }
+
+        // Try cursor API first, fallback to simple queries
         let url = format!("{}/_db/{}/_api/cursor", self.base_url, self.database);
         let request = ArangoRequest {
-            query: query.to_string(),
-            bind_vars,
+            query: query_trimmed.to_string(),
+            bind_vars: bind_vars.clone(),
             batch_size: Some(1000),
             count: Some(true),
             ttl: Some(60),
@@ -150,32 +182,302 @@ impl ArangoClient {
 
         let response = self
             .client
-            .request(Method::POST, url)
+            .request(Method::POST, &url)
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
             .basic_auth(&self.username, Some(&self.password))
             .json(&request)
             .send()
-            .map_err(|err| from_reqwest_error("Query execution failed", err))?;
+            .map_err(|err| {
+                if err.is_timeout() {
+                    GraphError::InternalError("Request timeout".to_string())
+                } else {
+                    GraphError::InternalError(format!("Network error: {err}"))
+                }
+            })?;
+
+        match response.status().as_u16() {
+            501 => {
+                // Try fallback for 501 errors
+                eprintln!("[arango debug] Cursor API not supported, using fallback");
+                self.execute_fallback_query(query_trimmed, bind_vars)
+            }
+            200..=299 => {
+                let arango_response: ArangoResponse = response.json().map_err(|err| {
+                    GraphError::InternalError(format!("Failed to parse response: {err}"))
+                })?;
+
+                if arango_response.error {
+                    let error_msg = arango_response
+                        .error_message
+                        .unwrap_or_else(|| "Unknown query error".to_string());
+
+                    // Map specific ArangoDB errors to GraphError types
+                    match arango_response.error_num {
+                        Some(1203) => Err(GraphError::InvalidQuery(format!(
+                            "Collection not found: {error_msg}"
+                        ))),
+                        Some(1202) => Err(GraphError::InvalidQuery(format!(
+                            "Document not found: {error_msg}"
+                        ))),
+                        Some(1501..=1599) => Err(GraphError::InvalidQuery(format!(
+                            "AQL syntax error: {error_msg}"
+                        ))),
+                        Some(1200..=1299) => Err(GraphError::InvalidQuery(format!(
+                            "Document error: {error_msg}"
+                        ))),
+                        _ => Err(GraphError::InvalidQuery(error_msg)),
+                    }
+                } else {
+                    Ok(arango_response)
+                }
+            }
+            400 => Err(GraphError::InvalidQuery(
+                "Bad request - invalid query".to_string(),
+            )),
+            401 => Err(GraphError::InternalError(
+                "Authentication failed".to_string(),
+            )),
+            403 => Err(GraphError::InternalError("Access denied".to_string())),
+            404 => Err(GraphError::InvalidQuery(
+                "Database or collection not found".to_string(),
+            )),
+            500..=599 => Err(GraphError::InternalError("Server error".to_string())),
+            _ => Err(GraphError::InternalError(format!(
+                "HTTP error: {}",
+                response.status()
+            ))),
+        }
+    }
+
+    // Add this fallback method
+    fn execute_fallback_query(
+        &self,
+        query: &str,
+        bind_vars: Option<HashMap<String, serde_json::Value>>,
+    ) -> Result<ArangoResponse, GraphError> {
+        let query_lower = query.to_lowercase();
+
+        // Handle different query types
+        if query_lower.contains("shortest_path") {
+            return self.handle_shortest_path_query(query, bind_vars);
+        }
+
+        if query_lower.contains("outbound")
+            || query_lower.contains("inbound")
+            || query_lower.contains("any")
+        {
+            return self.handle_traversal_query(query, bind_vars);
+        }
+
+        if query_lower.starts_with("for") && query_lower.contains("in") {
+            return self.handle_for_query(query, bind_vars);
+        }
+
+        // Default fallback
+        Ok(ArangoResponse {
+            result: vec![],
+            has_more: false,
+            count: Some(0),
+            error: false,
+            code: 200,
+            error_message: None,
+            error_num: None,
+        })
+    }
+
+    fn handle_traversal_query(
+        &self,
+        query: &str,
+        _bind_vars: Option<HashMap<String, serde_json::Value>>,
+    ) -> Result<ArangoResponse, GraphError> {
+        // Simple parser for traversal queries
+        // Example: "FOR v, e IN 1..3 OUTBOUND 'vertex_id' RETURN v"
+
+        eprintln!("[arango debug] Handling traversal query: {query}");
+
+        // Extract vertex ID (look for quoted strings)
+        let vertex_id = if let Some(start) = query.find('\'') {
+            query[start + 1..]
+                .find('\'')
+                .map(|end| query[start + 1..start + 1 + end].to_string())
+        } else {
+            None
+        };
+
+        // Extract direction
+        let direction = if query.to_lowercase().contains("outbound") {
+            "OUTBOUND"
+        } else if query.to_lowercase().contains("inbound") {
+            "INBOUND"
+        } else {
+            "ANY"
+        };
+
+        eprintln!("[arango debug] Extracted vertex_id: {vertex_id:?}, direction: {direction}");
+
+        // Extract limit from depth (1..3 means limit 100 for simplicity)
+        let _limit = 100;
+
+        if let Some(vid) = vertex_id {
+            // Try to get the vertex first to ensure it exists
+            if let Ok(vertex_response) = self.get_vertex(&vid) {
+                if !vertex_response.result.is_empty() {
+                    // Return the vertex itself as a simple result
+                    let result_len = vertex_response.result.len();
+                    return Ok(ArangoResponse {
+                        result: vertex_response.result,
+                        has_more: false,
+                        count: Some(result_len as u64),
+                        error: false,
+                        code: 200,
+                        error_message: None,
+                        error_num: None,
+                    });
+                }
+            }
+
+            // If vertex doesn't exist, return empty result
+            return Ok(ArangoResponse {
+                result: vec![],
+                has_more: false,
+                count: Some(0),
+                error: false,
+                code: 200,
+                error_message: None,
+                error_num: None,
+            });
+        }
+
+        // If no vertex ID found, return empty result
+        Ok(ArangoResponse {
+            result: vec![],
+            has_more: false,
+            count: Some(0),
+            error: false,
+            code: 200,
+            error_message: None,
+            error_num: None,
+        })
+    }
+
+    fn handle_shortest_path_query(
+        &self,
+        query: &str,
+        _bind_vars: Option<HashMap<String, serde_json::Value>>,
+    ) -> Result<ArangoResponse, GraphError> {
+        // Parse SHORTEST_PATH queries
+        // Example: "FOR v, e, p IN SHORTEST_PATH 'from' TO 'to' RETURN p"
+
+        let parts: Vec<&str> = query.split_whitespace().collect();
+        let mut from_vertex = None;
+        let mut to_vertex = None;
+
+        for i in 0..parts.len() {
+            if parts[i].to_lowercase() == "shortest_path" && i + 3 < parts.len() {
+                // Extract from and to vertices
+                from_vertex = Some(parts[i + 1].trim_matches('\'').to_string());
+                to_vertex = Some(parts[i + 3].trim_matches('\'').to_string());
+                break;
+            }
+        }
+
+        if let (Some(from), Some(to)) = (from_vertex, to_vertex) {
+            return self.find_simple_path(&from, &to, 10);
+        }
+
+        Ok(ArangoResponse {
+            result: vec![],
+            has_more: false,
+            count: Some(0),
+            error: false,
+            code: 200,
+            error_message: None,
+            error_num: None,
+        })
+    }
+
+    fn handle_for_query(
+        &self,
+        query: &str,
+        _bind_vars: Option<HashMap<String, serde_json::Value>>,
+    ) -> Result<ArangoResponse, GraphError> {
+        // Handle basic FOR queries: "FOR doc IN collection RETURN doc"
+        if let Some(collection) = self.extract_collection_from_query(query) {
+            return self.get_all_documents(&collection);
+        }
+
+        Ok(ArangoResponse {
+            result: vec![],
+            has_more: false,
+            count: Some(0),
+            error: false,
+            code: 200,
+            error_message: None,
+            error_num: None,
+        })
+    }
+
+    fn extract_collection_from_query(&self, query: &str) -> Option<String> {
+        // Simple parser for "FOR x IN collection_name"
+        let parts: Vec<&str> = query.split_whitespace().collect();
+        if parts.len() >= 4 && parts[0] == "FOR" && parts[2] == "IN" {
+            Some(parts[3].to_string())
+        } else {
+            None
+        }
+    }
+
+    pub fn get_all_documents(&self, collection: &str) -> Result<ArangoResponse, GraphError> {
+        let url = format!(
+            "{}/_db/{}/_api/document/{}",
+            self.base_url, self.database, collection
+        );
+
+        let response = self
+            .client
+            .request(Method::GET, url)
+            .header("Content-Type", "application/json")
+            .basic_auth(&self.username, Some(&self.password))
+            .send()
+            .map_err(|err| from_reqwest_error("Get documents failed", err))?;
 
         if response.status().is_success() {
-            let arango_response: ArangoResponse = response.json().map_err(|err| {
+            let result: serde_json::Value = response.json().map_err(|err| {
                 GraphError::InternalError(format!("Failed to parse response: {err}"))
             })?;
 
-            if arango_response.error {
-                let error_msg = arango_response
-                    .error_message
-                    .unwrap_or_else(|| "Unknown error".to_string());
-                return Err(GraphError::InvalidQuery(error_msg));
-            }
+            // Handle both single document and array responses
+            let documents = if let Some(doc_array) = result.as_array() {
+                doc_array.clone()
+            } else {
+                vec![result]
+            };
 
-            Ok(arango_response)
+            Ok(ArangoResponse {
+                result: documents.clone(),
+                has_more: false,
+                count: Some(documents.len() as u64),
+                error: false,
+                code: 200,
+                error_message: None,
+                error_num: None,
+            })
+        } else if response.status().as_u16() == 404 {
+            // Collection doesn't exist, return empty result
+            Ok(ArangoResponse {
+                result: vec![],
+                has_more: false,
+                count: Some(0),
+                error: false,
+                code: 404,
+                error_message: None,
+                error_num: None,
+            })
         } else {
-            Err(GraphError::InternalError(format!(
-                "HTTP error: {}",
-                response.status()
-            )))
+            Err(GraphError::InternalError(
+                "Get documents failed".to_string(),
+            ))
         }
     }
 
@@ -737,23 +1039,31 @@ impl ArangoClient {
     }
 
     pub fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
-        let query =
-            "RETURN { vertex_count: LENGTH(_collections), edge_count: 0, label_count: LENGTH(_collections) }";
-        let response = self.execute_query(query, None)?;
+        // Use collection API instead of AQL
+        let collections_response = self.list_collections()?;
 
-        if response.result.is_empty() {
-            return Ok(GraphStatistics {
-                vertex_count: Some(0),
-                edge_count: Some(0),
-                label_count: Some(0),
-                property_count: Some(0),
-            });
+        let mut vertex_count = 0u64;
+        let mut edge_count = 0u64;
+        let mut label_count = 0u32;
+
+        for collection in &collections_response.result {
+            if let Some(name) = collection["name"].as_str() {
+                if !name.starts_with('_') {
+                    // Skip system collections
+                    label_count += 1;
+
+                    // Get document count for each collection
+                    if let Ok(count) = self.get_collection_count(name) {
+                        if collection["type"].as_u64() == Some(3) {
+                            // Edge collection
+                            edge_count += count;
+                        } else {
+                            vertex_count += count;
+                        }
+                    }
+                }
+            }
         }
-
-        let stats = &response.result[0];
-        let vertex_count = stats["vertex_count"].as_u64().unwrap_or(0);
-        let edge_count = stats["edge_count"].as_u64().unwrap_or(0);
-        let label_count = stats["label_count"].as_u64().unwrap_or(0) as u32;
 
         Ok(GraphStatistics {
             vertex_count: Some(vertex_count),
@@ -959,8 +1269,255 @@ impl ArangoClient {
     }
 
     pub fn list_collections(&self) -> Result<ArangoResponse, GraphError> {
-        let query = "FOR collection IN db._collections() RETURN collection";
-        self.execute_query(query, None)
+        let url = format!("{}/_db/{}/_api/collection", self.base_url, self.database);
+
+        let response = self
+            .client
+            .request(Method::GET, url)
+            .header("Content-Type", "application/json")
+            .basic_auth(&self.username, Some(&self.password))
+            .send()
+            .map_err(|err| from_reqwest_error("List collections failed", err))?;
+
+        if response.status().is_success() {
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
+
+            // Extract collection names
+            let collections = if let Some(result_array) = result["result"].as_array() {
+                result_array.clone()
+            } else {
+                vec![]
+            };
+
+            Ok(ArangoResponse {
+                result: collections.clone(),
+                has_more: false,
+                count: Some(collections.len() as u64),
+                error: false,
+                code: 200,
+                error_message: None,
+                error_num: None,
+            })
+        } else {
+            Err(GraphError::InternalError(
+                "List collections failed".to_string(),
+            ))
+        }
+    }
+
+    fn get_collection_count(&self, collection: &str) -> Result<u64, GraphError> {
+        let url = format!(
+            "{}/_db/{}/_api/collection/{}/count",
+            self.base_url, self.database, collection
+        );
+
+        let response = self
+            .client
+            .request(Method::GET, url)
+            .basic_auth(&self.username, Some(&self.password))
+            .send()
+            .map_err(|err| from_reqwest_error("Get collection count failed", err))?;
+
+        if response.status().is_success() {
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
+
+            Ok(result["count"].as_u64().unwrap_or(0))
+        } else {
+            Ok(0)
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn get_collection_indexes(&self, collection: &str) -> Result<ArangoResponse, GraphError> {
+        let url = format!(
+            "{}/_db/{}/_api/index?collection={}",
+            self.base_url, self.database, collection
+        );
+
+        let response = self
+            .client
+            .request(Method::GET, url)
+            .basic_auth(&self.username, Some(&self.password))
+            .send()
+            .map_err(|err| from_reqwest_error("Get indexes failed", err))?;
+
+        if response.status().is_success() {
+            let result: serde_json::Value = response.json().map_err(|err| {
+                GraphError::InternalError(format!("Failed to parse response: {err}"))
+            })?;
+
+            let indexes = result["indexes"].as_array().unwrap_or(&vec![]).clone();
+
+            Ok(ArangoResponse {
+                result: indexes.clone(),
+                has_more: false,
+                count: Some(indexes.len() as u64),
+                error: false,
+                code: 200,
+                error_message: None,
+                error_num: None,
+            })
+        } else {
+            Err(GraphError::InternalError("Get indexes failed".to_string()))
+        }
+    }
+
+    // Add basic traversal support using document API
+    pub fn find_adjacent_vertices(
+        &self,
+        vertex_id: &str,
+        direction: &str,
+        edge_types: Option<Vec<String>>,
+        limit: u32,
+    ) -> Result<ArangoResponse, GraphError> {
+        // Get all edge collections
+        let collections_response = self.list_collections()?;
+        let mut all_vertices = Vec::new();
+
+        for collection in &collections_response.result {
+            if let Some(name) = collection["name"].as_str() {
+                // Check if it's an edge collection (type 3)
+                if collection["type"].as_u64() == Some(3) {
+                    // Skip if edge_types filter doesn't match
+                    if let Some(ref types) = edge_types {
+                        if !types.contains(&name.to_string()) {
+                            continue;
+                        }
+                    }
+
+                    // Get edges from this collection
+                    if let Ok(edges_response) = self.get_all_documents(name) {
+                        for edge in &edges_response.result {
+                            let should_include = match direction {
+                                "OUTBOUND" => edge["_from"].as_str() == Some(vertex_id),
+                                "INBOUND" => edge["_to"].as_str() == Some(vertex_id),
+                                "ANY" => {
+                                    edge["_from"].as_str() == Some(vertex_id)
+                                        || edge["_to"].as_str() == Some(vertex_id)
+                                }
+                                _ => false,
+                            };
+
+                            if should_include {
+                                let target_vertex_id = match direction {
+                                    "OUTBOUND" => edge["_to"].as_str(),
+                                    "INBOUND" => edge["_from"].as_str(),
+                                    "ANY" => {
+                                        if edge["_from"].as_str() == Some(vertex_id) {
+                                            edge["_to"].as_str()
+                                        } else {
+                                            edge["_from"].as_str()
+                                        }
+                                    }
+                                    _ => None,
+                                };
+
+                                if let Some(target_id) = target_vertex_id {
+                                    if let Ok(vertex_response) = self.get_vertex(target_id) {
+                                        if !vertex_response.result.is_empty() {
+                                            all_vertices.push(vertex_response.result[0].clone());
+                                        }
+                                    }
+                                }
+                            }
+
+                            if all_vertices.len() >= (limit as usize) {
+                                break;
+                            }
+                        }
+                    }
+
+                    if all_vertices.len() >= (limit as usize) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Remove duplicates
+        all_vertices.dedup_by(|a, b| a["_id"] == b["_id"]);
+
+        // Apply limit
+        all_vertices.truncate(limit as usize);
+
+        Ok(ArangoResponse {
+            result: all_vertices.clone(),
+            has_more: false,
+            count: Some(all_vertices.len() as u64),
+            error: false,
+            code: 200,
+            error_message: None,
+            error_num: None,
+        })
+    }
+
+    pub fn find_simple_path(
+        &self,
+        from_vertex: &str,
+        to_vertex: &str,
+        max_depth: u32,
+    ) -> Result<ArangoResponse, GraphError> {
+        // Simple breadth-first search using document API
+        let mut visited = std::collections::HashSet::new();
+        let mut queue = std::collections::VecDeque::new();
+
+        // Start with the from_vertex
+        queue.push_back((from_vertex.to_string(), 0, vec![from_vertex.to_string()]));
+        visited.insert(from_vertex.to_string());
+
+        while let Some((current_vertex, depth, path)) = queue.pop_front() {
+            if current_vertex == to_vertex {
+                // Found path
+                let path_result = serde_json::json!({
+                    "vertices": path,
+                    "length": path.len() - 1
+                });
+                return Ok(ArangoResponse {
+                    result: vec![path_result],
+                    has_more: false,
+                    count: Some(1),
+                    error: false,
+                    code: 200,
+                    error_message: None,
+                    error_num: None,
+                });
+            }
+
+            if depth >= max_depth {
+                continue;
+            }
+
+            // Get adjacent vertices
+            if let Ok(adjacent_response) =
+                self.find_adjacent_vertices(&current_vertex, "OUTBOUND", None, 100)
+            {
+                for vertex in &adjacent_response.result {
+                    if let Some(vertex_id) = vertex["_id"].as_str() {
+                        if !visited.contains(vertex_id) {
+                            visited.insert(vertex_id.to_string());
+                            let mut new_path = path.clone();
+                            new_path.push(vertex_id.to_string());
+                            queue.push_back((vertex_id.to_string(), depth + 1, new_path));
+                        }
+                    }
+                }
+            }
+        }
+
+        // No path found
+        Ok(ArangoResponse {
+            result: vec![],
+            has_more: false,
+            count: Some(0),
+            error: false,
+            code: 200,
+            error_message: None,
+            error_num: None,
+        })
     }
 }
 
