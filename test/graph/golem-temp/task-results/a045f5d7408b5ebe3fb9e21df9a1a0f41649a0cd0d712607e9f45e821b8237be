@@ -1,0 +1,7 @@
+{
+  "kind": "AddMetadataMarkerHash",
+  "id": "test:graph",
+  "hashInput": "test:graph",
+  "hashHex": "88c0b2b73048ac53c841fb4fc81b4cc20f4c642df18b36049fa422ff90f5ce9f",
+  "success": true
+}

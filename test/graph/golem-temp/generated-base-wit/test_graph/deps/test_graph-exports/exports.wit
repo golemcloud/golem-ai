@@ -1,0 +1,14 @@
+package test:graph-exports;
+
+interface test-graph-api {
+  test1: func() -> string;
+  test2: func() -> string;
+  test3: func() -> string;
+  test4: func() -> string;
+  test5: func() -> string;
+  test6: func() -> string;
+  test7: func() -> string;
+  test8: func() -> string;
+}
+
+interface test-graph-inline-functions {}

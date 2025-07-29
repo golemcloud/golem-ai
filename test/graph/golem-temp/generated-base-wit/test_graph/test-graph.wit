@@ -1,0 +1,12 @@
+package test:graph;
+
+world test-graph {
+  import golem:graph/connection@1.0.0;
+  import golem:graph/errors@1.0.0;
+  import golem:graph/query@1.0.0;
+  import golem:graph/schema@1.0.0;
+  import golem:graph/transactions@1.0.0;
+  import golem:graph/traversal@1.0.0;
+  import golem:graph/types@1.0.0;
+  export test:graph-exports/test-graph-api;
+}

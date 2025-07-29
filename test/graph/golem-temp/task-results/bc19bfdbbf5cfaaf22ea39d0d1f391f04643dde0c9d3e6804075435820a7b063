@@ -1,0 +1,7 @@
+{
+  "kind": "GetServerComponentHash",
+  "id": "None#test:helper#0",
+  "hashInput": "99920c057937cacdbe308c231534962d3afb099db43d3721a80b5e6377e95058",
+  "hashHex": "99920c057937cacdbe308c231534962d3afb099db43d3721a80b5e6377e95058",
+  "success": true
+}

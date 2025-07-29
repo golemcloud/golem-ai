@@ -1,0 +1,7 @@
+{
+  "kind": "ResolvedExternalCommandMarkerHash",
+  "id": "{\"build_dir\":\"/Users/saikiransurapalli/Desktop/algora/golem-ai/test/graph/components-rust/test-graph\",\"command\":{\"command\":\"wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_graph_arangodb.wasm ../../target/wasm32-wasip1/debug/test_graph.wasm -o ../../target/wasm32-wasip1/debug/test_arango_plugged.wasm\",\"sources\":[\"../../target/wasm32-wasip1/debug/test_graph.wasm\",\"../../../../target/wasm32-wasip1/debug/golem_graph_arangodb.wasm\"],\"targets\":[\"../../target/wasm32-wasip1/debug/test_arango_plugged.wasm\"]}}",
+  "hashInput": "{\"build_dir\":\"/Users/saikiransurapalli/Desktop/algora/golem-ai/test/graph/components-rust/test-graph\",\"command\":{\"command\":\"wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_graph_arangodb.wasm ../../target/wasm32-wasip1/debug/test_graph.wasm -o ../../target/wasm32-wasip1/debug/test_arango_plugged.wasm\",\"sources\":[\"../../target/wasm32-wasip1/debug/test_graph.wasm\",\"../../../../target/wasm32-wasip1/debug/golem_graph_arangodb.wasm\"],\"targets\":[\"../../target/wasm32-wasip1/debug/test_arango_plugged.wasm\"]}}",
+  "hashHex": "745c53be8301f0c4e08d818ba06a0602d59193ca1d05367bc15135e023bbe59c",
+  "success": true
+}
