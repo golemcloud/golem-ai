@@ -143,7 +143,7 @@ jobs:
       - name: Build and test Ollama integration
         run: |
           set -eo pipefail
-          cargo make --cwd llm build-ollama
+          cargo make --cwd llm build-ollama --no-default-features
           cd test/llm
           golem app deploy -b ollama-debug test:llm test:helper
           golem worker new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 test:llm/ollama-1
