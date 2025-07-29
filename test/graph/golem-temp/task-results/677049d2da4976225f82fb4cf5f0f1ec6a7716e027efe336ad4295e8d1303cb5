@@ -1,7 +1,0 @@
-{
-  "kind": "ResolvedExternalCommandMarkerHash",
-  "id": "{\"build_dir\":\"/Users/saikiransurapalli/Desktop/algora/golem-ai/test/graph/components-rust/test-helper\",\"command\":{\"command\":\"cargo component build\",\"sources\":[\"src\",\"wit-generated\",\"../../common-rust\"],\"targets\":[\"../../target/wasm32-wasip1/debug/test_helper.wasm\"]}}",
-  "hashInput": "{\"build_dir\":\"/Users/saikiransurapalli/Desktop/algora/golem-ai/test/graph/components-rust/test-helper\",\"command\":{\"command\":\"cargo component build\",\"sources\":[\"src\",\"wit-generated\",\"../../common-rust\"],\"targets\":[\"../../target/wasm32-wasip1/debug/test_helper.wasm\"]}}",
-  "hashHex": "677049d2da4976225f82fb4cf5f0f1ec6a7716e027efe336ad4295e8d1303cb5",
-  "success": true
-}

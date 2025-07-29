@@ -1,7 +1,0 @@
-{
-  "kind": "AddMetadataMarkerHash",
-  "id": "test:helper",
-  "hashInput": "test:helper",
-  "hashHex": "ffa0873f3ef9d07e7eb5de0750fe6673c2f849d1d4e3f37079a5c797f49fceec",
-  "success": true
-}
