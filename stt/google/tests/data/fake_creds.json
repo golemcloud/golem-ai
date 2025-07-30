@@ -1,0 +1,5 @@
+{
+  "client_email": "test-123@gcp.example.com",
+  "private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIICXAIBAAKBgQC2zZXwZAQCjHDD236UMtO4Zwzp1KimG++HjMATkUMlzUxr87hc\n9E9QnUnxE27XGr0C+MEY0S8mV+4CSkiqhSSjMBDuNIQP5CKEM5Qn2ATqNnS/xPbb\nf5pFwchAuC8W9jAq56k97X3gSdz8sRP/6IDdnh3oX1N1pAVccahJgN9s9QIDAQAB\nAoGAQ4P9J66yUfMM2KF1be9JY3zhge36QTtf8l0oob8cMY3AWEzhFawwzrtcquYp\nNop0w0jarruMgBHNeyZCP83N14ldW+TmPynsln1zp0eOipSA3w8EMXwqyI51OnLT\nO20nQ2YSmHBvd9FTJMcjsBvny30mZ4fcAclW713N4QeZyjECQQDf8ml7bLZeXqZI\nc89xDSHLVQQDBlnJrped1IovnHgwlHGhEq+y3OC/YLXTr4Wr9PXgCulvRlQCk2B3\n0dv8ImGZAkEAxujI827F7kRXKuX3sI5Yucs5cjox96D65gis6pZeRAEIJ5zsxFrq\neCzvY4xXHzkwmo7aX6ixkmKuuNHYsYvwqwJAd//FRCGDpa2BkLomqKgJo0vvArkC\nAO9M/dwZ0pniS3pSkeCJOLwObEWj1vDLteA94ppIqhzyapMI2vlA38nSQQJBAK7Z\n1mXqQyV2pAonyz1ME3iAFH4x63HzlOAAb2YtL6ZooxOMm3mcVG/hjmOYEuqc+zXC\nxVfVCK/JP94suBT76cECQG9bO5tVbT59T/KmPMTWMukYdR4LY9J66yUfX2KF9Bl7\nzdh0dX8GZFODdgNpTiFqouBZfyqCkCmZJLdnOjFkMrY=\n-----END RSA PRIVATE KEY-----\n",
+  "token_uri": "https://oauth2.googleapis.com/token"
+} 

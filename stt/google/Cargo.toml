@@ -9,7 +9,7 @@ description = "WebAssembly component for working with Google Cloud Speech-to-Tex
 
 [lib]
 path = "src/lib.rs"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [features]
 default = ["durability"]
@@ -27,6 +27,9 @@ serde_json = { workspace = true }
 base64 = { workspace = true }
 reqwest = { workspace = true }
 jsonwebtoken = "9"
+
+[dev-dependencies]
+serial_test = "2"
 
 [package.metadata.component]
 package = "golem:stt-google"

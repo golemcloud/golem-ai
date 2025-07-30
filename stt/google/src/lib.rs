@@ -5,18 +5,15 @@ use golem_stt::golem::stt::transcription::{
 };
 use golem_stt::golem::stt::types::SttError;
 
-mod config;
+pub mod config;
 mod auth;
 mod constants;
-mod error;
+mod recognize;
+pub mod error;
 mod batch;
 mod stream;
 
-fn unsupported() -> SttError {
-    SttError::UnsupportedOperation("not implemented".to_string())
-}
-
-// minimal dummy stream
+#[allow(dead_code)]
 struct DummyStream;
 
 impl GuestTranscriptionStream for DummyStream {
@@ -26,6 +23,9 @@ impl GuestTranscriptionStream for DummyStream {
     fn close(&self) {}
 }
 
+fn unsupported() -> SttError {
+    SttError::UnsupportedOperation("not implemented".to_string())
+}
 
 struct GoogleTranscriptionComponent;
 
