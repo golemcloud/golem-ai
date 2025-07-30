@@ -17,14 +17,15 @@ This component wraps Google Cloud Speech-to-Text so it can be consumed from a We
 
 `transcribe(audio, config, options)` loads the above variables, exchanges the service-account JWT for an OAuth token and invokes the Speech API’s *Recognize* method.
 
-## Streaming Transcription (future work)
+## Streaming Transcription (buffer-recognise MVP)
 
-`transcribe_stream` is stubbed and currently returns `UnsupportedOperation`. When enabled, the component will open a bidirectional gRPC stream to `/v1/speech:streamingRecognize`.
+`transcribe_stream(config, options)` returns a handle that buffers incoming audio chunks. Once `finish()` is called, the buffered data is sent via a single *Recognize* request and the parsed alternatives are lazily emitted on the first `receive_alternative()` call.
 
-### Graceful degradation
+This minimal implementation meets the WIT streaming contract without using full-duplex gRPC. A future release will replace the buffer step with live `streamingRecognize`.
 
-• If streaming is requested, callers should fall back to batch mode on `UnsupportedOperation`.
-• Network / quota / auth failures are mapped to `SttError` variants – see `error::map_http_status`.
+### Error handling
+
+All HTTP status codes are mapped to `SttError` via `error::map_http_status`.
 
 ## Build
 

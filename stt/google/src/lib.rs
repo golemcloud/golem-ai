@@ -1,5 +1,5 @@
 use golem_stt::golem::stt::transcription::{
-    Guest as TranscriptionGuest, GuestTranscriptionStream, TranscriptAlternative,
+    Guest as TranscriptionGuest,
     AudioConfig, TranscribeOptions, TranscriptionResult,
     TranscriptionStream,
 };
@@ -13,7 +13,7 @@ pub mod error;
 mod batch;
 mod stream;
 
-use crate::stream::GoogleStream;
+pub use crate::stream::GoogleStream;
 
 struct GoogleTranscriptionComponent;
 
