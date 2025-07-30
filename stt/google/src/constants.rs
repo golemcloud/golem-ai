@@ -1,0 +1,1 @@
+pub const GOOGLE_SPEECH_ENDPOINT: &str = "https://speech.googleapis.com/v1/speech:recognize"; 

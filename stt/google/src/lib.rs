@@ -6,6 +6,9 @@ use golem_stt::golem::stt::types::SttError;
 
 mod config;
 mod auth;
+mod constants;
+mod error;
+mod batch;
 
 fn unsupported() -> SttError {
     SttError::UnsupportedOperation("not implemented".to_string())
@@ -37,10 +40,11 @@ impl TranscriptionGuest for GoogleTranscriptionComponent {
 
     fn transcribe(
         _audio: Vec<u8>,
-        _config: AudioConfig,
-        _options: Option<TranscribeOptions>,
+        config: AudioConfig,
+        options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionResult, SttError> {
-        Err(unsupported())
+        let cfg = crate::config::GoogleConfig::load().map_err(|e| e)?;
+        crate::batch::transcribe_impl(_audio, &cfg, options, config)
     }
 
     fn transcribe_stream(
