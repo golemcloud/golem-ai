@@ -15,6 +15,7 @@ mod stream;
 
 pub use crate::stream::GoogleStream;
 
+#[allow(dead_code)]
 struct GoogleTranscriptionComponent;
 
 impl TranscriptionGuest for GoogleTranscriptionComponent {
@@ -25,7 +26,7 @@ impl TranscriptionGuest for GoogleTranscriptionComponent {
         config: AudioConfig,
         options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionResult, SttError> {
-        let cfg = crate::config::GoogleConfig::load().map_err(|e| e)?;
+        let cfg = crate::config::GoogleConfig::load()?;
         crate::batch::transcribe_impl(_audio, &cfg, options, config)
     }
 
@@ -33,7 +34,7 @@ impl TranscriptionGuest for GoogleTranscriptionComponent {
         config: AudioConfig,
         options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionStream, SttError> {
-        let cfg = crate::config::GoogleConfig::load().map_err(|e| e)?;
+        let cfg = crate::config::GoogleConfig::load()?;
         Ok(TranscriptionStream::new(GoogleStream::new(cfg, config, options)))
     }
 } 

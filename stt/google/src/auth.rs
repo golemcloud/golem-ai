@@ -13,9 +13,10 @@ struct Claims<'a> {
     iat: usize,
 }
 
+#[allow(dead_code)]
 pub struct TokenInfo {
     pub access_token: String,
-    pub expires_at: usize,
+    pub _expires_at: usize,
 }
 
 pub fn fetch_token(cfg: &GoogleConfig) -> Result<TokenInfo, SttError> {
@@ -54,5 +55,5 @@ pub fn fetch_token(cfg: &GoogleConfig) -> Result<TokenInfo, SttError> {
     #[derive(Deserialize)]
     struct Resp { access_token: String, expires_in: usize }
     let token: Resp = resp.json().map_err(|e| SttError::InternalError(format!("{e}")))?;
-    Ok(TokenInfo { access_token: token.access_token, expires_at: now + token.expires_in })
+    Ok(TokenInfo { access_token: token.access_token, _expires_at: now + token.expires_in })
 } 
