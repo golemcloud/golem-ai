@@ -31,6 +31,9 @@ impl GuestTranscriptionStream for GoogleStream {
         if self.finished.get() {
             return Err(SttError::UnsupportedOperation("stream already finished".into()));
         }
+        if self.buf.borrow().len() + chunk.len() > self.cfg.max_buffer_bytes {
+            return Err(SttError::InvalidAudio("buffer limit exceeded".into()));
+        }
         self.buf.borrow_mut().extend_from_slice(&chunk);
         Ok(())
     }

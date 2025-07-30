@@ -9,6 +9,7 @@ pub struct GoogleConfig {
     pub log_level: Option<String>,
     pub credentials_json: String,
     pub project_id: Option<String>,
+    pub max_buffer_bytes: usize,
 }
 
 impl GoogleConfig {
@@ -24,6 +25,11 @@ impl GoogleConfig {
         let endpoint = std::env::var("STT_PROVIDER_ENDPOINT").ok();
         let log_level = std::env::var("STT_PROVIDER_LOG_LEVEL").ok();
         let project_id = std::env::var("GOOGLE_CLOUD_PROJECT").ok();
+
+        let max_buffer_bytes = std::env::var("STT_BUFFER_LIMIT_BYTES")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(5_000_000);
 
         let creds_path_or_json = std::env::var("GOOGLE_APPLICATION_CREDENTIALS")
             .map_err(|_| SttError::Unauthorized("missing GOOGLE_APPLICATION_CREDENTIALS".into()))?;
@@ -41,6 +47,7 @@ impl GoogleConfig {
             log_level,
             credentials_json,
             project_id,
+            max_buffer_bytes,
         })
     }
 } 

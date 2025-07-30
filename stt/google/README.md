@@ -10,6 +10,7 @@ This component wraps Google Cloud Speech-to-Text so it can be consumed from a We
 | `STT_PROVIDER_ENDPOINT` | Google production endpoint | Override for testing or proxying. |
 | `STT_PROVIDER_TIMEOUT` | `30` | HTTP timeout in seconds. |
 | `STT_PROVIDER_MAX_RETRIES` | `3` | Automatic retry limit on 5xx / network errors. |
+| `STT_BUFFER_LIMIT_BYTES` | `5000000` | Max bytes buffered before `finish()` (streaming). |
 | `STT_PROVIDER_LOG_LEVEL` | `info` | `trace`, `debug`, `info`, etc. |
 | `GOOGLE_CLOUD_PROJECT` | – | Project id to bill against (optional; taken from creds if omitted). |
 

@@ -19,4 +19,5 @@ fn config_env_parsing_and_defaults() {
     assert_eq!(cfg.max_retries, 3); // default
     assert!(cfg.endpoint.is_none());
     assert!(cfg.credentials_json.contains("client_email"));
+    assert_eq!(cfg.max_buffer_bytes, 5_000_000);
 } 
