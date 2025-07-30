@@ -3,14 +3,15 @@ use golem_stt::golem::stt::transcription::{
     AudioConfig, TranscribeOptions, TranscriptionResult,
 };
 use golem_stt::golem::stt::types::SttError;
-// Google provider stub only implements transcription interface for now.
-// Vocabularies and languages interfaces are not implemented yet.
+
+mod config;
+mod auth;
 
 fn unsupported() -> SttError {
     SttError::UnsupportedOperation("not implemented".to_string())
 }
 
-// Minimal stub stream implementing GuestTranscriptionStream
+
 struct DummyStream;
 
 impl GuestTranscriptionStream for DummyStream {
@@ -20,7 +21,6 @@ impl GuestTranscriptionStream for DummyStream {
     fn close(&self) {}
 }
 
-// Local stub stream matching expected alias name
 struct TranscriptionStream;
 
 impl GuestTranscriptionStream for TranscriptionStream {
@@ -29,8 +29,6 @@ impl GuestTranscriptionStream for TranscriptionStream {
     fn receive_alternative(&self) -> Result<Option<TranscriptAlternative>, SttError> { Err(unsupported()) }
     fn close(&self) {}
 }
-
-// -------------------- Transcription Interface --------------------
 
 struct GoogleTranscriptionComponent;
 

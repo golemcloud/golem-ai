@@ -22,6 +22,11 @@ golem-stt = { workspace = true }
 log = { workspace = true }
 golem-rust = { workspace = true }
 wit-bindgen-rt = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+base64 = { workspace = true }
+reqwest = { workspace = true }
+jsonwebtoken = "9"
 
 [package.metadata.component]
 package = "golem:stt-google"
