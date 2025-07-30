@@ -1,0 +1,26 @@
+[package]
+name = "golem-stt"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-stt"
+description = "WebAssembly components for Speech-to-Text APIs, with special support for Golem Cloud"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["rlib"]
+
+[dependencies]
+golem-rust = { workspace = true }
+log = { workspace = true }
+wit-bindgen = { version = "0.40.0" }
+wit-bindgen-rt = { workspace = true }
+wasi-logger = "0.1.2"
+
+[features]
+default = ["durability"]
+durability = ["golem-rust/durability"]
+
+[package.metadata.component]
+package = "golem:stt" 

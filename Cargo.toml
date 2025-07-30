@@ -25,6 +25,8 @@ members = [
     "video/runway",
     "video/veo",
     "video/stability",
+    "stt/stt",
+    "stt/google",
 ]
 
 [profile.release]
@@ -36,6 +38,7 @@ opt-level = 's'
 golem-llm = { path = "llm/llm", version = "0.0.0", default-features = false }
 golem-search = { path = "search/search", version = "0.0.0", default-features = false}
 golem-video = { path = "video/video", version = "0.0.0", default-features = false}
+golem-stt = { path = "stt/stt", version = "0.0.0", default-features = false }
 golem-rust = "1.6.0"
 log = "0.4.27"
 reqwest = { git = "https://github.com/golemcloud/reqwest", branch = "update-may-2025", features = [

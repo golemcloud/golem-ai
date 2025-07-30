@@ -1051,6 +1051,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "golem-stt"
+version = "0.0.0"
+dependencies = [
+ "golem-rust",
+ "log",
+ "wasi-logger",
+ "wit-bindgen 0.40.0",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "golem-stt-google"
+version = "0.0.0"
+dependencies = [
+ "golem-rust",
+ "golem-stt",
+ "log",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
 name = "golem-video"
 version = "0.0.0"
 dependencies = [
