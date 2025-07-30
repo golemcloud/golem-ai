@@ -20,6 +20,10 @@ members = [
     "search/meilisearch",
     "search/opensearch",
     "search/typesense",
+    "graph/graph",
+    "graph/arangodb",
+    "graph/janusgraph",
+    "graph/neo4j",
     "video/video",
     "video/kling",
     "video/runway",
@@ -35,9 +39,9 @@ opt-level = 's'
 
 [workspace.dependencies]
 golem-llm = { path = "llm/llm", version = "0.0.0", default-features = false }
-golem-search = { path = "search/search", version = "0.0.0", default-features = false }
-golem-video = { path = "video/video", version = "0.0.0", default-features = false }
-
+golem-search = { path = "search/search", version = "0.0.0", default-features = false}
+golem-graph = { path = "graph/graph" , version = "0.0.0" ,default-features =false}
+golem-video = { path = "video/video", version = "0.0.0", default-features = false}
 futures = "0.3.31"
 golem-rust = "=1.5.5"
 log = "0.4.27"

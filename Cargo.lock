@@ -1295,6 +1295,65 @@ dependencies = [
 ]
 
 [[package]]
+name = "golem-graph"
+version = "0.0.0"
+dependencies = [
+ "golem-rust",
+ "log",
+ "regex",
+ "reqwest",
+ "serde_json",
+ "thiserror 2.0.12",
+ "wasi-logger",
+ "wit-bindgen 0.40.0",
+]
+
+[[package]]
+name = "golem-graph-arangodb"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "chrono",
+ "golem-graph",
+ "golem-rust",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "golem-graph-janusgraph"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "chrono",
+ "golem-graph",
+ "golem-rust",
+ "log",
+ "reqwest",
+ "serde_json",
+ "uuid",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "golem-graph-neo4j"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "chrono",
+ "golem-graph",
+ "golem-rust",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
 name = "golem-llm"
 version = "0.0.0"
 dependencies = [
