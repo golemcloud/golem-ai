@@ -1,0 +1,43 @@
+[package]
+name = "golem-stt-whisper"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-ai"
+description = "WebAssembly component for OpenAI Whisper API, with special support for Golem Cloud"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[features]
+default = ["durability"]
+durability = ["golem-rust/durability", "golem-stt/durability"]
+
+[dependencies]
+golem-stt = { workspace = true }
+
+golem-rust = { workspace = true }
+log = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+base64 = { workspace = true }
+
+[package.metadata.component]
+package = "golem:stt-whisper"
+
+[package.metadata.component.bindings]
+generate_unused_types = true
+
+[package.metadata.component.bindings.with]
+"golem:stt/stt@1.0.0" = "golem_stt::golem::stt::stt"
+
+[package.metadata.component.target]
+path = "wit"
+
+[package.metadata.component.target.dependencies]
+"golem:stt" = { path = "wit/deps/golem-stt" }
+"wasi:io" = { path = "wit/deps/io" }

@@ -1580,6 +1580,89 @@ dependencies = [
 ]
 
 [[package]]
+name = "golem-stt"
+version = "0.0.0"
+dependencies = [
+ "golem-rust",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wasi-logger",
+ "wit-bindgen 0.40.0",
+]
+
+[[package]]
+name = "golem-stt-aws"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "golem-rust",
+ "golem-stt",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "golem-stt-azure"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "golem-rust",
+ "golem-stt",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "golem-stt-deepgram"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "golem-rust",
+ "golem-stt",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "golem-stt-google"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "golem-rust",
+ "golem-stt",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "golem-stt-whisper"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "golem-rust",
+ "golem-stt",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
 name = "golem-video"
 version = "0.0.0"
 dependencies = [

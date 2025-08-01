@@ -1,0 +1,8 @@
+package golem:stt-library@1.0.0;
+
+world stt-library {
+  export golem:stt/transcription@1.0.0;
+  export golem:stt/vocabularies@1.0.0;
+  export golem:stt/languages@1.0.0;
+  export golem:stt/types@1.0.0;
+}
