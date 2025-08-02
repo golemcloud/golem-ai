@@ -1597,6 +1597,7 @@ name = "golem-stt-aws"
 version = "0.0.0"
 dependencies = [
  "base64",
+ "chrono",
  "golem-rust",
  "golem-stt",
  "log",
