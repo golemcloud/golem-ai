@@ -3,6 +3,9 @@ name = "test_helper"
 version = "0.0.0"
 edition = "2021"
 
+[lints]
+workspace = true
+
 [lib]
 path = "src/lib.rs"
 crate-type = ["cdylib"]

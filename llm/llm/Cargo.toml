@@ -7,9 +7,14 @@ homepage = "https://golem.cloud"
 repository = "https://github.com/golemcloud/golem-llm"
 description = "WebAssembly components for working with LLM APIs, with special support for Golem Cloud"
 
+[lints]
+workspace = true
+
 [lib]
 path = "src/lib.rs"
 crate-type = ["rlib"]
+
+
 
 [dependencies]
 golem-rust = { workspace = true }

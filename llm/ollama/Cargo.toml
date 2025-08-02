@@ -7,6 +7,9 @@ homepage = "https://golem.cloud"
 repository = "https://github.com/golemcloud/golem-llm"
 description = "WebAssembly component for working with Ollama APIs, with special support for Golem Cloud"
 
+[lints]
+workspace = true
+
 [lib]
 path = "src/lib.rs"
 crate-type = ["cdylib"]

@@ -1,0 +1,60 @@
+package test:stt;
+
+// See https://component-model.bytecodealliance.org/design/wit.html for more details about the WIT syntax
+
+interface test-stt-api {
+  /// Perform a basic batch transcription and return a short status text
+  test-batch: func() -> string;
+  /// Perform a simple streaming session and return a short status text
+  test-stream: func() -> string;
+  /// Batch transcription with language specified; verifies language propagation
+  test-batch-language: func() -> string;
+  /// Batch transcription verifies metadata audio_size_bytes matches input length
+  test-batch-metadata-size: func() -> string;
+  /// Streaming: verifies sending after finish is rejected
+  test-stream-send-after-finish: func() -> string;
+  /// Batch transcription with empty audio; provider should reject or report size 0
+  test-batch-empty-audio: func() -> string;
+  /// Batch transcription with less common format (aac); provider should gracefully handle
+  test-batch-unsupported-format: func() -> string;
+  /// Request diarization; verify result shape does not crash and speaker ids are optional
+  test-diarization-shape: func() -> string;
+  /// Create a temporary vocabulary and delete it, returning the vocabulary name
+  test-vocabulary: func() -> string;
+  /// List supported languages and return the number as text
+  test-languages: func() -> string;
+
+  // Comprehensive edge case tests
+  /// Test handling of 5 seconds of silence
+  test-silence-handling: func() -> string;
+  /// Test multiple speakers talking simultaneously
+  test-overlapping-speakers: func() -> string;
+  /// Test very long audio files and quota limits
+  test-long-audio-handling: func() -> string;
+  /// Test network error resilience with invalid endpoints
+  test-network-error-handling: func() -> string;
+  /// Test rate limiting behavior with rapid requests
+  test-rate-limiting: func() -> string;
+  /// Test quota behavior with large file uploads
+  test-quota-behavior: func() -> string;
+  /// Test invalid audio format handling
+  test-invalid-audio-formats: func() -> string;
+  /// Test streaming error handling after finish
+  test-streaming-after-finish: func() -> string;
+
+  // Provider integration tests
+  /// Test real provider integration when credentials are available
+  test-provider-integration: func() -> string;
+  /// Test real streaming APIs integration
+  test-streaming-integration: func() -> string;
+}
+
+world test-stt {
+  import golem:stt/types@1.0.0;
+  import golem:stt/transcription@1.0.0;
+  import golem:stt/vocabularies@1.0.0;
+  import golem:stt/languages@1.0.0;
+  export test-stt-api;
+}
+
+

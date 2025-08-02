@@ -1,0 +1,241 @@
+# Schema for IDEA:
+# $schema: https://schema.golem.cloud/app/golem/1.2.2.1/golem.schema.json
+# Schema for vscode-yaml
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.2.2.1/golem.schema.json
+
+# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
+# For creating APIs see https://learn.golem.cloud/invoke/making-custom-apis
+
+components:
+  test:stt:
+    profiles:
+      # DEBUG PROFILES
+      aws-debug:
+        build:
+          - command: cargo component build --no-default-features --features aws
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_stt.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/stt_aws.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_stt.wasm
+              - ../../../../target/wasm32-wasip1/debug/stt_aws.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_stt_aws_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      azure-debug:
+        build:
+          - command: cargo component build --no-default-features --features azure
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_stt.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/stt_azure.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_stt.wasm
+              - ../../../../target/wasm32-wasip1/debug/stt_azure.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_stt_azure_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      deepgram-debug:
+        build:
+          - command: cargo component build --no-default-features --features deepgram
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_stt.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/stt_deepgram.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_stt.wasm
+              - ../../../../target/wasm32-wasip1/debug/stt_deepgram.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_stt_deepgram_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      google-debug:
+        build:
+          - command: cargo component build --no-default-features --features google
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_stt.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/stt_google.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_stt.wasm
+              - ../../../../target/wasm32-wasip1/debug/stt_google.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_stt_google_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      whisper-debug:
+        build:
+          - command: cargo component build --no-default-features --features whisper
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_stt.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/stt_whisper.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_stt.wasm
+              - ../../../../target/wasm32-wasip1/debug/stt_whisper.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_stt_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_stt_whisper_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      # RELEASE PROFILES
+      aws-release:
+        build:
+          - command: cargo component build --release --no-default-features --features aws
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_stt.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/stt_aws.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_stt.wasm
+              - ../../../../target/wasm32-wasip1/release/stt_aws.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_stt_aws_release.wasm
+        clean:
+          - src/bindings.rs
+
+      azure-release:
+        build:
+          - command: cargo component build --release --no-default-features --features azure
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_stt.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/stt_azure.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_stt.wasm
+              - ../../../../target/wasm32-wasip1/release/stt_azure.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_stt_azure_release.wasm
+        clean:
+          - src/bindings.rs
+
+      deepgram-release:
+        build:
+          - command: cargo component build --release --no-default-features --features deepgram
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_stt.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/stt_deepgram.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_stt.wasm
+              - ../../../../target/wasm32-wasip1/release/stt_deepgram.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_stt_deepgram_release.wasm
+        clean:
+          - src/bindings.rs
+
+      google-release:
+        build:
+          - command: cargo component build --release --no-default-features --features google
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_stt.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/stt_google.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_stt.wasm
+              - ../../../../target/wasm32-wasip1/release/stt_google.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_stt_google_release.wasm
+        clean:
+          - src/bindings.rs
+
+      whisper-release:
+        build:
+          - command: cargo component build --release --no-default-features --features whisper
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_stt.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/stt_whisper.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_stt.wasm
+              - ../../../../target/wasm32-wasip1/release/stt_whisper.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_stt_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_stt_whisper_release.wasm
+        clean:
+          - src/bindings.rs
+
+    defaultProfile: aws-debug
+
+dependencies:
+  test:stt:
+  - target: test:helper
+    type: wasm-rpc
+
+

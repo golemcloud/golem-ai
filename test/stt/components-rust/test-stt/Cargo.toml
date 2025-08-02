@@ -1,0 +1,45 @@
+[package]
+name = "test_stt"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+required-features = []
+
+[features]
+default = []
+aws = []
+azure = []
+deepgram = []
+google = []
+whisper = []
+
+[dependencies]
+golem-rust = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+
+[package.metadata.component.target]
+path = "wit-generated"
+
+[package.metadata.component.bindings]
+generate_unused_types = true
+
+[package.metadata.component.bindings.with]
+"wasi:io/poll@0.2.0" = "golem_rust::wasm_rpc::wasi::io::poll"
+"wasi:clocks/wall-clock@0.2.0" = "golem_rust::wasm_rpc::wasi::clocks::wall_clock"
+"golem:rpc/types@0.2.0" = "golem_rust::wasm_rpc::golem_rpc_0_2_x::types"
+
+[package.metadata.component.target.dependencies]
+"wasi:io" = { path = "wit-generated/deps/io" }
+"wasi:clocks" = { path = "wit-generated/deps/clocks" }
+"golem:rpc" = { path = "wit-generated/deps/golem-rpc" }
+"golem:stt" = { path = "wit-generated/deps/golem-stt" }
+"test:helper-client" = { path = "wit-generated/deps/test_helper-client" }
+"test:stt-exports" = { path = "wit-generated/deps/test_stt-exports" }
+
+

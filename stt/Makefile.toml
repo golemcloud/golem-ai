@@ -1,0 +1,185 @@
+[config]
+default_to_workspace = false
+skip_core_tasks = true
+
+[tasks.build]
+run_task = { name = [
+    "build-aws",
+    "build-azure",
+    "build-deepgram",
+    "build-google",
+    "build-whisper",
+] }
+
+[tasks.build-portable]
+run_task = { name = [
+    "build-aws-portable",
+    "build-azure-portable",
+    "build-deepgram-portable",
+    "build-google-portable",
+    "build-whisper-portable",
+] }
+
+[tasks.release-build]
+run_task = { name = [
+    "release-build-aws",
+    "release-build-azure",
+    "release-build-deepgram",
+    "release-build-google",
+    "release-build-whisper",
+] }
+
+[tasks.release-build-portable]
+run_task = { name = [
+    "release-build-aws-portable",
+    "release-build-azure-portable",
+    "release-build-deepgram-portable",
+    "release-build-google-portable",
+    "release-build-whisper-portable",
+] }
+
+[tasks.build-aws]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-aws"]
+
+[tasks.build-aws-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-aws", "--no-default-features"]
+
+[tasks.build-azure]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-azure"]
+
+[tasks.build-azure-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-azure", "--no-default-features"]
+
+[tasks.build-deepgram]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-deepgram"]
+
+[tasks.build-deepgram-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-deepgram", "--no-default-features"]
+
+[tasks.build-google]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-google"]
+
+[tasks.build-google-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-google", "--no-default-features"]
+
+[tasks.build-whisper]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-whisper"]
+
+[tasks.build-whisper-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-whisper", "--no-default-features"]
+
+[tasks.release-build-aws]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-aws", "--release"]
+
+[tasks.release-build-aws-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-aws", "--release", "--no-default-features"]
+
+[tasks.release-build-azure]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-azure", "--release"]
+
+[tasks.release-build-azure-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-azure", "--release", "--no-default-features"]
+
+[tasks.release-build-deepgram]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-deepgram", "--release"]
+
+[tasks.release-build-deepgram-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-deepgram", "--release", "--no-default-features"]
+
+[tasks.release-build-google]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-google", "--release"]
+
+[tasks.release-build-google-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-google", "--release", "--no-default-features"]
+
+[tasks.release-build-whisper]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-whisper", "--release"]
+
+[tasks.release-build-whisper-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "stt-whisper", "--release", "--no-default-features"]
+
+[tasks.wit-update]
+install_crate = { crate_name = "wit-deps-cli" }
+command = "wit-deps"
+args = ["update"]
+
+[tasks.wit]
+script_runner = "@duckscript"
+script = """
+modules = array stt aws azure deepgram google whisper
+
+for module in ${modules}
+    rm -r ${module}/wit/deps
+    mkdir ${module}/wit/deps/golem-stt
+    cp wit/golem-stt.wit ${module}/wit/deps/golem-stt/golem-stt.wit
+
+    echo "Copied WIT for module stt::${module}"
+end
+
+# Copy WIT files for integration tests
+rm -r ../test/stt/wit
+mkdir ../test/stt/wit/deps/golem-stt
+cp wit/golem-stt.wit ../test/stt/wit/deps/golem-stt/golem-stt.wit
+
+echo "Copied WIT for module stt"
+"""
+
+[tasks.build-test-components]
+dependencies = ["build"]
+description = "Builds stt test components with golem-cli"
+script = '''
+cd ../test/stt
+
+golem-cli --version
+golem-cli app clean
+golem-cli app build -b aws-debug
+golem-cli app clean
+golem-cli app build -b azure-debug
+golem-cli app clean
+golem-cli app build -b deepgram-debug
+golem-cli app clean
+golem-cli app build -b google-debug
+golem-cli app clean
+golem-cli app build -b whisper-debug
+golem-cli app clean
+'''

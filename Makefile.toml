@@ -14,7 +14,7 @@ args = ["test"]
 script_runner = "@duckscript"
 script = '''
 
-domains = array llm websearch search video exec
+domains = array llm websearch search video exec stt graph
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -30,7 +30,7 @@ end
 script_runner = "@duckscript"
 script = '''
 
-domains = array llm websearch search video exec
+domains = array llm websearch search video exec stt graph
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -47,7 +47,7 @@ script_runner = "@duckscript"
 script = '''
 #!/bin/bash
 
-domains = array llm websearch search video exec
+domains = array llm websearch search video exec stt graph
 
 
 # if there is no domain passed run for every domain
@@ -65,7 +65,7 @@ script_runner = "@duckscript"
 script = '''
 #!/bin/bash
 
-domains = array llm websearch search exec
+domains = array llm websearch search video exec stt graph
 
 
 # if there is no domain passed run for every domain
@@ -82,7 +82,7 @@ end
 script_runner = "@duckscript"
 script = '''
 
-domains = array llm websearch search video exec
+domains = array llm websearch search video exec stt graph
 
 
 # if there is no domain passed run for every domain
@@ -100,7 +100,7 @@ description = "Builds all test components with golem-cli"
 script_runner = "@duckscript"
 script = '''
 
-domains = array llm websearch search video exec
+domains = array llm websearch search video exec stt graph
 
 
 # if there is no domain passed run for every domain
@@ -175,6 +175,25 @@ for target in ${targets}
     end
 end
 
+# Copy STT components with their actual names
+stt_targets = array stt_aws stt_azure stt_deepgram stt_google stt_whisper
+for stt_target in ${stt_targets}
+    echo "Copying artifacts for ${stt_target}..."
+    if ${is_portable}
+        if ${is_dev}
+            cp target/wasm32-wasip1/debug/${stt_target}.wasm components/debug/${stt_target}-portable-dev.wasm
+        else
+            cp target/wasm32-wasip1/debug/${stt_target}.wasm components/debug/${stt_target}-portable.wasm
+        end
+    else
+        if ${is_dev}
+            cp target/wasm32-wasip1/debug/${stt_target}.wasm components/debug/${stt_target}-dev.wasm
+        else
+            cp target/wasm32-wasip1/debug/${stt_target}.wasm components/debug/${stt_target}.wasm
+        end
+    end
+end
+
 echo "Copying artifacts for exec..."
 if ${is_portable}
     if ${is_dev}
@@ -226,6 +245,25 @@ for target in ${targets}
             cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-dev.wasm
         else
             cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}.wasm
+        end
+    end
+end
+
+# Copy STT components with their actual names
+stt_targets = array stt_aws stt_azure stt_deepgram stt_google stt_whisper
+for stt_target in ${stt_targets}
+    echo "Copying artifacts for ${stt_target}..."
+    if ${is_portable}
+        if ${is_dev}
+            cp target/wasm32-wasip1/release/${stt_target}.wasm components/release/${stt_target}-portable-dev.wasm
+        else
+            cp target/wasm32-wasip1/release/${stt_target}.wasm components/release/${stt_target}-portable.wasm
+        end
+    else
+        if ${is_dev}
+            cp target/wasm32-wasip1/release/${stt_target}.wasm components/release/${stt_target}-dev.wasm
+        else
+            cp target/wasm32-wasip1/release/${stt_target}.wasm components/release/${stt_target}.wasm
         end
     end
 end

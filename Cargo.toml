@@ -26,6 +26,12 @@ members = [
     "video/veo",
     "video/stability",
     "exec/exec",
+    "stt/stt",
+    "stt/deepgram",
+    "stt/google",
+    "stt/azure",
+    "stt/aws",
+    "stt/whisper",
 ]
 
 [profile.release]
@@ -46,9 +52,21 @@ reqwest = { git = "https://github.com/golemcloud/reqwest", branch = "update-may-
 ] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
-wasi = "=0.13.1+wasi-0.2.0"
+serde_urlencoded = "0.7.1"
+wasi = "=0.13.1"
 wstd = { git = "https://github.com/golemcloud/wstd", branch = "0.5.3-wasi-0.2.0" }
-wit-bindgen-rt = { version = "0.40.0", features = ["bitflags"] }
+wit-bindgen = { version = "0.43.0" }
+wit-bindgen-rt = { version = "0.43.0", features = ["bitflags"] }
+wit-bindgen-rust-macro = { version = "0.43.0" }
 base64 = { version = "0.22.1" }
 mime_guess = { version = "2.0.5" }
 url = { version = "2.5.4" }
+urlencoding = { version = "2.1.3" }
+
+
+# Workspace lints configuration
+[workspace.lints.rust]
+# Allow the mismatched lifetime syntaxes lint that causes issues in some Rust versions
+mismatched_lifetime_syntaxes = "allow"
+# Allow dead code warnings that become errors under -D warnings
+dead_code = "allow"

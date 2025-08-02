@@ -1290,7 +1290,7 @@ dependencies = [
  "wasi 0.13.1+wasi-0.2.0",
  "wasi-logger",
  "wit-bindgen 0.40.0",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
  "wstd",
 ]
 
@@ -1319,7 +1319,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1341,7 +1341,7 @@ dependencies = [
  "serde",
  "serde_json",
  "wasi 0.13.1+wasi-0.2.0",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
  "wstd",
 ]
 
@@ -1356,7 +1356,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1372,7 +1372,7 @@ dependencies = [
  "serde",
  "serde_json",
  "url",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1386,7 +1386,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1400,7 +1400,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1455,7 +1455,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1470,7 +1470,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1485,7 +1485,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1500,7 +1500,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1516,7 +1516,25 @@ dependencies = [
  "serde",
  "serde_json",
  "urlencoding",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
+]
+
+[[package]]
+name = "golem-stt"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "futures",
+ "golem-rust",
+ "log",
+ "mime_guess",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "url",
+ "urlencoding",
+ "wit-bindgen 0.40.0",
+ "wstd",
 ]
 
 [[package]]
@@ -1546,7 +1564,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1560,7 +1578,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1575,7 +1593,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1594,7 +1612,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "urlencoding",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1637,7 +1655,7 @@ dependencies = [
  "url",
  "urlencoding",
  "wasm-bindgen",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1654,7 +1672,7 @@ dependencies = [
  "url",
  "urlencoding",
  "wasm-bindgen",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1670,7 +1688,7 @@ dependencies = [
  "serde_json",
  "url",
  "wasm-bindgen",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -1687,7 +1705,7 @@ dependencies = [
  "url",
  "urlencoding",
  "wasm-bindgen",
- "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rt 0.43.0",
 ]
 
 [[package]]
@@ -3806,6 +3824,110 @@ dependencies = [
 ]
 
 [[package]]
+name = "stt-aws"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "futures",
+ "golem-stt",
+ "hex",
+ "hmac",
+ "log",
+ "mime_guess",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "sha2",
+ "time",
+ "url",
+ "wit-bindgen 0.40.0",
+ "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rust-macro 0.40.0",
+ "wstd",
+]
+
+[[package]]
+name = "stt-azure"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "futures",
+ "golem-stt",
+ "log",
+ "mime_guess",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "url",
+ "wit-bindgen 0.40.0",
+ "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rust-macro 0.40.0",
+ "wstd",
+]
+
+[[package]]
+name = "stt-deepgram"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "futures",
+ "golem-stt",
+ "hex",
+ "log",
+ "mime_guess",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "url",
+ "urlencoding",
+ "wit-bindgen 0.40.0",
+ "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rust-macro 0.40.0",
+ "wstd",
+]
+
+[[package]]
+name = "stt-google"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "futures",
+ "golem-stt",
+ "log",
+ "mime_guess",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "url",
+ "wit-bindgen 0.40.0",
+ "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rust-macro 0.40.0",
+ "wstd",
+]
+
+[[package]]
+name = "stt-whisper"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "futures",
+ "golem-stt",
+ "log",
+ "mime_guess",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "url",
+ "wit-bindgen 0.40.0",
+ "wit-bindgen-rt 0.40.0",
+ "wit-bindgen-rust-macro 0.40.0",
+ "wstd",
+]
+
+[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3945,6 +4067,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a7619e19bc266e0f9c5e6686659d394bc57973859340060a69221e57dbc0c40"
 dependencies = [
  "deranged",
+ "itoa",
  "num-conv",
  "powerfmt",
  "serde",
@@ -5026,6 +5149,15 @@ name = "wit-bindgen-rt"
 version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4db52a11d4dfb0a59f194c064055794ee6564eb1ced88c25da2cf76e50c5621"
+dependencies = [
+ "bitflags 2.9.1",
+]
+
+[[package]]
+name = "wit-bindgen-rt"
+version = "0.43.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fd734226eac1fd7c450956964e3a9094c9cee65e9dafdf126feef8c0096db65"
 dependencies = [
  "bitflags 2.9.1",
 ]

@@ -25,3 +25,6 @@ mime_guess = { workspace = true }
 [features]
 default = ["durability"]
 durability = ["golem-rust/durability"]
+
+[lints.rust]
+dead_code = "allow"
