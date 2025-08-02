@@ -40,7 +40,7 @@ impl DeepgramClient {
             let mut req = self.client
                 .post(&url)
                 .header("Authorization", format!("Token {}", self.api_key))
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "audio/wav")
                 .timeout(self.timeout);
 
             // Add query parameters

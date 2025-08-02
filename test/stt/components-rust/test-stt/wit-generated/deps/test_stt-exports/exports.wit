@@ -1,0 +1,11 @@
+package test:stt-exports;
+
+interface test-stt-api {
+  test1: func() -> string;
+  test2: func() -> string;
+  test3: func() -> string;
+  test4: func() -> string;
+  test5: func() -> string;
+}
+
+interface test-stt-inline-functions {}

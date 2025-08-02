@@ -1,0 +1,16 @@
+package test:stt;
+
+interface test-stt-api {
+  test1: func() -> string;
+  test2: func() -> string;
+  test3: func() -> string;
+  test4: func() -> string;
+  test5: func() -> string;
+}
+
+world test-stt {
+  import golem:stt/transcription@1.0.0;
+  import golem:stt/vocabularies@1.0.0;
+  import golem:stt/languages@1.0.0;
+  export test-stt-api;
+}

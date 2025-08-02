@@ -1,0 +1,9 @@
+package test:stt;
+
+world test-stt {
+  import golem:stt/languages@1.0.0;
+  import golem:stt/transcription@1.0.0;
+  import golem:stt/types@1.0.0;
+  import golem:stt/vocabularies@1.0.0;
+  export test:stt-exports/test-stt-api;
+}

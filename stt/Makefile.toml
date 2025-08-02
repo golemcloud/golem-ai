@@ -160,10 +160,10 @@ for module in ${modules}
 end
 
 # Copy WIT files for integration tests if test directory exists
-if exists ../test/stt
+if is_path_exists "../test/stt"
     rm -r ../test/stt/wit
-    mkdir ../test/stt/wit/deps/golem-stt
-    mkdir ../test/stt/wit/deps/io
+    mkdir -p ../test/stt/wit/deps/golem-stt
+    mkdir -p ../test/stt/wit/deps/io
     cp wit/golem-stt.wit ../test/stt/wit/deps/golem-stt/golem-stt.wit
     cp wit/deps/io/error.wit ../test/stt/wit/deps/io/error.wit
     cp wit/deps/io/poll.wit ../test/stt/wit/deps/io/poll.wit
