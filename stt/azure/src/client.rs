@@ -36,8 +36,18 @@ impl AzureSpeechClient {
 
     pub fn transcribe_audio(&self, request: TranscriptionRequest) -> Result<AzureTranscriptionResponse, SttError> {
         let mut attempts = 0;
+        
+        // Build query parameters for Azure Speech REST API
+        let language = request.language.unwrap_or_else(|| "en-US".to_string());
+        let profanity = request.profanity_option.unwrap_or_else(|| "Raw".to_string());
+        
+        let path = format!(
+            "/speech/recognition/conversation/cognitiveservices/v1?language={}&profanity={}&format=detailed",
+            language, profanity
+        );
+        
         loop {
-            match self.make_request(Method::POST, "/speech/recognition/conversation/cognitiveservices/v1", Some(&request)) {
+            match self.make_audio_request(Method::POST, &path, &request.audio_data, &request.format) {
                 Ok(response) => {
                     if response.status().is_success() {
                         match response.json::<AzureTranscriptionResponse>() {
@@ -227,6 +237,26 @@ impl AzureSpeechClient {
         }
 
         req.send()
+    }
+
+    fn make_audio_request(
+        &self,
+        method: Method,
+        path: &str,
+        audio_data: &[u8],
+        audio_format: &str,
+    ) -> Result<Response, reqwest::Error> {
+        let url = format!("{}{}", self.base_url, path);
+        let content_type = format!("audio/{}; codecs=audio/pcm; samplerate=16000", audio_format);
+        
+        self.client
+            .request(method, &url)
+            .header("Ocp-Apim-Subscription-Key", &self.subscription_key)
+            .header("Content-Type", &content_type)
+            .header("Accept", "application/json")
+            .timeout(self.timeout)
+            .body(audio_data.to_vec())
+            .send()
     }
 
     fn handle_error_response(&self, response: Response) -> SttError {

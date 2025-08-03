@@ -1600,10 +1600,13 @@ dependencies = [
  "chrono",
  "golem-rust",
  "golem-stt",
+ "hex",
+ "hmac",
  "log",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "wit-bindgen-rt 0.40.0",
 ]
 

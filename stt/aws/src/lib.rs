@@ -6,7 +6,7 @@ use golem_stt::golem::stt::languages::{Guest as LanguagesGuest, LanguageInfo};
 use golem_stt::golem::stt::transcription::{
     Guest as TranscriptionGuest, TranscribeOptions, TranscriptionStream,
 };
-use golem_stt::golem::stt::types::{AudioConfig, SttError, TranscriptionResult};
+use golem_stt::golem::stt::types::{AudioConfig, SttError, TranscriptionResult, TranscriptAlternative, TranscriptionMetadata};
 use golem_stt::golem::stt::vocabularies::{Guest as VocabulariesGuest, Vocabulary};
 use log::{error, trace, warn};
 use std::cell::RefCell;
@@ -191,44 +191,47 @@ impl TranscriptionGuest for AwsSTTComponent {
         trace!("Starting AWS Transcribe transcription, audio size: {} bytes", audio.len());
 
         let client = Self::get_client()?;
-        let job_name = generate_job_name();
-        let request = create_transcription_job_request(&audio, &config, &options, &job_name)?;
         
+        let default_language = "en-US".to_string();
         let language = options
             .as_ref()
             .and_then(|opts| opts.language.as_ref())
-            .unwrap_or(&"en-US".to_string())
-            .clone();
+            .unwrap_or(&default_language);
 
-        // Note: This is a simplified implementation
-        // In practice, AWS Transcribe requires uploading audio to S3 first
-        warn!("AWS Transcribe requires audio to be uploaded to S3 first. This is a mock implementation.");
+        let media_format = match config.format {
+            golem_stt::golem::stt::types::AudioFormat::Wav => "wav",
+            golem_stt::golem::stt::types::AudioFormat::Mp3 => "mp3",
+            golem_stt::golem::stt::types::AudioFormat::Flac => "flac",
+            golem_stt::golem::stt::types::AudioFormat::Aac => "mp4",
+            _ => "wav", // Default fallback
+        };
+
+        trace!("Sending direct audio transcription to AWS Transcribe Streaming API");
         
-        // Start the transcription job
-        let start_response = client.start_transcription_job(request)
+        // Use direct streaming transcription
+        let direct_response = client.transcribe_audio_directly(&audio, media_format, Some(language))
             .map_err(|e| {
-                error!("AWS Transcribe job start failed: {:?}", e);
+                error!("AWS Transcribe streaming failed: {:?}", e);
                 e
             })?;
 
-        if start_response.transcription_job.is_none() {
-            return Err(SttError::InternalError("Failed to start transcription job".to_string()));
-        }
+        // Convert direct response to our format
+        let alternatives = vec![TranscriptAlternative {
+            text: direct_response.transcript,
+            confidence: direct_response.confidence,
+            words: vec![], // AWS streaming doesn't provide word-level timing in this simplified implementation
+        }];
 
-        // Poll for completion
-        let completed_job = Self::poll_transcription_job(&client, &job_name)?;
-        
-        // Get the transcript
-        if let Some(transcript_result) = completed_job.transcript {
-            if let Some(transcript_uri) = transcript_result.transcript_file_uri {
-                let aws_response = Self::fetch_transcript_from_s3(&transcript_uri)?;
-                convert_aws_response(aws_response, audio.len(), &language, &job_name)
-            } else {
-                Err(SttError::InternalError("No transcript URI found".to_string()))
-            }
-        } else {
-            Err(SttError::InternalError("No transcript found in completed job".to_string()))
-        }
+        Ok(TranscriptionResult {
+            alternatives,
+            metadata: TranscriptionMetadata {
+                duration_seconds: 0.0, // Would need to calculate from audio
+                audio_size_bytes: audio.len() as u32,
+                request_id: generate_job_name(),
+                model: Some("AWS Transcribe Streaming".to_string()),
+                language: language.clone(),
+            },
+        })
     }
 
     fn transcribe_stream(

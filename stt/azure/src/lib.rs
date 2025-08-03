@@ -40,8 +40,8 @@ impl AzureSTTComponent {
         config: AudioConfig,
         options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionResult, SttError> {
-        let _client = Self::get_client()?;
-        let _request = create_realtime_transcription_request(&audio, &config, &options)?;
+        let client = Self::get_client()?;
+        let request = create_realtime_transcription_request(&audio, &config, &options)?;
         
         let language = options
             .as_ref()
@@ -49,61 +49,16 @@ impl AzureSTTComponent {
             .unwrap_or(&"en-US".to_string())
             .clone();
 
-        // For real-time transcription, we would need to send audio via WebSocket
-        // For now, we'll simulate with a mock response since Azure real-time API
-        // requires WebSocket connection which is not available in WASM
-        warn!("Azure real-time transcription requires WebSocket. Using mock response.");
+        trace!("Sending audio to Azure Speech REST API");
         
-        // Create a mock successful response
-        let mock_response = crate::client::AzureTranscriptionResponse {
-            recognition_status: "Success".to_string(),
-            display_text: Some("This is a mock transcription from Azure Speech Service.".to_string()),
-            offset: Some(0),
-            duration: Some(15_000_000), // 1.5 seconds in 100-nanosecond units
-            n_best: Some(vec![
-                crate::client::NBestItem {
-                    confidence: 0.95,
-                    lexical: "this is a mock transcription from azure speech service".to_string(),
-                    itn: "this is a mock transcription from azure speech service".to_string(),
-                    masked_itn: "this is a mock transcription from azure speech service".to_string(),
-                    display: "This is a mock transcription from Azure Speech Service.".to_string(),
-                    words: Some(vec![
-                        crate::client::WordDetail {
-                            word: "This".to_string(),
-                            offset: 0,
-                            duration: 2_000_000,
-                            confidence: Some(0.98),
-                        },
-                        crate::client::WordDetail {
-                            word: "is".to_string(),
-                            offset: 2_000_000,
-                            duration: 1_000_000,
-                            confidence: Some(0.99),
-                        },
-                        crate::client::WordDetail {
-                            word: "a".to_string(),
-                            offset: 3_000_000,
-                            duration: 1_000_000,
-                            confidence: Some(0.97),
-                        },
-                        crate::client::WordDetail {
-                            word: "mock".to_string(),
-                            offset: 4_000_000,
-                            duration: 2_000_000,
-                            confidence: Some(0.94),
-                        },
-                        crate::client::WordDetail {
-                            word: "transcription".to_string(),
-                            offset: 6_000_000,
-                            duration: 4_000_000,
-                            confidence: Some(0.96),
-                        },
-                    ]),
-                }
-            ]),
-        };
+        // Use Azure Speech REST API directly (not WebSocket)
+        let azure_response = client.transcribe_audio(request)
+            .map_err(|e| {
+                error!("Azure Speech transcription failed: {:?}", e);
+                e
+            })?;
 
-        convert_realtime_response(mock_response, audio.len(), &language)
+        convert_realtime_response(azure_response, audio.len(), &language)
     }
 
     fn transcribe_batch(
@@ -235,12 +190,9 @@ impl TranscriptionGuest for AzureSTTComponent {
         golem_stt::init_logging();
         trace!("Starting Azure Speech transcription, audio size: {} bytes", audio.len());
 
-        // Determine transcription method based on audio size and options
-        // For larger files or when diarization is enabled, use batch transcription
-        let use_batch = audio.len() > 1_000_000 || // > 1MB
-            options.as_ref()
-                .and_then(|opts| opts.enable_speaker_diarization)
-                .unwrap_or(false);
+        // Use direct Azure Speech REST API instead of batch or mock
+        // This works like Deepgram's direct API
+        let use_batch = false; // Use real-time REST API for immediate results
 
         if use_batch {
             Self::transcribe_batch(audio, config, options)
