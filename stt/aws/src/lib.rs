@@ -198,37 +198,29 @@ impl TranscriptionGuest for AwsSTTComponent {
             .and_then(|opts| opts.language.as_ref())
             .unwrap_or(&default_language);
 
-        let media_format = match config.format {
-            golem_stt::golem::stt::types::AudioFormat::Wav => "wav",
-            golem_stt::golem::stt::types::AudioFormat::Mp3 => "mp3",
-            golem_stt::golem::stt::types::AudioFormat::Flac => "flac",
-            golem_stt::golem::stt::types::AudioFormat::Aac => "mp4",
-            _ => "wav", // Default fallback
-        };
-
-        trace!("Sending direct audio transcription to AWS Transcribe Streaming API");
+        trace!("Using AWS Transcribe simple REST API for direct transcription");
         
-        // Use direct streaming transcription
-        let direct_response = client.transcribe_audio_directly(&audio, media_format, Some(language))
+        // Use simplified direct transcription approach similar to Azure
+        let transcription_result = client.transcribe_audio_simple(&audio, language)
             .map_err(|e| {
-                error!("AWS Transcribe streaming failed: {:?}", e);
+                error!("AWS Transcribe simple API failed: {:?}", e);
                 e
             })?;
 
-        // Convert direct response to our format
+        // Create result from simple response
         let alternatives = vec![TranscriptAlternative {
-            text: direct_response.transcript,
-            confidence: direct_response.confidence,
-            words: vec![], // AWS streaming doesn't provide word-level timing in this simplified implementation
+            text: transcription_result.transcript,
+            confidence: transcription_result.confidence,
+            words: vec![], // Simplified implementation without word timing
         }];
 
         Ok(TranscriptionResult {
             alternatives,
             metadata: TranscriptionMetadata {
-                duration_seconds: 0.0, // Would need to calculate from audio
+                duration_seconds: transcription_result.duration,
                 audio_size_bytes: audio.len() as u32,
                 request_id: generate_job_name(),
-                model: Some("AWS Transcribe Streaming".to_string()),
+                model: Some("AWS Transcribe Simple".to_string()),
                 language: language.clone(),
             },
         })

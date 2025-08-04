@@ -1,9 +1,8 @@
 use golem_stt::golem::stt::types::SttError;
-use log::{error, trace, warn};
+use log::{error, trace};
 use reqwest::{Client, Response};
 use serde::{Deserialize};
 use std::time::Duration;
-use base64::prelude::*;
 
 pub struct WhisperClient {
     api_key: String,
@@ -36,41 +35,72 @@ impl WhisperClient {
     pub fn transcribe_audio(&self, request: WhisperTranscriptionRequest) -> Result<WhisperTranscriptionResponse, SttError> {
         let url = format!("{}/audio/transcriptions", self.base_url);
         
-        // Try alternative approach: use base64 encoding with JSON body
-        // This avoids multipart form issues in WASM environments
-        let audio_base64 = base64::prelude::BASE64_STANDARD.encode(&request.audio);
-        
-        let mut body = serde_json::json!({
-            "file": audio_base64,
-            "model": request.model,
-            "response_format": request.response_format.unwrap_or("json".to_string())
-        });
-        
-        if let Some(language) = &request.language {
-            body["language"] = serde_json::Value::String(language.clone());
-        }
-        
-        if let Some(prompt) = &request.prompt {
-            body["prompt"] = serde_json::Value::String(prompt.clone());
-        }
-        
-        if let Some(temperature) = request.temperature {
-            body["temperature"] = serde_json::Value::Number(serde_json::Number::from_f64(temperature as f64).unwrap());
-        }
-        
-        if let Some(timestamp_granularities) = &request.timestamp_granularities {
-            body["timestamp_granularities"] = serde_json::Value::Array(
-                timestamp_granularities.iter().map(|s| serde_json::Value::String(s.clone())).collect()
-            );
-        }
-
         let mut attempts = 0;
         loop {
+            // Manually construct multipart form data since reqwest multipart doesn't work in WASM
+            let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+            let mut body = Vec::new();
+            
+            // Add file field
+            body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+            body.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\n");
+            body.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
+            body.extend_from_slice(&request.audio);
+            body.extend_from_slice(b"\r\n");
+            
+            // Add model field
+            body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+            body.extend_from_slice(b"Content-Disposition: form-data; name=\"model\"\r\n\r\n");
+            body.extend_from_slice(request.model.as_bytes());
+            body.extend_from_slice(b"\r\n");
+            
+            // Add response_format field
+            let default_format = "json".to_string();
+            let response_format = request.response_format.as_ref().unwrap_or(&default_format);
+            body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+            body.extend_from_slice(b"Content-Disposition: form-data; name=\"response_format\"\r\n\r\n");
+            body.extend_from_slice(response_format.as_bytes());
+            body.extend_from_slice(b"\r\n");
+            
+            // Add optional fields
+            if let Some(language) = &request.language {
+                body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+                body.extend_from_slice(b"Content-Disposition: form-data; name=\"language\"\r\n\r\n");
+                body.extend_from_slice(language.as_bytes());
+                body.extend_from_slice(b"\r\n");
+            }
+            
+            if let Some(prompt) = &request.prompt {
+                body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+                body.extend_from_slice(b"Content-Disposition: form-data; name=\"prompt\"\r\n\r\n");
+                body.extend_from_slice(prompt.as_bytes());
+                body.extend_from_slice(b"\r\n");
+            }
+            
+            if let Some(temperature) = request.temperature {
+                body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+                body.extend_from_slice(b"Content-Disposition: form-data; name=\"temperature\"\r\n\r\n");
+                body.extend_from_slice(temperature.to_string().as_bytes());
+                body.extend_from_slice(b"\r\n");
+            }
+            
+            if let Some(timestamp_granularities) = &request.timestamp_granularities {
+                for granularity in timestamp_granularities {
+                    body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+                    body.extend_from_slice(b"Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\n");
+                    body.extend_from_slice(granularity.as_bytes());
+                    body.extend_from_slice(b"\r\n");
+                }
+            }
+            
+            // Close the form
+            body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
+
             let req = self.client
                 .post(&url)
                 .header("Authorization", format!("Bearer {}", self.api_key))
-                .header("Content-Type", "application/json")
-                .json(&body)
+                .header("Content-Type", format!("multipart/form-data; boundary={}", boundary))
+                .body(body)
                 .timeout(self.timeout);
 
             match req.send() {

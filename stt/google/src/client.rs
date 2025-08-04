@@ -35,7 +35,7 @@ impl GoogleSpeechClient {
     }
 
     pub fn transcribe(&self, request: RecognizeRequest) -> Result<RecognizeResponse, SttError> {
-        let url = format!("{}/speech:recognize", self.base_url);
+        let url = format!("{}/speech:recognize?key={}", self.base_url, self.api_key);
         
         let mut attempts = 0;
         loop {
@@ -78,7 +78,6 @@ impl GoogleSpeechClient {
         let mut req = self
             .client
             .request(method, url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
             .timeout(self.timeout);
 
@@ -137,10 +136,6 @@ pub struct RecognitionConfig {
     pub enable_word_confidence: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_automatic_punctuation: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enable_speaker_diarization: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub diarization_speaker_count: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
 }

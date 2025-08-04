@@ -42,8 +42,6 @@ pub fn create_recognize_request(
         enable_word_time_offsets: None,
         enable_word_confidence: None,
         enable_automatic_punctuation: Some(true),
-        enable_speaker_diarization: None,
-        diarization_speaker_count: None,
         model: None,
     };
 
@@ -68,9 +66,6 @@ pub fn create_recognize_request(
             recognition_config.enable_word_confidence = Some(enable_word_confidence);
         }
         
-        if let Some(enable_diarization) = opts.enable_speaker_diarization {
-            recognition_config.enable_speaker_diarization = Some(enable_diarization);
-        }
         
         if let Some(speech_context) = &opts.speech_context {
             recognition_config.speech_contexts = Some(vec![SpeechContext {

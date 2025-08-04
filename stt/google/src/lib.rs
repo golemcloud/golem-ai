@@ -19,12 +19,12 @@ mod conversions;
 struct GoogleSTTComponent;
 
 impl GoogleSTTComponent {
-    const API_KEY_ENV_VAR: &'static str = "GOOGLE_APPLICATION_CREDENTIALS";
+    const API_KEY_ENV_VAR: &'static str = "GOOGLE_API_KEY";
     const PROJECT_ID_ENV_VAR: &'static str = "GOOGLE_CLOUD_PROJECT";
 
     fn get_client() -> Result<GoogleSpeechClient, SttError> {
         let api_key = std::env::var(Self::API_KEY_ENV_VAR)
-            .map_err(|_| SttError::Unauthorized("GOOGLE_APPLICATION_CREDENTIALS not set".to_string()))?;
+            .map_err(|_| SttError::Unauthorized("GOOGLE_API_KEY not set".to_string()))?;
         
         let project_id = std::env::var(Self::PROJECT_ID_ENV_VAR)
             .map_err(|_| SttError::Unauthorized("GOOGLE_CLOUD_PROJECT not set".to_string()))?;
