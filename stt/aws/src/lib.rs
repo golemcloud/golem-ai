@@ -1,13 +1,16 @@
 use crate::client::AwsTranscribeClient;
-use crate::conversions::{get_supported_languages, generate_job_name};
+use crate::conversions::{
+    get_supported_languages, generate_job_name, create_transcription_job_request,
+    convert_aws_response_to_transcription_result,
+};
 use golem_stt::durability::{DurableSTT, ExtendedTranscriptionGuest, ExtendedVocabulariesGuest, ExtendedLanguagesGuest, ExtendedGuest};
 use golem_stt::golem::stt::languages::{Guest as LanguagesGuest, LanguageInfo};
 use golem_stt::golem::stt::transcription::{
     Guest as TranscriptionGuest, TranscribeOptions, TranscriptionStream,
 };
-use golem_stt::golem::stt::types::{AudioConfig, SttError, TranscriptionResult, TranscriptAlternative, TranscriptionMetadata};
+use golem_stt::golem::stt::types::{AudioConfig, SttError, TranscriptionResult, TranscriptAlternative};
 use golem_stt::golem::stt::vocabularies::{Guest as VocabulariesGuest, Vocabulary};
-use log::{error, trace, warn};
+use log::{error, trace};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -90,7 +93,7 @@ impl TranscriptionGuest for AwsSTTComponent {
 
     fn transcribe(
         audio: Vec<u8>,
-        _config: AudioConfig,
+        config: AudioConfig,
         options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionResult, SttError> {
         golem_stt::init_logging();
@@ -106,30 +109,21 @@ impl TranscriptionGuest for AwsSTTComponent {
 
         trace!("Using AWS Transcribe with S3 batch processing");
         
-        // Use the real AWS Transcribe implementation
-        let transcription_result = client.transcribe_audio_simple(&audio, language)
+        // Generate job name using conversions
+        let job_name = generate_job_name();
+        
+        // Create transcription request using conversions
+        let request = create_transcription_job_request(&config, &options, &job_name)?;
+        
+        // Use the client for raw API operations
+        let aws_response = client.transcribe_audio_batch(&audio, request)
             .map_err(|e| {
                 error!("AWS Transcribe API failed: {:?}", e);
                 e
             })?;
 
-        // Create result from AWS response
-        let alternatives = vec![TranscriptAlternative {
-            text: transcription_result.transcript,
-            confidence: transcription_result.confidence,
-            words: vec![], // Simplified implementation without word timing
-        }];
-
-        Ok(TranscriptionResult {
-            alternatives,
-            metadata: TranscriptionMetadata {
-                duration_seconds: transcription_result.duration,
-                audio_size_bytes: audio.len() as u32,
-                request_id: generate_job_name(),
-                model: Some("AWS Transcribe".to_string()),
-                language: language.clone(),
-            },
-        })
+        // Convert AWS response to standard format using conversions
+        convert_aws_response_to_transcription_result(aws_response, audio.len(), language, &job_name)
     }
 
     fn transcribe_stream(

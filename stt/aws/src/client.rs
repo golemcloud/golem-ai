@@ -205,57 +205,42 @@ impl AwsTranscribeClient {
         }
     }
 
-    pub fn transcribe_audio_simple(&self, audio_data: &[u8], language_code: &str) -> Result<DirectTranscriptionResponse, SttError> {
-        trace!("Starting AWS Transcribe batch transcription, audio size: {} bytes", audio_data.len());
+    pub fn transcribe_audio_batch(&self, audio_data: &[u8], request: StartTranscriptionJobRequest) -> Result<DirectTranscriptionResponse, SttError> {
+        trace!("Starting AWS Transcribe job, audio size: {} bytes", audio_data.len());
         
         // Validate credentials first
         self.validate_credentials()?;
         
-        // Generate unique job name
-        let job_name = format!("golem-stt-{}", 
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()
-        );
+        // For small audio files (< 1MB), optimize the process
+        let is_small_file = audio_data.len() < 1_000_000;
         
-        // Upload audio to S3 first (required by AWS Transcribe)
+        let job_name = request.transcription_job_name.clone();
+        
+        // Upload audio to S3 first (required by AWS Transcribe) 
         let s3_uri = self.upload_audio_to_s3(audio_data, &job_name)?;
         
-        let request = StartTranscriptionJobRequest {
-            transcription_job_name: job_name.clone(),
-            media: Media {
-                media_file_uri: s3_uri,
-            },
-            media_format: "wav".to_string(),
-            language_code: Some(language_code.to_string()),
-            media_sample_rate_hertz: None, // Let AWS auto-detect the sample rate
-            settings: Some(Settings {
-                show_speaker_labels: Some(false),
-                max_speaker_labels: None,
-                vocabulary_name: None,
-                show_alternatives: Some(true),
-                max_alternatives: Some(3),
-                channel_identification: None,
-            }),
-        };
-        
-        trace!("Sending transcription job to AWS Transcribe: {}", job_name);
+        // Update request with actual S3 URI
+        let mut final_request = request;
+        final_request.media.media_file_uri = s3_uri;
         
         // Start transcription job
-        match self.start_transcription_job(request) {
+        match self.start_transcription_job(final_request) {
             Ok(_) => {
-                trace!("Transcription job started, polling for completion");
+                trace!("AWS job {} started, polling for completion", job_name);
                 
-                // Poll for completion
-                let completed_job = self.poll_job_completion(&job_name)?;
+                // Poll for completion with optimized strategy for small files
+                let completed_job = if is_small_file {
+                    self.poll_job_completion_fast(&job_name)?
+                } else {
+                    self.poll_job_completion(&job_name)?
+                };
                 
                 // Extract transcript from completed job
                 if let Some(transcript_result) = completed_job.transcript {
                     if let Some(transcript_uri) = transcript_result.transcript_file_uri {
                         // Download and parse transcript
                         let transcript_content = self.download_transcript(&transcript_uri)?;
-                        return Ok(self.parse_transcript_content(&transcript_content)?);
+                        return crate::conversions::parse_aws_transcript_json(&transcript_content);
                     }
                 }
                 
@@ -269,7 +254,6 @@ impl AwsTranscribeClient {
     }
 
     pub fn start_transcription_job(&self, request: StartTranscriptionJobRequest) -> Result<StartTranscriptionJobResponse, SttError> {
-        trace!("Starting AWS Transcribe job with request: {:?}", &request);
         let mut attempts = 0;
         loop {
             trace!("Making AWS Transcribe API request, attempt {}", attempts + 1);
@@ -279,17 +263,13 @@ impl AwsTranscribeClient {
                     trace!("AWS Transcribe response status: {}", status);
                     
                     if status.is_success() {
-                        // First log that we got a successful response
-                        trace!("Received successful HTTP {} response from AWS", status);
                         
                         // Get the response text for debugging
                         let response_text = response.text().unwrap_or_else(|_| "Failed to read response text".to_string());
-                        trace!("AWS StartTranscriptionJob raw response: {}", response_text);
                         
                         // Try to parse the response as JSON
                         match serde_json::from_str::<StartTranscriptionJobResponse>(&response_text) {
                             Ok(result) => {
-                                trace!("Successfully parsed AWS StartTranscriptionJob response: {:?}", result);
                                 return Ok(result)
                             },
                             Err(e) => {
@@ -347,7 +327,6 @@ impl AwsTranscribeClient {
                 Ok(response) => {
                     if response.status().is_success() {
                         let response_text = response.text().unwrap_or_else(|_| "Failed to read response text".to_string());
-                        trace!("AWS GetTranscriptionJob raw response: {}", response_text);
                         
                         match serde_json::from_str::<GetTranscriptionJobResponse>(&response_text) {
                             Ok(result) => return Ok(result),
@@ -376,33 +355,83 @@ impl AwsTranscribeClient {
         }
     }
 
-    pub fn poll_job_completion(&self, job_name: &str) -> Result<TranscriptionJob, SttError> {
-        let max_attempts = 60; // 5 minutes with 5-second intervals
-        let poll_interval = Duration::from_secs(5);
+    pub fn poll_job_completion_fast(&self, job_name: &str) -> Result<TranscriptionJob, SttError> {
+        // Optimized polling for small audio files - AWS typically processes them in 10-30 seconds
+        let max_attempts = 20; // 1 minute max with fast intervals
         
         for attempt in 1..=max_attempts {
-            trace!("Polling transcription job {}, attempt {}/{}", job_name, attempt, max_attempts);
-            
             let response = self.get_transcription_job(job_name)?;
             
             if let Some(job) = response.transcription_job {
                 match job.transcription_job_status.as_str() {
                     "COMPLETED" => {
-                        trace!("Transcription job {} completed successfully", job_name);
+                        trace!("AWS job {} completed in {} attempts", job_name, attempt);
                         return Ok(job);
                     }
                     "FAILED" => {
-                        error!("Transcription job {} failed", job_name);
+                        error!("AWS job {} failed", job_name);
                         return Err(SttError::TranscriptionFailed(format!("AWS Transcribe job {} failed", job_name)));
                     }
                     "IN_PROGRESS" => {
-                        trace!("Transcription job {} still in progress, waiting...", job_name);
+                        // Use fast intervals for small files: 1s, 2s, 2s, 3s, then 3s intervals
+                        let sleep_duration = if attempt <= 2 {
+                            Duration::from_secs(1)
+                        } else if attempt <= 4 {
+                            Duration::from_secs(2)
+                        } else {
+                            Duration::from_secs(3)
+                        };
+                        trace!("AWS job {} still in progress, attempt {}, waiting {}s", job_name, attempt, sleep_duration.as_secs());
+                        std::thread::sleep(sleep_duration);
+                        continue;
+                    }
+                    _status => {
+                        std::thread::sleep(Duration::from_secs(1));
+                        continue;
+                    }
+                }
+            } else {
+                return Err(SttError::InternalError("No transcription job found in response".to_string()));
+            }
+        }
+        
+        Err(SttError::InternalError(format!("Transcription job {} timed out after {} fast attempts", job_name, max_attempts)))
+    }
+
+    pub fn poll_job_completion(&self, job_name: &str) -> Result<TranscriptionJob, SttError> {
+        let max_attempts = 40; // 2 minutes with smart intervals
+        let mut poll_interval = Duration::from_secs(2); // Start with 2 second intervals
+        
+        for attempt in 1..=max_attempts {
+            let response = self.get_transcription_job(job_name)?;
+            
+            if let Some(job) = response.transcription_job {
+                match job.transcription_job_status.as_str() {
+                    "COMPLETED" => {
+                        trace!("AWS job {} completed", job_name);
+                        return Ok(job);
+                    }
+                    "FAILED" => {
+                        error!("AWS job {} failed", job_name);
+                        return Err(SttError::TranscriptionFailed(format!("AWS Transcribe job {} failed", job_name)));
+                    }
+                    "IN_PROGRESS" => {
+                        // Use exponential backoff for efficiency: 2s, 3s, 4s, 5s, then 5s intervals
+                        if attempt <= 3 {
+                            poll_interval = Duration::from_secs(attempt as u64 + 1);
+                        } else {
+                            poll_interval = Duration::from_secs(5);
+                        }
                         std::thread::sleep(poll_interval);
                         continue;
                     }
                     status => {
-                        trace!("Transcription job {} has status: {}, continuing to poll", job_name, status);
-                        std::thread::sleep(poll_interval);
+                        // For unknown statuses, use shorter intervals initially
+                        if attempt <= 5 {
+                            std::thread::sleep(Duration::from_secs(2));
+                        } else {
+                            std::thread::sleep(poll_interval);
+                        }
                         continue;
                     }
                 }
@@ -452,85 +481,8 @@ impl AwsTranscribeClient {
         }
     }
 
-    fn parse_transcript_content(&self, content: &str) -> Result<DirectTranscriptionResponse, SttError> {
-        trace!("Parsing transcript content, length: {} bytes", content.len());
-        
-        // AWS Transcribe returns a JSON structure with results
-        let transcript_json: serde_json::Value = serde_json::from_str(content)
-            .map_err(|e| SttError::InternalError(format!("Failed to parse transcript JSON: {}", e)))?;
-        
-        // Extract the transcript text and confidence
-        let results = transcript_json["results"].as_object()
-            .ok_or_else(|| SttError::InternalError("No results found in transcript".to_string()))?;
-        
-        let transcripts = results["transcripts"].as_array()
-            .ok_or_else(|| SttError::InternalError("No transcripts found in results".to_string()))?;
-        
-        if transcripts.is_empty() {
-            return Err(SttError::InternalError("Empty transcripts array".to_string()));
-        }
-        
-        let transcript_text = transcripts[0]["transcript"].as_str()
-            .ok_or_else(|| SttError::InternalError("No transcript text found".to_string()))?
-            .to_string();
-        
-        // Calculate average confidence and duration from items
-        let empty_vec = vec![];
-        let items = results["items"].as_array().unwrap_or(&empty_vec);
-        let confidence = self.calculate_confidence_from_items(items);
-        let duration = self.calculate_duration_from_items(items);
-        
-        trace!("Parsed transcript: {} chars, confidence: {:.2}, duration: {:.2}s", 
-               transcript_text.len(), confidence, duration);
-        
-        Ok(DirectTranscriptionResponse {
-            transcript: transcript_text,
-            confidence,
-            duration,
-        })
-    }
 
-    fn calculate_duration_from_items(&self, items: &[serde_json::Value]) -> f32 {
-        if items.is_empty() {
-            return 0.0;
-        }
-        
-        // Find the last item with end_time
-        for item in items.iter().rev() {
-            if let Some(end_time_str) = item["end_time"].as_str() {
-                if let Ok(end_time) = end_time_str.parse::<f32>() {
-                    return end_time;
-                }
-            }
-        }
-        
-        // Fallback to estimate based on audio size
-        0.0
-    }
 
-    fn calculate_confidence_from_items(&self, items: &[serde_json::Value]) -> f32 {
-        if items.is_empty() {
-            return 0.9; // Default confidence
-        }
-        
-        let mut total_confidence = 0.0;
-        let mut count = 0;
-        
-        for item in items {
-            if let Some(confidence_str) = item["alternatives"][0]["confidence"].as_str() {
-                if let Ok(confidence) = confidence_str.parse::<f32>() {
-                    total_confidence += confidence;
-                    count += 1;
-                }
-            }
-        }
-        
-        if count > 0 {
-            total_confidence / count as f32
-        } else {
-            0.9
-        }
-    }
 
     pub fn upload_audio_to_s3(&self, audio_data: &[u8], job_name: &str) -> Result<String, SttError> {
         // Use a default S3 bucket for transcription
@@ -541,13 +493,10 @@ impl AwsTranscribeClient {
         let object_key = format!("audio/{}.wav", job_name);
         let s3_uri = format!("s3://{}/{}", bucket_name, object_key);
         
-        trace!("Uploading audio to S3: {}", s3_uri);
-        
         // Upload to S3 using REST API
         let upload_result = self.s3_put_object(&bucket_name, &object_key, audio_data)?;
         
         if upload_result {
-            trace!("Successfully uploaded audio to S3: {}", s3_uri);
             Ok(s3_uri)
         } else {
             Err(SttError::InternalError("Failed to upload audio to S3".to_string()))
@@ -670,7 +619,7 @@ impl AwsTranscribeClient {
         let payload_hash = self.sha256_hex(json_body.as_bytes());
         let authorization = self.create_transcribe_auth_header(&timestamp, &payload_hash, target);
         
-        trace!("AWS API request with explicit target - URL: {}, Target: {}, Body: {}", url, target, json_body);
+        trace!("AWS API request to target: {}", target);
         
         let mut request_builder = self.client
             .request(method, &url)
@@ -714,9 +663,7 @@ impl AwsTranscribeClient {
             host, payload_hash, timestamp, target, payload_hash
         );
         
-        trace!("AWS Transcribe canonical request for target {}: {}", target, canonical_request);
         let canonical_request_hash = self.sha256_hex(canonical_request.as_bytes());
-        trace!("AWS Transcribe canonical request hash: {}", canonical_request_hash);
         
         // Step 2: Create string to sign
         let credential_scope = format!("{}/{}/transcribe/aws4_request", date, self.region);
