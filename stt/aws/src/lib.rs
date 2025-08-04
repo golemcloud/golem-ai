@@ -1,6 +1,5 @@
 use crate::client::AwsTranscribeClient;
-use crate::conversions::{convert_aws_response, create_transcription_job_request, get_supported_languages, generate_job_name};
-// use golem_stt::config::with_config_key;
+use crate::conversions::{get_supported_languages, generate_job_name};
 use golem_stt::durability::{DurableSTT, ExtendedTranscriptionGuest, ExtendedVocabulariesGuest, ExtendedLanguagesGuest, ExtendedGuest};
 use golem_stt::golem::stt::languages::{Guest as LanguagesGuest, LanguageInfo};
 use golem_stt::golem::stt::transcription::{
@@ -11,8 +10,6 @@ use golem_stt::golem::stt::vocabularies::{Guest as VocabulariesGuest, Vocabulary
 use log::{error, trace, warn};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::thread;
-use std::time::Duration;
 
 mod client;
 mod conversions;
@@ -36,216 +33,30 @@ impl AwsSTTComponent {
         
         Ok(AwsTranscribeClient::new(access_key, secret_key, region))
     }
-
-    fn poll_transcription_job(client: &AwsTranscribeClient, job_name: &str) -> Result<crate::client::TranscriptionJob, SttError> {
-        let max_attempts = 60; // 5 minutes with 5-second intervals
-        let poll_interval = Duration::from_secs(5);
-        
-        for attempt in 1..=max_attempts {
-            trace!("Polling transcription job {}, attempt {}/{}", job_name, attempt, max_attempts);
-            
-            let response = client.get_transcription_job(job_name)?;
-            
-            if let Some(job) = response.transcription_job {
-                match job.transcription_job_status.as_str() {
-                    "COMPLETED" => {
-                        trace!("Transcription job {} completed", job_name);
-                        return Ok(job);
-                    }
-                    "FAILED" => {
-                        error!("Transcription job {} failed", job_name);
-                        return Err(SttError::TranscriptionFailed(
-                            format!("AWS Transcribe job {} failed", job_name)
-                        ));
-                    }
-                    "IN_PROGRESS" => {
-                        trace!("Transcription job {} still in progress", job_name);
-                        thread::sleep(poll_interval);
-                        continue;
-                    }
-                    status => {
-                        warn!("Unknown transcription job status: {}", status);
-                        thread::sleep(poll_interval);
-                        continue;
-                    }
-                }
-            } else {
-                return Err(SttError::InternalError(
-                    format!("No transcription job found with name {}", job_name)
-                ));
-            }
-        }
-        
-        Err(SttError::InternalError(
-            format!("Transcription job {} timed out after {} attempts", job_name, max_attempts)
-        ))
-    }
-
-    fn fetch_transcript_from_s3(transcript_uri: &str) -> Result<crate::client::AwsTranscriptResponse, SttError> {
-        // In a real implementation, you would fetch the transcript from S3
-        // For now, we'll return a mock response since we can't actually upload to S3
-        // in this WebAssembly environment
-        
-        trace!("Would fetch transcript from S3 URI: {}", transcript_uri);
-        
-        // Mock response for demonstration
-        Ok(crate::client::AwsTranscriptResponse {
-            results: crate::client::Results {
-                transcripts: vec![
-                    crate::client::TranscriptItem {
-                        transcript: "This is a mock transcription from AWS Transcribe.".to_string(),
-                    }
-                ],
-                items: vec![
-                    crate::client::Item {
-                        start_time: Some("0.0".to_string()),
-                        end_time: Some("1.5".to_string()),
-                        alternatives: vec![
-                            crate::client::Alternative {
-                                confidence: Some("0.95".to_string()),
-                                content: "This".to_string(),
-                            }
-                        ],
-                        item_type: "pronunciation".to_string(),
-                    },
-                    crate::client::Item {
-                        start_time: Some("1.5".to_string()),
-                        end_time: Some("2.0".to_string()),
-                        alternatives: vec![
-                            crate::client::Alternative {
-                                confidence: Some("0.98".to_string()),
-                                content: "is".to_string(),
-                            }
-                        ],
-                        item_type: "pronunciation".to_string(),
-                    },
-                    crate::client::Item {
-                        start_time: Some("2.0".to_string()),
-                        end_time: Some("2.5".to_string()),
-                        alternatives: vec![
-                            crate::client::Alternative {
-                                confidence: Some("0.92".to_string()),
-                                content: "a".to_string(),
-                            }
-                        ],
-                        item_type: "pronunciation".to_string(),
-                    },
-                    crate::client::Item {
-                        start_time: Some("2.5".to_string()),
-                        end_time: Some("3.2".to_string()),
-                        alternatives: vec![
-                            crate::client::Alternative {
-                                confidence: Some("0.96".to_string()),
-                                content: "mock".to_string(),
-                            }
-                        ],
-                        item_type: "pronunciation".to_string(),
-                    },
-                    crate::client::Item {
-                        start_time: Some("3.2".to_string()),
-                        end_time: Some("4.5".to_string()),
-                        alternatives: vec![
-                            crate::client::Alternative {
-                                confidence: Some("0.94".to_string()),
-                                content: "transcription".to_string(),
-                            }
-                        ],
-                        item_type: "pronunciation".to_string(),
-                    },
-                ],
-            },
-        })
-    }
 }
 
-// Placeholder for TranscriptionStream - AWS Transcribe streaming would require WebSocket
+thread_local! {
+    static VOCABULARIES: RefCell<HashMap<String, Vec<String>>> = RefCell::new(HashMap::new());
+}
+
 pub struct AwsTranscriptionStream;
 
 impl golem_stt::golem::stt::transcription::GuestTranscriptionStream for AwsTranscriptionStream {
     fn send_audio(&self, _chunk: Vec<u8>) -> Result<(), SttError> {
-        Err(SttError::UnsupportedOperation("AWS Transcribe streaming not yet implemented".to_string()))
+        Err(SttError::UnsupportedOperation("AWS Transcribe does not support real-time streaming".to_string()))
     }
 
     fn finish(&self) -> Result<(), SttError> {
-        Err(SttError::UnsupportedOperation("AWS Transcribe streaming not yet implemented".to_string()))
+        Err(SttError::UnsupportedOperation("AWS Transcribe does not support real-time streaming".to_string()))
     }
 
-    fn receive_alternative(&self) -> Result<Option<golem_stt::golem::stt::types::TranscriptAlternative>, SttError> {
-        Err(SttError::UnsupportedOperation("AWS Transcribe streaming not yet implemented".to_string()))
+    fn receive_alternative(&self) -> Result<Option<TranscriptAlternative>, SttError> {
+        Err(SttError::UnsupportedOperation("AWS Transcribe does not support real-time streaming".to_string()))
     }
-
+    
     fn close(&self) {
         // No-op for now
     }
-}
-
-impl TranscriptionGuest for AwsSTTComponent {
-    type TranscriptionStream = AwsTranscriptionStream;
-
-    fn transcribe(
-        audio: Vec<u8>,
-        config: AudioConfig,
-        options: Option<TranscribeOptions>,
-    ) -> Result<TranscriptionResult, SttError> {
-        golem_stt::init_logging();
-        trace!("Starting AWS Transcribe transcription, audio size: {} bytes", audio.len());
-
-        let client = Self::get_client()?;
-        
-        let default_language = "en-US".to_string();
-        let language = options
-            .as_ref()
-            .and_then(|opts| opts.language.as_ref())
-            .unwrap_or(&default_language);
-
-        trace!("Using AWS Transcribe simple REST API for direct transcription");
-        
-        // Use simplified direct transcription approach similar to Azure
-        let transcription_result = client.transcribe_audio_simple(&audio, language)
-            .map_err(|e| {
-                error!("AWS Transcribe simple API failed: {:?}", e);
-                e
-            })?;
-
-        // Create result from simple response
-        let alternatives = vec![TranscriptAlternative {
-            text: transcription_result.transcript,
-            confidence: transcription_result.confidence,
-            words: vec![], // Simplified implementation without word timing
-        }];
-
-        Ok(TranscriptionResult {
-            alternatives,
-            metadata: TranscriptionMetadata {
-                duration_seconds: transcription_result.duration,
-                audio_size_bytes: audio.len() as u32,
-                request_id: generate_job_name(),
-                model: Some("AWS Transcribe Simple".to_string()),
-                language: language.clone(),
-            },
-        })
-    }
-
-    fn transcribe_stream(
-        _config: AudioConfig,
-        _options: Option<TranscribeOptions>,
-    ) -> Result<TranscriptionStream, SttError> {
-        // AWS Transcribe streaming would require WebSocket connection
-        Err(SttError::UnsupportedOperation(
-            "AWS Transcribe streaming not yet implemented".to_string(),
-        ))
-    }
-}
-
-impl LanguagesGuest for AwsSTTComponent {
-    fn list_languages() -> Result<Vec<LanguageInfo>, SttError> {
-        Ok(get_supported_languages())
-    }
-}
-
-// Simple in-memory vocabulary storage for this implementation
-thread_local! {
-    static VOCABULARIES: RefCell<HashMap<String, Vec<String>>> = RefCell::new(HashMap::new());
 }
 
 pub struct AwsVocabulary {
@@ -271,6 +82,68 @@ impl golem_stt::golem::stt::vocabularies::GuestVocabulary for AwsVocabulary {
             v.borrow_mut().remove(&self.name);
         });
         Ok(())
+    }
+}
+
+impl TranscriptionGuest for AwsSTTComponent {
+    type TranscriptionStream = AwsTranscriptionStream;
+
+    fn transcribe(
+        audio: Vec<u8>,
+        _config: AudioConfig,
+        options: Option<TranscribeOptions>,
+    ) -> Result<TranscriptionResult, SttError> {
+        golem_stt::init_logging();
+        trace!("Starting AWS Transcribe transcription, audio size: {} bytes", audio.len());
+
+        let client = Self::get_client()?;
+        
+        let default_language = "en-US".to_string();
+        let language = options
+            .as_ref()
+            .and_then(|opts| opts.language.as_ref())
+            .unwrap_or(&default_language);
+
+        trace!("Using AWS Transcribe with S3 batch processing");
+        
+        // Use the real AWS Transcribe implementation
+        let transcription_result = client.transcribe_audio_simple(&audio, language)
+            .map_err(|e| {
+                error!("AWS Transcribe API failed: {:?}", e);
+                e
+            })?;
+
+        // Create result from AWS response
+        let alternatives = vec![TranscriptAlternative {
+            text: transcription_result.transcript,
+            confidence: transcription_result.confidence,
+            words: vec![], // Simplified implementation without word timing
+        }];
+
+        Ok(TranscriptionResult {
+            alternatives,
+            metadata: TranscriptionMetadata {
+                duration_seconds: transcription_result.duration,
+                audio_size_bytes: audio.len() as u32,
+                request_id: generate_job_name(),
+                model: Some("AWS Transcribe".to_string()),
+                language: language.clone(),
+            },
+        })
+    }
+
+    fn transcribe_stream(
+        _audio_config: AudioConfig,
+        _options: Option<TranscribeOptions>,
+    ) -> Result<TranscriptionStream, SttError> {
+        // AWS Transcribe doesn't support real-time streaming like other providers
+        Err(SttError::UnsupportedOperation("AWS Transcribe does not support real-time streaming".to_string()))
+    }
+}
+
+impl LanguagesGuest for AwsSTTComponent {
+    fn list_languages() -> Result<Vec<LanguageInfo>, SttError> {
+        Ok(get_supported_languages())
     }
 }
 
