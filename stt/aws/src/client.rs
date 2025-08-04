@@ -229,7 +229,7 @@ impl AwsTranscribeClient {
             },
             media_format: "wav".to_string(),
             language_code: Some(language_code.to_string()),
-            media_sample_rate_hertz: Some(16000),
+            media_sample_rate_hertz: None, // Let AWS auto-detect the sample rate
             settings: Some(Settings {
                 show_speaker_labels: Some(false),
                 max_speaker_labels: None,
