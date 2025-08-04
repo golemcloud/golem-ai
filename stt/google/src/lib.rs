@@ -1,6 +1,5 @@
 use crate::client::GoogleSpeechClient;
 use crate::conversions::{convert_response, create_recognize_request, get_supported_languages};
-use golem_stt::config::with_config_key;
 use golem_stt::durability::{DurableSTT, ExtendedTranscriptionGuest, ExtendedVocabulariesGuest, ExtendedLanguagesGuest, ExtendedGuest};
 use golem_stt::golem::stt::languages::{Guest as LanguagesGuest, LanguageInfo};
 use golem_stt::golem::stt::transcription::{
@@ -20,16 +19,12 @@ struct GoogleSTTComponent;
 
 impl GoogleSTTComponent {
     const API_KEY_ENV_VAR: &'static str = "GOOGLE_API_KEY";
-    const PROJECT_ID_ENV_VAR: &'static str = "GOOGLE_CLOUD_PROJECT";
 
     fn get_client() -> Result<GoogleSpeechClient, SttError> {
         let api_key = std::env::var(Self::API_KEY_ENV_VAR)
             .map_err(|_| SttError::Unauthorized("GOOGLE_API_KEY not set".to_string()))?;
         
-        let project_id = std::env::var(Self::PROJECT_ID_ENV_VAR)
-            .map_err(|_| SttError::Unauthorized("GOOGLE_CLOUD_PROJECT not set".to_string()))?;
-        
-        Ok(GoogleSpeechClient::new(api_key, project_id))
+        Ok(GoogleSpeechClient::new(api_key))
     }
 }
 

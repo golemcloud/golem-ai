@@ -7,7 +7,6 @@ use golem_stt::golem::stt::types::{
     TranscriptionResult, TranscriptAlternative, WordSegment,
 };
 use golem_stt::golem::stt::transcription::TranscribeOptions;
-use log::{trace, warn};
 use base64::prelude::*;
 
 pub fn audio_format_to_encoding(format: &AudioFormat) -> Result<AudioEncoding, SttError> {
@@ -74,12 +73,6 @@ pub fn create_recognize_request(
             }]);
         }
         
-        // Handle vocabulary by name (simplified approach)
-        if let Some(vocabulary_name) = &opts.vocabulary_name {
-            // In a full implementation, we would lookup the vocabulary by name
-            // For now, we'll just log it
-            trace!("Vocabulary requested: {}", vocabulary_name);
-        }
     }
 
     Ok(RecognizeRequest {
@@ -131,8 +124,10 @@ pub fn convert_response(
 
     // If we didn't get duration from words, try to estimate from audio size
     if total_duration == 0.0 {
-        // Rough estimation: assume 16-bit PCM at 16kHz = 32000 bytes per second
-        total_duration = audio_size as f32 / 32000.0;
+        // More accurate estimation for WAV files: assume 16-bit stereo at 44.1kHz
+        // 44100 samples/sec * 2 channels * 2 bytes/sample = 176400 bytes/sec
+        // But account for WAV headers and metadata, use a more conservative rate
+        total_duration = audio_size as f32 / 100000.0; // ~100KB/sec for typical WAV
     }
 
     Ok(TranscriptionResult {

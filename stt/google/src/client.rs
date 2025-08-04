@@ -1,71 +1,51 @@
 use golem_stt::golem::stt::types::SttError;
 use log::{error, trace};
-use reqwest::{Client, Method, RequestBuilder, Response};
+use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 pub struct GoogleSpeechClient {
     api_key: String,
-    project_id: String,
     client: Client,
     base_url: String,
     timeout: Duration,
-    max_retries: u32,
 }
 
 impl GoogleSpeechClient {
-    pub fn new(api_key: String, project_id: String) -> Self {
+    pub fn new(api_key: String) -> Self {
         let timeout_str = std::env::var("STT_PROVIDER_TIMEOUT").unwrap_or_else(|_| "30".to_string());
         let timeout = Duration::from_secs(timeout_str.parse().unwrap_or(30));
         
-        let max_retries_str = std::env::var("STT_PROVIDER_MAX_RETRIES").unwrap_or_else(|_| "3".to_string());
-        let max_retries = max_retries_str.parse().unwrap_or(3);
         
         let base_url = std::env::var("STT_PROVIDER_ENDPOINT")
             .unwrap_or_else(|_| "https://speech.googleapis.com/v1".to_string());
 
         Self {
             api_key,
-            project_id,
             client: Client::new(),
             base_url,
             timeout,
-            max_retries,
         }
     }
 
     pub fn transcribe(&self, request: RecognizeRequest) -> Result<RecognizeResponse, SttError> {
         let url = format!("{}/speech:recognize?key={}", self.base_url, self.api_key);
         
-        let mut attempts = 0;
-        loop {
-            match self.make_request(Method::POST, &url, Some(&request)) {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        match response.json::<RecognizeResponse>() {
-                            Ok(result) => return Ok(result),
-                            Err(e) => {
-                                error!("Failed to parse Google Speech response: {}", e);
-                                return Err(SttError::InternalError(format!("Failed to parse response: {}", e)));
-                            }
+        match self.make_request(Method::POST, &url, Some(&request)) {
+            Ok(response) => {
+                if response.status().is_success() {
+                    match response.json::<RecognizeResponse>() {
+                        Ok(result) => Ok(result),
+                        Err(e) => {
+                            error!("Failed to parse Google Speech response: {}", e);
+                            Err(SttError::InternalError(format!("Failed to parse response: {}", e)))
                         }
-                    } else {
-                        let error = self.handle_error_response(response);
-                        if attempts >= self.max_retries {
-                            return Err(error);
-                        }
-                        attempts += 1;
-                        trace!("Retrying request, attempt {}/{}", attempts, self.max_retries);
                     }
-                }
-                Err(e) => {
-                    if attempts >= self.max_retries {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries, e)));
-                    }
-                    attempts += 1;
-                    trace!("Retrying request due to network error, attempt {}/{}", attempts, self.max_retries);
+                } else {
+                    Err(self.handle_error_response(response))
                 }
             }
+            Err(e) => Err(SttError::NetworkError(format!("Request failed: {}", e)))
         }
     }
 
