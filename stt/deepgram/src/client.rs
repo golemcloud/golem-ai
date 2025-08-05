@@ -1,7 +1,7 @@
 use golem_stt::golem::stt::types::SttError;
 use log::{error, trace};
-use reqwest::{Client, Method, Response};
-use serde::{Deserialize, Serialize};
+use reqwest::{Client, Response};
+use serde::Deserialize;
 use std::time::Duration;
 
 pub struct DeepgramClient {
@@ -22,6 +22,18 @@ impl DeepgramClient {
         
         let base_url = std::env::var("STT_PROVIDER_ENDPOINT")
             .unwrap_or_else(|_| "https://api.deepgram.com/v1".to_string());
+        
+        // Initialize logging level if specified
+        if let Ok(log_level) = std::env::var("STT_PROVIDER_LOG_LEVEL") {
+            match log_level.to_lowercase().as_str() {
+                "trace" | "debug" | "info" | "warn" | "error" => {
+                    trace!("STT provider log level set to: {}", log_level);
+                }
+                _ => {
+                    trace!("Invalid STT_PROVIDER_LOG_LEVEL '{}', using default", log_level);
+                }
+            }
+        }
 
         Self {
             api_key,
@@ -33,10 +45,17 @@ impl DeepgramClient {
     }
 
     pub fn transcribe_prerecorded(&self, request: PrerecordedTranscriptionRequest) -> Result<DeepgramTranscriptionResponse, SttError> {
-        let mut attempts = 0;
         let url = format!("{}/listen", self.base_url);
         
+        let mut attempts = 0;
         loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("Deepgram API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("Deepgram API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
+            
             let mut req = self.client
                 .post(&url)
                 .header("Authorization", format!("Token {}", self.api_key))
@@ -83,21 +102,34 @@ impl DeepgramClient {
                         }
                     } else {
                         let error = self.handle_error_response(response);
-                        if attempts >= self.max_retries {
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry Deepgram request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
                             return Err(error);
                         }
-                        attempts += 1;
-                        trace!("Retrying request, attempt {}/{}", attempts, self.max_retries);
                     }
                 }
                 Err(e) => {
-                    if attempts >= self.max_retries {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries, e)));
+                    if attempts <= self.max_retries {
+                        trace!("Will retry Deepgram request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
                     }
-                    attempts += 1;
-                    trace!("Retrying request due to network error, attempt {}/{}", attempts, self.max_retries);
                 }
             }
+        }
+    }
+
+    fn should_retry(&self, error: &SttError) -> bool {
+        match error {
+            // Retry on rate limits and server errors
+            SttError::RateLimited(_) | SttError::ServiceUnavailable(_) => true,
+            // Don't retry on client errors (auth, invalid input, etc.)
+            _ => false,
         }
     }
 
@@ -140,14 +172,9 @@ pub struct DeepgramTranscriptionResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DeepgramMetadata {
-    pub transaction_key: String,
     pub request_id: String,
-    pub sha256: String,
-    pub created: String,
     pub duration: f32,
-    pub channels: u32,
     pub models: Vec<String>,
-    pub model_info: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -166,7 +193,6 @@ pub struct DeepgramAlternative {
     pub transcript: String,
     pub confidence: f32,
     pub words: Vec<DeepgramWord>,
-    pub paragraphs: Option<DeepgramParagraphs>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -179,73 +205,12 @@ pub struct DeepgramWord {
     pub punctuated_word: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct DeepgramParagraphs {
-    pub transcript: String,
-    pub paragraphs: Vec<DeepgramParagraph>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct DeepgramParagraph {
-    pub sentences: Vec<DeepgramSentence>,
-    pub start: f32,
-    pub end: f32,
-    pub num_words: u32,
-    pub speaker: Option<u32>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct DeepgramSentence {
-    pub text: String,
-    pub start: f32,
-    pub end: f32,
-}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DeepgramUtterance {
-    pub start: f32,
-    pub end: f32,
     pub confidence: f32,
-    pub channel: u32,
     pub transcript: String,
     pub words: Vec<DeepgramWord>,
     pub speaker: Option<u32>,
-    pub id: String,
 }
 
-// Live streaming structures (for future use)
-#[derive(Debug, Clone, Serialize)]
-pub struct LiveStreamingConfig {
-    pub language: Option<String>,
-    pub model: Option<String>,
-    pub punctuate: bool,
-    pub diarize: bool,
-    pub smart_format: bool,
-    pub interim_results: bool,
-    pub utterance_end_ms: Option<u32>,
-    pub vad_events: bool,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct LiveTranscriptionResponse {
-    pub channel_index: Vec<u32>,
-    pub duration: f32,
-    pub start: f32,
-    pub is_final: bool,
-    pub speech_final: Option<bool>,
-    pub channel: DeepgramChannel,
-    pub metadata: Option<LiveMetadata>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct LiveMetadata {
-    pub request_id: String,
-    pub model_info: Option<serde_json::Value>,
-}
-
-// Error response structure
-#[derive(Debug, Clone, Deserialize)]
-pub struct DeepgramErrorResponse {
-    pub error: String,
-    pub request_id: Option<String>,
-}

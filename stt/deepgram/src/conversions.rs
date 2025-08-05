@@ -1,6 +1,6 @@
 use crate::client::{
     PrerecordedTranscriptionRequest, DeepgramTranscriptionResponse, DeepgramAlternative, 
-    DeepgramWord, DeepgramUtterance,
+    DeepgramUtterance,
 };
 use golem_stt::golem::stt::types::{
     AudioConfig, AudioFormat, SttError, TranscriptionMetadata,
