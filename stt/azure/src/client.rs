@@ -23,6 +23,18 @@ impl AzureSpeechClient {
         
         let base_url = std::env::var("STT_PROVIDER_ENDPOINT")
             .unwrap_or_else(|_| format!("https://{}.stt.speech.microsoft.com", region));
+        
+        // Initialize logging level if specified
+        if let Ok(log_level) = std::env::var("STT_PROVIDER_LOG_LEVEL") {
+            match log_level.to_lowercase().as_str() {
+                "trace" | "debug" | "info" | "warn" | "error" => {
+                    trace!("STT provider log level set to: {}", log_level);
+                }
+                _ => {
+                    trace!("Invalid STT_PROVIDER_LOG_LEVEL '{}', using default", log_level);
+                }
+            }
+        }
 
         Self {
             subscription_key,
@@ -47,6 +59,12 @@ impl AzureSpeechClient {
         );
         
         loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("Azure Speech API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("Azure Speech API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
             match self.make_audio_request(Method::POST, &path, &request.audio_data, &request.format) {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -59,19 +77,23 @@ impl AzureSpeechClient {
                         }
                     } else {
                         let error = self.handle_error_response(response);
-                        if attempts >= self.max_retries {
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry Azure request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
                             return Err(error);
                         }
-                        attempts += 1;
-                        trace!("Retrying request, attempt {}/{}", attempts, self.max_retries);
                     }
                 }
                 Err(e) => {
-                    if attempts >= self.max_retries {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries, e)));
+                    if attempts <= self.max_retries {
+                        trace!("Will retry Azure request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
                     }
-                    attempts += 1;
-                    trace!("Retrying request due to network error, attempt {}/{}", attempts, self.max_retries);
                 }
             }
         }
@@ -80,6 +102,12 @@ impl AzureSpeechClient {
     pub fn start_batch_transcription(&self, request: BatchTranscriptionRequest) -> Result<BatchTranscriptionResponse, SttError> {
         let mut attempts = 0;
         loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("Azure Batch API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("Azure Batch API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
             match self.make_request(Method::POST, "/speechtotext/v3.1/transcriptions", Some(&request)) {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -92,19 +120,23 @@ impl AzureSpeechClient {
                         }
                     } else {
                         let error = self.handle_error_response(response);
-                        if attempts >= self.max_retries {
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry Azure request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
                             return Err(error);
                         }
-                        attempts += 1;
-                        trace!("Retrying request, attempt {}/{}", attempts, self.max_retries);
                     }
                 }
                 Err(e) => {
-                    if attempts >= self.max_retries {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries, e)));
+                    if attempts <= self.max_retries {
+                        trace!("Will retry Azure request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
                     }
-                    attempts += 1;
-                    trace!("Retrying request due to network error, attempt {}/{}", attempts, self.max_retries);
                 }
             }
         }
@@ -115,6 +147,12 @@ impl AzureSpeechClient {
         let path = format!("/speechtotext/v3.1/transcriptions/{}", transcription_id);
         
         loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("Azure GetBatchTranscription API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("Azure GetBatchTranscription API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
             match self.make_request::<()>(Method::GET, &path, None) {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -127,19 +165,23 @@ impl AzureSpeechClient {
                         }
                     } else {
                         let error = self.handle_error_response(response);
-                        if attempts >= self.max_retries {
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry Azure request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
                             return Err(error);
                         }
-                        attempts += 1;
-                        trace!("Retrying request, attempt {}/{}", attempts, self.max_retries);
                     }
                 }
                 Err(e) => {
-                    if attempts >= self.max_retries {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries, e)));
+                    if attempts <= self.max_retries {
+                        trace!("Will retry Azure request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
                     }
-                    attempts += 1;
-                    trace!("Retrying request due to network error, attempt {}/{}", attempts, self.max_retries);
                 }
             }
         }
@@ -150,6 +192,12 @@ impl AzureSpeechClient {
         let path = format!("/speechtotext/v3.1/transcriptions/{}/files", transcription_id);
         
         loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("Azure GetTranscriptionFiles API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("Azure GetTranscriptionFiles API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
             match self.make_request::<()>(Method::GET, &path, None) {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -162,19 +210,23 @@ impl AzureSpeechClient {
                         }
                     } else {
                         let error = self.handle_error_response(response);
-                        if attempts >= self.max_retries {
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry Azure request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
                             return Err(error);
                         }
-                        attempts += 1;
-                        trace!("Retrying request, attempt {}/{}", attempts, self.max_retries);
                     }
                 }
                 Err(e) => {
-                    if attempts >= self.max_retries {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries, e)));
+                    if attempts <= self.max_retries {
+                        trace!("Will retry Azure request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
                     }
-                    attempts += 1;
-                    trace!("Retrying request due to network error, attempt {}/{}", attempts, self.max_retries);
                 }
             }
         }
@@ -184,6 +236,12 @@ impl AzureSpeechClient {
         let mut attempts = 0;
         
         loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("Azure DownloadTranscript request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("Azure DownloadTranscript request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
             match self.client.get(url)
                 .header("Ocp-Apim-Subscription-Key", &self.subscription_key)
                 .timeout(self.timeout)
@@ -199,19 +257,23 @@ impl AzureSpeechClient {
                         }
                     } else {
                         let error = self.handle_error_response(response);
-                        if attempts >= self.max_retries {
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry Azure request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
                             return Err(error);
                         }
-                        attempts += 1;
-                        trace!("Retrying transcript download, attempt {}/{}", attempts, self.max_retries);
                     }
                 }
                 Err(e) => {
-                    if attempts >= self.max_retries {
-                        return Err(SttError::NetworkError(format!("Download failed after {} attempts: {}", self.max_retries, e)));
+                    if attempts <= self.max_retries {
+                        trace!("Will retry Azure request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
                     }
-                    attempts += 1;
-                    trace!("Retrying download due to network error, attempt {}/{}", attempts, self.max_retries);
                 }
             }
         }
@@ -259,6 +321,15 @@ impl AzureSpeechClient {
             .send()
     }
 
+    fn should_retry(&self, error: &SttError) -> bool {
+        match error {
+            // Retry on rate limits and server errors
+            SttError::RateLimited(_) | SttError::ServiceUnavailable(_) => true,
+            // Don't retry on client errors (auth, invalid input, etc.)
+            _ => false,
+        }
+    }
+
     fn handle_error_response(&self, response: Response) -> SttError {
         let status = response.status();
         let error_text = response.text().unwrap_or_else(|_| "Unknown error".to_string());
@@ -294,8 +365,6 @@ pub struct AzureTranscriptionResponse {
     pub recognition_status: String,
     #[serde(rename = "DisplayText")]
     pub display_text: Option<String>,
-    #[serde(rename = "Offset")]
-    pub offset: Option<u64>,
     #[serde(rename = "Duration")]
     pub duration: Option<u64>,
     #[serde(rename = "NBest")]
@@ -306,12 +375,6 @@ pub struct AzureTranscriptionResponse {
 pub struct NBestItem {
     #[serde(rename = "Confidence")]
     pub confidence: f32,
-    #[serde(rename = "Lexical")]
-    pub lexical: String,
-    #[serde(rename = "ITN")]
-    pub itn: String,
-    #[serde(rename = "MaskedITN")]
-    pub masked_itn: String,
     #[serde(rename = "Display")]
     pub display: String,
     #[serde(rename = "Words")]
@@ -358,46 +421,13 @@ pub struct BatchTranscriptionProperties {
 pub struct BatchTranscriptionResponse {
     #[serde(rename = "self")]
     pub self_url: String,
-    pub model: Option<TranscriptionModel>,
-    pub properties: Option<BatchTranscriptionProperties>,
-    pub links: Option<TranscriptionLinks>,
-    #[serde(rename = "createdDateTime")]
-    pub created_date_time: String,
-    #[serde(rename = "lastActionDateTime")]
-    pub last_action_date_time: String,
-    pub status: String,
-    pub locale: String,
-    #[serde(rename = "displayName")]
-    pub display_name: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct TranscriptionModel {
-    #[serde(rename = "self")]
-    pub self_url: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct TranscriptionLinks {
-    pub files: Option<String>,
-}
 
 // Batch transcription status
 #[derive(Debug, Clone, Deserialize)]
 pub struct BatchTranscriptionStatus {
-    #[serde(rename = "self")]
-    pub self_url: String,
-    pub model: Option<TranscriptionModel>,
-    pub properties: Option<BatchTranscriptionProperties>,
-    pub links: Option<TranscriptionLinks>,
-    #[serde(rename = "createdDateTime")]
-    pub created_date_time: String,
-    #[serde(rename = "lastActionDateTime")]
-    pub last_action_date_time: String,
     pub status: String,
-    pub locale: String,
-    #[serde(rename = "displayName")]
-    pub display_name: String,
 }
 
 // Transcription files response
@@ -408,20 +438,10 @@ pub struct TranscriptionFilesResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct TranscriptionFile {
-    #[serde(rename = "self")]
-    pub self_url: String,
-    pub name: String,
     pub kind: String,
-    pub properties: Option<FileProperties>,
-    #[serde(rename = "createdDateTime")]
-    pub created_date_time: String,
     pub links: Option<FileLinks>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct FileProperties {
-    pub size: Option<u64>,
-}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FileLinks {
@@ -433,40 +453,31 @@ pub struct FileLinks {
 #[derive(Debug, Clone, Deserialize)]
 pub struct AzureDetailedTranscript {
     pub source: String,
-    pub timestamp: String,
-    pub durationInTicks: u64,
-    pub duration: String,
-    pub combinedRecognizedPhrases: Vec<CombinedRecognizedPhrase>,
-    pub recognizedPhrases: Vec<RecognizedPhrase>,
+    #[serde(rename = "durationInTicks")]
+    pub duration_in_ticks: u64,
+    #[serde(rename = "combinedRecognizedPhrases")]
+    pub combined_recognized_phrases: Vec<CombinedRecognizedPhrase>,
+    #[serde(rename = "recognizedPhrases")]
+    pub recognized_phrases: Vec<RecognizedPhrase>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CombinedRecognizedPhrase {
-    pub channel: u32,
-    pub lexical: String,
-    pub itn: String,
-    pub maskedITN: String,
     pub display: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RecognizedPhrase {
-    pub recognitionStatus: String,
-    pub channel: u32,
+    #[serde(rename = "recognitionStatus")]
+    pub recognition_status: String,
     pub speaker: Option<u32>,
-    pub offset: String,
-    pub duration: String,
-    pub offsetInTicks: u64,
-    pub durationInTicks: u64,
-    pub nBest: Vec<NBestPhrase>,
+    #[serde(rename = "nBest")]
+    pub n_best: Vec<NBestPhrase>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct NBestPhrase {
     pub confidence: f32,
-    pub lexical: String,
-    pub itn: String,
-    pub maskedITN: String,
     pub display: String,
     pub words: Option<Vec<TranscriptWord>>,
 }
@@ -474,9 +485,9 @@ pub struct NBestPhrase {
 #[derive(Debug, Clone, Deserialize)]
 pub struct TranscriptWord {
     pub word: String,
-    pub offset: String,
-    pub duration: String,
-    pub offsetInTicks: u64,
-    pub durationInTicks: u64,
+    #[serde(rename = "offsetInTicks")]
+    pub offset_in_ticks: u64,
+    #[serde(rename = "durationInTicks")]
+    pub duration_in_ticks: u64,
     pub confidence: Option<f32>,
 }

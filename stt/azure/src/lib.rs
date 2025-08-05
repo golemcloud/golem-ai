@@ -94,21 +94,17 @@ impl AzureSTTComponent {
             .ok_or_else(|| SttError::InternalError("Could not extract transcription ID".to_string()))?;
 
         // Poll for completion
-        let completed_transcription = Self::poll_transcription_completion(&client, transcription_id)?;
+        Self::poll_transcription_completion(&client, transcription_id)?;
         
         // Get transcription files
-        if let Some(links) = completed_transcription.links {
-            if let Some(_files_url) = links.files {
-                let files_response = client.get_transcription_files(transcription_id)?;
-                
-                // Find the transcript file
-                for file in files_response.values {
-                    if file.kind == "Transcription" {
-                        if let Some(file_links) = file.links {
-                            let transcript = client.download_transcript(&file_links.content_url)?;
-                            return convert_detailed_transcript(transcript, audio.len(), &language);
-                        }
-                    }
+        let files_response = client.get_transcription_files(transcription_id)?;
+        
+        // Find the transcript file
+        for file in files_response.values {
+            if file.kind == "Transcription" {
+                if let Some(file_links) = file.links {
+                    let transcript = client.download_transcript(&file_links.content_url)?;
+                    return convert_detailed_transcript(transcript, audio.len(), &language);
                 }
             }
         }

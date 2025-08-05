@@ -148,8 +148,8 @@ pub fn convert_detailed_transcript(
     let mut alternatives = vec![];
 
     // Add combined phrases as the primary alternative
-    if !transcript.combinedRecognizedPhrases.is_empty() {
-        let combined_text = transcript.combinedRecognizedPhrases
+    if !transcript.combined_recognized_phrases.is_empty() {
+        let combined_text = transcript.combined_recognized_phrases
             .iter()
             .map(|phrase| phrase.display.as_str())
             .collect::<Vec<_>>()
@@ -157,16 +157,16 @@ pub fn convert_detailed_transcript(
 
         let alternative = TranscriptAlternative {
             text: combined_text,
-            confidence: calculate_average_confidence(&transcript.recognizedPhrases),
+            confidence: calculate_average_confidence(&transcript.recognized_phrases),
             words: extract_words_from_detailed_transcript(&transcript),
         };
         alternatives.push(alternative);
     }
 
     // Add individual phrase alternatives
-    for phrase in &transcript.recognizedPhrases {
-        if phrase.recognitionStatus == "Success" && !phrase.nBest.is_empty() {
-            let best = &phrase.nBest[0];
+    for phrase in &transcript.recognized_phrases {
+        if phrase.recognition_status == "Success" && !phrase.n_best.is_empty() {
+            let best = &phrase.n_best[0];
             let words = extract_words_from_phrase_words(best.words.as_ref().unwrap_or(&vec![]));
             
             let alternative = TranscriptAlternative {
@@ -178,7 +178,7 @@ pub fn convert_detailed_transcript(
         }
     }
 
-    let duration = transcript.durationInTicks as f32 / 10_000_000.0; // Convert from 100-nanosecond units
+    let duration = transcript.duration_in_ticks as f32 / 10_000_000.0; // Convert from 100-nanosecond units
 
     Ok(TranscriptionResult {
         alternatives,
@@ -212,13 +212,13 @@ fn extract_words_from_nbest_item(item: &NBestItem) -> Vec<WordSegment> {
 fn extract_words_from_detailed_transcript(transcript: &AzureDetailedTranscript) -> Vec<WordSegment> {
     let mut all_words = vec![];
     
-    for phrase in &transcript.recognizedPhrases {
-        if phrase.recognitionStatus == "Success" && !phrase.nBest.is_empty() {
-            let best = &phrase.nBest[0];
+    for phrase in &transcript.recognized_phrases {
+        if phrase.recognition_status == "Success" && !phrase.n_best.is_empty() {
+            let best = &phrase.n_best[0];
             if let Some(words) = &best.words {
                 for word in words {
-                    let start_time = word.offsetInTicks as f32 / 10_000_000.0;
-                    let end_time = start_time + (word.durationInTicks as f32 / 10_000_000.0);
+                    let start_time = word.offset_in_ticks as f32 / 10_000_000.0;
+                    let end_time = start_time + (word.duration_in_ticks as f32 / 10_000_000.0);
                     
                     all_words.push(WordSegment {
                         text: word.word.clone(),
@@ -237,8 +237,8 @@ fn extract_words_from_detailed_transcript(transcript: &AzureDetailedTranscript) 
 
 fn extract_words_from_phrase_words(words: &[TranscriptWord]) -> Vec<WordSegment> {
     words.iter().map(|word| {
-        let start_time = word.offsetInTicks as f32 / 10_000_000.0;
-        let end_time = start_time + (word.durationInTicks as f32 / 10_000_000.0);
+        let start_time = word.offset_in_ticks as f32 / 10_000_000.0;
+        let end_time = start_time + (word.duration_in_ticks as f32 / 10_000_000.0);
         
         WordSegment {
             text: word.word.clone(),
@@ -255,8 +255,8 @@ fn calculate_average_confidence(phrases: &[crate::client::RecognizedPhrase]) -> 
     let mut count = 0;
     
     for phrase in phrases {
-        if phrase.recognitionStatus == "Success" && !phrase.nBest.is_empty() {
-            total_confidence += phrase.nBest[0].confidence;
+        if phrase.recognition_status == "Success" && !phrase.n_best.is_empty() {
+            total_confidence += phrase.n_best[0].confidence;
             count += 1;
         }
     }
