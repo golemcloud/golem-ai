@@ -193,6 +193,18 @@ impl AwsTranscribeClient {
         
         let base_url = std::env::var("STT_PROVIDER_ENDPOINT")
             .unwrap_or_else(|_| format!("https://transcribe.{}.amazonaws.com", region));
+        
+        // Initialize logging level if specified
+        if let Ok(log_level) = std::env::var("STT_PROVIDER_LOG_LEVEL") {
+            match log_level.to_lowercase().as_str() {
+                "trace" | "debug" | "info" | "warn" | "error" => {
+                    trace!("STT provider log level set to: {}", log_level);
+                }
+                _ => {
+                    trace!("Invalid STT_PROVIDER_LOG_LEVEL '{}', using default", log_level);
+                }
+            }
+        }
 
         Self {
             access_key_id,
@@ -256,7 +268,12 @@ impl AwsTranscribeClient {
     pub fn start_transcription_job(&self, request: StartTranscriptionJobRequest) -> Result<StartTranscriptionJobResponse, SttError> {
         let mut attempts = 0;
         loop {
-            trace!("Making AWS Transcribe API request, attempt {}", attempts + 1);
+            attempts += 1;
+            if attempts == 1 {
+                trace!("AWS Transcribe API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("AWS Transcribe API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
             match self.make_request_with_target(Method::POST, "/", Some(&request), "Transcribe.StartTranscriptionJob") {
                 Ok(response) => {
                     let status = response.status();
@@ -298,19 +315,23 @@ impl AwsTranscribeClient {
                         }
                     } else {
                         let error = self.handle_error_response(response);
-                        if attempts >= self.max_retries {
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry AWS request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
                             return Err(error);
                         }
-                        attempts += 1;
-                        trace!("Retrying request, attempt {}/{}", attempts, self.max_retries);
                     }
                 }
                 Err(e) => {
-                    if attempts >= self.max_retries {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries, e)));
+                    if attempts <= self.max_retries {
+                        trace!("Will retry AWS request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
                     }
-                    attempts += 1;
-                    trace!("Retrying request due to network error, attempt {}/{}", attempts, self.max_retries);
                 }
             }
         }
@@ -323,6 +344,12 @@ impl AwsTranscribeClient {
 
         let mut attempts = 0;
         loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("AWS GetTranscriptionJob API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("AWS GetTranscriptionJob API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
             match self.make_request_with_target(Method::POST, "/", Some(&request), "Transcribe.GetTranscriptionJob") {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -337,19 +364,23 @@ impl AwsTranscribeClient {
                         }
                     } else {
                         let error = self.handle_error_response(response);
-                        if attempts >= self.max_retries {
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry AWS request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
                             return Err(error);
                         }
-                        attempts += 1;
-                        trace!("Retrying request, attempt {}/{}", attempts, self.max_retries);
                     }
                 }
                 Err(e) => {
-                    if attempts >= self.max_retries {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries, e)));
+                    if attempts <= self.max_retries {
+                        trace!("Will retry AWS request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
                     }
-                    attempts += 1;
-                    trace!("Retrying request due to network error, attempt {}/{}", attempts, self.max_retries);
                 }
             }
         }
@@ -425,7 +456,7 @@ impl AwsTranscribeClient {
                         std::thread::sleep(poll_interval);
                         continue;
                     }
-                    status => {
+                    _status => {
                         // For unknown statuses, use shorter intervals initially
                         if attempt <= 5 {
                             std::thread::sleep(Duration::from_secs(2));
@@ -641,6 +672,15 @@ impl AwsTranscribeClient {
         let mut hasher = Sha256::new();
         hasher.update(data);
         hex::encode(hasher.finalize())
+    }
+
+    fn should_retry(&self, error: &SttError) -> bool {
+        match error {
+            // Retry on rate limits and server errors
+            SttError::RateLimited(_) | SttError::ServiceUnavailable(_) => true,
+            // Don't retry on client errors (auth, invalid input, etc.)
+            _ => false,
+        }
     }
 
     fn validate_credentials(&self) -> Result<(), SttError> {
