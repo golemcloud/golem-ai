@@ -9,6 +9,7 @@ pub struct GoogleSpeechClient {
     client: Client,
     base_url: String,
     timeout: Duration,
+    max_retries: u32,
 }
 
 impl GoogleSpeechClient {
@@ -16,36 +17,76 @@ impl GoogleSpeechClient {
         let timeout_str = std::env::var("STT_PROVIDER_TIMEOUT").unwrap_or_else(|_| "30".to_string());
         let timeout = Duration::from_secs(timeout_str.parse().unwrap_or(30));
         
+        let max_retries_str = std::env::var("STT_PROVIDER_MAX_RETRIES").unwrap_or_else(|_| "3".to_string());
+        let max_retries = max_retries_str.parse().unwrap_or(3);
         
         let base_url = std::env::var("STT_PROVIDER_ENDPOINT")
             .unwrap_or_else(|_| "https://speech.googleapis.com/v1".to_string());
+        
+        // Initialize logging level if specified
+        if let Ok(log_level) = std::env::var("STT_PROVIDER_LOG_LEVEL") {
+            match log_level.to_lowercase().as_str() {
+                "trace" | "debug" | "info" | "warn" | "error" => {
+                    trace!("STT provider log level set to: {}", log_level);
+                }
+                _ => {
+                    trace!("Invalid STT_PROVIDER_LOG_LEVEL '{}', using default", log_level);
+                }
+            }
+        }
 
         Self {
             api_key,
             client: Client::new(),
             base_url,
             timeout,
+            max_retries,
         }
     }
 
     pub fn transcribe(&self, request: RecognizeRequest) -> Result<RecognizeResponse, SttError> {
         let url = format!("{}/speech:recognize?key={}", self.base_url, self.api_key);
         
-        match self.make_request(Method::POST, &url, Some(&request)) {
-            Ok(response) => {
-                if response.status().is_success() {
-                    match response.json::<RecognizeResponse>() {
-                        Ok(result) => Ok(result),
-                        Err(e) => {
-                            error!("Failed to parse Google Speech response: {}", e);
-                            Err(SttError::InternalError(format!("Failed to parse response: {}", e)))
+        let mut attempts = 0;
+        loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("Google Speech API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("Google Speech API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
+            
+            match self.make_request(Method::POST, &url, Some(&request)) {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        match response.json::<RecognizeResponse>() {
+                            Ok(result) => return Ok(result),
+                            Err(e) => {
+                                error!("Failed to parse Google Speech response: {}", e);
+                                return Err(SttError::InternalError(format!("Failed to parse response: {}", e)));
+                            }
+                        }
+                    } else {
+                        let error = self.handle_error_response(response);
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry Google Speech request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
+                            return Err(error);
                         }
                     }
-                } else {
-                    Err(self.handle_error_response(response))
+                }
+                Err(e) => {
+                    if attempts <= self.max_retries {
+                        trace!("Will retry Google Speech request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
+                    }
                 }
             }
-            Err(e) => Err(SttError::NetworkError(format!("Request failed: {}", e)))
         }
     }
 
@@ -66,6 +107,15 @@ impl GoogleSpeechClient {
         }
 
         req.send()
+    }
+
+    fn should_retry(&self, error: &SttError) -> bool {
+        match error {
+            // Retry on rate limits and server errors
+            SttError::RateLimited(_) | SttError::ServiceUnavailable(_) => true,
+            // Don't retry on client errors (auth, invalid input, etc.)
+            _ => false,
+        }
     }
 
     fn handle_error_response(&self, response: Response) -> SttError {

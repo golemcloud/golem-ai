@@ -61,6 +61,9 @@ pub fn create_recognize_request(
             recognition_config.enable_word_time_offsets = Some(enable_timestamps);
         }
         
+        // Always enable word time offsets to get accurate duration
+        recognition_config.enable_word_time_offsets = Some(true);
+        
         if let Some(enable_word_confidence) = opts.enable_word_confidence {
             recognition_config.enable_word_confidence = Some(enable_word_confidence);
         }
@@ -122,12 +125,14 @@ pub fn convert_response(
         }
     }
 
-    // If we didn't get duration from words, try to estimate from audio size
+    // Use duration from Google's metadata if available, otherwise from word timestamps
     if total_duration == 0.0 {
-        // More accurate estimation for WAV files: assume 16-bit stereo at 44.1kHz
-        // 44100 samples/sec * 2 channels * 2 bytes/sample = 176400 bytes/sec
-        // But account for WAV headers and metadata, use a more conservative rate
-        total_duration = audio_size as f32 / 100000.0; // ~100KB/sec for typical WAV
+        // Check if Google provided total_billed_time which contains duration
+        if let Some(billed_time) = &response.total_billed_time {
+            if let Some(parsed_duration) = parse_duration(billed_time) {
+                total_duration = parsed_duration;
+            }
+        }
     }
 
     Ok(TranscriptionResult {
