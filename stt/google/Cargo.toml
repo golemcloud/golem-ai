@@ -33,10 +33,10 @@ package = "golem:stt-google"
 generate_unused_types = true
 
 [package.metadata.component.bindings.with]
-"golem:stt/transcription@1.0.0" = "golem_stt::golem::stt::transcription"
-"golem:stt/vocabularies@1.0.0" = "golem_stt::golem::stt::vocabularies"
-"golem:stt/languages@1.0.0" = "golem_stt::golem::stt::languages"
 "golem:stt/types@1.0.0" = "golem_stt::golem::stt::types"
+"golem:stt/transcription@1.0.0" = "golem_stt::golem::stt::transcription"
+"golem:stt/languages@1.0.0" = "golem_stt::golem::stt::languages"
+"golem:stt/vocabularies@1.0.0" = "golem_stt::golem::stt::vocabularies"
 
 [package.metadata.component.target]
 path = "wit"

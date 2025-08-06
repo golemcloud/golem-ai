@@ -4,7 +4,6 @@ use crate::golem::stt::languages::{Guest as LanguagesGuest, LanguageInfo};
 use crate::golem::stt::types::{
     AudioConfig, TranscriptionResult, SttError, TranscriptAlternative
 };
-use golem_rust::*;
 
 pub trait ExtendedTranscriptionGuest: TranscriptionGuest {
     // Optional additional methods can be added here

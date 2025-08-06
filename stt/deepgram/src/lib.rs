@@ -68,7 +68,7 @@ impl TranscriptionGuest for DeepgramSTTComponent {
         let language = options
             .as_ref()
             .and_then(|opts| opts.language.as_ref())
-            .unwrap_or(&"en".to_string())
+            .unwrap_or(&"en-US".to_string())
             .clone();
 
         // Auto-select model based on language and use case
