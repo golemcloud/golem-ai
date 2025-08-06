@@ -185,12 +185,9 @@ fn extract_words_from_segment(segment: &WhisperSegment) -> Vec<WordSegment> {
 }
 
 fn calculate_segment_confidence(segment: &WhisperSegment) -> f32 {
-    // Use a combination of avg_logprob and no_speech_prob to estimate confidence
-    let logprob_confidence = (segment.avg_logprob + 1.0).max(0.0).min(1.0);
+    // Use no_speech_prob to estimate confidence
     let speech_confidence = 1.0 - segment.no_speech_prob;
-    
-    // Weight both factors
-    (logprob_confidence * 0.7 + speech_confidence * 0.3).max(0.0).min(1.0)
+    speech_confidence.max(0.0).min(1.0)
 }
 
 fn get_recommended_whisper_model(audio_size: usize) -> String {

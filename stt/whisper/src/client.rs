@@ -23,6 +23,18 @@ impl WhisperClient {
         let base_url = std::env::var("STT_PROVIDER_ENDPOINT")
             .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
 
+        // Initialize logging level if specified
+        if let Ok(log_level) = std::env::var("STT_PROVIDER_LOG_LEVEL") {
+            match log_level.to_lowercase().as_str() {
+                "trace" | "debug" | "info" | "warn" | "error" => {
+                    trace!("STT provider log level set to: {}", log_level);
+                }
+                _ => {
+                    trace!("Invalid STT_PROVIDER_LOG_LEVEL '{}', using default", log_level);
+                }
+            }
+        }
+
         Self {
             api_key,
             client: Client::new(),
@@ -32,11 +44,24 @@ impl WhisperClient {
         }
     }
 
+    fn should_retry(&self, error: &SttError) -> bool {
+        match error {
+            SttError::RateLimited(_) | SttError::ServiceUnavailable(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn transcribe_audio(&self, request: WhisperTranscriptionRequest) -> Result<WhisperTranscriptionResponse, SttError> {
         let url = format!("{}/audio/transcriptions", self.base_url);
         
         let mut attempts = 0;
         loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("OpenAI Whisper API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("OpenAI Whisper API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
             // Manually construct multipart form data since reqwest multipart doesn't work in WASM
             let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
             let mut body = Vec::new();
@@ -115,19 +140,23 @@ impl WhisperClient {
                         }
                     } else {
                         let error = self.handle_error_response(response);
-                        if attempts >= self.max_retries {
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry OpenAI Whisper request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
                             return Err(error);
                         }
-                        attempts += 1;
-                        trace!("Retrying request, attempt {}/{}", attempts, self.max_retries);
                     }
                 }
                 Err(e) => {
-                    if attempts >= self.max_retries {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries, e)));
+                    if attempts <= self.max_retries {
+                        trace!("Will retry OpenAI Whisper request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
                     }
-                    attempts += 1;
-                    trace!("Retrying request due to network error, attempt {}/{}", attempts, self.max_retries);
                 }
             }
         }
@@ -166,7 +195,6 @@ pub struct WhisperTranscriptionRequest {
 #[derive(Debug, Clone, Deserialize)]
 pub struct WhisperTranscriptionResponse {
     pub text: String,
-    pub task: Option<String>,
     pub language: Option<String>,
     pub duration: Option<f32>,
     pub words: Option<Vec<WhisperWord>>,
@@ -182,46 +210,7 @@ pub struct WhisperWord {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct WhisperSegment {
-    pub id: u32,
-    pub seek: u32,
-    pub start: f32,
-    pub end: f32,
     pub text: String,
-    pub tokens: Vec<u32>,
-    pub temperature: f32,
-    pub avg_logprob: f32,
-    pub compression_ratio: f32,
     pub no_speech_prob: f32,
     pub words: Option<Vec<WhisperWord>>,
-}
-
-// OpenAI Whisper error response
-#[derive(Debug, Clone, Deserialize)]
-pub struct WhisperErrorResponse {
-    pub error: WhisperError,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct WhisperError {
-    pub message: String,
-    #[serde(rename = "type")]
-    pub error_type: String,
-    pub param: Option<String>,
-    pub code: Option<String>,
-}
-
-// OpenAI Whisper translation request (optional feature)
-#[derive(Debug, Clone)]
-pub struct WhisperTranslationRequest {
-    pub audio: Vec<u8>,
-    pub model: String,
-    pub prompt: Option<String>,
-    pub response_format: Option<String>,
-    pub temperature: Option<f32>,
-}
-
-// OpenAI Whisper translation response
-#[derive(Debug, Clone, Deserialize)]
-pub struct WhisperTranslationResponse {
-    pub text: String,
 }
