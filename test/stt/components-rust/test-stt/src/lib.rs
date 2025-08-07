@@ -184,8 +184,17 @@ impl Guest for Component {
 
             match transcription::transcribe_stream(config, options.as_ref()) {
                 Ok(stream) => {
+                    // Read the actual audio file for streaming test
+                    let audio_data = match std::fs::read("/data/audio.wav") {
+                        Ok(data) => data,
+                        Err(e) => {
+                            stream.close();
+                            return format!("✗ Failed to read audio file for streaming: {}", e);
+                        }
+                    };
+                    
                     // Try to send audio data
-                    match stream.send_audio(TEST_AUDIO_WAV) {
+                    match stream.send_audio(&audio_data) {
                         Ok(_) => {
                             match stream.finish() {
                                 Ok(_) => {

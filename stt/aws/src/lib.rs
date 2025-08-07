@@ -1,7 +1,3 @@
-mod bindings;
-mod client;
-mod conversions;
-
 use crate::client::AwsTranscribeClient;
 use crate::conversions::{
     get_supported_languages, generate_job_name, create_transcription_job_request,

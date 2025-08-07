@@ -1,13 +1,13 @@
-use crate::client::GoogleSpeechClient;
+use crate::client::{GoogleSpeechClient, GoogleStreamingSession};
 use crate::conversions::{convert_response, create_recognize_request, get_supported_languages};
 use golem_stt::durability::{DurableSTT, ExtendedTranscriptionGuest, ExtendedVocabulariesGuest, ExtendedLanguagesGuest, ExtendedGuest};
 use golem_stt::golem::stt::languages::{Guest as LanguagesGuest, LanguageInfo};
 use golem_stt::golem::stt::transcription::{
     Guest as TranscriptionGuest, TranscribeOptions, TranscriptionStream,
 };
-use golem_stt::golem::stt::types::{AudioConfig, SttError, TranscriptionResult};
+use golem_stt::golem::stt::types::{AudioConfig, SttError, TranscriptionResult, TranscriptAlternative};
 use golem_stt::golem::stt::vocabularies::{Guest as VocabulariesGuest, Vocabulary};
-use log::{error, trace};
+use log::{error, trace, warn};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -28,24 +28,82 @@ impl GoogleSTTComponent {
     }
 }
 
-// Placeholder for TranscriptionStream - we'll implement this later
-pub struct GoogleTranscriptionStream;
+pub struct GoogleTranscriptionStream {
+    session: Option<GoogleStreamingSession>,
+    is_finished: RefCell<bool>,
+    result: RefCell<Option<TranscriptionResult>>,
+}
+
+impl GoogleTranscriptionStream {
+    pub fn new(session: GoogleStreamingSession) -> Self {
+        Self {
+            session: Some(session),
+            is_finished: RefCell::new(false),
+            result: RefCell::new(None),
+        }
+    }
+}
 
 impl golem_stt::golem::stt::transcription::GuestTranscriptionStream for GoogleTranscriptionStream {
-    fn send_audio(&self, _chunk: Vec<u8>) -> Result<(), SttError> {
-        Err(SttError::UnsupportedOperation("Streaming not yet implemented".to_string()))
+    fn send_audio(&self, chunk: Vec<u8>) -> Result<(), SttError> {
+        if *self.is_finished.borrow() {
+            return Err(SttError::InternalError("Stream already finished".to_string()));
+        }
+
+        if let Some(session) = &self.session {
+            session.send_audio(chunk)?;
+            trace!("Sent audio chunk to Google streaming session");
+            Ok(())
+        } else {
+            Err(SttError::InternalError("Streaming session not initialized".to_string()))
+        }
     }
 
     fn finish(&self) -> Result<(), SttError> {
-        Err(SttError::UnsupportedOperation("Streaming not yet implemented".to_string()))
+        let mut is_finished = self.is_finished.borrow_mut();
+        if *is_finished {
+            return Err(SttError::InternalError("Stream already finished".to_string()));
+        }
+
+        if let Some(session) = &self.session {
+            trace!("Finishing Google streaming session");
+            let response = session.finish_and_get_result()?;
+            
+            // Convert to TranscriptionResult using existing conversion logic
+            let language = "en-US".to_string(); // Default, could be improved to track from options
+            let transcription_result = convert_response(response, 0, &language)?;
+            
+            *self.result.borrow_mut() = Some(transcription_result);
+            *is_finished = true;
+            trace!("Google streaming session finished successfully");
+            Ok(())
+        } else {
+            Err(SttError::InternalError("Streaming session not initialized".to_string()))
+        }
     }
 
-    fn receive_alternative(&self) -> Result<Option<golem_stt::golem::stt::types::TranscriptAlternative>, SttError> {
-        Err(SttError::UnsupportedOperation("Streaming not yet implemented".to_string()))
+    fn receive_alternative(&self) -> Result<Option<TranscriptAlternative>, SttError> {
+        if !*self.is_finished.borrow() {
+            return Ok(None); // Not finished yet, no alternatives available
+        }
+
+        let mut result = self.result.borrow_mut();
+        if let Some(transcription_result) = result.take() {
+            // Return the first alternative if available
+            if let Some(alternative) = transcription_result.alternatives.into_iter().next() {
+                trace!("Returning Google streaming alternative: {}", alternative.text);
+                return Ok(Some(alternative));
+            }
+        }
+        
+        Ok(None) // No more alternatives
     }
 
     fn close(&self) {
-        // No-op for now
+        if let Some(session) = &self.session {
+            session.close();
+        }
+        trace!("Google streaming session closed");
     }
 }
 
@@ -78,14 +136,19 @@ impl TranscriptionGuest for GoogleSTTComponent {
     }
 
     fn transcribe_stream(
-        _config: AudioConfig,
-        _options: Option<TranscribeOptions>,
+        config: AudioConfig,
+        options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionStream, SttError> {
-        // Google Cloud Speech streaming would require WebSocket or gRPC
-        // For now, return an error indicating streaming is not supported in this implementation
-        Err(SttError::UnsupportedOperation(
-            "Streaming transcription not yet implemented for Google Speech".to_string(),
-        ))
+        golem_stt::init_logging();
+        trace!("Starting Google Speech streaming transcription");
+
+        let client = Self::get_client()?;
+        let recognition_config = create_recognize_request(&vec![], &config, &options)?.config;
+        
+        let session = client.start_streaming_session(recognition_config)?;
+        let stream = GoogleTranscriptionStream::new(session);
+        
+        Ok(TranscriptionStream::new(stream))
     }
 }
 

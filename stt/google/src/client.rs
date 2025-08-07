@@ -1,9 +1,11 @@
-use golem_stt::golem::stt::types::SttError;
-use log::{error, trace};
+use golem_stt::golem::stt::types::{SttError, TranscriptAlternative};
+use log::{error, trace, warn};
 use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+#[derive(Debug)]
 pub struct GoogleSpeechClient {
     api_key: String,
     client: Client,
@@ -132,6 +134,100 @@ impl GoogleSpeechClient {
             500..=599 => SttError::ServiceUnavailable(error_text),
             _ => SttError::InternalError(format!("HTTP {}: {}", status, error_text)),
         }
+    }
+
+    pub fn start_streaming_session(&self, config: RecognitionConfig) -> Result<GoogleStreamingSession, SttError> {
+        trace!("Starting Google Speech streaming session");
+        Ok(GoogleStreamingSession::new(self.clone(), config))
+    }
+}
+
+impl Clone for GoogleSpeechClient {
+    fn clone(&self) -> Self {
+        Self {
+            api_key: self.api_key.clone(),
+            client: Client::new(),
+            base_url: self.base_url.clone(),
+            timeout: self.timeout,
+            max_retries: self.max_retries,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct GoogleStreamingSession {
+    client: GoogleSpeechClient,
+    config: RecognitionConfig,
+    audio_buffer: Arc<Mutex<Vec<u8>>>,
+    is_active: Arc<Mutex<bool>>,
+}
+
+impl GoogleStreamingSession {
+    pub fn new(client: GoogleSpeechClient, config: RecognitionConfig) -> Self {
+        Self {
+            client,
+            config,
+            audio_buffer: Arc::new(Mutex::new(Vec::new())),
+            is_active: Arc::new(Mutex::new(true)),
+        }
+    }
+
+    pub fn send_audio(&self, chunk: Vec<u8>) -> Result<(), SttError> {
+        let is_active = self.is_active.lock().map_err(|_| 
+            SttError::InternalError("Failed to acquire lock".to_string()))?;
+        
+        if !*is_active {
+            return Err(SttError::InternalError("Streaming session is not active".to_string()));
+        }
+
+        let mut buffer = self.audio_buffer.lock().map_err(|_| 
+            SttError::InternalError("Failed to acquire buffer lock".to_string()))?;
+        
+        buffer.extend_from_slice(&chunk);
+        trace!("Added {} bytes to streaming buffer, total: {}", chunk.len(), buffer.len());
+        
+        Ok(())
+    }
+
+    pub fn finish_and_get_result(&self) -> Result<RecognizeResponse, SttError> {
+        let mut is_active = self.is_active.lock().map_err(|_| 
+            SttError::InternalError("Failed to acquire lock".to_string()))?;
+        
+        if !*is_active {
+            return Err(SttError::InternalError("Streaming session already finished".to_string()));
+        }
+
+        *is_active = false;
+
+        let buffer = self.audio_buffer.lock().map_err(|_| 
+            SttError::InternalError("Failed to acquire buffer lock".to_string()))?;
+        
+        if buffer.is_empty() {
+            return Err(SttError::InvalidAudio("No audio data provided".to_string()));
+        }
+
+        trace!("Finishing Google streaming session with {} bytes of audio", buffer.len());
+
+        // Convert accumulated audio to base64 for Google API
+        let audio_base64 = base64::encode(&*buffer);
+        
+        let request = RecognizeRequest {
+            config: self.config.clone(),
+            audio: RecognitionAudio {
+                content: Some(audio_base64),
+                uri: None,
+            },
+            name: None,
+        };
+
+        self.client.transcribe(request)
+    }
+
+    pub fn close(&self) {
+        if let Ok(mut is_active) = self.is_active.lock() {
+            *is_active = false;
+        }
+        trace!("Google streaming session closed");
     }
 }
 

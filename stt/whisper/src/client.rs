@@ -1,9 +1,11 @@
 use golem_stt::golem::stt::types::SttError;
-use log::{error, trace};
+use log::{error, trace, warn};
 use reqwest::{Client, Response};
 use serde::{Deserialize};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+#[derive(Debug)]
 pub struct WhisperClient {
     api_key: String,
     client: Client,
@@ -176,6 +178,99 @@ impl WhisperClient {
             500..=599 => SttError::ServiceUnavailable(error_text),
             _ => SttError::InternalError(format!("HTTP {}: {}", status, error_text)),
         }
+    }
+
+    pub fn start_streaming_session(&self, request_template: WhisperTranscriptionRequest) -> Result<WhisperStreamingSession, SttError> {
+        trace!("Starting OpenAI Whisper pseudo-streaming session");
+        warn!("OpenAI Whisper does not support real-time streaming. Using chunked buffering approach.");
+        Ok(WhisperStreamingSession::new(self.clone(), request_template))
+    }
+}
+
+impl Clone for WhisperClient {
+    fn clone(&self) -> Self {
+        Self {
+            api_key: self.api_key.clone(),
+            client: Client::new(),
+            base_url: self.base_url.clone(),
+            timeout: self.timeout,
+            max_retries: self.max_retries,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct WhisperStreamingSession {
+    client: WhisperClient,
+    request_template: WhisperTranscriptionRequest,
+    audio_buffer: Arc<Mutex<Vec<u8>>>,
+    is_active: Arc<Mutex<bool>>,
+    chunk_size: usize,
+}
+
+impl WhisperStreamingSession {
+    pub fn new(client: WhisperClient, request_template: WhisperTranscriptionRequest) -> Self {
+        // Use a reasonable chunk size for pseudo-streaming (30 seconds worth of audio at 16kHz)
+        let chunk_size = 16000 * 2 * 30; // 16kHz, 16-bit, 30 seconds
+        
+        Self {
+            client,
+            request_template,
+            audio_buffer: Arc::new(Mutex::new(Vec::new())),
+            is_active: Arc::new(Mutex::new(true)),
+            chunk_size,
+        }
+    }
+
+    pub fn send_audio(&self, chunk: Vec<u8>) -> Result<(), SttError> {
+        let is_active = self.is_active.lock().map_err(|_| 
+            SttError::InternalError("Failed to acquire lock".to_string()))?;
+        
+        if !*is_active {
+            return Err(SttError::InternalError("Streaming session is not active".to_string()));
+        }
+
+        let mut buffer = self.audio_buffer.lock().map_err(|_| 
+            SttError::InternalError("Failed to acquire buffer lock".to_string()))?;
+        
+        buffer.extend_from_slice(&chunk);
+        trace!("Added {} bytes to Whisper streaming buffer, total: {}", chunk.len(), buffer.len());
+        
+        // Note: For true streaming, we'd process chunks here, but Whisper needs complete files
+        Ok(())
+    }
+
+    pub fn finish_and_get_result(&self) -> Result<WhisperTranscriptionResponse, SttError> {
+        let mut is_active = self.is_active.lock().map_err(|_| 
+            SttError::InternalError("Failed to acquire lock".to_string()))?;
+        
+        if !*is_active {
+            return Err(SttError::InternalError("Streaming session already finished".to_string()));
+        }
+
+        *is_active = false;
+
+        let buffer = self.audio_buffer.lock().map_err(|_| 
+            SttError::InternalError("Failed to acquire buffer lock".to_string()))?;
+        
+        if buffer.is_empty() {
+            return Err(SttError::InvalidAudio("No audio data provided".to_string()));
+        }
+
+        trace!("Finishing Whisper streaming session with {} bytes of audio", buffer.len());
+
+        // Create final request with accumulated audio
+        let mut request = self.request_template.clone();
+        request.audio = buffer.clone();
+
+        self.client.transcribe_audio(request)
+    }
+
+    pub fn close(&self) {
+        if let Ok(mut is_active) = self.is_active.lock() {
+            *is_active = false;
+        }
+        trace!("Whisper streaming session closed");
     }
 }
 
