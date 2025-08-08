@@ -14,6 +14,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["durability"]
 durability = ["golem-rust/durability", "golem-stt/durability"]
+durability_integration = []
 portable = []
 
 [dependencies]

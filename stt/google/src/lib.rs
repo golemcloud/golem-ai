@@ -12,6 +12,8 @@ mod recognize;
 pub mod error;
 mod batch;
 mod stream;
+#[cfg(feature = "durability")]
+pub mod durability;
 
 pub use crate::stream::GoogleStream;
 
@@ -19,6 +21,9 @@ pub use crate::stream::GoogleStream;
 struct GoogleTranscriptionComponent;
 
 impl TranscriptionGuest for GoogleTranscriptionComponent {
+    #[cfg(feature = "durability")]
+    type TranscriptionStream = crate::durability::DurableTranscriptionStream<GoogleStream>;
+    #[cfg(not(feature = "durability"))]
     type TranscriptionStream = GoogleStream;
 
     fn transcribe(
@@ -35,6 +40,15 @@ impl TranscriptionGuest for GoogleTranscriptionComponent {
         options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionStream, SttError> {
         let cfg = crate::config::GoogleConfig::load()?;
-        Ok(TranscriptionStream::new(GoogleStream::new(cfg, config, options)))
+        #[cfg(feature = "durability")]
+        {
+            return Ok(TranscriptionStream::new(crate::durability::DurableTranscriptionStream::new_wrapped_stream(
+                cfg, config, options,
+            )));
+        }
+        #[cfg(not(feature = "durability"))]
+        {
+            Ok(TranscriptionStream::new(GoogleStream::new(cfg, config, options)))
+        }
     }
 } 
