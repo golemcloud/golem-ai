@@ -18,7 +18,7 @@ pub mod durability;
 pub use crate::stream::GoogleStream;
 
 #[allow(dead_code)]
-struct GoogleTranscriptionComponent;
+pub struct GoogleTranscriptionComponent;
 
 impl TranscriptionGuest for GoogleTranscriptionComponent {
     #[cfg(feature = "durability")]
