@@ -66,16 +66,14 @@ impl golem_stt::golem::stt::transcription::GuestTranscriptionStream for GoogleTr
         }
 
         if let Some(session) = &self.session {
-            trace!("Finishing Google streaming session");
-            let response = session.finish_and_get_result()?;
+            trace!("Finishing Google real-time streaming session");
             
-            // Convert to TranscriptionResult using existing conversion logic
-            let language = "en-US".to_string(); // Default, could be improved to track from options
-            let transcription_result = convert_response(response, 0, &language)?;
-            
-            *self.result.borrow_mut() = Some(transcription_result);
+            // For real-time streaming, we don't need to wait for a final result
+            // The session has been processing audio chunks in real-time
+            // Just mark as finished so no more audio can be sent
+            session.close();
             *is_finished = true;
-            trace!("Google streaming session finished successfully");
+            trace!("Google real-time streaming session finished successfully");
             Ok(())
         } else {
             Err(SttError::InternalError("Streaming session not initialized".to_string()))
@@ -83,20 +81,52 @@ impl golem_stt::golem::stt::transcription::GuestTranscriptionStream for GoogleTr
     }
 
     fn receive_alternative(&self) -> Result<Option<TranscriptAlternative>, SttError> {
-        if !*self.is_finished.borrow() {
-            return Ok(None); // Not finished yet, no alternatives available
-        }
-
-        let mut result = self.result.borrow_mut();
-        if let Some(transcription_result) = result.take() {
-            // Return the first alternative if available
-            if let Some(alternative) = transcription_result.alternatives.into_iter().next() {
-                trace!("Returning Google streaming alternative: {}", alternative.text);
-                return Ok(Some(alternative));
+        // For real-time streaming, check for results even if not finished
+        if let Some(session) = &self.session {
+            // Get latest streaming results
+            let streaming_results = session.get_latest_results()?;
+            
+            // Process streaming results and convert to alternatives
+            for streaming_result in streaming_results {
+                for alternative in streaming_result.alternatives {
+                    // Convert words if available
+                    let words = if let Some(ref words) = alternative.words {
+                        words.iter().map(|w| golem_stt::golem::stt::types::WordSegment {
+                            text: w.word.clone().unwrap_or_default(),
+                            start_time: w.start_time.as_ref().and_then(|s| s.parse().ok()).unwrap_or(0.0),
+                            end_time: w.end_time.as_ref().and_then(|s| s.parse().ok()).unwrap_or(0.0),
+                            confidence: w.confidence,
+                            speaker_id: w.speaker_tag.map(|tag| tag.to_string()),
+                        }).collect()
+                    } else {
+                        vec![]
+                    };
+                    
+                    let transcript_text = alternative.transcript.clone().unwrap_or_default();
+                    trace!("Returning Google real-time streaming alternative: {} (final: {})", 
+                           transcript_text, streaming_result.is_final);
+                    
+                    return Ok(Some(TranscriptAlternative {
+                        text: transcript_text,
+                        confidence: alternative.confidence.unwrap_or(0.0),
+                        words,
+                    }));
+                }
             }
         }
         
-        Ok(None) // No more alternatives
+        // If finished and no session, check buffered results
+        if *self.is_finished.borrow() {
+            let mut result = self.result.borrow_mut();
+            if let Some(transcription_result) = result.take() {
+                if let Some(alternative) = transcription_result.alternatives.into_iter().next() {
+                    trace!("Returning Google buffered streaming alternative: {}", alternative.text);
+                    return Ok(Some(alternative));
+                }
+            }
+        }
+        
+        Ok(None) // No alternatives available
     }
 
     fn close(&self) {

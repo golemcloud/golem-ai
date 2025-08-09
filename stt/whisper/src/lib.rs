@@ -1,4 +1,4 @@
-use crate::client::{WhisperClient, WhisperStreamingSession};
+use crate::client::WhisperClient;
 use crate::conversions::{
     convert_whisper_response, create_whisper_request, get_supported_languages,
 };
@@ -29,82 +29,24 @@ impl WhisperSTTComponent {
     }
 }
 
-pub struct WhisperTranscriptionStream {
-    session: Option<WhisperStreamingSession>,
-    is_finished: RefCell<bool>,
-    result: RefCell<Option<TranscriptionResult>>,
-}
-
-impl WhisperTranscriptionStream {
-    pub fn new(session: WhisperStreamingSession) -> Self {
-        Self {
-            session: Some(session),
-            is_finished: RefCell::new(false),
-            result: RefCell::new(None),
-        }
-    }
-}
+// Whisper does not support streaming per bounty requirements
+pub struct WhisperTranscriptionStream;
 
 impl golem_stt::golem::stt::transcription::GuestTranscriptionStream for WhisperTranscriptionStream {
-    fn send_audio(&self, chunk: Vec<u8>) -> Result<(), SttError> {
-        if *self.is_finished.borrow() {
-            return Err(SttError::InternalError("Stream already finished".to_string()));
-        }
-
-        if let Some(session) = &self.session {
-            session.send_audio(chunk)?;
-            trace!("Sent audio chunk to Whisper streaming session");
-            Ok(())
-        } else {
-            Err(SttError::InternalError("Streaming session not initialized".to_string()))
-        }
+    fn send_audio(&self, _chunk: Vec<u8>) -> Result<(), SttError> {
+        Err(SttError::UnsupportedOperation("OpenAI Whisper does not support streaming transcription".to_string()))
     }
 
     fn finish(&self) -> Result<(), SttError> {
-        let mut is_finished = self.is_finished.borrow_mut();
-        if *is_finished {
-            return Err(SttError::InternalError("Stream already finished".to_string()));
-        }
-
-        if let Some(session) = &self.session {
-            trace!("Finishing Whisper streaming session");
-            let response = session.finish_and_get_result()?;
-            
-            // Convert to TranscriptionResult using existing conversion logic
-            let language = "en".to_string(); // Default, could be improved to track from options
-            let transcription_result = convert_whisper_response(response, 0, &language)?;
-            
-            *self.result.borrow_mut() = Some(transcription_result);
-            *is_finished = true;
-            trace!("Whisper streaming session finished successfully");
-            Ok(())
-        } else {
-            Err(SttError::InternalError("Streaming session not initialized".to_string()))
-        }
+        Err(SttError::UnsupportedOperation("OpenAI Whisper does not support streaming transcription".to_string()))
     }
 
     fn receive_alternative(&self) -> Result<Option<TranscriptAlternative>, SttError> {
-        if !*self.is_finished.borrow() {
-            return Ok(None); // Not finished yet, no alternatives available
-        }
-
-        let mut result = self.result.borrow_mut();
-        if let Some(transcription_result) = result.take() {
-            // Return the first alternative if available
-            if let Some(alternative) = transcription_result.alternatives.into_iter().next() {
-                trace!("Returning Whisper streaming alternative: {}", alternative.text);
-                return Ok(Some(alternative));
-            }
-        }
-        
-        Ok(None) // No more alternatives
+        Err(SttError::UnsupportedOperation("OpenAI Whisper does not support streaming transcription".to_string()))
     }
 
     fn close(&self) {
-        if let Some(session) = &self.session {
-            session.close();
-        }
-        trace!("Whisper streaming session closed");
+        // No-op for unsupported streaming
     }
 }
 
@@ -145,20 +87,11 @@ impl TranscriptionGuest for WhisperSTTComponent {
     }
 
     fn transcribe_stream(
-        config: AudioConfig,
-        options: Option<TranscribeOptions>,
+        _config: AudioConfig,
+        _options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionStream, SttError> {
-        golem_stt::init_logging();
-        trace!("Starting OpenAI Whisper pseudo-streaming transcription");
-        warn!("OpenAI Whisper does not support real-time streaming. Using buffered approach.");
-
-        let client = Self::get_client()?;
-        let request_template = create_whisper_request(&vec![], &config, &options)?;
-        
-        let session = client.start_streaming_session(request_template)?;
-        let stream = WhisperTranscriptionStream::new(session);
-        
-        Ok(TranscriptionStream::new(stream))
+        // Per bounty requirements: "Streaming is not available in Whisper, so transcribe-stream should be omitted"
+        Err(SttError::UnsupportedOperation("OpenAI Whisper does not support streaming transcription".to_string()))
     }
 }
 

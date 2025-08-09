@@ -1,4 +1,4 @@
-use crate::client::AwsTranscribeClient;
+use crate::client::{AwsTranscribeClient, AwsStreamingSession};
 use crate::conversions::{
     get_supported_languages, generate_job_name, create_transcription_job_request,
     convert_aws_response_to_transcription_result,
@@ -16,6 +16,109 @@ use std::collections::HashMap;
 
 mod client;
 mod conversions;
+
+pub struct AwsTranscriptionStream {
+    session: Option<AwsStreamingSession>,
+    is_finished: RefCell<bool>,
+}
+
+impl AwsTranscriptionStream {
+    pub fn new(session: AwsStreamingSession) -> Self {
+        Self {
+            session: Some(session),
+            is_finished: RefCell::new(false),
+        }
+    }
+}
+
+impl golem_stt::golem::stt::transcription::GuestTranscriptionStream for AwsTranscriptionStream {
+    fn send_audio(&self, chunk: Vec<u8>) -> Result<(), SttError> {
+        if *self.is_finished.borrow() {
+            return Err(SttError::InternalError("Stream already finished".to_string()));
+        }
+
+        if let Some(session) = &self.session {
+            session.send_audio(chunk)?;
+            trace!("Sent audio chunk to AWS streaming session");
+            Ok(())
+        } else {
+            Err(SttError::InternalError("Streaming session not initialized".to_string()))
+        }
+    }
+
+    fn finish(&self) -> Result<(), SttError> {
+        let mut is_finished = self.is_finished.borrow_mut();
+        if *is_finished {
+            return Err(SttError::InternalError("Stream already finished".to_string()));
+        }
+
+        if let Some(session) = &self.session {
+            trace!("Finishing AWS real-time streaming session");
+            
+            // For real-time streaming, we don't need to wait for a final result
+            // The session has been processing audio chunks in real-time
+            // Just mark as finished so no more audio can be sent
+            session.close();
+            *is_finished = true;
+            trace!("AWS real-time streaming session finished successfully");
+            Ok(())
+        } else {
+            Err(SttError::InternalError("Streaming session not initialized".to_string()))
+        }
+    }
+
+    fn receive_alternative(&self) -> Result<Option<TranscriptAlternative>, SttError> {
+        // For real-time streaming, check for results even if not finished
+        if let Some(session) = &self.session {
+            // Get latest streaming results
+            let streaming_results = session.get_latest_results()?;
+            
+            // Process streaming results and convert to alternatives
+            for streaming_result in streaming_results {
+                if let Some(alternative) = streaming_result.alternatives.first() {
+                    if !alternative.transcript.trim().is_empty() {
+                        // Convert AWS items to standard format if available
+                        let words = if let Some(ref items) = alternative.items {
+                            items.iter().filter_map(|item| {
+                                if item.r#type == "pronunciation" {
+                                    Some(golem_stt::golem::stt::types::WordSegment {
+                                        text: item.content.clone(),
+                                        start_time: item.start_time.unwrap_or(0.0) as f32,
+                                        end_time: item.end_time.unwrap_or(0.0) as f32,
+                                        confidence: None, // AWS doesn't provide word-level confidence in this format
+                                        speaker_id: None, // Would need to be extracted from speaker labels
+                                    })
+                                } else {
+                                    None
+                                }
+                            }).collect()
+                        } else {
+                            vec![]
+                        };
+                        
+                        trace!("Returning AWS real-time streaming alternative: {} (partial: {})", 
+                               alternative.transcript, streaming_result.is_partial);
+                        
+                        return Ok(Some(TranscriptAlternative {
+                            text: alternative.transcript.clone(),
+                            confidence: alternative.confidence.unwrap_or(0.0) as f32,
+                            words,
+                        }));
+                    }
+                }
+            }
+        }
+        
+        Ok(None) // No alternatives available
+    }
+
+    fn close(&self) {
+        if let Some(session) = &self.session {
+            session.close();
+        }
+        trace!("AWS streaming session closed");
+    }
+}
 
 struct AwsSTTComponent;
 
@@ -40,26 +143,6 @@ impl AwsSTTComponent {
 
 thread_local! {
     static VOCABULARIES: RefCell<HashMap<String, Vec<String>>> = RefCell::new(HashMap::new());
-}
-
-pub struct AwsTranscriptionStream;
-
-impl golem_stt::golem::stt::transcription::GuestTranscriptionStream for AwsTranscriptionStream {
-    fn send_audio(&self, _chunk: Vec<u8>) -> Result<(), SttError> {
-        Err(SttError::UnsupportedOperation("AWS Transcribe does not support real-time streaming".to_string()))
-    }
-
-    fn finish(&self) -> Result<(), SttError> {
-        Err(SttError::UnsupportedOperation("AWS Transcribe does not support real-time streaming".to_string()))
-    }
-
-    fn receive_alternative(&self) -> Result<Option<TranscriptAlternative>, SttError> {
-        Err(SttError::UnsupportedOperation("AWS Transcribe does not support real-time streaming".to_string()))
-    }
-    
-    fn close(&self) {
-        // No-op for now
-    }
 }
 
 pub struct AwsVocabulary {
@@ -127,11 +210,17 @@ impl TranscriptionGuest for AwsSTTComponent {
     }
 
     fn transcribe_stream(
-        _audio_config: AudioConfig,
-        _options: Option<TranscribeOptions>,
+        config: AudioConfig,
+        options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionStream, SttError> {
-        // AWS Transcribe doesn't support real-time streaming like other providers
-        Err(SttError::UnsupportedOperation("AWS Transcribe does not support real-time streaming".to_string()))
+        golem_stt::init_logging();
+        trace!("Starting AWS Transcribe real-time streaming transcription");
+
+        let client = Self::get_client()?;
+        let session = client.start_streaming_session(&config, &options)?;
+        let stream = AwsTranscriptionStream::new(session);
+        
+        Ok(TranscriptionStream::new(stream))
     }
 }
 

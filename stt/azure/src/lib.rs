@@ -154,24 +154,115 @@ impl AzureSTTComponent {
     }
 }
 
-// Placeholder for TranscriptionStream - Azure real-time transcription would require WebSocket
-pub struct AzureTranscriptionStream;
+use crate::client::{AzureStreamingSession};
+
+// Azure TranscriptionStream using HTTP chunked transfer encoding
+pub struct AzureTranscriptionStream {
+    session: Option<AzureStreamingSession>,
+    is_finished: RefCell<bool>,
+}
+
+impl AzureTranscriptionStream {
+    pub fn new(session: AzureStreamingSession) -> Self {
+        Self {
+            session: Some(session),
+            is_finished: RefCell::new(false),
+        }
+    }
+}
 
 impl golem_stt::golem::stt::transcription::GuestTranscriptionStream for AzureTranscriptionStream {
-    fn send_audio(&self, _chunk: Vec<u8>) -> Result<(), SttError> {
-        Err(SttError::UnsupportedOperation("Azure Speech streaming requires WebSocket connection".to_string()))
+    fn send_audio(&self, chunk: Vec<u8>) -> Result<(), SttError> {
+        if *self.is_finished.borrow() {
+            return Err(SttError::InternalError("Stream already finished".to_string()));
+        }
+
+        if let Some(session) = &self.session {
+            session.send_audio(chunk)?;
+            trace!("Sent audio chunk to Azure streaming session");
+            Ok(())
+        } else {
+            Err(SttError::InternalError("Azure streaming session not initialized".to_string()))
+        }
     }
 
     fn finish(&self) -> Result<(), SttError> {
-        Err(SttError::UnsupportedOperation("Azure Speech streaming requires WebSocket connection".to_string()))
+        let mut is_finished = self.is_finished.borrow_mut();
+        if *is_finished {
+            return Err(SttError::InternalError("Stream already finished".to_string()));
+        }
+
+        if let Some(session) = &self.session {
+            trace!("Finishing Azure real-time streaming session");
+            
+            // For real-time streaming, we don't need to wait for a final result
+            // The session has been processing audio chunks in real-time
+            // Just mark as finished so no more audio can be sent
+            session.close();
+            *is_finished = true;
+            trace!("Azure real-time streaming session finished successfully");
+            Ok(())
+        } else {
+            Err(SttError::InternalError("Azure streaming session not initialized".to_string()))
+        }
     }
 
     fn receive_alternative(&self) -> Result<Option<golem_stt::golem::stt::types::TranscriptAlternative>, SttError> {
-        Err(SttError::UnsupportedOperation("Azure Speech streaming requires WebSocket connection".to_string()))
+        // For real-time streaming, check for results even if not finished
+        if let Some(session) = &self.session {
+            // Get latest streaming results
+            let streaming_results = session.get_latest_results()?;
+            
+            // Process streaming results and convert to alternatives
+            for streaming_result in streaming_results {
+                if let Some(ref display_text) = streaming_result.display_text {
+                    // Convert Azure n_best results if available
+                    let words = if let Some(ref n_best) = streaming_result.n_best {
+                        if let Some(first_result) = n_best.first() {
+                            if let Some(ref azure_words) = first_result.words {
+                                azure_words.iter().map(|w| golem_stt::golem::stt::types::WordSegment {
+                                    text: w.word.clone(),
+                                    start_time: (w.offset as f64 / 10_000_000.0) as f32, // Convert from 100ns ticks to seconds
+                                    end_time: ((w.offset + w.duration) as f64 / 10_000_000.0) as f32,
+                                    confidence: w.confidence,
+                                    speaker_id: None, // Azure doesn't provide speaker ID in this format
+                                }).collect()
+                            } else {
+                                vec![]
+                            }
+                        } else {
+                            vec![]
+                        }
+                    } else {
+                        vec![]
+                    };
+                    
+                    let confidence = streaming_result.n_best
+                        .as_ref()
+                        .and_then(|n_best| n_best.first())
+                        .map(|first| first.confidence)
+                        .unwrap_or(0.0);
+                    
+                    trace!("Returning Azure real-time streaming alternative: {} (final: {})", 
+                           display_text, streaming_result.is_final);
+                    
+                    return Ok(Some(golem_stt::golem::stt::types::TranscriptAlternative {
+                        text: display_text.clone(),
+                        confidence,
+                        words,
+                    }));
+                }
+            }
+        }
+        
+        Ok(None) // No alternatives available
     }
 
     fn close(&self) {
-        // No-op for now
+        if let Some(session) = &self.session {
+            session.close();
+            trace!("Azure streaming session closed");
+        }
     }
 }
 
@@ -198,13 +289,30 @@ impl TranscriptionGuest for AzureSTTComponent {
     }
 
     fn transcribe_stream(
-        _config: AudioConfig,
-        _options: Option<TranscribeOptions>,
+        config: AudioConfig,
+        options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionStream, SttError> {
-        // Azure Speech streaming would require WebSocket connection
-        Err(SttError::UnsupportedOperation(
-            "Azure Speech streaming requires WebSocket connection".to_string(),
-        ))
+        golem_stt::init_logging();
+        trace!("Starting Azure Speech real-time streaming transcription");
+        
+        let client = Self::get_client()?;
+        
+        let language = options
+            .as_ref()
+            .and_then(|opts| opts.language.as_ref())
+            .unwrap_or(&"en-US".to_string())
+            .clone();
+        
+        let audio_format = match config.format {
+            golem_stt::golem::stt::types::AudioFormat::Wav => "audio/wav",
+            golem_stt::golem::stt::types::AudioFormat::Mp3 => "audio/mp3",
+            _ => "audio/wav", // Default to WAV
+        };
+        
+        let session = client.start_streaming_session(&language, audio_format)?;
+        let stream = AzureTranscriptionStream::new(session);
+        
+        Ok(TranscriptionStream::new(stream))
     }
 }
 

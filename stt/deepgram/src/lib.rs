@@ -1,4 +1,4 @@
-use crate::client::DeepgramClient;
+use crate::client::{DeepgramClient, DeepgramStreamingSession};
 use crate::conversions::{
     convert_deepgram_response, create_prerecorded_request, get_supported_languages,
     get_recommended_model,
@@ -30,24 +30,100 @@ impl DeepgramSTTComponent {
     }
 }
 
-// Placeholder for TranscriptionStream - Deepgram streaming would require WebSocket
-pub struct DeepgramTranscriptionStream;
+// Deepgram TranscriptionStream using immediate batch processing
+pub struct DeepgramTranscriptionStream {
+    session: Option<DeepgramStreamingSession>,
+    is_finished: RefCell<bool>,
+}
+
+impl DeepgramTranscriptionStream {
+    pub fn new(session: DeepgramStreamingSession) -> Self {
+        Self {
+            session: Some(session),
+            is_finished: RefCell::new(false),
+        }
+    }
+}
 
 impl golem_stt::golem::stt::transcription::GuestTranscriptionStream for DeepgramTranscriptionStream {
-    fn send_audio(&self, _chunk: Vec<u8>) -> Result<(), SttError> {
-        Err(SttError::UnsupportedOperation("Deepgram streaming not yet implemented - requires WebSocket".to_string()))
+    fn send_audio(&self, chunk: Vec<u8>) -> Result<(), SttError> {
+        if *self.is_finished.borrow() {
+            return Err(SttError::InternalError("Stream already finished".to_string()));
+        }
+
+        if let Some(session) = &self.session {
+            session.send_audio(chunk)?;
+            trace!("Sent audio chunk to Deepgram streaming session");
+            Ok(())
+        } else {
+            Err(SttError::InternalError("Deepgram streaming session not initialized".to_string()))
+        }
     }
 
     fn finish(&self) -> Result<(), SttError> {
-        Err(SttError::UnsupportedOperation("Deepgram streaming not yet implemented - requires WebSocket".to_string()))
+        let mut is_finished = self.is_finished.borrow_mut();
+        if *is_finished {
+            return Err(SttError::InternalError("Stream already finished".to_string()));
+        }
+
+        if let Some(session) = &self.session {
+            trace!("Finishing Deepgram real-time streaming session");
+            
+            // For real-time streaming, we don't need to wait for a final result
+            // The session has been processing audio chunks in real-time
+            // Just mark as finished so no more audio can be sent
+            session.close();
+            *is_finished = true;
+            trace!("Deepgram real-time streaming session finished successfully");
+            Ok(())
+        } else {
+            Err(SttError::InternalError("Deepgram streaming session not initialized".to_string()))
+        }
     }
 
     fn receive_alternative(&self) -> Result<Option<golem_stt::golem::stt::types::TranscriptAlternative>, SttError> {
-        Err(SttError::UnsupportedOperation("Deepgram streaming not yet implemented - requires WebSocket".to_string()))
+        // For real-time streaming, check for results even if not finished
+        if let Some(session) = &self.session {
+            // Get latest streaming results
+            let streaming_results = session.get_latest_results()?;
+            
+            // Process streaming results and convert to alternatives
+            for streaming_result in streaming_results {
+                // Check if we have valid transcription in any channel
+                if let Some(channel) = streaming_result.results.channels.first() {
+                    if let Some(alternative) = channel.alternatives.first() {
+                        if !alternative.transcript.trim().is_empty() {
+                            // Convert Deepgram words to standard format
+                            let words = alternative.words.iter().map(|w| golem_stt::golem::stt::types::WordSegment {
+                                text: w.word.clone(),
+                                start_time: w.start,
+                                end_time: w.end,
+                                confidence: Some(w.confidence),
+                                speaker_id: w.speaker.map(|id| id.to_string()),
+                            }).collect();
+                            
+                            trace!("Returning Deepgram real-time streaming alternative: {} (final: {})", 
+                                   alternative.transcript, streaming_result.is_final);
+                            
+                            return Ok(Some(golem_stt::golem::stt::types::TranscriptAlternative {
+                                text: alternative.transcript.clone(),
+                                confidence: alternative.confidence,
+                                words,
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(None) // No alternatives available
     }
 
     fn close(&self) {
-        // No-op for now
+        if let Some(session) = &self.session {
+            session.close();
+            trace!("Deepgram streaming session closed");
+        }
     }
 }
 
@@ -88,13 +164,34 @@ impl TranscriptionGuest for DeepgramSTTComponent {
     }
 
     fn transcribe_stream(
-        _config: AudioConfig,
-        _options: Option<TranscribeOptions>,
+        config: AudioConfig,
+        options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionStream, SttError> {
-        // Deepgram streaming would require WebSocket connection
-        Err(SttError::UnsupportedOperation(
-            "Deepgram streaming not yet implemented - requires WebSocket".to_string(),
-        ))
+        golem_stt::init_logging();
+        trace!("Starting Deepgram real-time streaming transcription");
+        
+        let client = Self::get_client()?;
+        
+        // Create base configuration for streaming chunks
+        let mut base_request = create_prerecorded_request(&vec![], &config, &options)?;
+        
+        let language = options
+            .as_ref()
+            .and_then(|opts| opts.language.as_ref())
+            .unwrap_or(&"en-US".to_string())
+            .clone();
+
+        // Auto-select model based on language and use case
+        if base_request.model.is_none() {
+            let use_case = if base_request.diarize { "meeting" } else { "general" };
+            base_request.model = Some(get_recommended_model(&language, use_case));
+            trace!("Auto-selected Deepgram model for streaming: {:?}", base_request.model);
+        }
+        
+        let session = client.start_streaming_session(base_request)?;
+        let stream = DeepgramTranscriptionStream::new(session);
+        
+        Ok(TranscriptionStream::new(stream))
     }
 }
 
