@@ -7,7 +7,7 @@ use golem_stt::golem::stt::transcription::{
 };
 use golem_stt::golem::stt::types::{AudioConfig, SttError, TranscriptionResult, TranscriptAlternative};
 use golem_stt::golem::stt::vocabularies::{Guest as VocabulariesGuest, Vocabulary};
-use log::{error, trace, warn};
+use log::{error, trace};
 use std::cell::RefCell;
 use std::collections::HashMap;
 

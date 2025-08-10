@@ -937,7 +937,7 @@ impl AwsStreamingSession {
         }
     }
     
-    fn process_audio_chunk_as_batch(&self, audio_chunk: &[u8], job_name: &str, seq_id: u32) -> Result<DirectTranscriptionResponse, SttError> {
+    fn process_audio_chunk_as_batch(&self, audio_chunk: &[u8], job_name: &str, _seq_id: u32) -> Result<DirectTranscriptionResponse, SttError> {
         // Create proper settings structure
         let mut settings = Settings {
             show_speaker_labels: Some(false),

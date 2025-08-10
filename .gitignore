@@ -6,5 +6,3 @@ tmp
 components
 .DS_Store
 golem-temp
-
-**/bindings.rs

@@ -1,4 +1,4 @@
-use golem_stt::golem::stt::types::{SttError, TranscriptAlternative};
+use golem_stt::golem::stt::types::SttError;
 use log::{error, trace, warn};
 use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
