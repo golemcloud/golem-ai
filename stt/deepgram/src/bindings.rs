@@ -2,9 +2,9 @@
 // Options used:
 //   * runtime_path: "wit_bindgen_rt"
 //   * with "golem:stt/languages@1.0.0" = "golem_stt::golem::stt::languages"
-//   * with "golem:stt/types@1.0.0" = "golem_stt::golem::stt::types"
-//   * with "golem:stt/transcription@1.0.0" = "golem_stt::golem::stt::transcription"
 //   * with "golem:stt/vocabularies@1.0.0" = "golem_stt::golem::stt::vocabularies"
+//   * with "golem:stt/transcription@1.0.0" = "golem_stt::golem::stt::transcription"
+//   * with "golem:stt/types@1.0.0" = "golem_stt::golem::stt::types"
 //   * generate_unused_types
 use golem_stt::golem::stt::types as __with_name0;
 use golem_stt::golem::stt::vocabularies as __with_name1;

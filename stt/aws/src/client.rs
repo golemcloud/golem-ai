@@ -803,7 +803,6 @@ impl Clone for AwsTranscribeClient {
 pub struct AwsStreamingSession {
     client: AwsTranscribeClient,
     language_code: String,
-    media_encoding: String,
     sample_rate: i32,
     options: Option<golem_stt::golem::stt::transcription::TranscribeOptions>,
     sequence_id: Arc<Mutex<u32>>,
@@ -811,15 +810,6 @@ pub struct AwsStreamingSession {
     results_buffer: Arc<Mutex<Vec<AwsStreamingResult>>>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct AwsStreamingResponse {
-    pub transcript: AwsStreamingTranscript,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct AwsStreamingTranscript {
-    pub results: Vec<AwsStreamingResult>,
-}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AwsStreamingResult {
@@ -846,14 +836,13 @@ impl AwsStreamingSession {
     pub fn new(
         client: AwsTranscribeClient,
         language_code: String,
-        media_encoding: String,
+        _media_encoding: String,
         sample_rate: i32,
         options: Option<golem_stt::golem::stt::transcription::TranscribeOptions>,
     ) -> Self {
         Self {
             client,
             language_code,
-            media_encoding,
             sample_rate,
             options,
             sequence_id: Arc::new(Mutex::new(0)),
@@ -991,48 +980,6 @@ impl AwsStreamingSession {
         Ok(results)
     }
 
-    fn convert_batch_to_streaming_response(&self, transcript_json: &str) -> Result<AwsStreamingResponse, SttError> {
-        // Parse the AWS batch transcription JSON and convert it to streaming format
-        let batch_result: serde_json::Value = serde_json::from_str(transcript_json)
-            .map_err(|e| SttError::InternalError(format!("Failed to parse transcript JSON: {}", e)))?;
-        
-        let results = batch_result
-            .get("results")
-            .and_then(|r| r.get("transcripts"))
-            .and_then(|t| t.as_array())
-            .and_then(|arr| arr.get(0))
-            .and_then(|transcript| transcript.get("transcript"))
-            .and_then(|t| t.as_str())
-            .unwrap_or("")
-            .to_string();
-        
-        // Get confidence from items if available
-        let confidence = batch_result
-            .get("results")
-            .and_then(|r| r.get("items"))
-            .and_then(|items| items.as_array())
-            .and_then(|arr| arr.get(0))
-            .and_then(|item| item.get("alternatives"))
-            .and_then(|alts| alts.as_array())
-            .and_then(|arr| arr.get(0))
-            .and_then(|alt| alt.get("confidence"))
-            .and_then(|c| c.as_str())
-            .and_then(|c| c.parse().ok())
-            .unwrap_or(0.95);
-        
-        Ok(AwsStreamingResponse {
-            transcript: AwsStreamingTranscript {
-                results: vec![AwsStreamingResult {
-                    alternatives: vec![AwsStreamingAlternative {
-                        transcript: results,
-                        confidence: Some(confidence),
-                        items: None, // Could extract word-level timing if needed
-                    }],
-                    is_partial: false,
-                }],
-            },
-        })
-    }
 
     pub fn close(&self) {
         let mut is_active = match self.is_active.lock() {

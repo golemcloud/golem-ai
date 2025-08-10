@@ -377,7 +377,6 @@ impl Clone for AzureSpeechClient {
 pub struct AzureStreamingSession {
     client: AzureSpeechClient,
     language: String,
-    audio_format: String,
     sequence_id: Arc<Mutex<u32>>,
     is_active: Arc<Mutex<bool>>,
     results_buffer: Arc<Mutex<Vec<AzureStreamingResult>>>,
@@ -393,11 +392,10 @@ pub struct AzureStreamingResult {
 }
 
 impl AzureStreamingSession {
-    pub fn new(client: AzureSpeechClient, language: String, audio_format: String) -> Self {
+    pub fn new(client: AzureSpeechClient, language: String, _audio_format: String) -> Self {
         Self {
             client,
             language,
-            audio_format,
             sequence_id: Arc::new(Mutex::new(0)),
             is_active: Arc::new(Mutex::new(true)),
             results_buffer: Arc::new(Mutex::new(Vec::new())),

@@ -159,7 +159,6 @@ impl Clone for GoogleSpeechClient {
 pub struct GoogleStreamingSession {
     client: GoogleSpeechClient,
     config: RecognitionConfig,
-    streaming_url: String,
     sequence_id: Arc<Mutex<u32>>,
     is_active: Arc<Mutex<bool>>,
     results_buffer: Arc<Mutex<Vec<StreamingRecognitionResult>>>,
@@ -167,14 +166,9 @@ pub struct GoogleStreamingSession {
 
 impl GoogleStreamingSession {
     pub fn new(client: GoogleSpeechClient, config: RecognitionConfig) -> Self {
-        // Create streaming endpoint URL for HTTP/2 fallback protocol
-        let streaming_url = format!("{}/speech:streamingrecognize?key={}", 
-                                   client.base_url, client.api_key);
-        
         Self {
             client,
             config,
-            streaming_url,
             sequence_id: Arc::new(Mutex::new(0)),
             is_active: Arc::new(Mutex::new(true)),
             results_buffer: Arc::new(Mutex::new(Vec::new())),
@@ -403,19 +397,6 @@ pub struct StreamingRecognitionConfig {
     pub interim_results: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct StreamingRecognizeResponse {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub results: Option<Vec<StreamingRecognitionResult>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<GoogleApiErrorDetail>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct GoogleApiErrorDetail {
-    pub message: String,
-    pub code: Option<i32>,
-}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct StreamingRecognitionResult {
