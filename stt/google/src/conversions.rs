@@ -1,5 +1,5 @@
 use crate::client::{
-    AudioEncoding, RecognitionAudio, RecognitionConfig, RecognizeRequest, RecognizeResponse,
+    AudioEncoding, ExplicitDecodingConfig, RecognitionConfig, RecognizeRequest, RecognizeResponse,
     SpeechContext, SpeechRecognitionAlternative, WordInfo,
 };
 use golem_stt::golem::stt::types::{
@@ -30,23 +30,29 @@ pub fn create_recognize_request(
     let audio_content = base64::prelude::BASE64_STANDARD.encode(audio);
     
     let mut recognition_config = RecognitionConfig {
-        encoding,
-        sample_rate_hertz: config.sample_rate.map(|rate| rate as i32),
-        audio_channel_count: config.channels.map(|channels| channels as i32),
-        language_code: None,
-        alternative_language_codes: None,
-        max_alternatives: Some(1),
-        profanity_filter: None,
+        auto_decoding_config: None,
+        explicit_decoding_config: Some(ExplicitDecodingConfig {
+            encoding,
+            sample_rate_hertz: config.sample_rate.map(|rate| rate as i32),
+            audio_channel_count: config.channels.map(|channels| channels as i32),
+        }),
+        model: None,
+        language_codes: None, // Will be set below if provided
+        translation_config: None,
+        adaptation: None,
         speech_contexts: None,
-        enable_word_time_offsets: None,
+        enable_word_time_offsets: Some(true),
         enable_word_confidence: None,
         enable_automatic_punctuation: Some(true),
-        model: None,
+        enable_spoken_punctuation: None,
+        enable_spoken_emojis: None,
+        max_alternatives: Some(1),
+        profanity_filter: None,
     };
 
     if let Some(opts) = options {
         if let Some(lang) = &opts.language {
-            recognition_config.language_code = Some(lang.clone());
+            recognition_config.language_codes = Some(vec![lang.clone()]);
         }
         
         if let Some(model) = &opts.model {
@@ -80,11 +86,8 @@ pub fn create_recognize_request(
 
     Ok(RecognizeRequest {
         config: recognition_config,
-        audio: RecognitionAudio {
-            content: Some(audio_content),
-            uri: None,
-        },
-        name: None,
+        content: audio_content, // v2 uses direct content field
+        config_mask: None,
     })
 }
 

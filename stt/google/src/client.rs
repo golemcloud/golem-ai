@@ -3,12 +3,47 @@ use log::{error, trace, warn};
 use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use base64::{Engine as _, engine::general_purpose};
+use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use chrono::{DateTime, Utc};
+use rsa::{RsaPrivateKey, pkcs8::DecodePrivateKey};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ServiceAccountCredentials {
+    #[serde(rename = "type")]
+    account_type: String,
+    project_id: String,
+    private_key_id: String,
+    private_key: String,
+    client_email: String,
+    client_id: String,
+    auth_uri: String,
+    token_uri: String,
+}
+
+#[derive(Debug, Serialize)]
+struct JwtClaims {
+    iss: String,  // issuer (client_email)
+    sub: String,  // subject (client_email)
+    scope: String, // OAuth scopes
+    aud: String,  // audience (token_uri)
+    exp: i64,     // expiration time
+    iat: i64,     // issued at time
+}
+
+#[derive(Debug)]
+struct CachedToken {
+    token: String,
+    expires_at: SystemTime,
+}
 
 #[derive(Debug)]
 pub struct GoogleSpeechClient {
-    api_key: String,
+    credentials_path: String,
+    credentials_json: Option<String>,
+    project_id: String,
+    access_token: Arc<Mutex<Option<CachedToken>>>,
     client: Client,
     base_url: String,
     timeout: Duration,
@@ -16,7 +51,15 @@ pub struct GoogleSpeechClient {
 }
 
 impl GoogleSpeechClient {
-    pub fn new(api_key: String) -> Self {
+    pub fn new_from_file(credentials_path: String, project_id: String) -> Self {
+        Self::new_internal(Some(credentials_path), None, project_id)
+    }
+
+    pub fn new_from_json(credentials_json: String, project_id: String) -> Self {
+        Self::new_internal(None, Some(credentials_json), project_id)
+    }
+
+    fn new_internal(credentials_path: Option<String>, credentials_json: Option<String>, project_id: String) -> Self {
         let timeout_str = std::env::var("STT_PROVIDER_TIMEOUT").unwrap_or_else(|_| "30".to_string());
         let timeout = Duration::from_secs(timeout_str.parse().unwrap_or(30));
         
@@ -24,7 +67,7 @@ impl GoogleSpeechClient {
         let max_retries = max_retries_str.parse().unwrap_or(3);
         
         let base_url = std::env::var("STT_PROVIDER_ENDPOINT")
-            .unwrap_or_else(|_| "https://speech.googleapis.com/v1".to_string());
+            .unwrap_or_else(|_| "https://speech.googleapis.com/v2".to_string());
         
         // Initialize logging level if specified
         if let Ok(log_level) = std::env::var("STT_PROVIDER_LOG_LEVEL") {
@@ -39,7 +82,10 @@ impl GoogleSpeechClient {
         }
 
         Self {
-            api_key,
+            credentials_path: credentials_path.unwrap_or_default(),
+            credentials_json,
+            project_id,
+            access_token: Arc::new(Mutex::new(None)),
             client: Client::new(),
             base_url,
             timeout,
@@ -47,8 +93,131 @@ impl GoogleSpeechClient {
         }
     }
 
+    fn get_access_token(&self) -> Result<String, SttError> {
+        let mut token = self.access_token.lock().map_err(|_| 
+            SttError::InternalError("Failed to acquire token lock".to_string()))?;
+        
+        // Check if we have a cached token and it's not expired
+        if let Some(ref cached) = *token {
+            if SystemTime::now() < cached.expires_at {
+                trace!("Using cached OAuth token");
+                return Ok(cached.token.clone());
+            } else {
+                trace!("Cached OAuth token expired, generating new one");
+            }
+        }
+        
+        // Generate new token
+        let new_token = self.generate_oauth_token()?;
+        let expires_at = SystemTime::now() + Duration::from_secs(3600); // 1 hour
+        
+        *token = Some(CachedToken {
+            token: new_token.clone(),
+            expires_at,
+        });
+        
+        Ok(new_token)
+    }
+    
+    fn generate_oauth_token(&self) -> Result<String, SttError> {
+        let key_content = if let Some(ref json) = self.credentials_json {
+            // Use JSON from environment variable
+            trace!("Using service account JSON from environment variable");
+            json.clone()
+        } else if !self.credentials_path.is_empty() {
+            // Read from file path
+            trace!("Reading service account from file: {}", self.credentials_path);
+            std::fs::read_to_string(&self.credentials_path)
+                .map_err(|e| SttError::Unauthorized(format!("Failed to read credentials file: {}", e)))?
+        } else {
+            return Err(SttError::Unauthorized("No credentials available".to_string()));
+        };
+        
+        let credentials: ServiceAccountCredentials = serde_json::from_str(&key_content)
+            .map_err(|e| SttError::Unauthorized(format!("Invalid credentials format: {}", e)))?;
+        
+        trace!("Service account credentials parsed successfully");
+        
+        // Generate JWT for Google OAuth 2.0
+        let jwt_token = self.create_jwt(&credentials)?;
+        trace!("JWT token created, exchanging for OAuth access token");
+        
+        // Exchange JWT for access token
+        let access_token = self.exchange_jwt_for_token(&jwt_token, &credentials.token_uri)?;
+        
+        Ok(access_token)
+    }
+    
+    fn create_jwt(&self, credentials: &ServiceAccountCredentials) -> Result<String, SttError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| SttError::InternalError("Invalid system time".to_string()))?
+            .as_secs() as i64;
+        
+        let claims = JwtClaims {
+            iss: credentials.client_email.clone(),
+            sub: credentials.client_email.clone(),
+            scope: "https://www.googleapis.com/auth/cloud-platform".to_string(),
+            aud: credentials.token_uri.clone(),
+            exp: now + 3600, // 1 hour
+            iat: now,
+        };
+        
+        // Parse the private key
+        let private_key = credentials.private_key
+            .replace("\\n", "\n");
+            
+        let encoding_key = EncodingKey::from_rsa_pem(private_key.as_bytes())
+            .map_err(|e| SttError::Unauthorized(format!("Invalid private key: {}", e)))?;
+        
+        let header = Header::new(Algorithm::RS256);
+        
+        let token = encode(&header, &claims, &encoding_key)
+            .map_err(|e| SttError::Unauthorized(format!("Failed to create JWT: {}", e)))?;
+        
+        trace!("JWT token created successfully");
+        Ok(token)
+    }
+    
+    fn exchange_jwt_for_token(&self, jwt: &str, token_uri: &str) -> Result<String, SttError> {
+        let params = [
+            ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
+            ("assertion", jwt),
+        ];
+        
+        trace!("Exchanging JWT for OAuth access token at {}", token_uri);
+        
+        let response = self.client
+            .post(token_uri)
+            .form(&params)
+            .timeout(self.timeout)
+            .send()
+            .map_err(|e| SttError::NetworkError(format!("Token exchange failed: {}", e)))?;
+        
+        if !response.status().is_success() {
+            let error_text = response.text()
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(SttError::Unauthorized(format!("Token exchange failed: {}", error_text)));
+        }
+        
+        let token_response: serde_json::Value = response.json()
+            .map_err(|e| SttError::InternalError(format!("Failed to parse token response: {}", e)))?;
+        
+        let access_token = token_response["access_token"]
+            .as_str()
+            .ok_or_else(|| SttError::Unauthorized("No access token in response".to_string()))?
+            .to_string();
+        
+        trace!("OAuth access token obtained successfully");
+        Ok(access_token)
+    }
+
     pub fn transcribe(&self, request: RecognizeRequest) -> Result<RecognizeResponse, SttError> {
-        let url = format!("{}/speech:recognize?key={}", self.base_url, self.api_key);
+        let access_token = self.get_access_token()?;
+        // Google Speech-to-Text API v2 requires project and location in the URL
+        let location = std::env::var("GOOGLE_CLOUD_LOCATION").unwrap_or_else(|_| "global".to_string());
+        let url = format!("{}/projects/{}/locations/{}/recognizers/_:recognize", 
+                         self.base_url, self.project_id, location);
         
         let mut attempts = 0;
         loop {
@@ -59,7 +228,7 @@ impl GoogleSpeechClient {
                 trace!("Google Speech API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
             }
             
-            match self.make_request(Method::POST, &url, Some(&request)) {
+            match self.make_request_with_auth(Method::POST, &url, Some(&request), &access_token) {
                 Ok(response) => {
                     if response.status().is_success() {
                         match response.json::<RecognizeResponse>() {
@@ -93,16 +262,18 @@ impl GoogleSpeechClient {
         }
     }
 
-    fn make_request<T: Serialize>(
+    fn make_request_with_auth<T: Serialize>(
         &self,
         method: Method,
         url: &str,
         body: Option<&T>,
+        access_token: &str,
     ) -> Result<Response, reqwest::Error> {
         let mut req = self
             .client
             .request(method, url)
             .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", access_token))
             .timeout(self.timeout);
 
         if let Some(body) = body {
@@ -146,7 +317,10 @@ impl GoogleSpeechClient {
 impl Clone for GoogleSpeechClient {
     fn clone(&self) -> Self {
         Self {
-            api_key: self.api_key.clone(),
+            credentials_path: self.credentials_path.clone(),
+            credentials_json: self.credentials_json.clone(),
+            project_id: self.project_id.clone(),
+            access_token: self.access_token.clone(),
             client: Client::new(),
             base_url: self.base_url.clone(),
             timeout: self.timeout,
@@ -226,11 +400,8 @@ impl GoogleStreamingSession {
             // Process each chunk using regular recognize endpoint for immediate feedback
             let chunk_request = RecognizeRequest {
                 config: self.config.clone(),
-                audio: RecognitionAudio {
-                    content: Some(audio_content.clone()),
-                    uri: None,
-                },
-                name: None,
+                content: audio_content.clone(),
+                config_mask: None,
             };
             
             // Send chunk for processing
@@ -331,26 +502,25 @@ impl GoogleStreamingSession {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecognizeRequest {
     pub config: RecognitionConfig,
-    pub audio: RecognitionAudio,
+    pub content: String, // v2 uses "content" instead of "audio" object
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
+    pub config_mask: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecognitionConfig {
-    pub encoding: AudioEncoding,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sample_rate_hertz: Option<i32>,
+    pub auto_decoding_config: Option<AutoDetectDecodingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub audio_channel_count: Option<i32>,
+    pub explicit_decoding_config: Option<ExplicitDecodingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub language_code: Option<String>,
+    pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub alternative_language_codes: Option<Vec<String>>,
+    pub language_codes: Option<Vec<String>>, // v2 uses language_codes (plural)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_alternatives: Option<i32>,
+    pub translation_config: Option<TranslationConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub profanity_filter: Option<bool>,
+    pub adaptation: Option<SpeechAdaptation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub speech_contexts: Option<Vec<SpeechContext>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -360,7 +530,54 @@ pub struct RecognitionConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_automatic_punctuation: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
+    pub enable_spoken_punctuation: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_spoken_emojis: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_alternatives: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profanity_filter: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoDetectDecodingConfig {
+    // Auto-detection configuration for v2
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExplicitDecodingConfig {
+    pub encoding: AudioEncoding,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sample_rate_hertz: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio_channel_count: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranslationConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_language: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpeechAdaptation {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phrase_sets: Option<Vec<AdaptationPhraseSet>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdaptationPhraseSet {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phrases: Option<Vec<Phrase>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub boost: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Phrase {
+    pub value: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub boost: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -371,13 +588,6 @@ pub struct SpeechContext {
     pub boost: Option<f32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RecognitionAudio {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>, // Base64 encoded audio data
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub uri: Option<String>,
-}
 
 // Streaming API structures
 #[derive(Debug, Clone, Serialize)]
