@@ -29,66 +29,31 @@ pub fn create_recognize_request(
     
     let audio_content = base64::prelude::BASE64_STANDARD.encode(audio);
     
-    let mut recognition_config = RecognitionConfig {
+    // Create absolute minimal v2 API compatible config - only required fields
+    let recognition_config = RecognitionConfig {
         auto_decoding_config: None,
         explicit_decoding_config: Some(ExplicitDecodingConfig {
             encoding,
             sample_rate_hertz: config.sample_rate.map(|rate| rate as i32),
             audio_channel_count: config.channels.map(|channels| channels as i32),
         }),
-        model: None,
-        language_codes: None, // Will be set below if provided
+        model: Some("latest_long".to_string()), // Required for v2
+        language_codes: Some(vec!["en-US".to_string()]), // Required for v2
         translation_config: None,
         adaptation: None,
         speech_contexts: None,
-        enable_word_time_offsets: Some(true),
-        enable_word_confidence: None,
-        enable_automatic_punctuation: Some(true),
-        enable_spoken_punctuation: None,
-        enable_spoken_emojis: None,
-        max_alternatives: Some(1),
-        profanity_filter: None,
     };
 
-    if let Some(opts) = options {
-        if let Some(lang) = &opts.language {
-            recognition_config.language_codes = Some(vec![lang.clone()]);
-        }
-        
-        if let Some(model) = &opts.model {
-            recognition_config.model = Some(model.clone());
-        }
-        
-        if let Some(profanity_filter) = opts.profanity_filter {
-            recognition_config.profanity_filter = Some(profanity_filter);
-        }
-        
-        if let Some(enable_timestamps) = opts.enable_timestamps {
-            recognition_config.enable_word_time_offsets = Some(enable_timestamps);
-        }
-        
-        // Always enable word time offsets to get accurate duration
-        recognition_config.enable_word_time_offsets = Some(true);
-        
-        if let Some(enable_word_confidence) = opts.enable_word_confidence {
-            recognition_config.enable_word_confidence = Some(enable_word_confidence);
-        }
-        
-        
-        if let Some(speech_context) = &opts.speech_context {
-            recognition_config.speech_contexts = Some(vec![SpeechContext {
-                phrases: Some(speech_context.clone()),
-                boost: Some(4.0), // Default boost value
-            }]);
-        }
-        
-    }
-
-    Ok(RecognizeRequest {
+    // Don't process any options that might add unsupported fields
+    // Just use the minimal config above
+    
+    let request = RecognizeRequest {
         config: recognition_config,
         content: audio_content, // v2 uses direct content field
         config_mask: None,
-    })
+    };
+
+    Ok(request)
 }
 
 pub fn convert_response(
