@@ -140,17 +140,13 @@ interface transcription {
     options: option<transcribe-options>
   ) -> result<transcription-result, stt-error>;
 
-  transcribe-stream: func(
+  record transcribe-request {
+    audio: list<u8>,
     config: audio-config,
-    options: option<transcribe-options>
-  ) -> result<transcription-stream, stt-error>;
-
-  resource transcription-stream {
-    send-audio: func(chunk: list<u8>) -> result<_, stt-error>;
-    finish: func() -> result<_, stt-error>;
-    receive-alternative: func() -> result<option<transcript-alternative>, stt-error>;
-    close: func();
+    options: option<transcribe-options>,
   }
+
+  multi-transcribe: func(requests: list<transcribe-request>) -> result<list<transcription-result>, stt-error>;
 }
 
 world stt-library {

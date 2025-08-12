@@ -12,7 +12,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["durability"]
+default = []
 durability = ["golem-rust/durability", "golem-stt/durability"]
 durability_integration = []
 gateway = ["dep:tungstenite", "dep:url"]

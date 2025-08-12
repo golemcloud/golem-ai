@@ -1,7 +1,7 @@
 use golem_stt::golem::stt::transcription::{
     Guest as TranscriptionGuest,
     AudioConfig, TranscribeOptions, TranscriptionResult,
-    TranscriptionStream,
+    TranscribeRequest,
 };
 use golem_stt::golem::stt::types::SttError;
 
@@ -11,21 +11,14 @@ mod constants;
 mod recognize;
 pub mod error;
 mod batch;
-mod stream;
+// streaming support removed
 #[cfg(feature = "durability")]
 pub mod durability;
-
-pub use crate::stream::GoogleStream;
 
 #[allow(dead_code)]
 pub struct GoogleTranscriptionComponent;
 
 impl TranscriptionGuest for GoogleTranscriptionComponent {
-    #[cfg(feature = "durability")]
-    type TranscriptionStream = crate::durability::DurableTranscriptionStream<GoogleStream>;
-    #[cfg(not(feature = "durability"))]
-    type TranscriptionStream = GoogleStream;
-
     fn transcribe(
         _audio: Vec<u8>,
         config: AudioConfig,
@@ -35,20 +28,11 @@ impl TranscriptionGuest for GoogleTranscriptionComponent {
         crate::batch::transcribe_impl(_audio, &cfg, options, config)
     }
 
-    fn transcribe_stream(
-        config: AudioConfig,
-        options: Option<TranscribeOptions>,
-    ) -> Result<TranscriptionStream, SttError> {
-        let cfg = crate::config::GoogleConfig::load()?;
-        #[cfg(feature = "durability")]
-        {
-            return Ok(TranscriptionStream::new(crate::durability::DurableTranscriptionStream::new_wrapped_stream(
-                cfg, config, options,
-            )));
+    fn multi_transcribe(requests: Vec<TranscribeRequest>) -> Result<Vec<TranscriptionResult>, SttError> {
+        let mut results = Vec::with_capacity(requests.len());
+        for req in requests {
+            results.push(Self::transcribe(req.audio, req.config, req.options)?);
         }
-        #[cfg(not(feature = "durability"))]
-        {
-            Ok(TranscriptionStream::new(GoogleStream::new(cfg, config, options)))
-        }
+        Ok(results)
     }
 } 
