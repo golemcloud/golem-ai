@@ -1,6 +1,6 @@
 use crate::client::AwsClient;
 use crate::conversions::{to_wit_error, to_wit_error_from_aws, to_wit_result};
-use crate::stream::AwsStream;
+
 use golem_stt::config::AwsConfig;
 use golem_stt::durability::{make_request_key, BatchSnapshot, DurableStore};
 use golem_stt::exports::golem::stt::languages::{Guest as LanguagesGuest, LanguageInfo};
@@ -106,7 +106,7 @@ impl vocabularies::Guest for Component {
 }
 
 impl TranscriptionGuest for Component {
-    type TranscriptionStream = AwsStream<'static>;
+    type TranscriptionStream = golem_stt::component::TranscriptionStreamResource;
 
     fn transcribe(
         audio: Vec<u8>,
@@ -142,8 +142,8 @@ impl TranscriptionGuest for Component {
             }
         }
 
-        let (status, body) = match futures::executor::block_on(client.transcribe(
-            audio.clone(),
+        let (status, body) = match wstd::runtime::block_on(client.transcribe(
+            audio,
             &config,
             &options,
         )) {
@@ -180,20 +180,11 @@ impl TranscriptionGuest for Component {
     }
 
     fn transcribe_stream(
-        config: wit_types::AudioConfig,
+        _config: wit_types::AudioConfig,
         _options: Option<TranscribeOptions>,
     ) -> Result<transcription::TranscriptionStream, wit_types::SttError> {
-        let ct = match config.format {
-            wit_types::AudioFormat::Wav => "audio/wav",
-            wit_types::AudioFormat::Mp3 => "audio/mpeg",
-            wit_types::AudioFormat::Flac => "audio/flac",
-            wit_types::AudioFormat::Ogg => "audio/ogg",
-            wit_types::AudioFormat::Aac => "audio/aac",
-            wit_types::AudioFormat::Pcm => "application/octet-stream",
-        };
-        let client = build_client()?;
-        let stream = AwsStream::new(&client, ct, durable())
-            .map_err(|e| wit_types::SttError::TranscriptionFailed(format!("{e:?}")))?;
-        Ok(transcription::TranscriptionStream::new(stream))
+        Err(wit_types::SttError::UnsupportedOperation(
+            "AWS Transcribe streaming requires WebSocket connection not supported in WASI environment".to_string(),
+        ))
     }
 }

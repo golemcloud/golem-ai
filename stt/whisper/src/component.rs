@@ -146,8 +146,10 @@ impl TranscriptionGuest for Component {
             }
         }
 
-        let (status, body) = match futures::executor::block_on(client.transcribe(
-            audio.clone(),
+        let audio_size = u32::try_from(audio.len()).unwrap_or(u32::MAX);
+
+        let (status, body) = match wstd::runtime::block_on(client.transcribe(
+            audio,
             &config,
             &options,
         )) {
@@ -164,7 +166,7 @@ impl TranscriptionGuest for Component {
             .and_then(|o| o.language.clone())
             .unwrap_or_else(|| "en".into());
         let model = options.as_ref().and_then(|o| o.model.clone());
-        let _size = u32::try_from(audio.len()).unwrap_or(u32::MAX);
+        let _size = audio_size;
 
         let result = to_wit_result(&body, &language, model.as_deref())?;
 

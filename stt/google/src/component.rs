@@ -143,7 +143,7 @@ impl vocabularies::Guest for Component {
 }
 
 impl TranscriptionGuest for Component {
-    type TranscriptionStream = crate::stream::GcpStream<'static>;
+    type TranscriptionStream = golem_stt::component::TranscriptionStreamResource;
 
     fn transcribe(
         audio: Vec<u8>,
@@ -179,8 +179,10 @@ impl TranscriptionGuest for Component {
             }
         }
 
-        let body = match futures::executor::block_on(client.transcribe(
-            audio.clone(),
+        let audio_size = audio.len() as u32;
+
+        let body = match wstd::runtime::block_on(client.transcribe(
+            audio,
             &config,
             &options,
         )) {
@@ -193,9 +195,9 @@ impl TranscriptionGuest for Component {
             .and_then(|o| o.language.clone())
             .unwrap_or_else(|| "en-US".into());
         let model = options.as_ref().and_then(|o| o.model.clone());
-        let _size = u32::try_from(audio.len()).unwrap_or(u32::MAX);
+        let _size = u32::try_from(audio_size as usize).unwrap_or(u32::MAX);
 
-        let result = to_wit_result(&body, audio.len() as u32, language, model)?;
+        let result = to_wit_result(&body, audio_size, language, model)?;
 
         let _request_id = result.metadata.request_id.clone();
 
@@ -216,20 +218,11 @@ impl TranscriptionGuest for Component {
     }
 
     fn transcribe_stream(
-        config: wit_types::AudioConfig,
+        _config: wit_types::AudioConfig,
         _options: Option<TranscribeOptions>,
     ) -> Result<transcription::TranscriptionStream, wit_types::SttError> {
-        let ct = match config.format {
-            wit_types::AudioFormat::Wav => "audio/wav",
-            wit_types::AudioFormat::Mp3 => "audio/mpeg",
-            wit_types::AudioFormat::Flac => "audio/flac",
-            wit_types::AudioFormat::Ogg => "audio/ogg",
-            wit_types::AudioFormat::Aac => "audio/aac",
-            wit_types::AudioFormat::Pcm => "application/octet-stream",
-        };
-        let client = build_client()?;
-        let stream = crate::stream::GcpStream::new(&client, ct, durable())
-            .map_err(|e| wit_types::SttError::TranscriptionFailed(format!("{e:?}")))?;
-        Ok(transcription::TranscriptionStream::new(stream))
+        Err(wit_types::SttError::UnsupportedOperation(
+            "Google Cloud Speech streaming requires gRPC connection not supported in WASI environment".to_string(),
+        ))
     }
 }

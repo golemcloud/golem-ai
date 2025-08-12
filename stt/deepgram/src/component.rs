@@ -141,10 +141,8 @@ impl vocabularies::Guest for Component {
     }
 }
 
-use crate::stream::DgStream;
-
 impl TranscriptionGuest for Component {
-    type TranscriptionStream = DgStream<'static>;
+    type TranscriptionStream = golem_stt::component::TranscriptionStreamResource;
 
     fn transcribe(
         audio: Vec<u8>,
@@ -180,7 +178,7 @@ impl TranscriptionGuest for Component {
             }
         }
 
-        let out = match futures::executor::block_on(client.transcribe(
+        let out = match wstd::runtime::block_on(client.transcribe(
             audio.clone(),
             &config,
             &options,
@@ -213,10 +211,8 @@ impl TranscriptionGuest for Component {
         _config: wit_types::AudioConfig,
         _options: Option<TranscribeOptions>,
     ) -> std::result::Result<transcription::TranscriptionStream, wit_types::SttError> {
-        // Create a simplified stream implementation
-        let client = build_client()?;
-        let stream = DgStream::new(&client, "audio/wav", durable())
-            .map_err(|e| wit_types::SttError::TranscriptionFailed(format!("{e:?}")))?;
-        Ok(transcription::TranscriptionStream::new(stream))
+        Err(wit_types::SttError::UnsupportedOperation(
+            "Deepgram streaming requires WebSocket connection not supported in WASI environment".to_string(),
+        ))
     }
 }

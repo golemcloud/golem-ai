@@ -1,7 +1,6 @@
 mod client;
 mod component;
 mod conversions;
-mod stream;
 
 use component::Component;
 use golem_stt::durability::{DurableStt, ExtendedGuest};

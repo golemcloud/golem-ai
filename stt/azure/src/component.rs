@@ -120,7 +120,7 @@ impl vocabularies::Guest for Component {
 }
 
 impl TranscriptionGuest for Component {
-    type TranscriptionStream = crate::stream::AzureStream<'static>;
+    type TranscriptionStream = golem_stt::component::TranscriptionStreamResource;
 
     fn transcribe(
         audio: Vec<u8>,
@@ -157,8 +157,8 @@ impl TranscriptionGuest for Component {
             }
         }
 
-        let transcription_result = match futures::executor::block_on(client.transcribe(
-            audio.clone(),
+        let transcription_result = match wstd::runtime::block_on(client.transcribe(
+            audio,
             &config,
             &options,
         )) {
@@ -186,20 +186,11 @@ impl TranscriptionGuest for Component {
     }
 
     fn transcribe_stream(
-        config: wit_types::AudioConfig,
+        _config: wit_types::AudioConfig,
         _options: Option<TranscribeOptions>,
     ) -> Result<transcription::TranscriptionStream, wit_types::SttError> {
-        let ct = match config.format {
-            wit_types::AudioFormat::Wav => "audio/wav",
-            wit_types::AudioFormat::Mp3 => "audio/mpeg",
-            wit_types::AudioFormat::Flac => "audio/flac",
-            wit_types::AudioFormat::Ogg => "audio/ogg",
-            wit_types::AudioFormat::Aac => "audio/aac",
-            wit_types::AudioFormat::Pcm => "application/octet-stream",
-        };
-        let client = build_client()?;
-        let stream = crate::stream::AzureStream::new(&client, ct, durable())
-            .map_err(|e| wit_types::SttError::TranscriptionFailed(format!("{e:?}")))?;
-        Ok(transcription::TranscriptionStream::new(stream))
+        Err(wit_types::SttError::UnsupportedOperation(
+            "Azure Speech streaming requires WebSocket connection not supported in WASI environment".to_string(),
+        ))
     }
 }

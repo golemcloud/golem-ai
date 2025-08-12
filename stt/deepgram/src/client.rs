@@ -129,7 +129,7 @@ impl DeepgramClient {
 
         let (status, body, _headers) = self
             .http
-            .post_bytes(&url, headers, audio.clone(), ct)
+            .post_bytes(&url, headers, audio, ct)
             .await?;
 
         if !status.is_success() {
