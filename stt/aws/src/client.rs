@@ -541,6 +541,9 @@ impl AwsTranscribeClient {
         let timestamp = chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
         let content_hash = self.sha256_hex(data);
         
+        // Create Arc from slice to avoid cloning large data in retry loop  
+        let audio_data = Arc::new(data);
+        
         // Create S3 authorization header
         let authorization = self.create_s3_auth_header(&timestamp, &content_hash, bucket, key, data.len(), audio_format)?;
         
@@ -555,7 +558,7 @@ impl AwsTranscribeClient {
                 .header("x-amz-date", &timestamp)
                 .header("x-amz-content-sha256", &content_hash)
                 .timeout(self.timeout)
-                .body(data.to_vec())
+                .body(audio_data.to_vec())
                 .send() {
                 Ok(response) => {
                     if response.status().is_success() {

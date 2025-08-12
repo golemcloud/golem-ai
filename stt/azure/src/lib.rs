@@ -1,4 +1,5 @@
 use crate::client::AzureSpeechClient;
+use std::sync::Arc;
 use crate::conversions::{
     convert_realtime_response, create_realtime_transcription_request,
     get_supported_languages,
@@ -228,15 +229,18 @@ impl TranscriptionGuest for AzureSTTComponent {
     ) -> Result<TranscriptionResult, SttError> {
         golem_stt::init_logging();
         trace!("Starting Azure Speech transcription, audio size: {} bytes", audio.len());
+        
+        // Store audio data in Arc to avoid cloning large data in fallback scenarios
+        let audio_arc = Arc::new(audio);
 
         // Estimate audio duration based on size and format to choose appropriate API
         // Azure Speech REST API has a 60-second limit, use Fast Transcription for longer audio
-        let estimated_duration = Self::estimate_audio_duration(&audio, &config);
+        let estimated_duration = Self::estimate_audio_duration(&audio_arc, &config);
         
         if estimated_duration > 58.0 { // Leave some buffer for 60s limit
             trace!("Audio estimated at {:.1}s - attempting Azure Fast Transcription for longer audio", estimated_duration);
             // Try Fast Transcription first, fall back to real-time if not available
-            match Self::transcribe_fast_api(audio.clone(), config.clone(), options.clone()) {
+            match Self::transcribe_fast_api(audio_arc.as_ref().clone(), config.clone(), options.clone()) {
                 Ok(result) => {
                     trace!("Azure Fast Transcription completed successfully");
                     Ok(result)
@@ -244,17 +248,17 @@ impl TranscriptionGuest for AzureSTTComponent {
                 Err(SttError::NetworkError(ref e)) if e.contains("404") || e.contains("Not Found") => {
                     trace!("Azure Fast Transcription not available in region (404), falling back to real-time API");
                     warn!("Audio >60s detected but Fast Transcription unavailable in region - using real-time API (will truncate)");
-                    Self::transcribe_realtime(audio, config, options)
+                    Self::transcribe_realtime(audio_arc.as_ref().clone(), config, options)
                 },
                 Err(e) => {
                     trace!("Azure Fast Transcription failed: {:?}, falling back to real-time API", e);
                     warn!("Fast Transcription failed, using real-time API fallback (may truncate >60s audio)");
-                    Self::transcribe_realtime(audio, config, options)
+                    Self::transcribe_realtime(audio_arc.as_ref().clone(), config, options)
                 },
             }
         } else {
             trace!("Audio estimated at {:.1}s - using Azure real-time API", estimated_duration);
-            Self::transcribe_realtime(audio, config, options)
+            Self::transcribe_realtime(audio_arc.as_ref().clone(), config, options)
         }
     }
 

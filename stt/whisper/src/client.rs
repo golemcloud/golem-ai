@@ -3,6 +3,7 @@ use log::{error, trace};
 use reqwest::{Client, Response};
 use serde::{Deserialize};
 use std::time::Duration;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct WhisperClient {
@@ -55,6 +56,19 @@ impl WhisperClient {
     pub fn transcribe_audio(&self, request: WhisperTranscriptionRequest) -> Result<WhisperTranscriptionResponse, SttError> {
         let url = format!("{}/audio/transcriptions", self.base_url);
         
+        // Store audio data in Arc to avoid cloning large data in retry loop
+        let audio_data = Arc::new(request.audio);
+        let request_without_audio = WhisperTranscriptionRequest {
+            audio: Vec::new(), // Empty - will use audio_data Arc instead
+            model: request.model,
+            audio_format: request.audio_format,
+            language: request.language,
+            prompt: request.prompt,
+            response_format: request.response_format,
+            temperature: request.temperature,
+            timestamp_granularities: request.timestamp_granularities,
+        };
+        
         let mut attempts = 0;
         loop {
             attempts += 1;
@@ -68,53 +82,53 @@ impl WhisperClient {
             let mut body = Vec::new();
             
             // Add file field with dynamic content type
-            let audio_format = request.audio_format.as_deref().unwrap_or("wav");
+            let audio_format = request_without_audio.audio_format.as_deref().unwrap_or("wav");
             let content_type = format!("audio/{}", audio_format);
             let filename = format!("audio.{}", audio_format);
             
             body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
             body.extend_from_slice(format!("Content-Disposition: form-data; name=\"file\"; filename=\"{}\"\r\n", filename).as_bytes());
             body.extend_from_slice(format!("Content-Type: {}\r\n\r\n", content_type).as_bytes());
-            body.extend_from_slice(&request.audio);
+            body.extend_from_slice(&audio_data);
             body.extend_from_slice(b"\r\n");
             
             // Add model field
             body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
             body.extend_from_slice(b"Content-Disposition: form-data; name=\"model\"\r\n\r\n");
-            body.extend_from_slice(request.model.as_bytes());
+            body.extend_from_slice(request_without_audio.model.as_bytes());
             body.extend_from_slice(b"\r\n");
             
             // Add response_format field
             let default_format = "json".to_string();
-            let response_format = request.response_format.as_ref().unwrap_or(&default_format);
+            let response_format = request_without_audio.response_format.as_ref().unwrap_or(&default_format);
             body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
             body.extend_from_slice(b"Content-Disposition: form-data; name=\"response_format\"\r\n\r\n");
             body.extend_from_slice(response_format.as_bytes());
             body.extend_from_slice(b"\r\n");
             
             // Add optional fields
-            if let Some(language) = &request.language {
+            if let Some(language) = &request_without_audio.language {
                 body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
                 body.extend_from_slice(b"Content-Disposition: form-data; name=\"language\"\r\n\r\n");
                 body.extend_from_slice(language.as_bytes());
                 body.extend_from_slice(b"\r\n");
             }
             
-            if let Some(prompt) = &request.prompt {
+            if let Some(prompt) = &request_without_audio.prompt {
                 body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
                 body.extend_from_slice(b"Content-Disposition: form-data; name=\"prompt\"\r\n\r\n");
                 body.extend_from_slice(prompt.as_bytes());
                 body.extend_from_slice(b"\r\n");
             }
             
-            if let Some(temperature) = request.temperature {
+            if let Some(temperature) = request_without_audio.temperature {
                 body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
                 body.extend_from_slice(b"Content-Disposition: form-data; name=\"temperature\"\r\n\r\n");
                 body.extend_from_slice(temperature.to_string().as_bytes());
                 body.extend_from_slice(b"\r\n");
             }
             
-            if let Some(timestamp_granularities) = &request.timestamp_granularities {
+            if let Some(timestamp_granularities) = &request_without_audio.timestamp_granularities {
                 for granularity in timestamp_granularities {
                     body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
                     body.extend_from_slice(b"Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\n");

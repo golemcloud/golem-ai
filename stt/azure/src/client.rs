@@ -167,6 +167,9 @@ impl AzureSpeechClient {
     pub fn transcribe_audio(&self, request: TranscriptionRequest) -> Result<AzureTranscriptionResponse, SttError> {
         let mut attempts = 0;
         
+        // Store audio data in Arc to avoid cloning large data in retry loop
+        let audio_data = Arc::new(request.audio_data);
+        
         // Build query parameters for Azure Speech REST API
         let language = request.language.unwrap_or_else(|| "en-US".to_string());
         let profanity = request.profanity_option.unwrap_or_else(|| "Raw".to_string());
@@ -183,7 +186,7 @@ impl AzureSpeechClient {
             } else {
                 trace!("Azure Speech API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
             }
-            match self.make_audio_request(Method::POST, &path, &request.audio_data, &request.format) {
+            match self.make_audio_request(Method::POST, &path, &audio_data, &request.format) {
                 Ok(response) => {
                     if response.status().is_success() {
                         match response.json::<AzureTranscriptionResponse>() {
@@ -223,7 +226,7 @@ impl AzureSpeechClient {
         &self,
         method: Method,
         path: &str,
-        audio_data: &[u8],
+        audio_data: &Arc<Vec<u8>>,
         audio_format: &str,
     ) -> Result<Response, reqwest::Error> {
         let url = format!("{}{}", self.base_url, path);
@@ -235,7 +238,7 @@ impl AzureSpeechClient {
             .header("Content-Type", &content_type)
             .header("Accept", "application/json")
             .timeout(self.timeout)
-            .body(audio_data.to_vec())
+            .body(audio_data.as_ref().clone())
             .send()
     }
 

@@ -46,8 +46,11 @@ impl DeepgramClient {
         }
     }
 
-    pub fn transcribe_prerecorded(&self, request: PrerecordedTranscriptionRequest) -> Result<DeepgramTranscriptionResponse, SttError> {
+    pub fn transcribe_prerecorded(&self, mut request: PrerecordedTranscriptionRequest) -> Result<DeepgramTranscriptionResponse, SttError> {
         let url = format!("{}/listen", self.base_url);
+        
+        // Store audio data in Arc to avoid cloning large data in retry loop
+        let audio_data = Arc::new(std::mem::take(&mut request.audio));
         
         let mut attempts = 0;
         loop {
@@ -90,8 +93,8 @@ impl DeepgramClient {
                 }
             }
 
-            // Send the audio data in the request body
-            req = req.body(request.audio.clone());
+            // Clone Vec from Arc (required by reqwest API)
+            req = req.body(audio_data.as_ref().clone());
 
             match req.send() {
                 Ok(response) => {
@@ -230,10 +233,18 @@ impl DeepgramStreamingSession {
     fn send_streaming_chunk(&self, audio_chunk: Vec<u8>, seq_id: u32) -> Result<(), SttError> {
         trace!("Processing audio chunk #{} with simulated Deepgram streaming (using immediate batch processing)", seq_id);
         
-        // Use the working Deepgram prerecorded API for immediate chunk processing
-        // This provides better performance than buffering until finish()
-        let mut request = self.base_config.clone();
-        request.audio = audio_chunk;
+        // Create request for this chunk without cloning large base config
+        let request = PrerecordedTranscriptionRequest {
+            audio: audio_chunk,
+            audio_format: self.base_config.audio_format.clone(),
+            language: self.base_config.language.clone(),
+            model: self.base_config.model.clone(),
+            punctuate: self.base_config.punctuate,
+            diarize: self.base_config.diarize,
+            smart_format: self.base_config.smart_format,
+            utterances: self.base_config.utterances,
+            keywords: self.base_config.keywords.clone(),
+        };
         
         // Process chunk using existing transcribe_prerecorded method
         match self.client.transcribe_prerecorded(request) {

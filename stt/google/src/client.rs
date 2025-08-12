@@ -82,6 +82,9 @@ impl GoogleSpeechClient {
         let url = format!("{}/projects/{}/locations/{}/recognizers/_:recognize", 
                          self.base_url, self.project_id, location);
         
+        // Store complete request to avoid repeated cloning in retry loop
+        let request_arc = Arc::new(request);
+        
         let mut attempts = 0;
         loop {
             attempts += 1;
@@ -91,7 +94,7 @@ impl GoogleSpeechClient {
                 trace!("Google Speech API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
             }
             
-            match self.make_request_with_auth(Method::POST, &url, Some(&request), &access_token) {
+            match self.make_request_with_auth(Method::POST, &url, Some(&*request_arc), &access_token) {
                 Ok(response) => {
                     if response.status().is_success() {
                         match response.json::<RecognizeResponse>() {
