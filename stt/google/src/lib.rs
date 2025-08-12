@@ -11,7 +11,7 @@ mod constants;
 mod recognize;
 pub mod error;
 mod batch;
-// streaming support removed
+pub mod languages;
 #[cfg(feature = "durability")]
 pub mod durability;
 
@@ -34,5 +34,13 @@ impl TranscriptionGuest for GoogleTranscriptionComponent {
             results.push(Self::transcribe(req.audio, req.config, req.options)?);
         }
         Ok(results)
+    }
+}
+
+pub struct GoogleLanguagesComponent;
+
+impl golem_stt::golem::stt::languages::Guest for GoogleLanguagesComponent {
+    fn list_languages() -> Result<Vec<golem_stt::golem::stt::languages::LanguageInfo>, SttError> {
+        crate::languages::GoogleLanguagesComponent::list_languages()
     }
 } 

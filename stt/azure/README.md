@@ -2,6 +2,11 @@
 
 Azure Speech-to-Text for WebAssembly and Golem Cloud.
 
+## Key Notes
+
+- Streaming API has been removed. Use multi-transcribe to run multiple batch jobs concurrently and return all results together.
+- Languages list is a snapshot; see `stt/azure/src/languages.rs`.
+
 ## Environment Variables
 
 - AZURE_SPEECH_KEY
