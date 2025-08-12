@@ -10,9 +10,8 @@ use golem_stt::golem::stt::transcription::{
 };
 use golem_stt::golem::stt::types::{AudioConfig, SttError, TranscriptionResult, TranscriptAlternative};
 use golem_stt::golem::stt::vocabularies::{Guest as VocabulariesGuest, Vocabulary};
-use log::{error, trace};
+use log::{error, trace, warn};
 use std::cell::RefCell;
-use std::collections::HashMap;
 
 mod client;
 mod conversions;
@@ -141,12 +140,18 @@ impl AwsSTTComponent {
     }
 }
 
-thread_local! {
-    static VOCABULARIES: RefCell<HashMap<String, Vec<String>>> = RefCell::new(HashMap::new());
-}
-
 pub struct AwsVocabulary {
     name: String,
+    language_code: String,
+    phrases: Vec<String>,
+    client: AwsTranscribeClient,
+}
+
+impl AwsVocabulary {
+    /// Get the language code for this vocabulary
+    pub fn get_language_code(&self) -> &str {
+        &self.language_code
+    }
 }
 
 impl golem_stt::golem::stt::vocabularies::GuestVocabulary for AwsVocabulary {
@@ -155,18 +160,29 @@ impl golem_stt::golem::stt::vocabularies::GuestVocabulary for AwsVocabulary {
     }
 
     fn get_phrases(&self) -> Vec<String> {
-        VOCABULARIES.with(|v| {
-            v.borrow()
-                .get(&self.name)
-                .cloned()
-                .unwrap_or_default()
-        })
+        // Try to fetch current phrases from AWS Transcribe service
+        // Fall back to stored phrases if AWS call fails
+        match self.client.get_vocabulary(self.name.clone()) {
+            Ok(response) => {
+                trace!("Retrieved AWS vocabulary '{}' with state: {} (language: {})", 
+                       response.vocabulary_name, response.vocabulary_state, response.language_code);
+                
+                // If vocabulary is ready and has a download URI, we could fetch the actual phrases
+                // For now, return stored phrases since parsing the download URI is complex
+                self.phrases.clone()
+            }
+            Err(e) => {
+                trace!("Failed to get AWS vocabulary status: {:?}, returning stored phrases", e);
+                self.phrases.clone()
+            }
+        }
     }
 
     fn delete(&self) -> Result<(), SttError> {
-        VOCABULARIES.with(|v| {
-            v.borrow_mut().remove(&self.name);
-        });
+        // Delete vocabulary from AWS Transcribe
+        trace!("Deleting AWS vocabulary: {}", self.name);
+        self.client.delete_vocabulary(self.name.clone())?;
+        trace!("AWS vocabulary '{}' deleted successfully", self.name);
         Ok(())
     }
 }
@@ -237,11 +253,48 @@ impl VocabulariesGuest for AwsSTTComponent {
         name: String,
         phrases: Vec<String>,
     ) -> Result<Vocabulary, SttError> {
-        VOCABULARIES.with(|v| {
-            v.borrow_mut().insert(name.clone(), phrases);
-        });
+        golem_stt::init_logging();
+        trace!("Creating AWS vocabulary '{}' with {} phrases", name, phrases.len());
         
-        Ok(Vocabulary::new(AwsVocabulary { name }))
+        // Get AWS client
+        let client = Self::get_client()?;
+        
+        // Default to en-US if no language context is available
+        // In a more sophisticated implementation, we could pass language as a parameter
+        let language_code = "en-US".to_string();
+        
+        // Create vocabulary on AWS Transcribe
+        let response = client.create_vocabulary(name.clone(), language_code.clone(), phrases.clone())?;
+        
+        // Check if vocabulary creation was successful
+        match response.vocabulary_state.as_str() {
+            "PENDING" | "READY" => {
+                trace!("AWS vocabulary '{}' created successfully with state: {}", response.vocabulary_name, response.vocabulary_state);
+                
+                // Return the vocabulary object
+                Ok(Vocabulary::new(AwsVocabulary { 
+                    name: response.vocabulary_name, 
+                    language_code: response.language_code,
+                    phrases,
+                    client,
+                }))
+            }
+            "FAILED" => {
+                let error_msg = response.failure_reason.unwrap_or_else(|| "Unknown failure".to_string());
+                Err(SttError::InternalError(format!("AWS vocabulary creation failed: {}", error_msg)))
+            }
+            _ => {
+                warn!("AWS vocabulary '{}' has unexpected state: {}", response.vocabulary_name, response.vocabulary_state);
+                
+                // Still return the vocabulary object as it might become ready later
+                Ok(Vocabulary::new(AwsVocabulary { 
+                    name: response.vocabulary_name, 
+                    language_code: response.language_code,
+                    phrases,
+                    client,
+                }))
+            }
+        }
     }
 }
 

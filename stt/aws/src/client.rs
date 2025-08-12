@@ -695,6 +695,159 @@ impl AwsTranscribeClient {
         Ok(())
     }
 
+    /// Create a custom vocabulary on AWS Transcribe
+    pub fn create_vocabulary(&self, name: String, language_code: String, phrases: Vec<String>) -> Result<CreateVocabularyResponse, SttError> {
+        let mut attempts = 0;
+        
+        let request = CreateVocabularyRequest {
+            vocabulary_name: name,
+            language_code,
+            phrases,
+        };
+        
+        loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("AWS CreateVocabulary API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("AWS CreateVocabulary API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
+            
+            match self.make_request_with_target(Method::POST, "/", Some(&request), "Transcribe.CreateVocabulary") {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        match response.json::<CreateVocabularyResponse>() {
+                            Ok(result) => {
+                                trace!("AWS vocabulary '{}' created successfully with state: {}", result.vocabulary_name, result.vocabulary_state);
+                                return Ok(result);
+                            },
+                            Err(e) => {
+                                error!("Failed to parse AWS CreateVocabulary response: {}", e);
+                                return Err(SttError::InternalError(format!("Failed to parse response: {}", e)));
+                            }
+                        }
+                    } else {
+                        let error = self.handle_error_response(response);
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry AWS request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
+                            return Err(error);
+                        }
+                    }
+                }
+                Err(e) => {
+                    if attempts <= self.max_retries {
+                        trace!("Will retry AWS request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
+                    }
+                }
+            }
+        }
+    }
+
+    /// Get vocabulary status from AWS Transcribe
+    pub fn get_vocabulary(&self, name: String) -> Result<GetVocabularyResponse, SttError> {
+        let mut attempts = 0;
+        
+        let request = GetVocabularyRequest {
+            vocabulary_name: name,
+        };
+        
+        loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("AWS GetVocabulary API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("AWS GetVocabulary API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
+            
+            match self.make_request_with_target(Method::POST, "/", Some(&request), "Transcribe.GetVocabulary") {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        match response.json::<GetVocabularyResponse>() {
+                            Ok(result) => {
+                                trace!("AWS vocabulary '{}' status: {}", result.vocabulary_name, result.vocabulary_state);
+                                return Ok(result);
+                            },
+                            Err(e) => {
+                                error!("Failed to parse AWS GetVocabulary response: {}", e);
+                                return Err(SttError::InternalError(format!("Failed to parse response: {}", e)));
+                            }
+                        }
+                    } else {
+                        let error = self.handle_error_response(response);
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry AWS request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
+                            return Err(error);
+                        }
+                    }
+                }
+                Err(e) => {
+                    if attempts <= self.max_retries {
+                        trace!("Will retry AWS request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
+                    }
+                }
+            }
+        }
+    }
+
+    /// Delete vocabulary from AWS Transcribe
+    pub fn delete_vocabulary(&self, name: String) -> Result<(), SttError> {
+        let mut attempts = 0;
+        
+        let request = DeleteVocabularyRequest {
+            vocabulary_name: name,
+        };
+        
+        loop {
+            attempts += 1;
+            if attempts == 1 {
+                trace!("AWS DeleteVocabulary API request (initial attempt, max retries: {})", self.max_retries);
+            } else {
+                trace!("AWS DeleteVocabulary API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
+            }
+            
+            match self.make_request_with_target(Method::POST, "/", Some(&request), "Transcribe.DeleteVocabulary") {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        trace!("AWS vocabulary '{}' deleted successfully", request.vocabulary_name);
+                        return Ok(());
+                    } else {
+                        let error = self.handle_error_response(response);
+                        if self.should_retry(&error) && attempts <= self.max_retries {
+                            trace!("Will retry AWS request (retry {}/{})", attempts, self.max_retries);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            continue;
+                        } else {
+                            return Err(error);
+                        }
+                    }
+                }
+                Err(e) => {
+                    if attempts <= self.max_retries {
+                        trace!("Will retry AWS request due to network error (retry {}/{})", attempts, self.max_retries);
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    } else {
+                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
+                    }
+                }
+            }
+        }
+    }
+
     fn create_transcribe_auth_header(&self, timestamp: &str, payload_hash: &str, target: &str) -> String {
         let date = &timestamp[0..8];
         let host = format!("transcribe.{}.amazonaws.com", self.region);
@@ -989,4 +1142,53 @@ impl AwsStreamingSession {
         *is_active = false;
         trace!("AWS streaming session closed");
     }
+}
+
+// AWS Vocabulary API Structures
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateVocabularyRequest {
+    #[serde(rename = "VocabularyName")]
+    pub vocabulary_name: String,
+    #[serde(rename = "LanguageCode")]
+    pub language_code: String,
+    #[serde(rename = "Phrases")]
+    pub phrases: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateVocabularyResponse {
+    #[serde(rename = "VocabularyName")]
+    pub vocabulary_name: String,
+    #[serde(rename = "LanguageCode")]
+    pub language_code: String,
+    #[serde(rename = "VocabularyState")]
+    pub vocabulary_state: String,
+    #[serde(rename = "FailureReason")]
+    pub failure_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetVocabularyRequest {
+    #[serde(rename = "VocabularyName")]
+    pub vocabulary_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetVocabularyResponse {
+    #[serde(rename = "VocabularyName")]
+    pub vocabulary_name: String,
+    #[serde(rename = "LanguageCode")]
+    pub language_code: String,
+    #[serde(rename = "VocabularyState")]
+    pub vocabulary_state: String,
+    #[serde(rename = "FailureReason")]
+    pub failure_reason: Option<String>,
+    #[serde(rename = "DownloadUri")]
+    pub download_uri: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteVocabularyRequest {
+    #[serde(rename = "VocabularyName")]
+    pub vocabulary_name: String,
 }
