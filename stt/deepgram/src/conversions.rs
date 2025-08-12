@@ -62,5 +62,6 @@ pub fn to_wit_error(err: golem_stt::errors::InternalSttError) -> wit_types::SttE
         I::ServiceUnavailable(m) => wit_types::SttError::ServiceUnavailable(m),
         I::NetworkError(m) => wit_types::SttError::NetworkError(m),
         I::InternalError(m) => wit_types::SttError::InternalError(m),
+        I::Timeout(m) => wit_types::SttError::TranscriptionFailed(format!("Timeout: {m}")),
     }
 }

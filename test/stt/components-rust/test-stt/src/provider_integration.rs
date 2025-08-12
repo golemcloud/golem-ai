@@ -2,17 +2,17 @@ use crate::bindings::golem::stt::transcription;
 use crate::bindings::golem::stt::types;
 
 /// Test real provider integration when credentials are available
-/// Falls back to mock behavior when credentials are missing
+/// Returns error when credentials are missing (no mock fallback)
 pub fn test_provider_integration() -> String {
     let provider = detect_configured_provider();
-    
+
     match provider.as_str() {
         "aws" => test_aws_integration(),
-        "azure" => test_azure_integration(), 
+        "azure" => test_azure_integration(),
         "google" => test_google_integration(),
         "deepgram" => test_deepgram_integration(),
         "whisper" => test_whisper_integration(),
-        _ => "OK integration: no provider configured (mock mode)".to_string(),
+        _ => "ERROR integration: no provider configured - real credentials required".to_string(),
     }
 }
 

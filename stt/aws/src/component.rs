@@ -114,9 +114,12 @@ impl TranscriptionGuest for Component {
         options: Option<TranscribeOptions>,
     ) -> Result<wit_types::TranscriptionResult, wit_types::SttError> {
         let client = build_client()?;
-        // Simplified caching - use a basic string representation for the salt
-        let salt = format!("{options:?}");
-        let request_key = make_request_key(&audio, &salt);
+        // Production caching - use proper hash for options
+        let options_hash = match &options {
+            Some(opts) => golem_stt::request_checksum(format!("{:?}", opts).as_bytes()),
+            None => "no-options".to_string(),
+        };
+        let request_key = make_request_key(&audio, &options_hash);
         let _snapshot_key = BatchSnapshot::key(&request_key);
 
         // Check for cached result using simple string-based caching
@@ -131,7 +134,7 @@ impl TranscriptionGuest for Component {
                 let metadata = wit_types::TranscriptionMetadata {
                     duration_seconds: 0.0,
                     audio_size_bytes: audio.len() as u32,
-                    request_id: format!("cached-{request_key}"),
+                    request_id: "aws-cached-response".to_string(),
                     model: durable().get(&format!("aws:model:{request_key}")),
                     language: cached_lang,
                 };

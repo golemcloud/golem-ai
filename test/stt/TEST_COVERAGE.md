@@ -189,15 +189,15 @@ golem app invoke --component test:stt --function test-streaming-integration
 - `OK`: Test passed as expected
 - `WARN`: Test passed with warnings (acceptable degradation)
 
-### Failure Indicators  
+### Failure Indicators
 - `ERROR`: Test failed unexpectedly
-- Network/auth errors in mock mode are acceptable
+- Network/auth errors indicate missing credentials (real APIs required)
 
-### Mock Mode Behavior
-When no provider credentials are set:
-- Tests run against mock implementations
-- Network errors are expected and acceptable
-- Focus is on interface compliance and error handling
+### Real API Testing
+All tests require real provider credentials:
+- Tests call actual provider APIs
+- Network/auth errors indicate configuration issues
+- Focus is on real API integration and error handling
 
 ## Compliance with Original Requirements
 

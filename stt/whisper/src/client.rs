@@ -42,34 +42,111 @@ impl WhisperClient {
         Ok(headers)
     }
 
-    pub async fn transcribe(
+    fn build_multipart_body(
         &self,
         audio: Vec<u8>,
-        _config: &AudioConfig,
+        config: &AudioConfig,
         options: &Option<TranscribeOptions<'_>>,
-    ) -> Result<(u16, String), InternalSttError> {
-        // OpenAI expects multipart/form-data normally. For WASI simplicity, we send JSON with base64 content.
-        // A proxy or compatible endpoint can translate this. This is a degraded but valid approach.
-        let url = self.endpoint();
-        let headers = self.auth_headers()?;
+    ) -> Result<(Vec<u8>, String), InternalSttError> {
+        // Build multipart/form-data manually for OpenAI Whisper API
+        let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+        let mut body = Vec::new();
 
-        let b64 = base64::engine::general_purpose::STANDARD.encode(audio);
-        let mut req_json = serde_json::json!({
-            "model": options.as_ref().and_then(|o| o.model.clone()).unwrap_or_else(|| "whisper-1".to_string()),
-            "file_b64": b64,
-        });
+        // Add model field
+        let model = options
+            .as_ref()
+            .and_then(|o| o.model.clone())
+            .unwrap_or_else(|| "whisper-1".to_string());
+
+        body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+        body.extend_from_slice(b"Content-Disposition: form-data; name=\"model\"\r\n\r\n");
+        body.extend_from_slice(model.as_bytes());
+        body.extend_from_slice(b"\r\n");
+
+        // Add language field if provided
         if let Some(opts) = options {
             if let Some(lang) = &opts.language {
-                req_json["language"] = serde_json::json!(lang);
+                body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+                body.extend_from_slice(b"Content-Disposition: form-data; name=\"language\"\r\n\r\n");
+                body.extend_from_slice(lang.as_bytes());
+                body.extend_from_slice(b"\r\n");
             }
         }
 
-        let body = serde_json::to_vec(&req_json)
-            .map_err(|e| InternalSttError::internal(format!("serialize whisper request: {e}")))?;
+        // Add file field
+        let filename = match config.format {
+            AudioFormat::Wav => "audio.wav",
+            AudioFormat::Mp3 => "audio.mp3",
+            AudioFormat::Flac => "audio.flac",
+            AudioFormat::Ogg => "audio.ogg",
+            AudioFormat::Aac => "audio.aac",
+            AudioFormat::Pcm => "audio.wav",
+        };
+
+        let content_type = match config.format {
+            AudioFormat::Wav => "audio/wav",
+            AudioFormat::Mp3 => "audio/mpeg",
+            AudioFormat::Flac => "audio/flac",
+            AudioFormat::Ogg => "audio/ogg",
+            AudioFormat::Aac => "audio/aac",
+            AudioFormat::Pcm => "audio/wav",
+        };
+
+        body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+        body.extend_from_slice(
+            format!(
+                "Content-Disposition: form-data; name=\"file\"; filename=\"{}\"\r\n",
+                filename
+            )
+            .as_bytes(),
+        );
+        body.extend_from_slice(format!("Content-Type: {}\r\n\r\n", content_type).as_bytes());
+        body.extend_from_slice(&audio);
+        body.extend_from_slice(b"\r\n");
+
+        // Add response_format field
+        body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+        body.extend_from_slice(b"Content-Disposition: form-data; name=\"response_format\"\r\n\r\n");
+        body.extend_from_slice(b"verbose_json\r\n");
+
+        // Add timestamp_granularities if timestamps are enabled
+        if let Some(opts) = options {
+            if opts.enable_timestamps.unwrap_or(false) {
+                body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+                body.extend_from_slice(b"Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\n");
+                body.extend_from_slice(b"word\r\n");
+            }
+        }
+
+        // Close boundary
+        body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
+
+        let content_type = format!("multipart/form-data; boundary={}", boundary);
+        Ok((body, content_type))
+    }
+
+    pub async fn transcribe(
+        &self,
+        audio: Vec<u8>,
+        config: &AudioConfig,
+        options: &Option<TranscribeOptions<'_>>,
+    ) -> Result<(u16, String), InternalSttError> {
+        // Use real OpenAI Whisper API with multipart/form-data
+        let url = self.endpoint();
+        let mut headers = self.auth_headers()?;
+
+        let (body, content_type) = self.build_multipart_body(audio, config, options)?;
+
+        // Set the multipart content type
+        headers.insert(
+            "Content-Type",
+            reqwest::header::HeaderValue::from_str(&content_type)
+                .map_err(|e| InternalSttError::internal(format!("invalid content-type: {e}")))?,
+        );
 
         let (status, text, _hdrs) = self
             .http
-            .post_bytes(&url, headers, body, "application/json")
+            .post_bytes(&url, headers, body, &content_type)
             .await?;
 
         Ok((status.as_u16(), text))

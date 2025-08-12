@@ -144,7 +144,7 @@ impl AzureClient {
 
         let (status, text, hdrs) = self
             .http
-            .post_bytes(&url_with_q, headers, audio.clone(), ct)
+            .post_bytes(&url_with_q, headers, audio, ct)
             .await?;
 
         if !status.is_success() {

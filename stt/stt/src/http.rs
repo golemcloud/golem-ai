@@ -25,9 +25,9 @@ impl HttpClient {
         self.retrying(|attempt| {
             let url = url.to_string();
             let headers = headers.clone();
+            let client = self.client.clone();
             async move {
                 trace!("GET {url} attempt {attempt}");
-                let client = reqwest::Client::new();
                 let resp = client
                     .get(&url)
                     .headers(headers.clone())
@@ -67,8 +67,8 @@ impl HttpClient {
             let headers = headers.clone();
             let body = body.clone();
             let content_type = content_type.to_string();
+            let client = self.client.clone();
             async move {
-                let client = reqwest::Client::new();
                 let mut req = client
                     .post(&url)
                     .headers(headers.clone())
@@ -109,6 +109,39 @@ impl HttpClient {
                 }
             }
         }
+    }
+
+    pub async fn put_bytes(
+        &self,
+        url: &str,
+        headers: HeaderMap,
+        body: Vec<u8>,
+        content_type: &str,
+    ) -> Result<(StatusCode, String, HeaderMap), InternalSttError> {
+        self.retrying(|attempt| {
+            let url = url.to_string();
+            let headers = headers.clone();
+            let body = body.clone();
+            let content_type = content_type.to_string();
+            let client = self.client.clone();
+            async move {
+                trace!("PUT {url} attempt {attempt}");
+                let resp = client
+                    .put(&url)
+                    .headers(headers.clone())
+                    .header("Content-Type", content_type)
+                    .body(body)
+                    .send()
+                    .map_err(|e| InternalSttError::network(format!("network send error: {e}")))?;
+                let status = resp.status();
+                let headers = resp.headers().clone();
+                let text = resp
+                    .text()
+                    .map_err(|e| InternalSttError::network(format!("read body error: {e}")))?;
+                Ok((status, text, headers))
+            }
+        })
+        .await
     }
 }
 

@@ -13,19 +13,18 @@ The `golem:stt` interface provides a unified abstraction over transcription func
 - **Confidence scores**
 - **Graceful degradation** when providers don't support specific features
 
-## Supported Providers
+##  API Implementation
 
-### 🎯 Production Ready Components
+All STT components use **real provider APIs** and do not support mock/configurable endpoints:
 
-| Provider | Component | Streaming | Diarization | Word Confidence | Custom Vocab |
-|----------|-----------|-----------|-------------|-----------------|--------------|
-| **Deepgram** | `stt-deepgram.wasm` | ✅ | ✅ | ✅ | ✅ |
-| **Azure Speech** | `stt-azure.wasm` | ✅ | ✅ | ✅ | ✅ |
-| **AWS Transcribe** | `stt-aws.wasm` | ✅ | ✅ | ✅ | ✅ |
-| **Google Cloud STT** | `stt-google.wasm` | ✅ | ✅ | ✅ | ✅ |
-| **OpenAI Whisper** | `stt-whisper.wasm` | ❌* | ❌* | ❌* | ⚠️* |
+- **Google**: `https://speech.googleapis.com/v1p1beta1/speech:recognize`
+- **Azure**: `https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`
+- **AWS**: `https://transcribe.{region}.amazonaws.com` (with S3 integration)
+- **Deepgram**: `https://api.deepgram.com`
+- **OpenAI Whisper**: `https://api.openai.com/v1/audio/transcriptions`
 
-*\* Graceful degradation - returns appropriate errors or None values*
+The `STT_PROVIDER_ENDPOINT` environment variable has been removed to ensure production readiness and prevent accidental use of mock endpoints.
+
 
 ## Architecture
 

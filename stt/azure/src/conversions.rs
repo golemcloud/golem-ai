@@ -212,6 +212,7 @@ pub fn to_wit_error(err: InternalSttError) -> wit_types::SttError {
         InternalSttError::ServiceUnavailable(m) => wit_types::SttError::ServiceUnavailable(m),
         InternalSttError::NetworkError(m) => wit_types::SttError::NetworkError(m),
         InternalSttError::InternalError(m) => wit_types::SttError::InternalError(m),
+        InternalSttError::Timeout(m) => wit_types::SttError::TranscriptionFailed(format!("Timeout: {m}")),
     }
 }
 

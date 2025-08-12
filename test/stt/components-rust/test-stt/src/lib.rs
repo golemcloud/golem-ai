@@ -265,26 +265,75 @@ impl Guest for Component {
 }
 
 fn mock_wav_audio() -> Vec<u8> {
-    // Minimal WAV header bytes
-    vec![
-        0x52, 0x49, 0x46, 0x46, // "RIFF"
-        0x24, 0x00, 0x00, 0x00, // File size
-        0x57, 0x41, 0x56, 0x45, // "WAVE"
-        0x66, 0x6D, 0x74, 0x20, // "fmt "
-        0x10, 0x00, 0x00, 0x00, // Subchunk1Size
-        0x01, 0x00,             // AudioFormat (PCM)
-        0x01, 0x00,             // NumChannels (mono)
-        0x44, 0xAC, 0x00, 0x00, // SampleRate (44100)
-        0x88, 0x58, 0x01, 0x00, // ByteRate
-        0x02, 0x00,             // BlockAlign
-        0x10, 0x00,             // BitsPerSample
-        0x64, 0x61, 0x74, 0x61, // "data"
-        0x00, 0x00, 0x00, 0x00, // Subchunk2Size
-    ]
+    // Generate realistic WAV audio with actual audio samples
+    // This creates a 1-second sine wave at 440Hz (A note) for testing
+    let sample_rate = 44100;
+    let duration_secs = 1.0;
+    let frequency = 440.0; // A note
+    let amplitude = 0.3; // Moderate volume
+
+    let num_samples = (sample_rate as f32 * duration_secs) as usize;
+    let mut audio_data = Vec::with_capacity(num_samples * 2); // 16-bit samples
+
+    // Generate sine wave samples
+    for i in 0..num_samples {
+        let t = i as f32 / sample_rate as f32;
+        let sample = (amplitude * (2.0 * std::f32::consts::PI * frequency * t).sin() * 32767.0) as i16;
+
+        // Convert to little-endian bytes
+        audio_data.push((sample & 0xFF) as u8);
+        audio_data.push(((sample >> 8) & 0xFF) as u8);
+    }
+
+    let data_size = audio_data.len() as u32;
+    let file_size = 36 + data_size;
+
+    let mut wav = Vec::new();
+
+    // WAV header
+    wav.extend_from_slice(b"RIFF");
+    wav.extend_from_slice(&file_size.to_le_bytes());
+    wav.extend_from_slice(b"WAVE");
+
+    // Format chunk
+    wav.extend_from_slice(b"fmt ");
+    wav.extend_from_slice(&16u32.to_le_bytes()); // Subchunk1Size
+    wav.extend_from_slice(&1u16.to_le_bytes());  // AudioFormat (PCM)
+    wav.extend_from_slice(&1u16.to_le_bytes());  // NumChannels (mono)
+    wav.extend_from_slice(&(sample_rate as u32).to_le_bytes()); // SampleRate
+    wav.extend_from_slice(&(sample_rate as u32 * 2).to_le_bytes()); // ByteRate
+    wav.extend_from_slice(&2u16.to_le_bytes());  // BlockAlign
+    wav.extend_from_slice(&16u16.to_le_bytes()); // BitsPerSample
+
+    // Data chunk
+    wav.extend_from_slice(b"data");
+    wav.extend_from_slice(&data_size.to_le_bytes());
+    wav.extend_from_slice(&audio_data);
+
+    wav
 }
 
 fn mock_pcm_chunk() -> Vec<u8> {
-    vec![0u8; 256]
+    // Generate realistic PCM audio chunk (16-bit mono at 16kHz)
+    // This creates a short sine wave chunk for streaming tests
+    let sample_rate = 16000;
+    let duration_ms = 100; // 100ms chunk
+    let frequency = 440.0; // A note
+    let amplitude = 0.3;
+
+    let num_samples = (sample_rate * duration_ms / 1000) as usize;
+    let mut pcm_data = Vec::with_capacity(num_samples * 2);
+
+    for i in 0..num_samples {
+        let t = i as f32 / sample_rate as f32;
+        let sample = (amplitude * (2.0 * std::f32::consts::PI * frequency * t).sin() * 32767.0) as i16;
+
+        // Convert to little-endian bytes
+        pcm_data.push((sample & 0xFF) as u8);
+        pcm_data.push(((sample >> 8) & 0xFF) as u8);
+    }
+
+    pcm_data
 }
 
 bindings::export!(Component with_types_in bindings);

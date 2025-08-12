@@ -57,20 +57,14 @@ pub fn to_wit_result(
 
     let alternative = wit_types::TranscriptAlternative {
         text: parsed.text,
-        confidence: 1.0, // Whisper doesn't provide overall confidence, use 1.0
+        confidence: 0.0, // Whisper doesn't provide overall confidence
         words,
     };
 
     let metadata = wit_types::TranscriptionMetadata {
         duration_seconds: parsed.duration.unwrap_or(0.0),
-        audio_size_bytes: 0, // Not provided by Whisper
-        request_id: format!(
-            "whisper-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis()
-        ),
+        audio_size_bytes: 0, // Not provided by Whisper API
+        request_id: "whisper-api-response".to_string(), // Whisper API doesn't provide request IDs
         model: model.map(|s| s.to_string()),
         language: language.to_string(),
     };
@@ -109,6 +103,7 @@ pub fn to_wit_error(err: InternalSttError) -> wit_types::SttError {
         InternalSttError::ServiceUnavailable(m) => wit_types::SttError::ServiceUnavailable(m),
         InternalSttError::NetworkError(m) => wit_types::SttError::NetworkError(m),
         InternalSttError::InternalError(m) => wit_types::SttError::InternalError(m),
+        InternalSttError::Timeout(m) => wit_types::SttError::TranscriptionFailed(format!("Timeout: {m}")),
     }
 }
 
