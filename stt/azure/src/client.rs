@@ -51,7 +51,7 @@ impl AzureSpeechClient {
     pub fn transcribe_fast_api(
         &self, 
         audio: Vec<u8>, 
-        _config: &golem_stt::golem::stt::types::AudioConfig, 
+        config: &golem_stt::golem::stt::types::AudioConfig, 
         options: &Option<golem_stt::golem::stt::transcription::TranscribeOptions>
     ) -> Result<AzureTranscriptionResponse, SttError> {
         // Use Azure Fast Transcription API which supports direct file upload
@@ -83,10 +83,20 @@ impl AzureSpeechClient {
         body.extend_from_slice(definition.to_string().as_bytes());
         body.extend_from_slice(b"\r\n");
         
-        // Add audio file part
+        // Add audio file part with dynamic content type
+        let audio_format = match config.format {
+            golem_stt::golem::stt::types::AudioFormat::Wav => "wav",
+            golem_stt::golem::stt::types::AudioFormat::Mp3 => "mp3", 
+            golem_stt::golem::stt::types::AudioFormat::Flac => "flac",
+            golem_stt::golem::stt::types::AudioFormat::Ogg => "ogg",
+            golem_stt::golem::stt::types::AudioFormat::Aac => "aac",
+            golem_stt::golem::stt::types::AudioFormat::Pcm => "wav", // PCM in WAV container
+        };
+        let content_type = format!("audio/{}", audio_format);
+        
         body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-        body.extend_from_slice(b"Content-Disposition: form-data; name=\"audio\"; filename=\"audio.wav\"\r\n");
-        body.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
+        body.extend_from_slice(format!("Content-Disposition: form-data; name=\"audio\"; filename=\"audio.{}\"\r\n", audio_format).as_bytes());
+        body.extend_from_slice(format!("Content-Type: {}\r\n\r\n", content_type).as_bytes());
         body.extend_from_slice(&audio);
         body.extend_from_slice(b"\r\n");
         body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());

@@ -274,9 +274,12 @@ impl TranscriptionGuest for AzureSTTComponent {
             .clone();
         
         let audio_format = match config.format {
-            golem_stt::golem::stt::types::AudioFormat::Wav => "audio/wav",
-            golem_stt::golem::stt::types::AudioFormat::Mp3 => "audio/mp3",
-            _ => "audio/wav", // Default to WAV
+            golem_stt::golem::stt::types::AudioFormat::Wav => "wav",
+            golem_stt::golem::stt::types::AudioFormat::Mp3 => "mp3",
+            golem_stt::golem::stt::types::AudioFormat::Flac => "flac",
+            golem_stt::golem::stt::types::AudioFormat::Ogg => "ogg",
+            golem_stt::golem::stt::types::AudioFormat::Aac => "aac",
+            golem_stt::golem::stt::types::AudioFormat::Pcm => "wav", // PCM in WAV container
         };
         
         let session = client.start_streaming_session(&language, audio_format)?;

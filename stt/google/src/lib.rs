@@ -18,21 +18,17 @@ mod conversions;
 struct GoogleSTTComponent;
 
 impl GoogleSTTComponent {
-    const CREDENTIALS_ENV_VAR: &'static str = "GOOGLE_APPLICATION_CREDENTIALS";
-    const CREDENTIALS_JSON_ENV_VAR: &'static str = "GOOGLE_APPLICATION_CREDENTIALS_JSON";
     const PROJECT_ENV_VAR: &'static str = "GOOGLE_CLOUD_PROJECT";
 
     fn get_client() -> Result<GoogleSpeechClient, SttError> {
         let project_id = std::env::var(Self::PROJECT_ENV_VAR)
             .map_err(|_| SttError::Unauthorized("GOOGLE_CLOUD_PROJECT not set".to_string()))?;
         
-        // Try JSON credentials first, then fallback to file path
-        if let Ok(credentials_json) = std::env::var(Self::CREDENTIALS_JSON_ENV_VAR) {
-            Ok(GoogleSpeechClient::new_from_json(credentials_json, project_id))
-        } else if let Ok(credentials_path) = std::env::var(Self::CREDENTIALS_ENV_VAR) {
-            Ok(GoogleSpeechClient::new_from_file(credentials_path, project_id))
+        // Check if GOOGLE_ACCESS_TOKEN is available
+        if std::env::var("GOOGLE_ACCESS_TOKEN").is_ok() {
+            Ok(GoogleSpeechClient::new(project_id))
         } else {
-            Err(SttError::Unauthorized("Either GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_APPLICATION_CREDENTIALS_JSON must be set".to_string()))
+            Err(SttError::Unauthorized("GOOGLE_ACCESS_TOKEN must be set".to_string()))
         }
     }
 }

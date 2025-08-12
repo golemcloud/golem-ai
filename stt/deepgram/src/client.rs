@@ -58,10 +58,11 @@ impl DeepgramClient {
                 trace!("Deepgram API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
             }
             
+            let content_type = format!("audio/{}", request.audio_format);
             let mut req = self.client
                 .post(&url)
                 .header("Authorization", format!("Token {}", self.api_key))
-                .header("Content-Type", "audio/wav")
+                .header("Content-Type", &content_type)
                 .timeout(self.timeout);
 
             // Add query parameters
@@ -309,6 +310,7 @@ impl DeepgramStreamingSession {
 #[derive(Debug, Clone)]
 pub struct PrerecordedTranscriptionRequest {
     pub audio: Vec<u8>,
+    pub audio_format: String, // Store the audio format for proper Content-Type
     pub language: Option<String>,
     pub model: Option<String>,
     pub punctuate: bool,

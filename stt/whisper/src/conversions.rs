@@ -23,7 +23,7 @@ pub fn create_whisper_request(
     config: &AudioConfig,
     options: &Option<TranscribeOptions>,
 ) -> Result<WhisperTranscriptionRequest, SttError> {
-    let _format = audio_format_to_whisper_format(&config.format)?;
+    let format = audio_format_to_whisper_format(&config.format)?;
     
     // Choose Whisper model based on requirements
     let model = options
@@ -74,6 +74,7 @@ pub fn create_whisper_request(
     Ok(WhisperTranscriptionRequest {
         audio: audio.to_vec(),
         model,
+        audio_format: Some(format.to_string()), // Include the audio format
         language,
         prompt,
         response_format,

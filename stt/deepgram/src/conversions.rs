@@ -15,7 +15,7 @@ pub fn audio_format_to_deepgram_format(format: &AudioFormat) -> Result<&'static 
         AudioFormat::Flac => Ok("flac"),
         AudioFormat::Ogg => Ok("ogg"),
         AudioFormat::Aac => Ok("aac"),
-        AudioFormat::Pcm => Ok("pcm"),
+        AudioFormat::Pcm => Ok("wav"), // PCM data in WAV container for Deepgram
     }
 }
 
@@ -24,7 +24,7 @@ pub fn create_prerecorded_request(
     config: &AudioConfig,
     options: &Option<TranscribeOptions>,
 ) -> Result<PrerecordedTranscriptionRequest, SttError> {
-    let _format = audio_format_to_deepgram_format(&config.format)?;
+    let audio_format = audio_format_to_deepgram_format(&config.format)?;
     
     let language = options
         .as_ref()
@@ -60,6 +60,7 @@ pub fn create_prerecorded_request(
 
     Ok(PrerecordedTranscriptionRequest {
         audio: audio.to_vec(),
+        audio_format: audio_format.to_string(),
         language,
         model,
         punctuate,

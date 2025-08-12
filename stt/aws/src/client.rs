@@ -231,7 +231,7 @@ impl AwsTranscribeClient {
         let job_name = request.transcription_job_name.clone();
         
         // Upload audio to S3 first (required by AWS Transcribe) 
-        let s3_uri = self.upload_audio_to_s3(audio_data, &job_name)?;
+        let s3_uri = self.upload_audio_to_s3(audio_data, &job_name, &request.media_format)?;
         
         // Update request with actual S3 URI
         let mut final_request = request;
@@ -517,17 +517,17 @@ impl AwsTranscribeClient {
 
 
 
-    pub fn upload_audio_to_s3(&self, audio_data: &[u8], job_name: &str) -> Result<String, SttError> {
+    pub fn upload_audio_to_s3(&self, audio_data: &[u8], job_name: &str, audio_format: &str) -> Result<String, SttError> {
         // Use a default S3 bucket for transcription
         // In production, this should be configurable via environment variable
         let bucket_name = std::env::var("AWS_S3_BUCKET")
             .unwrap_or_else(|_| "golem-stt-transcription".to_string());
         
-        let object_key = format!("audio/{}.wav", job_name);
+        let object_key = format!("audio/{}.{}", job_name, audio_format);
         let s3_uri = format!("s3://{}/{}", bucket_name, object_key);
         
         // Upload to S3 using REST API
-        let upload_result = self.s3_put_object(&bucket_name, &object_key, audio_data)?;
+        let upload_result = self.s3_put_object(&bucket_name, &object_key, audio_data, audio_format)?;
         
         if upload_result {
             Ok(s3_uri)
@@ -536,19 +536,20 @@ impl AwsTranscribeClient {
         }
     }
 
-    fn s3_put_object(&self, bucket: &str, key: &str, data: &[u8]) -> Result<bool, SttError> {
+    fn s3_put_object(&self, bucket: &str, key: &str, data: &[u8], audio_format: &str) -> Result<bool, SttError> {
         let url = format!("https://{}.s3.{}.amazonaws.com/{}", bucket, self.region, key);
         let timestamp = chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
         let content_hash = self.sha256_hex(data);
         
         // Create S3 authorization header
-        let authorization = self.create_s3_auth_header(&timestamp, &content_hash, bucket, key, data.len())?;
+        let authorization = self.create_s3_auth_header(&timestamp, &content_hash, bucket, key, data.len(), audio_format)?;
         
+        let content_type = format!("audio/{}", audio_format);
         let mut attempts = 0;
         loop {
             match self.client
                 .put(&url)
-                .header("Content-Type", "audio/wav")
+                .header("Content-Type", &content_type)
                 .header("Content-Length", data.len().to_string())
                 .header("Authorization", &authorization)
                 .header("x-amz-date", &timestamp)
@@ -580,14 +581,15 @@ impl AwsTranscribeClient {
         }
     }
 
-    fn create_s3_auth_header(&self, timestamp: &str, payload_hash: &str, bucket: &str, key: &str, content_length: usize) -> Result<String, SttError> {
+    fn create_s3_auth_header(&self, timestamp: &str, payload_hash: &str, bucket: &str, key: &str, content_length: usize, audio_format: &str) -> Result<String, SttError> {
         let date = &timestamp[0..8];
         let host = format!("{}.s3.{}.amazonaws.com", bucket, self.region);
         
-        // Step 1: Create canonical request for S3
+        // Step 1: Create canonical request for S3 with dynamic content type
+        let content_type = format!("audio/{}", audio_format);
         let canonical_request = format!(
-            "PUT\n/{}\n\ncontent-length:{}\ncontent-type:audio/wav\nhost:{}\nx-amz-content-sha256:{}\nx-amz-date:{}\n\ncontent-length;content-type;host;x-amz-content-sha256;x-amz-date\n{}",
-            key, content_length, host, payload_hash, timestamp, payload_hash
+            "PUT\n/{}\n\ncontent-length:{}\ncontent-type:{}\nhost:{}\nx-amz-content-sha256:{}\nx-amz-date:{}\n\ncontent-length;content-type;host;x-amz-content-sha256;x-amz-date\n{}",
+            key, content_length, content_type, host, payload_hash, timestamp, payload_hash
         );
         
         let canonical_request_hash = self.sha256_hex(canonical_request.as_bytes());
@@ -1103,12 +1105,12 @@ impl AwsStreamingSession {
             }
         }
         
-        // Upload chunk to S3
-        let s3_uri = self.client.upload_audio_to_s3(audio_chunk, job_name)?;
-        
         // Use WAV format for streaming chunks
         let audio_format = golem_stt::golem::stt::types::AudioFormat::Wav;
         let media_format = crate::conversions::audio_format_to_media_format(&audio_format)?;
+        
+        // Upload chunk to S3
+        let s3_uri = self.client.upload_audio_to_s3(audio_chunk, job_name, &media_format)?;
         
         let request = StartTranscriptionJobRequest {
             transcription_job_name: job_name.to_string(),

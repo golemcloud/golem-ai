@@ -5,43 +5,11 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use base64::{Engine as _, engine::general_purpose};
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 
-#[derive(Debug, Serialize, Deserialize)]
-struct ServiceAccountCredentials {
-    #[serde(rename = "type")]
-    account_type: String,
-    project_id: String,
-    private_key_id: String,
-    private_key: String,
-    client_email: String,
-    client_id: String,
-    auth_uri: String,
-    token_uri: String,
-}
-
-#[derive(Debug, Serialize)]
-struct JwtClaims {
-    iss: String,  // issuer (client_email)
-    sub: String,  // subject (client_email)
-    scope: String, // OAuth scopes
-    aud: String,  // audience (token_uri)
-    exp: i64,     // expiration time
-    iat: i64,     // issued at time
-}
-
-#[derive(Debug)]
-struct CachedToken {
-    token: String,
-    expires_at: SystemTime,
-}
 
 #[derive(Debug)]
 pub struct GoogleSpeechClient {
-    credentials_path: String,
-    credentials_json: Option<String>,
     project_id: String,
-    access_token: Arc<Mutex<Option<CachedToken>>>,
     client: Client,
     base_url: String,
     timeout: Duration,
@@ -49,15 +17,11 @@ pub struct GoogleSpeechClient {
 }
 
 impl GoogleSpeechClient {
-    pub fn new_from_file(credentials_path: String, project_id: String) -> Self {
-        Self::new_internal(Some(credentials_path), None, project_id)
+    pub fn new(project_id: String) -> Self {
+        Self::new_internal(project_id)
     }
 
-    pub fn new_from_json(credentials_json: String, project_id: String) -> Self {
-        Self::new_internal(None, Some(credentials_json), project_id)
-    }
-
-    fn new_internal(credentials_path: Option<String>, credentials_json: Option<String>, project_id: String) -> Self {
+    fn new_internal(project_id: String) -> Self {
         let timeout_str = std::env::var("STT_PROVIDER_TIMEOUT").unwrap_or_else(|_| "30".to_string());
         let timeout = Duration::from_secs(timeout_str.parse().unwrap_or(30));
         
@@ -80,10 +44,7 @@ impl GoogleSpeechClient {
         }
 
         Self {
-            credentials_path: credentials_path.unwrap_or_default(),
-            credentials_json,
             project_id,
-            access_token: Arc::new(Mutex::new(None)),
             client: Client::new(),
             base_url,
             timeout,
@@ -92,123 +53,11 @@ impl GoogleSpeechClient {
     }
 
     fn get_access_token(&self) -> Result<String, SttError> {
-        let mut token = self.access_token.lock().map_err(|_| 
-            SttError::InternalError("Failed to acquire token lock".to_string()))?;
-        
-        // Check if we have a cached token and it's not expired
-        if let Some(ref cached) = *token {
-            if SystemTime::now() < cached.expires_at {
-                trace!("Using cached OAuth token");
-                return Ok(cached.token.clone());
-            } else {
-                trace!("Cached OAuth token expired, generating new one");
-            }
-        }
-        
-        // Generate new token
-        let new_token = self.generate_oauth_token()?;
-        let expires_at = SystemTime::now() + Duration::from_secs(3600); // 1 hour
-        
-        *token = Some(CachedToken {
-            token: new_token.clone(),
-            expires_at,
-        });
-        
-        Ok(new_token)
+        // Only support direct access token
+        std::env::var("GOOGLE_ACCESS_TOKEN")
+            .map_err(|_| SttError::Unauthorized("GOOGLE_ACCESS_TOKEN environment variable not found".to_string()))
     }
     
-    fn generate_oauth_token(&self) -> Result<String, SttError> {
-        let key_content = if let Some(ref json) = self.credentials_json {
-            // Use JSON from environment variable
-            trace!("Using service account JSON from environment variable");
-            json.clone()
-        } else if !self.credentials_path.is_empty() {
-            // Read from file path
-            trace!("Reading service account from file: {}", self.credentials_path);
-            std::fs::read_to_string(&self.credentials_path)
-                .map_err(|e| SttError::Unauthorized(format!("Failed to read credentials file: {}", e)))?
-        } else {
-            return Err(SttError::Unauthorized("No credentials available".to_string()));
-        };
-        
-        let credentials: ServiceAccountCredentials = serde_json::from_str(&key_content)
-            .map_err(|e| SttError::Unauthorized(format!("Invalid credentials format: {}", e)))?;
-        
-        trace!("Service account credentials parsed successfully");
-        
-        // Generate JWT for Google OAuth 2.0
-        let jwt_token = self.create_jwt(&credentials)?;
-        trace!("JWT token created, exchanging for OAuth access token");
-        
-        // Exchange JWT for access token
-        let access_token = self.exchange_jwt_for_token(&jwt_token, &credentials.token_uri)?;
-        
-        Ok(access_token)
-    }
-    
-    fn create_jwt(&self, credentials: &ServiceAccountCredentials) -> Result<String, SttError> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| SttError::InternalError("Invalid system time".to_string()))?
-            .as_secs() as i64;
-        
-        let claims = JwtClaims {
-            iss: credentials.client_email.clone(),
-            sub: credentials.client_email.clone(),
-            scope: "https://www.googleapis.com/auth/cloud-platform".to_string(),
-            aud: credentials.token_uri.clone(),
-            exp: now + 3600, // 1 hour
-            iat: now,
-        };
-        
-        // Parse the private key
-        let private_key = credentials.private_key
-            .replace("\\n", "\n");
-            
-        let encoding_key = EncodingKey::from_rsa_pem(private_key.as_bytes())
-            .map_err(|e| SttError::Unauthorized(format!("Invalid private key: {}", e)))?;
-        
-        let header = Header::new(Algorithm::RS256);
-        
-        let token = encode(&header, &claims, &encoding_key)
-            .map_err(|e| SttError::Unauthorized(format!("Failed to create JWT: {}", e)))?;
-        
-        trace!("JWT token created successfully");
-        Ok(token)
-    }
-    
-    fn exchange_jwt_for_token(&self, jwt: &str, token_uri: &str) -> Result<String, SttError> {
-        let params = [
-            ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
-            ("assertion", jwt),
-        ];
-        
-        trace!("Exchanging JWT for OAuth access token at {}", token_uri);
-        
-        let response = self.client
-            .post(token_uri)
-            .form(&params)
-            .timeout(self.timeout)
-            .send()
-            .map_err(|e| SttError::NetworkError(format!("Token exchange failed: {}", e)))?;
-        
-        if !response.status().is_success() {
-            let error_text = response.text()
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(SttError::Unauthorized(format!("Token exchange failed: {}", error_text)));
-        }
-        
-        let token_response: serde_json::Value = response.json()
-            .map_err(|e| SttError::InternalError(format!("Failed to parse token response: {}", e)))?;
-        
-        let access_token = token_response["access_token"]
-            .as_str()
-            .ok_or_else(|| SttError::Unauthorized("No access token in response".to_string()))?
-            .to_string();
-        
-        trace!("OAuth access token obtained successfully");
-        Ok(access_token)
-    }
 
     pub fn transcribe(&self, request: RecognizeRequest) -> Result<RecognizeResponse, SttError> {
         // Estimate audio duration from base64 content size
@@ -331,10 +180,7 @@ impl GoogleSpeechClient {
 impl Clone for GoogleSpeechClient {
     fn clone(&self) -> Self {
         Self {
-            credentials_path: self.credentials_path.clone(),
-            credentials_json: self.credentials_json.clone(),
             project_id: self.project_id.clone(),
-            access_token: self.access_token.clone(),
             client: Client::new(),
             base_url: self.base_url.clone(),
             timeout: self.timeout,
@@ -352,7 +198,18 @@ impl GoogleSpeechClient {
         let audio_bytes = base64::prelude::BASE64_STANDARD.decode(&request.content)
             .map_err(|e| SttError::InternalError(format!("Failed to decode base64 audio: {}", e)))?;
         
-        let gcs_uri = self.upload_to_cloud_storage(&audio_bytes, &access_token)?;
+        // Determine audio format from content (simplified detection)
+        let audio_format = if audio_bytes.len() > 8 && &audio_bytes[0..4] == b"fLaC" {
+            "flac"
+        } else if audio_bytes.len() > 12 && &audio_bytes[8..12] == b"WAVE" {
+            "wav"
+        } else if audio_bytes.len() > 3 && &audio_bytes[0..3] == b"ID3" {
+            "mp3"
+        } else {
+            "wav" // Default fallback
+        };
+        
+        let gcs_uri = self.upload_to_cloud_storage(&audio_bytes, &access_token, audio_format)?;
         trace!("Audio uploaded to Cloud Storage: {}", gcs_uri);
         
         // Step 2: Create batch recognition request with GCS URI
@@ -389,7 +246,7 @@ impl GoogleSpeechClient {
         let response_text = operation_response.text()
             .map_err(|e| SttError::InternalError(format!("Failed to read response body: {}", e)))?;
         
-        trace!("Batch operation response body: {}", response_text);
+        // Removed verbose JSON logging for cleaner user experience
         
         let operation: Operation = serde_json::from_str(&response_text)
             .map_err(|e| SttError::InternalError(format!("Failed to parse operation response: {}. Response was: {}", e, response_text)))?;
@@ -426,7 +283,7 @@ impl GoogleSpeechClient {
             }
         });
         
-        trace!("Creating Cloud Storage bucket: {}", bucket_name);
+        // Creating bucket if needed
         
         let response = self.client
             .post(create_bucket_url)
@@ -438,7 +295,7 @@ impl GoogleSpeechClient {
             .map_err(|e| SttError::NetworkError(format!("Bucket creation request failed: {}", e)))?;
             
         if response.status().is_success() {
-            trace!("Bucket {} created successfully", bucket_name);
+            // Bucket created successfully
             Ok(())
         } else if response.status() == 409 {
             // Bucket already exists, which is fine
@@ -455,13 +312,13 @@ impl GoogleSpeechClient {
         }
     }
 
-    fn upload_to_cloud_storage(&self, audio_data: &[u8], access_token: &str) -> Result<String, SttError> {
+    fn upload_to_cloud_storage(&self, audio_data: &[u8], access_token: &str, audio_format: &str) -> Result<String, SttError> {
         // Generate a unique filename
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        let filename = format!("stt-temp-{}.wav", timestamp);
+        let filename = format!("stt-temp-{}.{}", timestamp, audio_format);
         
         // Get bucket name from environment or use default
         let bucket_name = std::env::var("GOOGLE_CLOUD_STORAGE_BUCKET")
@@ -478,7 +335,7 @@ impl GoogleSpeechClient {
         
         let upload_url = format!("https://storage.googleapis.com/upload/storage/v1/b/{}/o", bucket_name);
         
-        trace!("Uploading {} bytes to gs://{}/{}", audio_data.len(), bucket_name, filename);
+        // Uploading audio to Cloud Storage
         
         // Create multipart upload request
         let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
@@ -490,9 +347,10 @@ impl GoogleSpeechClient {
         body.extend_from_slice(format!(r#"{{"name":"{}"}}"#, filename).as_bytes());
         body.extend_from_slice(b"\r\n");
         
-        // Add file data part
+        // Add file data part with dynamic content type
+        let content_type = format!("audio/{}", audio_format);
         body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-        body.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
+        body.extend_from_slice(format!("Content-Type: {}\r\n\r\n", content_type).as_bytes());
         body.extend_from_slice(audio_data);
         body.extend_from_slice(b"\r\n");
         body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
@@ -561,7 +419,10 @@ impl GoogleSpeechClient {
                 return Err(SttError::InternalError("Long-running operation timed out".to_string()));
             }
             
-            trace!("Polling operation status (attempt {}/{})", poll_attempts, max_poll_attempts);
+            // Only log polling every 10 attempts to reduce verbosity
+            if poll_attempts % 10 == 1 || poll_attempts <= 3 {
+                trace!("Polling operation status (attempt {}/{})", poll_attempts, max_poll_attempts);
+            }
             
             let response = self.make_request_with_auth(
                 Method::GET, &operation_url, None::<&()>, access_token
@@ -579,8 +440,7 @@ impl GoogleSpeechClient {
                 trace!("Operation completed successfully");
                 
                 if let Some(response_data) = operation.response {
-                    // Debug: Log the response data structure to understand what we're getting
-                    trace!("Batch operation response data: {}", serde_json::to_string_pretty(&response_data).unwrap_or_else(|_| "Failed to serialize".to_string()));
+                    // Response data received and parsed successfully
                     
                     // Extract batch recognition response and convert to sync format
                     let batch_response: BatchRecognizeResponse = serde_json::from_value(response_data.clone())

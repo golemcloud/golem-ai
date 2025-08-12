@@ -67,10 +67,14 @@ impl WhisperClient {
             let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
             let mut body = Vec::new();
             
-            // Add file field
+            // Add file field with dynamic content type
+            let audio_format = request.audio_format.as_deref().unwrap_or("wav");
+            let content_type = format!("audio/{}", audio_format);
+            let filename = format!("audio.{}", audio_format);
+            
             body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-            body.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\n");
-            body.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
+            body.extend_from_slice(format!("Content-Disposition: form-data; name=\"file\"; filename=\"{}\"\r\n", filename).as_bytes());
+            body.extend_from_slice(format!("Content-Type: {}\r\n\r\n", content_type).as_bytes());
             body.extend_from_slice(&request.audio);
             body.extend_from_slice(b"\r\n");
             
@@ -201,6 +205,7 @@ impl Clone for WhisperClient {
 pub struct WhisperTranscriptionRequest {
     pub audio: Vec<u8>,
     pub model: String,
+    pub audio_format: Option<String>, // Add audio format field
     pub language: Option<String>,
     pub prompt: Option<String>,
     pub response_format: Option<String>,
