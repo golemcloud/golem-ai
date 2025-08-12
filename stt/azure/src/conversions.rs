@@ -1,13 +1,12 @@
 use crate::client::{
-    TranscriptionRequest, BatchTranscriptionRequest, BatchTranscriptionProperties,
-    AzureTranscriptionResponse, AzureDetailedTranscript, NBestItem, TranscriptWord,
+    TranscriptionRequest,
+    AzureTranscriptionResponse, NBestItem,
 };
 use golem_stt::golem::stt::types::{
     AudioConfig, AudioFormat, SttError, TranscriptionMetadata,
     TranscriptionResult, TranscriptAlternative, WordSegment,
 };
 use golem_stt::golem::stt::transcription::TranscribeOptions;
-use base64::prelude::*;
 
 pub fn audio_format_to_azure_format(format: &AudioFormat) -> Result<String, SttError> {
     match format {
@@ -45,54 +44,6 @@ pub fn create_realtime_transcription_request(
     })
 }
 
-pub fn create_batch_transcription_request(
-    audio: &[u8],
-    config: &AudioConfig,
-    options: &Option<TranscribeOptions>,
-    display_name: &str,
-) -> Result<BatchTranscriptionRequest, SttError> {
-    // In a real implementation, you would upload the audio to Azure Blob Storage first
-    // For now, we'll use a data URI as a placeholder
-    let format = audio_format_to_azure_format(&config.format)?;
-    let audio_base64 = BASE64_STANDARD.encode(audio);
-    let content_url = format!("data:audio/{};base64,{}", format, audio_base64);
-
-    let language = options
-        .as_ref()
-        .and_then(|opts| opts.language.as_ref())
-        .cloned()
-        .unwrap_or_else(|| "en-US".to_string());
-
-    let mut properties = BatchTranscriptionProperties {
-        diarization_enabled: None,
-        word_level_timestamps_enabled: Some(true),
-        punctuation_mode: Some("DictatedAndAutomatic".to_string()),
-        profanity_filter_mode: None,
-    };
-
-    if let Some(opts) = options {
-        if let Some(enable_diarization) = opts.enable_speaker_diarization {
-            properties.diarization_enabled = Some(enable_diarization);
-        }
-        
-        if let Some(enable_timestamps) = opts.enable_timestamps {
-            properties.word_level_timestamps_enabled = Some(enable_timestamps);
-        }
-
-        if let Some(profanity_filter) = opts.profanity_filter {
-            properties.profanity_filter_mode = Some(
-                if profanity_filter { "Masked".to_string() } else { "None".to_string() }
-            );
-        }
-    }
-
-    Ok(BatchTranscriptionRequest {
-        content_urls: vec![content_url],
-        properties,
-        locale: language,
-        display_name: display_name.to_string(),
-    })
-}
 
 pub fn convert_realtime_response(
     azure_response: AzureTranscriptionResponse,
@@ -140,57 +91,6 @@ pub fn convert_realtime_response(
     })
 }
 
-pub fn convert_detailed_transcript(
-    transcript: AzureDetailedTranscript,
-    audio_size: usize,
-    language: &str,
-) -> Result<TranscriptionResult, SttError> {
-    let mut alternatives = vec![];
-
-    // Add combined phrases as the primary alternative
-    if !transcript.combined_recognized_phrases.is_empty() {
-        let combined_text = transcript.combined_recognized_phrases
-            .iter()
-            .map(|phrase| phrase.display.as_str())
-            .collect::<Vec<_>>()
-            .join(" ");
-
-        let alternative = TranscriptAlternative {
-            text: combined_text,
-            confidence: calculate_average_confidence(&transcript.recognized_phrases),
-            words: extract_words_from_detailed_transcript(&transcript),
-        };
-        alternatives.push(alternative);
-    }
-
-    // Add individual phrase alternatives
-    for phrase in &transcript.recognized_phrases {
-        if phrase.recognition_status == "Success" && !phrase.n_best.is_empty() {
-            let best = &phrase.n_best[0];
-            let words = extract_words_from_phrase_words(best.words.as_ref().unwrap_or(&vec![]));
-            
-            let alternative = TranscriptAlternative {
-                text: best.display.clone(),
-                confidence: best.confidence,
-                words,
-            };
-            alternatives.push(alternative);
-        }
-    }
-
-    let duration = transcript.duration_in_ticks as f32 / 10_000_000.0; // Convert from 100-nanosecond units
-
-    Ok(TranscriptionResult {
-        alternatives,
-        metadata: TranscriptionMetadata {
-            duration_seconds: duration,
-            audio_size_bytes: audio_size as u32,
-            request_id: transcript.source,
-            model: Some("Azure Speech Service".to_string()),
-            language: language.to_string(),
-        },
-    })
-}
 
 fn extract_words_from_nbest_item(item: &NBestItem) -> Vec<WordSegment> {
     item.words.as_ref().map_or(vec![], |words| {
@@ -209,64 +109,6 @@ fn extract_words_from_nbest_item(item: &NBestItem) -> Vec<WordSegment> {
     })
 }
 
-fn extract_words_from_detailed_transcript(transcript: &AzureDetailedTranscript) -> Vec<WordSegment> {
-    let mut all_words = vec![];
-    
-    for phrase in &transcript.recognized_phrases {
-        if phrase.recognition_status == "Success" && !phrase.n_best.is_empty() {
-            let best = &phrase.n_best[0];
-            if let Some(words) = &best.words {
-                for word in words {
-                    let start_time = word.offset_in_ticks as f32 / 10_000_000.0;
-                    let end_time = start_time + (word.duration_in_ticks as f32 / 10_000_000.0);
-                    
-                    all_words.push(WordSegment {
-                        text: word.word.clone(),
-                        start_time,
-                        end_time,
-                        confidence: word.confidence,
-                        speaker_id: phrase.speaker.map(|s| s.to_string()),
-                    });
-                }
-            }
-        }
-    }
-    
-    all_words
-}
-
-fn extract_words_from_phrase_words(words: &[TranscriptWord]) -> Vec<WordSegment> {
-    words.iter().map(|word| {
-        let start_time = word.offset_in_ticks as f32 / 10_000_000.0;
-        let end_time = start_time + (word.duration_in_ticks as f32 / 10_000_000.0);
-        
-        WordSegment {
-            text: word.word.clone(),
-            start_time,
-            end_time,
-            confidence: word.confidence,
-            speaker_id: None,
-        }
-    }).collect()
-}
-
-fn calculate_average_confidence(phrases: &[crate::client::RecognizedPhrase]) -> f32 {
-    let mut total_confidence = 0.0;
-    let mut count = 0;
-    
-    for phrase in phrases {
-        if phrase.recognition_status == "Success" && !phrase.n_best.is_empty() {
-            total_confidence += phrase.n_best[0].confidence;
-            count += 1;
-        }
-    }
-    
-    if count > 0 {
-        total_confidence / count as f32
-    } else {
-        0.0
-    }
-}
 
 pub fn get_supported_languages() -> Vec<golem_stt::golem::stt::languages::LanguageInfo> {
     vec![
@@ -373,11 +215,3 @@ pub fn get_supported_languages() -> Vec<golem_stt::golem::stt::languages::Langua
     ]
 }
 
-// Helper function to generate unique transcription names
-pub fn generate_transcription_name() -> String {
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    format!("golem-stt-transcription-{}", timestamp)
-}

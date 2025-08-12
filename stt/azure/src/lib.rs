@@ -1,7 +1,7 @@
 use crate::client::AzureSpeechClient;
 use crate::conversions::{
-    convert_realtime_response, convert_detailed_transcript, create_realtime_transcription_request,
-    create_batch_transcription_request, get_supported_languages, generate_transcription_name,
+    convert_realtime_response, create_realtime_transcription_request,
+    get_supported_languages,
 };
 use golem_stt::durability::{DurableSTT, ExtendedTranscriptionGuest, ExtendedVocabulariesGuest, ExtendedLanguagesGuest, ExtendedGuest};
 use golem_stt::golem::stt::languages::{Guest as LanguagesGuest, LanguageInfo};
@@ -13,8 +13,6 @@ use golem_stt::golem::stt::vocabularies::{Guest as VocabulariesGuest, Vocabulary
 use log::{error, trace, warn};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::thread;
-use std::time::Duration;
 
 mod client;
 mod conversions;
@@ -61,96 +59,50 @@ impl AzureSTTComponent {
         convert_realtime_response(azure_response, audio.len(), &language)
     }
 
-    fn transcribe_batch(
+
+
+    fn estimate_audio_duration(audio: &[u8], config: &AudioConfig) -> f32 {
+        // Conservative estimation based on audio format and size
+        let sample_rate = config.sample_rate.unwrap_or(16000) as f32;
+        let channels = config.channels.unwrap_or(1) as f32;
+        
+        let bytes_per_sample = match config.format {
+            golem_stt::golem::stt::types::AudioFormat::Pcm => 2, // 16-bit PCM
+            golem_stt::golem::stt::types::AudioFormat::Wav => 2, // Typically 16-bit
+            _ => 1, // Compressed formats - conservative estimate
+        };
+        
+        let header_size = match config.format {
+            golem_stt::golem::stt::types::AudioFormat::Wav => 44, // WAV header
+            _ => 0,
+        };
+        
+        let audio_data_size = (audio.len() as i32 - header_size).max(0) as f32;
+        let bytes_per_second = sample_rate * channels * bytes_per_sample as f32;
+        
+        audio_data_size / bytes_per_second
+    }
+    
+    fn transcribe_fast_api(
         audio: Vec<u8>,
         config: AudioConfig,
         options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionResult, SttError> {
         let client = Self::get_client()?;
-        let transcription_name = generate_transcription_name();
-        let request = create_batch_transcription_request(&audio, &config, &options, &transcription_name)?;
+        let audio_len = audio.len(); // Capture length before moving
         
         let language = options
             .as_ref()
             .and_then(|opts| opts.language.as_ref())
             .unwrap_or(&"en-US".to_string())
             .clone();
-
-        // Note: This is a simplified implementation
-        // In practice, Azure Speech requires uploading audio to Azure Blob Storage first
-        warn!("Azure Speech batch transcription requires audio to be uploaded to Azure Blob Storage first. This is a mock implementation.");
-        
-        // Start the batch transcription
-        let transcription_response = client.start_batch_transcription(request)
-            .map_err(|e| {
-                error!("Azure Speech batch transcription start failed: {:?}", e);
-                e
-            })?;
-
-        // Extract transcription ID from the self URL
-        let transcription_id = transcription_response.self_url
-            .split('/')
-            .last()
-            .ok_or_else(|| SttError::InternalError("Could not extract transcription ID".to_string()))?;
-
-        // Poll for completion
-        Self::poll_transcription_completion(&client, transcription_id)?;
-        
-        // Get transcription files
-        let files_response = client.get_transcription_files(transcription_id)?;
-        
-        // Find the transcript file
-        for file in files_response.values {
-            if file.kind == "Transcription" {
-                if let Some(file_links) = file.links {
-                    let transcript = client.download_transcript(&file_links.content_url)?;
-                    return convert_detailed_transcript(transcript, audio.len(), &language);
-                }
-            }
-        }
-
-        Err(SttError::InternalError("No transcript found in completed transcription".to_string()))
-    }
-
-    fn poll_transcription_completion(
-        client: &AzureSpeechClient,
-        transcription_id: &str,
-    ) -> Result<crate::client::BatchTranscriptionStatus, SttError> {
-        let max_attempts = 60; // 5 minutes with 5-second intervals
-        let poll_interval = Duration::from_secs(5);
-        
-        for attempt in 1..=max_attempts {
-            trace!("Polling Azure transcription {}, attempt {}/{}", transcription_id, attempt, max_attempts);
             
-            let status = client.get_batch_transcription(transcription_id)?;
-            
-            match status.status.as_str() {
-                "Succeeded" => {
-                    trace!("Azure transcription {} completed", transcription_id);
-                    return Ok(status);
-                }
-                "Failed" => {
-                    error!("Azure transcription {} failed", transcription_id);
-                    return Err(SttError::TranscriptionFailed(
-                        format!("Azure Speech transcription {} failed", transcription_id)
-                    ));
-                }
-                "Running" => {
-                    trace!("Azure transcription {} still running", transcription_id);
-                    thread::sleep(poll_interval);
-                    continue;
-                }
-                status_str => {
-                    warn!("Unknown Azure transcription status: {}", status_str);
-                    thread::sleep(poll_interval);
-                    continue;
-                }
-            }
-        }
+        trace!("Using Azure Fast Transcription API for large audio file");
         
-        Err(SttError::InternalError(
-            format!("Azure transcription {} timed out after {} attempts", transcription_id, max_attempts)
-        ))
+        // Use Azure Fast Transcription API which supports direct file upload
+        let azure_response = client.transcribe_fast_api(audio, &config, &options)?;
+
+        convert_realtime_response(azure_response, audio_len, &language)
     }
 }
 
@@ -277,13 +229,31 @@ impl TranscriptionGuest for AzureSTTComponent {
         golem_stt::init_logging();
         trace!("Starting Azure Speech transcription, audio size: {} bytes", audio.len());
 
-        // Use direct Azure Speech REST API instead of batch or mock
-        // This works like Deepgram's direct API
-        let use_batch = false; // Use real-time REST API for immediate results
-
-        if use_batch {
-            Self::transcribe_batch(audio, config, options)
+        // Estimate audio duration based on size and format to choose appropriate API
+        // Azure Speech REST API has a 60-second limit, use Fast Transcription for longer audio
+        let estimated_duration = Self::estimate_audio_duration(&audio, &config);
+        
+        if estimated_duration > 58.0 { // Leave some buffer for 60s limit
+            trace!("Audio estimated at {:.1}s - attempting Azure Fast Transcription for longer audio", estimated_duration);
+            // Try Fast Transcription first, fall back to real-time if not available
+            match Self::transcribe_fast_api(audio.clone(), config.clone(), options.clone()) {
+                Ok(result) => {
+                    trace!("Azure Fast Transcription completed successfully");
+                    Ok(result)
+                },
+                Err(SttError::NetworkError(ref e)) if e.contains("404") || e.contains("Not Found") => {
+                    trace!("Azure Fast Transcription not available in region (404), falling back to real-time API");
+                    warn!("Audio >60s detected but Fast Transcription unavailable in region - using real-time API (will truncate)");
+                    Self::transcribe_realtime(audio, config, options)
+                },
+                Err(e) => {
+                    trace!("Azure Fast Transcription failed: {:?}, falling back to real-time API", e);
+                    warn!("Fast Transcription failed, using real-time API fallback (may truncate >60s audio)");
+                    Self::transcribe_realtime(audio, config, options)
+                },
+            }
         } else {
+            trace!("Audio estimated at {:.1}s - using Azure real-time API", estimated_duration);
             Self::transcribe_realtime(audio, config, options)
         }
     }

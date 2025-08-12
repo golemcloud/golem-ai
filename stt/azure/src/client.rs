@@ -48,6 +48,112 @@ impl AzureSpeechClient {
         }
     }
 
+    pub fn transcribe_fast_api(
+        &self, 
+        audio: Vec<u8>, 
+        _config: &golem_stt::golem::stt::types::AudioConfig, 
+        options: &Option<golem_stt::golem::stt::transcription::TranscribeOptions>
+    ) -> Result<AzureTranscriptionResponse, SttError> {
+        // Use Azure Fast Transcription API which supports direct file upload
+        // https://learn.microsoft.com/en-us/azure/ai-services/speech-service/fast-transcription-create
+        
+        // Azure Fast Transcription API endpoint - try the current stable version first
+        let url = format!("{}/speechtotext/v3.1/transcriptions:transcribe", self.base_url);
+        
+        let language = options
+            .as_ref()
+            .and_then(|opts| opts.language.as_ref())
+            .cloned()
+            .unwrap_or_else(|| "en-US".to_string());
+            
+        // Create multipart form data for file upload
+        let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+        let mut body = Vec::new();
+        
+        // Add definition part (JSON configuration)
+        body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+        body.extend_from_slice(b"Content-Disposition: form-data; name=\"definition\"\r\n");
+        body.extend_from_slice(b"Content-Type: application/json\r\n\r\n");
+        
+        let definition = serde_json::json!({
+            "locales": [language],
+            "profanityFilterMode": "Masked",
+            "channels": [0]
+        });
+        body.extend_from_slice(definition.to_string().as_bytes());
+        body.extend_from_slice(b"\r\n");
+        
+        // Add audio file part
+        body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+        body.extend_from_slice(b"Content-Disposition: form-data; name=\"audio\"; filename=\"audio.wav\"\r\n");
+        body.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
+        body.extend_from_slice(&audio);
+        body.extend_from_slice(b"\r\n");
+        body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
+        
+        let response = self.client
+            .post(&url)
+            .header("Ocp-Apim-Subscription-Key", &self.subscription_key)
+            .header("Content-Type", format!("multipart/form-data; boundary={}", boundary))
+            .body(body)
+            .timeout(Duration::from_secs(300)) // 5 minute timeout for large files
+            .send()
+            .map_err(|e| SttError::NetworkError(format!("Azure Fast Transcription request failed: {}", e)))?;
+            
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text()
+                .map_err(|e| SttError::NetworkError(format!("Failed to read error response: {}", e)))?;
+            return Err(SttError::NetworkError(format!(
+                "Azure Fast Transcription failed with status {}: {}", status, error_text
+            )));
+        }
+        
+        // Parse the response - Fast Transcription returns results directly
+        let transcription_result: serde_json::Value = response.json()
+            .map_err(|e| SttError::InternalError(format!("Failed to parse Fast Transcription response: {}", e)))?;
+            
+        // Convert Fast Transcription response to our standard format
+        self.convert_fast_transcription_response(transcription_result)
+    }
+    
+    fn convert_fast_transcription_response(&self, response: serde_json::Value) -> Result<AzureTranscriptionResponse, SttError> {
+        // Azure Fast Transcription returns a different format
+        // Convert it to our standard AzureTranscriptionResponse format
+        
+        if let Some(results) = response.get("results") {
+            if let Some(channels) = results.get("channels") {
+                if let Some(channel) = channels.get(0) {
+                    if let Some(alternatives) = channel.get("alternatives") {
+                        if let Some(best_alternative) = alternatives.get(0) {
+                            let transcript = best_alternative.get("transcript")
+                                .and_then(|t| t.as_str())
+                                .unwrap_or("")
+                                .to_string();
+                                
+                            let confidence = best_alternative.get("confidence")
+                                .and_then(|c| c.as_f64())
+                                .unwrap_or(1.0) as f32;
+                                
+                            return Ok(AzureTranscriptionResponse {
+                                recognition_status: "Success".to_string(),
+                                display_text: Some(transcript.clone()),
+                                duration: None,
+                                n_best: Some(vec![NBestItem {
+                                    confidence,
+                                    display: transcript,
+                                    words: None,
+                                }]),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        
+        Err(SttError::InternalError("Failed to parse Fast Transcription response".to_string()))
+    }
+
     pub fn transcribe_audio(&self, request: TranscriptionRequest) -> Result<AzureTranscriptionResponse, SttError> {
         let mut attempts = 0;
         
@@ -101,207 +207,7 @@ impl AzureSpeechClient {
         }
     }
 
-    pub fn start_batch_transcription(&self, request: BatchTranscriptionRequest) -> Result<BatchTranscriptionResponse, SttError> {
-        let mut attempts = 0;
-        loop {
-            attempts += 1;
-            if attempts == 1 {
-                trace!("Azure Batch API request (initial attempt, max retries: {})", self.max_retries);
-            } else {
-                trace!("Azure Batch API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
-            }
-            match self.make_request(Method::POST, "/speechtotext/v3.1/transcriptions", Some(&request)) {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        match response.json::<BatchTranscriptionResponse>() {
-                            Ok(result) => return Ok(result),
-                            Err(e) => {
-                                error!("Failed to parse Azure batch transcription response: {}", e);
-                                return Err(SttError::InternalError(format!("Failed to parse response: {}", e)));
-                            }
-                        }
-                    } else {
-                        let error = self.handle_error_response(response);
-                        if self.should_retry(&error) && attempts <= self.max_retries {
-                            trace!("Will retry Azure request (retry {}/{})", attempts, self.max_retries);
-                            std::thread::sleep(std::time::Duration::from_secs(1));
-                            continue;
-                        } else {
-                            return Err(error);
-                        }
-                    }
-                }
-                Err(e) => {
-                    if attempts <= self.max_retries {
-                        trace!("Will retry Azure request due to network error (retry {}/{})", attempts, self.max_retries);
-                        std::thread::sleep(std::time::Duration::from_secs(1));
-                        continue;
-                    } else {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
-                    }
-                }
-            }
-        }
-    }
 
-    pub fn get_batch_transcription(&self, transcription_id: &str) -> Result<BatchTranscriptionStatus, SttError> {
-        let mut attempts = 0;
-        let path = format!("/speechtotext/v3.1/transcriptions/{}", transcription_id);
-        
-        loop {
-            attempts += 1;
-            if attempts == 1 {
-                trace!("Azure GetBatchTranscription API request (initial attempt, max retries: {})", self.max_retries);
-            } else {
-                trace!("Azure GetBatchTranscription API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
-            }
-            match self.make_request::<()>(Method::GET, &path, None) {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        match response.json::<BatchTranscriptionStatus>() {
-                            Ok(result) => return Ok(result),
-                            Err(e) => {
-                                error!("Failed to parse Azure batch transcription status: {}", e);
-                                return Err(SttError::InternalError(format!("Failed to parse response: {}", e)));
-                            }
-                        }
-                    } else {
-                        let error = self.handle_error_response(response);
-                        if self.should_retry(&error) && attempts <= self.max_retries {
-                            trace!("Will retry Azure request (retry {}/{})", attempts, self.max_retries);
-                            std::thread::sleep(std::time::Duration::from_secs(1));
-                            continue;
-                        } else {
-                            return Err(error);
-                        }
-                    }
-                }
-                Err(e) => {
-                    if attempts <= self.max_retries {
-                        trace!("Will retry Azure request due to network error (retry {}/{})", attempts, self.max_retries);
-                        std::thread::sleep(std::time::Duration::from_secs(1));
-                        continue;
-                    } else {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn get_transcription_files(&self, transcription_id: &str) -> Result<TranscriptionFilesResponse, SttError> {
-        let mut attempts = 0;
-        let path = format!("/speechtotext/v3.1/transcriptions/{}/files", transcription_id);
-        
-        loop {
-            attempts += 1;
-            if attempts == 1 {
-                trace!("Azure GetTranscriptionFiles API request (initial attempt, max retries: {})", self.max_retries);
-            } else {
-                trace!("Azure GetTranscriptionFiles API request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
-            }
-            match self.make_request::<()>(Method::GET, &path, None) {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        match response.json::<TranscriptionFilesResponse>() {
-                            Ok(result) => return Ok(result),
-                            Err(e) => {
-                                error!("Failed to parse Azure transcription files response: {}", e);
-                                return Err(SttError::InternalError(format!("Failed to parse response: {}", e)));
-                            }
-                        }
-                    } else {
-                        let error = self.handle_error_response(response);
-                        if self.should_retry(&error) && attempts <= self.max_retries {
-                            trace!("Will retry Azure request (retry {}/{})", attempts, self.max_retries);
-                            std::thread::sleep(std::time::Duration::from_secs(1));
-                            continue;
-                        } else {
-                            return Err(error);
-                        }
-                    }
-                }
-                Err(e) => {
-                    if attempts <= self.max_retries {
-                        trace!("Will retry Azure request due to network error (retry {}/{})", attempts, self.max_retries);
-                        std::thread::sleep(std::time::Duration::from_secs(1));
-                        continue;
-                    } else {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn download_transcript(&self, url: &str) -> Result<AzureDetailedTranscript, SttError> {
-        let mut attempts = 0;
-        
-        loop {
-            attempts += 1;
-            if attempts == 1 {
-                trace!("Azure DownloadTranscript request (initial attempt, max retries: {})", self.max_retries);
-            } else {
-                trace!("Azure DownloadTranscript request (retry {}/{}, max retries: {})", attempts - 1, self.max_retries, self.max_retries);
-            }
-            match self.client.get(url)
-                .header("Ocp-Apim-Subscription-Key", &self.subscription_key)
-                .timeout(self.timeout)
-                .send() {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        match response.json::<AzureDetailedTranscript>() {
-                            Ok(result) => return Ok(result),
-                            Err(e) => {
-                                error!("Failed to parse Azure transcript: {}", e);
-                                return Err(SttError::InternalError(format!("Failed to parse transcript: {}", e)));
-                            }
-                        }
-                    } else {
-                        let error = self.handle_error_response(response);
-                        if self.should_retry(&error) && attempts <= self.max_retries {
-                            trace!("Will retry Azure request (retry {}/{})", attempts, self.max_retries);
-                            std::thread::sleep(std::time::Duration::from_secs(1));
-                            continue;
-                        } else {
-                            return Err(error);
-                        }
-                    }
-                }
-                Err(e) => {
-                    if attempts <= self.max_retries {
-                        trace!("Will retry Azure request due to network error (retry {}/{})", attempts, self.max_retries);
-                        std::thread::sleep(std::time::Duration::from_secs(1));
-                        continue;
-                    } else {
-                        return Err(SttError::NetworkError(format!("Request failed after {} attempts: {}", self.max_retries + 1, e)));
-                    }
-                }
-            }
-        }
-    }
-
-    fn make_request<T: Serialize>(
-        &self,
-        method: Method,
-        path: &str,
-        body: Option<&T>,
-    ) -> Result<Response, reqwest::Error> {
-        let url = format!("{}{}", self.base_url, path);
-        
-        let mut req = self
-            .client
-            .request(method, &url)
-            .header("Ocp-Apim-Subscription-Key", &self.subscription_key)
-            .header("Content-Type", "application/json")
-            .timeout(self.timeout);
-
-        if let Some(body) = body {
-            req = req.json(body);
-        }
-
-        req.send()
-    }
 
     fn make_audio_request(
         &self,
@@ -568,78 +474,3 @@ pub struct BatchTranscriptionProperties {
     pub profanity_filter_mode: Option<String>,
 }
 
-// Batch transcription response
-#[derive(Debug, Clone, Deserialize)]
-pub struct BatchTranscriptionResponse {
-    #[serde(rename = "self")]
-    pub self_url: String,
-}
-
-
-// Batch transcription status
-#[derive(Debug, Clone, Deserialize)]
-pub struct BatchTranscriptionStatus {
-    pub status: String,
-}
-
-// Transcription files response
-#[derive(Debug, Clone, Deserialize)]
-pub struct TranscriptionFilesResponse {
-    pub values: Vec<TranscriptionFile>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct TranscriptionFile {
-    pub kind: String,
-    pub links: Option<FileLinks>,
-}
-
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct FileLinks {
-    #[serde(rename = "contentUrl")]
-    pub content_url: String,
-}
-
-// Detailed transcript structure
-#[derive(Debug, Clone, Deserialize)]
-pub struct AzureDetailedTranscript {
-    pub source: String,
-    #[serde(rename = "durationInTicks")]
-    pub duration_in_ticks: u64,
-    #[serde(rename = "combinedRecognizedPhrases")]
-    pub combined_recognized_phrases: Vec<CombinedRecognizedPhrase>,
-    #[serde(rename = "recognizedPhrases")]
-    pub recognized_phrases: Vec<RecognizedPhrase>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct CombinedRecognizedPhrase {
-    pub display: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct RecognizedPhrase {
-    #[serde(rename = "recognitionStatus")]
-    pub recognition_status: String,
-    pub speaker: Option<u32>,
-    #[serde(rename = "nBest")]
-    pub n_best: Vec<NBestPhrase>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct NBestPhrase {
-    pub confidence: f32,
-    pub display: String,
-    pub words: Option<Vec<TranscriptWord>>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct TranscriptWord {
-    pub word: String,
-    #[serde(rename = "offsetInTicks")]
-    pub offset_in_ticks: u64,
-    #[serde(rename = "durationInTicks")]
-    pub duration_in_ticks: u64,
-    pub confidence: Option<f32>,
-}
