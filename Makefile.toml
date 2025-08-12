@@ -14,7 +14,9 @@ args = ["test"]
 script_runner = "@duckscript"
 script = '''
 
+
 domains = array llm websearch search video exec stt graph
+
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -30,7 +32,9 @@ end
 script_runner = "@duckscript"
 script = '''
 
+
 domains = array llm websearch search video exec stt graph
+
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -46,6 +50,7 @@ end
 script_runner = "@duckscript"
 script = '''
 #!/bin/bash
+
 
 domains = array llm websearch search video exec stt graph
 
@@ -65,6 +70,7 @@ script_runner = "@duckscript"
 script = '''
 #!/bin/bash
 
+
 domains = array llm websearch search video exec stt graph
 
 
@@ -81,6 +87,7 @@ end
 [tasks.wit]
 script_runner = "@duckscript"
 script = '''
+
 
 domains = array llm websearch search video exec stt graph
 
@@ -99,6 +106,7 @@ end
 description = "Builds all test components with golem-cli"
 script_runner = "@duckscript"
 script = '''
+
 
 domains = array llm websearch search video exec stt graph
 
@@ -155,8 +163,7 @@ environment = get_env "ENVIRONMENT"
 is_dev = eq ${environment} "dev"
 
 
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability
-
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability graph_arangodb graph_janusgraph graph_neo4j
 
 for target in ${targets}
     echo "Copying artifacts for ${target}..."
@@ -228,9 +235,7 @@ environment = get_env "ENVIRONMENT"
 is_dev = eq ${environment} "dev"
 
 
-
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability
-
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability graph_arangodb graph_janusgraph graph_neo4j
 
 for target in ${targets}
     echo "Copying artifacts for ${target}..."

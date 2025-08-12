@@ -212,15 +212,146 @@ jobs:
           golem worker invoke test:llm/ollama-1 test2 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test3 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test4 | grep -v "ERROR: "
-          golem worker invoke test:llm/ollama-1 test6 | grep -v "ERROR: "
-          golem worker invoke test:llm/ollama-1 test8 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test5 | grep -v "ERROR: "
+          golem worker invoke test:llm/ollama-1 test6 | grep -v "ERROR: "
           golem worker invoke test:llm/ollama-1 test7 | grep -v "ERROR: "
+          golem worker invoke test:llm/ollama-1 test8 | grep -v "ERROR: "
+  graph-integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-graph-integration
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: davidB/rust-cargo-make@v1
+      - uses: cargo-bins/cargo-binstall@main
+      - name: Install tools
+        run: |
+          set -e
+          cargo binstall --force cargo-component@0.20.0
+          cargo binstall wac-cli --locked --force --no-confirm
+      - name: Start graph-providers in Docker
+        run: |
+          set -e
+          echo "Setting up graph database providers..."
+          
+          # ArangoDB
+          echo "Starting ArangoDB..."
+          docker run -d --name arangodb -e ARANGO_NO_AUTH=1 -p 8529:8529 -v arangodb_data:/var/lib/arangodb3 -v arangodb_apps:/var/lib/arangodb3-apps arangodb/arangodb:latest
+          timeout 60 bash -c 'until curl -f http://localhost:8529/_api/version; do sleep 2; done'
+          echo "Creating test database..."
+          curl -X POST http://localhost:8529/_api/database \
+            -H "Content-Type: application/json" \
+            -d '{"name": "test"}' || echo "Database might already exist"
+          echo "ArangoDB is ready"
+          
+          # JanusGraph with Cassandra
+          echo "Starting Cassandra for JanusGraph..."
+          docker network create janus-net || true
+          docker run -d --name cassandra --network janus-net -p 9042:9042 cassandra:3.11
+          echo "Waiting for Cassandra to be ready..."
+          timeout 60 bash -c 'until docker exec cassandra cqlsh -e "DESCRIBE KEYSPACES" > /dev/null 2>&1; do sleep 5; done'
+          
+          echo "Starting JanusGraph..."
+          docker run -d --name janusgraph --network janus-net \
+            -e storage.backend=cassandra \
+            -e storage.hostname=cassandra \
+            -e gremlinserver.channelizer=org.apache.tinkerpop.gremlin.server.channel.WsAndHttpChannelizer \
+            -e GREMLIN_OPTS="-Dtx.max-commit-time=60000 -Dstorage.cassandra.read-consistency-level=ONE -Dstorage.cassandra.write-consistency-level=ONE" \
+            -p 8182:8182 janusgraph/janusgraph:latest
+          echo "JanusGraph is ready"
+          
+          # Setup Neo4j
+          echo "Starting Neo4j..."
+          docker run -d --name neo4j \
+            --publish=7474:7474 --publish=7687:7687 \
+            --volume=neo4j_data:/data \
+            --env=NEO4J_AUTH=neo4j/password \
+            neo4j:latest
+          echo "Waiting for Neo4j to be ready..."
+          timeout 120 bash -c 'until curl -f http://localhost:7474/ > /dev/null 2>&1; do sleep 5; done'
+          echo "Neo4j is ready"
+          
+          echo "All graph database providers are ready!"
+      - name: Install and Run latest Golem Server
+        run: |
+          set -e
+          echo "Installing Golem server"
+          sudo curl -L https://github.com/golemcloud/golem-cli/releases/download/v1.2.5/golem-x86_64-unknown-linux-gnu -o ./golem
+          sudo chmod +x ./golem
+          sudo mv ./golem /usr/local/bin/golem
+          golem --version
+          golem profile switch local
+          nohup golem server run >golem-server.log 2>&1 &
+          echo "Golem server started."
+      - name: Build and test graph integration
+        run: |
+          set -eo pipefail
+          cargo make --cwd graph build-arangodb
+          cargo make --cwd graph build-janusgraph
+          cargo make --cwd graph build-neo4j
+          cd test/graph
+          
+          echo "Testing ArangoDB integration..."
+          golem app deploy -b arangodb-debug test:graph test:helper
+          golem worker new -e ARANGODB_HOST=localhost -e ARANGODB_USER="" -e ARANGODB_PASSWORD="" -e ARANGODB_PORT="8529" -e ARANGODB_DATABASE="test" test:graph/arangodb-1
+          golem worker invoke test:graph/arangodb-1 test1 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test2 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test3 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test4 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test5 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test6 | grep -v "ERROR: "
+          golem worker invoke test:graph/arangodb-1 test7 | grep -v "ERROR: "
+          echo "ArangoDB tests completed successfully"
+          golem app clean -b arangodb-debug 
+          
+          echo "Testing JanusGraph integration..."
+          golem app deploy -b janusgraph-debug test:graph test:helper
+          sleep 10
+          golem worker new -e JANUSGRAPH_HOST=localhost -e JANUSGRAPH_USER="" -e JANUSGRAPH_PASSWORD="" -e JANUSGRAPH_PORT="8182" test:graph/janusgraph-1
+          golem worker invoke test:graph/janusgraph-1 test1 | grep -v "ERROR: "
+          golem worker invoke test:graph/janusgraph-1 test2 | grep -v "ERROR: "
+          golem worker invoke test:graph/janusgraph-1 test3 | grep -v "ERROR: "
+          golem worker invoke test:graph/janusgraph-1 test4 | grep -v "ERROR: "
+          golem worker invoke test:graph/janusgraph-1 test5 | grep -v "ERROR: "
+          golem worker invoke test:graph/janusgraph-1 test6 | grep -v "ERROR: "
+          golem worker invoke test:graph/janusgraph-1 test7 | grep -v "ERROR: "
+          echo "JanusGraph tests completed successfully"
+          golem app clean -b janusgraph-debug 
+          
+          echo "Testing Neo4j integration..."
+          golem app deploy -b neo4j-debug test:graph test:helper
+          sleep 10
+          golem worker new -e NEO4J_HOST=localhost -e NEO4J_USER=neo4j -e NEO4J_PASSWORD=password -e NEO4J_PORT="7474" -e NEO4J_DATABASE=neo4j test:graph/neo4j-1
+          golem worker invoke test:graph/neo4j-1 test1 | grep -v "ERROR: "
+          golem worker invoke test:graph/neo4j-1 test2 | grep -v "ERROR: "
+          golem worker invoke test:graph/neo4j-1 test3 | grep -v "ERROR: "
+          golem worker invoke test:graph/neo4j-1 test4 | grep -v "ERROR: "
+          golem worker invoke test:graph/neo4j-1 test5 | grep -v "ERROR: "
+          golem worker invoke test:graph/neo4j-1 test6 | grep -v "ERROR: "
+          golem worker invoke test:graph/neo4j-1 test7 | grep -v "ERROR: "
+          echo "Neo4j tests completed successfully"
+          golem app clean -b neo4j-debug 
+
+          echo "All graph integration tests completed successfully!"
+
   publish-all:
     needs:
       - tests
       - build-test-components
       - ollama-integration-tests
+      - graph-integration-tests
     runs-on: ubuntu-latest
     permissions:
       contents: write
