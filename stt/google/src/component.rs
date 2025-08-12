@@ -12,19 +12,8 @@ use log::info;
 
 pub struct Component;
 
-#[allow(static_mut_refs)]
-static mut DURABLE: Option<DurableStore> = None;
-
-#[allow(static_mut_refs)]
-fn durable() -> &'static mut DurableStore {
-    unsafe {
-        #[allow(static_mut_refs)]
-        if DURABLE.is_none() {
-            DURABLE = Some(DurableStore::new());
-        }
-        DURABLE.as_mut().unwrap()
-    }
-}
+// Use real Golem durability APIs
+use golem_rust::*;
 
 fn build_client() -> Result<GoogleClient, wit_types::SttError> {
     let cfg = GoogleConfig::from_env();
@@ -151,14 +140,22 @@ impl TranscriptionGuest for Component {
         options: Option<TranscribeOptions>,
     ) -> Result<wit_types::TranscriptionResult, wit_types::SttError> {
         let client = build_client()?;
-        // Simplified caching - use a basic string representation for the salt
-        let salt = format!("{options:?}");
-        let request_key = make_request_key(&audio, &salt);
+        // Production caching - use proper hash for options
+        let options_hash = match &options {
+            Some(opts) => golem_stt::request_checksum(format!("{:?}", opts).as_bytes()),
+            None => "no-options".to_string(),
+        };
+        let request_key = make_request_key(&audio, &options_hash);
         let _snapshot_key = BatchSnapshot::key(&request_key);
 
-        // Check for cached result using simple string-based caching
-        if let Some(cached_text) = durable().get(&format!("google:result:{request_key}")) {
-            if let Some(cached_lang) = durable().get(&format!("google:lang:{request_key}")) {
+        // Check for cached result using Golem durability
+        let cache_key = format!("google:result:{request_key}");
+        let lang_key = format!("google:lang:{request_key}");
+
+        if let (Some(cached_text), Some(cached_lang)) = (
+            golem_rust::get_oplog_entry::<String>(&cache_key),
+            golem_rust::get_oplog_entry::<String>(&lang_key)
+        ) {
                 info!("Returning cached result for request {request_key}");
                 let alt = wit_types::TranscriptAlternative {
                     text: cached_text,
@@ -168,8 +165,8 @@ impl TranscriptionGuest for Component {
                 let metadata = wit_types::TranscriptionMetadata {
                     duration_seconds: 0.0,
                     audio_size_bytes: audio.len() as u32,
-                    request_id: format!("cached-{request_key}"),
-                    model: durable().get(&format!("google:model:{request_key}")),
+                    request_id: "google-cached-response".to_string(),
+                    model: golem_rust::get_oplog_entry::<String>(&format!("google:model:{request_key}")),
                     language: cached_lang,
                 };
                 return Ok(wit_types::TranscriptionResult {
@@ -201,15 +198,12 @@ impl TranscriptionGuest for Component {
 
         let _request_id = result.metadata.request_id.clone();
 
-        // Cache the result using simple string-based caching
+        // Cache the result using Golem durability
         if let Some(first_alt) = result.alternatives.first() {
-            durable().put(&format!("google:result:{request_key}"), &first_alt.text);
-            durable().put(
-                &format!("google:lang:{request_key}"),
-                &result.metadata.language,
-            );
+            golem_rust::set_oplog_entry(&format!("google:result:{request_key}"), &first_alt.text);
+            golem_rust::set_oplog_entry(&format!("google:lang:{request_key}"), &result.metadata.language);
             if let Some(ref model) = result.metadata.model {
-                durable().put(&format!("google:model:{request_key}"), model);
+                golem_rust::set_oplog_entry(&format!("google:model:{request_key}"), model);
             }
         }
         info!("Processed request {request_key}");

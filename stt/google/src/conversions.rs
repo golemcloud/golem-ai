@@ -85,7 +85,10 @@ pub fn to_wit_result(
     let metadata = wit_types::TranscriptionMetadata {
         duration_seconds: 0.0, // Not provided directly by Google synchronous recognize
         audio_size_bytes,
-        request_id: "".to_string(), // Not provided; could be synthetic if needed
+        request_id: format!("google-{}", std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()), // Google doesn't provide request IDs
         model,
         language,
     };
@@ -124,6 +127,7 @@ pub fn to_wit_error(err: InternalSttError) -> wit_types::SttError {
         InternalSttError::ServiceUnavailable(m) => wit_types::SttError::ServiceUnavailable(m),
         InternalSttError::NetworkError(m) => wit_types::SttError::NetworkError(m),
         InternalSttError::InternalError(m) => wit_types::SttError::InternalError(m),
+        InternalSttError::Timeout(m) => wit_types::SttError::TranscriptionFailed(format!("Timeout: {m}")),
     }
 }
 

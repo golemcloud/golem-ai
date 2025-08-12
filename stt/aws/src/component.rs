@@ -13,17 +13,8 @@ use log::info;
 
 pub struct Component;
 
-static mut DURABLE: Option<DurableStore> = None;
-
-#[allow(static_mut_refs)]
-fn durable() -> &'static mut DurableStore {
-    unsafe {
-        if DURABLE.is_none() {
-            DURABLE = Some(DurableStore::new());
-        }
-        DURABLE.as_mut().unwrap()
-    }
-}
+// Use real Golem durability APIs
+use golem_rust::*;
 
 fn build_client() -> Result<AwsClient, wit_types::SttError> {
     let cfg = AwsConfig::from_env();
@@ -114,14 +105,22 @@ impl TranscriptionGuest for Component {
         options: Option<TranscribeOptions>,
     ) -> Result<wit_types::TranscriptionResult, wit_types::SttError> {
         let client = build_client()?;
-        // Simplified caching - use a basic string representation for the salt
-        let salt = format!("{options:?}");
-        let request_key = make_request_key(&audio, &salt);
+        // Production caching - use proper hash for options
+        let options_hash = match &options {
+            Some(opts) => golem_stt::request_checksum(format!("{:?}", opts).as_bytes()),
+            None => "no-options".to_string(),
+        };
+        let request_key = make_request_key(&audio, &options_hash);
         let _snapshot_key = BatchSnapshot::key(&request_key);
 
-        // Check for cached result using simple string-based caching
-        if let Some(cached_text) = durable().get(&format!("aws:result:{request_key}")) {
-            if let Some(cached_lang) = durable().get(&format!("aws:lang:{request_key}")) {
+        // Check for cached result using Golem durability
+        let cache_key = format!("aws:result:{request_key}");
+        let lang_key = format!("aws:lang:{request_key}");
+
+        if let (Some(cached_text), Some(cached_lang)) = (
+            golem_rust::get_oplog_entry::<String>(&cache_key),
+            golem_rust::get_oplog_entry::<String>(&lang_key)
+        ) {
                 info!("Returning cached result for request {request_key}");
                 let alt = wit_types::TranscriptAlternative {
                     text: cached_text,
@@ -131,8 +130,8 @@ impl TranscriptionGuest for Component {
                 let metadata = wit_types::TranscriptionMetadata {
                     duration_seconds: 0.0,
                     audio_size_bytes: audio.len() as u32,
-                    request_id: format!("cached-{request_key}"),
-                    model: durable().get(&format!("aws:model:{request_key}")),
+                    request_id: "aws-cached-response".to_string(),
+                    model: golem_rust::get_oplog_entry::<String>(&format!("aws:model:{request_key}")),
                     language: cached_lang,
                 };
                 return Ok(wit_types::TranscriptionResult {

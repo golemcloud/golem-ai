@@ -2,7 +2,6 @@ use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CommonConfig {
-    pub endpoint: Option<String>,
     pub timeout_secs: u64,
     pub max_retries: u32,
     pub log_level: Option<String>,
@@ -11,7 +10,6 @@ pub struct CommonConfig {
 impl Default for CommonConfig {
     fn default() -> Self {
         Self {
-            endpoint: None,
             timeout_secs: 30,
             max_retries: 3,
             log_level: None,
@@ -22,7 +20,6 @@ impl Default for CommonConfig {
 impl CommonConfig {
     pub fn from_env() -> Self {
         Self {
-            endpoint: std::env::var("STT_PROVIDER_ENDPOINT").ok(),
             timeout_secs: std::env::var("STT_PROVIDER_TIMEOUT")
                 .ok()
                 .and_then(|s| s.parse().ok())
@@ -52,10 +49,8 @@ impl DeepgramConfig {
     }
 
     pub fn effective_endpoint(&self) -> String {
-        self.common
-            .endpoint
-            .clone()
-            .unwrap_or_else(|| "https://api.deepgram.com".to_string())
+        // Always use the real Deepgram API
+        "https://api.deepgram.com".to_string()
     }
 }
 
@@ -77,9 +72,7 @@ impl AzureConfig {
     }
 
     pub fn effective_endpoint(&self) -> Result<String, crate::errors::InternalSttError> {
-        if let Some(e) = &self.common.endpoint {
-            return Ok(e.clone());
-        }
+        // Always use the real Azure Speech Services API
         let region = self.speech_region.as_ref().ok_or_else(|| {
             crate::errors::InternalSttError::unauthorized("AZURE_SPEECH_REGION not set")
         })?;
@@ -96,6 +89,7 @@ pub struct AwsConfig {
     pub secret_access_key: Option<String>,
     pub session_token: Option<String>,
     pub region: Option<String>,
+    pub s3_bucket: Option<String>,
 }
 
 impl AwsConfig {
@@ -107,13 +101,12 @@ impl AwsConfig {
             secret_access_key: std::env::var("AWS_SECRET_ACCESS_KEY").ok(),
             session_token: std::env::var("AWS_SESSION_TOKEN").ok(),
             region: std::env::var("AWS_REGION").ok(),
+            s3_bucket: std::env::var("AWS_S3_BUCKET").ok(),
         }
     }
 
     pub fn effective_endpoint(&self) -> Result<String, crate::errors::InternalSttError> {
-        if let Some(e) = &self.common.endpoint {
-            return Ok(e.clone());
-        }
+        // Always use the real AWS Transcribe API
         let region = self
             .region
             .as_ref()
@@ -142,9 +135,8 @@ impl GoogleConfig {
     }
 
     pub fn effective_endpoint(&self) -> String {
-        self.common.endpoint.clone().unwrap_or_else(|| {
-            "https://speech.googleapis.com/v1p1beta1/speech:recognize".to_string()
-        })
+        // Always use the real Google Cloud Speech-to-Text API
+        "https://speech.googleapis.com/v1p1beta1/speech:recognize".to_string()
     }
 }
 
@@ -164,9 +156,7 @@ impl WhisperConfig {
     }
 
     pub fn effective_endpoint(&self) -> String {
-        self.common
-            .endpoint
-            .clone()
-            .unwrap_or_else(|| "https://api.openai.com/v1/audio/transcriptions".to_string())
+        // Always use the real OpenAI Whisper API
+        "https://api.openai.com/v1/audio/transcriptions".to_string()
     }
 }

@@ -104,6 +104,7 @@ pub fn to_wit_error(err: InternalSttError) -> wit_types::SttError {
         InternalSttError::ServiceUnavailable(m) => wit_types::SttError::ServiceUnavailable(m),
         InternalSttError::NetworkError(m) => wit_types::SttError::NetworkError(m),
         InternalSttError::InternalError(m) => wit_types::SttError::InternalError(m),
+        InternalSttError::Timeout(m) => wit_types::SttError::TranscriptionFailed(format!("Timeout: {m}")),
     }
 }
 
@@ -112,10 +113,12 @@ pub fn to_wit_error_from_aws(status: u16, body: &str) -> wit_types::SttError {
 
     // Handle quota exceeded errors specifically
     if message.contains("quota") || message.contains("limit exceeded") {
+        // AWS doesn't provide detailed quota info in error responses
+        // Return a generic quota exceeded error
         return wit_types::SttError::QuotaExceeded(wit_types::QuotaInfo {
-            used: 0, // These would need to be parsed from the response
-            limit: 0,
-            reset_time: 0,
+            used: 1, // Unknown, but exceeded
+            limit: 1, // Unknown limit
+            reset_time: 0, // AWS doesn't provide reset time
             unit: wit_types::QuotaUnit::Requests,
         });
     }

@@ -18,6 +18,7 @@ pub enum InternalSttError {
     ServiceUnavailable(String),
     NetworkError(String),
     InternalError(String),
+    Timeout(String),
 }
 
 #[derive(Debug, Clone)]
@@ -71,6 +72,9 @@ impl InternalSttError {
     }
     pub fn service_unavailable<S: Into<String>>(msg: S) -> Self {
         InternalSttError::ServiceUnavailable(msg.into())
+    }
+    pub fn timeout<S: Into<String>>(msg: S) -> Self {
+        InternalSttError::Timeout(msg.into())
     }
 }
 

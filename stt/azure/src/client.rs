@@ -113,6 +113,7 @@ impl AzureClient {
         config: &AudioConfig,
         options: &Option<TranscribeOptions<'_>>,
     ) -> Result<TranscriptionResultOut, InternalSttError> {
+        let audio_size = audio.len() as u32;
         let url = self.endpoint()?;
         let mut headers = self.build_headers()?;
         // Override content-type based on provided format when sending raw audio
@@ -144,7 +145,7 @@ impl AzureClient {
 
         let (status, text, hdrs) = self
             .http
-            .post_bytes(&url_with_q, headers, audio.clone(), ct)
+            .post_bytes(&url_with_q, headers, audio, ct)
             .await?;
 
         if !status.is_success() {
@@ -167,7 +168,7 @@ impl AzureClient {
             .and_then(|o| o.language.clone())
             .unwrap_or_else(|| "en-US".to_string());
 
-        map_azure_to_out(parsed, audio.len() as u32, request_id, model, &language)
+        map_azure_to_out(parsed, audio_size, request_id, model, &language)
             .ok_or_else(|| InternalSttError::failed("empty transcription result"))
     }
 }
