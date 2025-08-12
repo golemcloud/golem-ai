@@ -1,0 +1,56 @@
+[package]
+name = "golem-stt-azure"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-ai"
+description = "WebAssembly component for working with Microsoft Azure Speech-to-Text, with special support for Golem Cloud"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["durability"]
+durability = ["golem-rust/durability", "golem-stt/durability"]
+durability_integration = []
+gateway = ["dep:tungstenite", "dep:url"]
+gateway_integration = []
+portable = []
+
+[dependencies]
+golem-stt = { workspace = true }
+log = { workspace = true }
+golem-rust = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+tungstenite = { version = "0.23", optional = true }
+url = { version = "2", optional = true }
+
+[dev-dependencies]
+serial_test = "2"
+tungstenite = { version = "0.23" }
+
+[package.metadata.component]
+package = "golem:stt-azure"
+
+[package.metadata.component.bindings]
+generate_unused_types = true
+
+[package.metadata.component.bindings.with]
+"golem:stt/types@1.0.0" = "golem_stt::golem::stt::types"
+"golem:stt/vocabularies@1.0.0" = "golem_stt::golem::stt::vocabularies"
+"golem:stt/languages@1.0.0" = "golem_stt::golem::stt::languages"
+"golem:stt/transcription@1.0.0" = "golem_stt::golem::stt::transcription"
+
+[package.metadata.component.target]
+path = "wit"
+
+[package.metadata.component.target.dependencies]
+"golem:stt" = { path = "wit/deps/golem-stt" }
+
+
+

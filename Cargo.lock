@@ -1077,6 +1077,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "golem-stt-azure"
+version = "0.0.0"
+dependencies = [
+ "golem-rust",
+ "golem-stt",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "tungstenite",
+ "url",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
 name = "golem-stt-google"
 version = "0.0.0"
 dependencies = [

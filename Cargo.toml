@@ -27,6 +27,7 @@ members = [
     "video/stability",
     "stt/stt",
     "stt/google",
+    "stt/azure",
 ]
 
 [profile.release]
