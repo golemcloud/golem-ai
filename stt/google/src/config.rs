@@ -9,6 +9,9 @@ pub struct GoogleConfig {
     pub log_level: Option<String>,
     pub credentials_json: String,
     pub project_id: Option<String>,
+    pub api_version: String,
+    pub v2_location: Option<String>,
+    pub v2_recognizer_id: Option<String>,
     pub max_buffer_bytes: usize,
     pub max_concurrency: usize,
 }
@@ -26,6 +29,9 @@ impl GoogleConfig {
         let endpoint = std::env::var("STT_PROVIDER_ENDPOINT").ok();
         let log_level = std::env::var("STT_PROVIDER_LOG_LEVEL").ok();
         let project_id = std::env::var("GOOGLE_CLOUD_PROJECT").ok();
+        let api_version = std::env::var("GOOGLE_STT_API_VERSION").ok().unwrap_or_else(|| "v1".into());
+        let v2_location = std::env::var("GOOGLE_STT_V2_LOCATION").ok();
+        let v2_recognizer_id = std::env::var("GOOGLE_STT_V2_RECOGNIZER").ok();
 
         let max_buffer_bytes = std::env::var("STT_BUFFER_LIMIT_BYTES")
             .ok()
@@ -49,6 +55,9 @@ impl GoogleConfig {
             log_level,
             credentials_json,
             project_id,
+            api_version,
+            v2_location,
+            v2_recognizer_id,
             max_buffer_bytes,
             max_concurrency,
         })

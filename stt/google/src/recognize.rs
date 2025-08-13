@@ -47,6 +47,9 @@ pub(crate) fn recognize(
     conf: &AudioConfig,
     opts: &Option<TranscribeOptions>,
 ) -> Result<Vec<TranscriptAlternative>, SttError> {
+    if cfg.api_version == "v2" {
+        return recognize_v2(audio, cfg, conf, opts);
+    }
     use base64::engine::general_purpose::STANDARD;
     use base64::Engine;
     use reqwest::Client;
@@ -140,6 +143,80 @@ pub(crate) fn recognize(
         }
     }
 
+    Ok(collected)
+}
+
+fn recognize_v2(
+    audio: &[u8],
+    cfg: &GoogleConfig,
+    conf: &AudioConfig,
+    opts: &Option<TranscribeOptions>,
+) -> Result<Vec<TranscriptAlternative>, SttError> {
+    use base64::engine::general_purpose::STANDARD;
+    use base64::Engine;
+    use reqwest::Client;
+    use serde_json::json;
+
+    let token = crate::auth::fetch_token(cfg)?.access_token;
+    let location = cfg.v2_location.clone().unwrap_or_else(|| "global".into());
+    let project = cfg.project_id.clone().ok_or_else(|| SttError::Unauthorized("missing GOOGLE_CLOUD_PROJECT".into()))?;
+    let recognizer = cfg.v2_recognizer_id.clone().unwrap_or_else(|| "_".into());
+    let endpoint = format!("https://{}-speech.googleapis.com/v2/projects/{}/locations/{}/recognizers/{}:recognize", location, project, location, recognizer);
+
+    let mut features = serde_json::Map::new();
+    if let Some(o) = opts {
+        if let Some(t) = o.enable_timestamps { features.insert("enableWordTimeOffsets".into(), json!(t)); }
+        if let Some(wc) = o.enable_word_confidence { features.insert("enableWordConfidence".into(), json!(wc)); }
+        if let Some(d) = o.enable_speaker_diarization { features.insert("enableSpeakerDiarization".into(), json!(d)); }
+        if let Some(pf) = o.profanity_filter { features.insert("profanityFilter".into(), json!(pf)); }
+    }
+    let lang = opts.as_ref().and_then(|o| o.language.clone()).unwrap_or_else(|| "en-US".into());
+    let model = opts.as_ref().and_then(|o| o.model.clone()).unwrap_or_else(|| "long".into());
+
+    let cfg_obj = json!({
+        "features": features,
+        "languageCodes": [lang],
+        "model": model,
+    });
+    let payload = json!({
+        "config": cfg_obj,
+        "content": STANDARD.encode(audio),
+    });
+
+    let client = Client::builder().timeout(std::time::Duration::from_secs(cfg.timeout_secs)).build().map_err(|e| SttError::InternalError(format!("client build {e}")))?;
+    let resp = client.post(&endpoint).bearer_auth(&token).json(&payload).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
+    let status = resp.status().as_u16();
+    if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
+
+    #[derive(serde::Deserialize)]
+    struct Word { startOffset: Option<String>, endOffset: Option<String>, word: Option<String>, confidence: Option<f32>, speaker: Option<String> }
+    #[derive(serde::Deserialize)]
+    struct Alt { transcript: String, confidence: Option<f32>, words: Option<Vec<Word>> }
+    #[derive(serde::Deserialize)]
+    struct ResultObj { alternatives: Vec<Alt> }
+    #[derive(serde::Deserialize)]
+    struct ApiResp { results: Vec<ResultObj> }
+    let api: ApiResp = resp.json().map_err(|e| SttError::InternalError(format!("json parse {e}")))?;
+
+    let timestamps_enabled = opts.as_ref().and_then(|o| o.enable_timestamps).unwrap_or(false);
+    let diarization_enabled = opts.as_ref().and_then(|o| o.enable_speaker_diarization).unwrap_or(false);
+    let mut collected = Vec::new();
+    for res in api.results {
+        for alt in res.alternatives {
+            let mut words_out = Vec::new();
+            if timestamps_enabled {
+                if let Some(words) = alt.words.as_ref() {
+                    for w in words {
+                        let start = parse_google_duration(&w.startOffset).unwrap_or(0.0);
+                        let end = parse_google_duration(&w.endOffset).unwrap_or(start);
+                        let speaker = if diarization_enabled { w.speaker.clone() } else { None };
+                        words_out.push(WordSegment { text: w.word.clone().unwrap_or_default(), start_time: start, end_time: end, confidence: w.confidence, speaker_id: speaker });
+                    }
+                }
+            }
+            collected.push(TranscriptAlternative { text: alt.transcript, confidence: alt.confidence.unwrap_or(0.0), words: words_out });
+        }
+    }
     Ok(collected)
 }
 
