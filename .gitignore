@@ -1,5 +1,11 @@
 stt/deepgram/wit/deps/golem-stt/deps.lock
+stt/*/wit/deps.lock
+stt/*/wit/deps/golem-stt/deps.lock
+target/
 stt/deepgram/src/bindings.rs
+stt/azure/src/bindings.rs
+stt/google/src/bindings.rs
+stt/amazon/src/bindings.rs
 *.iml
 .idea
 openapi
