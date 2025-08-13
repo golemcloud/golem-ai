@@ -33,6 +33,7 @@ hmac = "0.12"
 sha2 = "0.10"
 time = { version = "0.3", features = ["macros", "formatting"] }
 hex = "0.4"
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 serial_test = "2"

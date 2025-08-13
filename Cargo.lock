@@ -1095,6 +1095,7 @@ dependencies = [
  "sha2",
  "time",
  "url",
+ "uuid",
  "wit-bindgen-rt 0.40.0",
 ]
 

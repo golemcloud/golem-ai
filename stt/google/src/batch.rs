@@ -6,11 +6,9 @@ use golem_stt::golem::stt::transcription::{
 use golem_stt::golem::stt::types::TranscriptionMetadata;
 use golem_stt::golem::stt::types::SttError;
 #[cfg(feature = "durability")]
-use golem_rust::durability::Durability;
-#[cfg(feature = "durability")]
 use golem_rust::{FromValueAndType, IntoValue};
 #[cfg(feature = "durability")]
-use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
+use golem_stt::durability::durable_impl;
 
 fn compute_pcm_duration_seconds(bytes: usize, sample_rate: u32, channels: u8) -> f32 {
     let bytes_per_sample = 2u32;
@@ -46,9 +44,17 @@ pub fn transcribe_impl(
     };
     #[cfg(feature = "durability")]
     {
-        use crate::durability::{persist_transcribe, TranscribeInputMeta};
-        let input = TranscribeInputMeta { language: opts.as_ref().and_then(|o| o.language.clone()), model: opts.as_ref().and_then(|o| o.model.clone()), enable_timestamps: opts.as_ref().and_then(|o| o.enable_timestamps).unwrap_or(false), enable_diarization: opts.as_ref().and_then(|o| o.enable_speaker_diarization).unwrap_or(false), enable_word_confidence: opts.as_ref().and_then(|o| o.enable_word_confidence).unwrap_or(false), audio_size_bytes: audio.len() as u32 };
-        return persist_transcribe(input, result);
+        #[derive(Clone, Debug, FromValueAndType, IntoValue)]
+        struct InputMeta {
+            language: Option<String>,
+            model: Option<String>,
+            enable_timestamps: bool,
+            enable_diarization: bool,
+            enable_word_confidence: bool,
+            audio_size_bytes: u32,
+        }
+        let input = InputMeta { language: opts.as_ref().and_then(|o| o.language.clone()), model: opts.as_ref().and_then(|o| o.model.clone()), enable_timestamps: opts.as_ref().and_then(|o| o.enable_timestamps).unwrap_or(false), enable_diarization: opts.as_ref().and_then(|o| o.enable_speaker_diarization).unwrap_or(false), enable_word_confidence: opts.as_ref().and_then(|o| o.enable_word_confidence).unwrap_or(false), audio_size_bytes: audio.len() as u32 };
+        return durable_impl::persist_transcribe("golem_stt_google", input, result);
     }
     #[cfg(not(feature = "durability"))]
     { result }
