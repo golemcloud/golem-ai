@@ -1083,12 +1083,14 @@ dependencies = [
  "golem-rust",
  "golem-stt",
  "log",
+ "once_cell",
  "reqwest",
  "serde",
  "serde_json",
  "serial_test",
  "tungstenite",
  "url",
+ "uuid",
  "wit-bindgen-rt 0.40.0",
 ]
 

@@ -6,6 +6,9 @@ pub mod error;
 mod recognize;
 mod batch;
 pub mod languages;
+pub mod vocabularies;
+#[cfg(feature = "durability")]
+mod durability;
 
 pub struct AzureTranscriptionComponent;
 
@@ -31,25 +34,34 @@ impl TranscriptionGuest for AzureTranscriptionComponent {
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
-            use std::sync::{Arc, Mutex};
+            use std::sync::{Arc, Mutex, Condvar};
             use std::thread;
+            let cfg = crate::config::AzureConfig::load()?;
+            let max_in_flight = cfg.max_concurrency.max(1);
             let len = requests.len();
             let results: Arc<Mutex<Vec<Option<TranscriptionResult>>>> = Arc::new(Mutex::new(vec![None; len]));
             let first_err: Arc<Mutex<Option<SttError>>> = Arc::new(Mutex::new(None));
+            let in_flight = Arc::new((Mutex::new(0usize), Condvar::new()));
             let mut handles = Vec::with_capacity(len);
             for (idx, req) in requests.into_iter().enumerate() {
                 let results_cloned = Arc::clone(&results);
                 let err_cloned = Arc::clone(&first_err);
+                let in_flight_cloned = Arc::clone(&in_flight);
+                // throttle
+                {
+                    let (lock, cvar) = &*in_flight_cloned;
+                    let mut count = lock.lock().unwrap();
+                    while *count >= max_in_flight { count = cvar.wait(count).unwrap(); }
+                    *count += 1;
+                }
                 handles.push(thread::spawn(move || {
                     let out = Self::transcribe(req.audio, req.config, req.options);
                     match out {
-                        Ok(v) => {
-                            if let Ok(mut guard) = results_cloned.lock() { guard[idx] = Some(v); }
-                        }
-                        Err(e) => {
-                            if let Ok(mut guard) = err_cloned.lock() { if guard.is_none() { *guard = Some(e); } }
-                        }
+                        Ok(v) => { if let Ok(mut guard) = results_cloned.lock() { guard[idx] = Some(v); } }
+                        Err(e) => { if let Ok(mut guard) = err_cloned.lock() { if guard.is_none() { *guard = Some(e); } } }
                     }
+                    let (lock, cvar) = &*in_flight_cloned;
+                    if let Ok(mut count) = lock.lock() { *count = count.saturating_sub(1); cvar.notify_one(); }
                 }));
             }
             for h in handles { let _ = h.join(); }

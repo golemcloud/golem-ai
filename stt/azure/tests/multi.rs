@@ -1,5 +1,5 @@
 use golem_stt_azure::AzureTranscriptionComponent;
-use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeOptions, TranscribeRequest, Guest as TranscriptionGuest};
+use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeRequest, Guest as TranscriptionGuest};
 use golem_stt::golem::stt::types::AudioFormat;
 
 #[test]

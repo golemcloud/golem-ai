@@ -186,7 +186,7 @@ is_dev = eq ${environment} "dev"
 
 
 
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama websearch_brave websearch_google websearch_serper websearch_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability stt_google
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama websearch_brave websearch_google websearch_serper websearch_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability stt_google stt_azure
 
 
 for target in ${targets}

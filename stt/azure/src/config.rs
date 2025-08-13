@@ -10,6 +10,7 @@ pub struct AzureConfig {
     pub subscription_key: String,
     pub region: String,
     pub max_buffer_bytes: usize,
+    pub max_concurrency: usize,
 }
 
 impl AzureConfig {
@@ -34,6 +35,7 @@ impl AzureConfig {
             .map_err(|_| SttError::Unauthorized("missing AZURE_SPEECH_KEY".into()))?;
         let region = std::env::var("AZURE_SPEECH_REGION")
             .map_err(|_| SttError::Unauthorized("missing AZURE_SPEECH_REGION".into()))?;
+        let max_concurrency = std::env::var("STT_MAX_CONCURRENCY").ok().and_then(|v| v.parse::<usize>().ok()).unwrap_or(8);
 
         Ok(Self {
             endpoint,
@@ -43,6 +45,7 @@ impl AzureConfig {
             subscription_key,
             region,
             max_buffer_bytes,
+            max_concurrency,
         })
     }
 }
