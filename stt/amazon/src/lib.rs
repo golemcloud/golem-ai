@@ -4,6 +4,8 @@ use golem_stt::golem::stt::types::SttError;
 pub mod config;
 pub mod signer;
 pub mod error;
+pub mod vocabularies;
+pub mod languages;
 mod transcribe;
 mod batch;
 #[cfg(feature = "durability")]
