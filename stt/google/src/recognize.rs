@@ -224,7 +224,6 @@ fn recognize_v2(
 #[cfg_attr(test, allow(dead_code))]
 fn parse_google_duration(value: &Option<String>) -> Option<f32> {
     if let Some(v) = value {
-        // Formats like "1.234s" or "2s"
         let s = v.trim_end_matches('s');
         if let Ok(f) = s.parse::<f32>() { return Some(f); }
     }

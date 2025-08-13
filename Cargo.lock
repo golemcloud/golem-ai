@@ -1156,6 +1156,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "golem-stt-whisper"
+version = "0.0.0"
+dependencies = [
+ "golem-rust",
+ "golem-stt",
+ "log",
+ "mime_guess",
+ "once_cell",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "url",
+ "uuid",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
 name = "golem-video"
 version = "0.0.0"
 dependencies = [

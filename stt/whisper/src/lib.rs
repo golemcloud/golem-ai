@@ -1,42 +1,38 @@
-use golem_stt::golem::stt::transcription::{Guest as TranscriptionGuest, AudioConfig, TranscribeOptions, TranscriptionResult, TranscribeRequest};
+use golem_stt::golem::stt::transcription::{
+    Guest as TranscriptionGuest,
+    AudioConfig, TranscribeOptions, TranscriptionResult,
+    TranscribeRequest,
+};
 use golem_stt::golem::stt::types::SttError;
 
 pub mod config;
 pub mod error;
-mod recognize;
-mod batch;
 pub mod languages;
 pub mod vocabularies;
+mod recognize;
+mod batch;
 #[cfg(feature = "durability")]
-mod durability;
+pub mod durability;
 
-pub struct AzureTranscriptionComponent;
+pub struct WhisperTranscriptionComponent;
 
-impl TranscriptionGuest for AzureTranscriptionComponent {
-
-    fn transcribe(
-        audio: Vec<u8>,
-        config: AudioConfig,
-        options: Option<TranscribeOptions>,
-    ) -> Result<TranscriptionResult, SttError> {
-        let cfg = crate::config::AzureConfig::load()?;
+impl TranscriptionGuest for WhisperTranscriptionComponent {
+    fn transcribe(audio: Vec<u8>, config: AudioConfig, options: Option<TranscribeOptions>) -> Result<TranscriptionResult, SttError> {
+        let cfg = crate::config::WhisperConfig::load()?;
         crate::batch::transcribe_impl(audio, &cfg, options, config)
     }
-
     fn multi_transcribe(requests: Vec<TranscribeRequest>) -> Result<Vec<TranscriptionResult>, SttError> {
         #[cfg(target_arch = "wasm32")]
         {
             let mut results = Vec::with_capacity(requests.len());
-            for req in requests {
-                results.push(Self::transcribe(req.audio, req.config, req.options)?);
-            }
+            for req in requests { results.push(Self::transcribe(req.audio, req.config, req.options)?); }
             return Ok(results);
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
             use std::sync::{Arc, Mutex, Condvar};
             use std::thread;
-            let cfg = crate::config::AzureConfig::load()?;
+            let cfg = crate::config::WhisperConfig::load()?;
             let max_in_flight = cfg.max_concurrency.max(1);
             let len = requests.len();
             let results: Arc<Mutex<Vec<Option<TranscriptionResult>>>> = Arc::new(Mutex::new(vec![None; len]));
@@ -72,13 +68,10 @@ impl TranscriptionGuest for AzureTranscriptionComponent {
     }
 }
 
-pub struct AzureLanguagesComponent;
+pub struct WhisperLanguagesComponent;
 
-impl golem_stt::golem::stt::languages::Guest for AzureLanguagesComponent {
+impl golem_stt::golem::stt::languages::Guest for WhisperLanguagesComponent {
     fn list_languages() -> Result<Vec<golem_stt::golem::stt::languages::LanguageInfo>, SttError> {
-        crate::languages::AzureLanguagesComponent::list_languages()
+        crate::languages::WhisperLanguagesComponent::list_languages()
     }
 }
-
-
-

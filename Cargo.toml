@@ -30,6 +30,7 @@ members = [
     "stt/azure",
     "stt/amazon",
     "stt/deepgram",
+    "stt/whisper",
 ]
 
 [profile.release]
