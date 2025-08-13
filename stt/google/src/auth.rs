@@ -30,6 +30,7 @@ thread_local! {
     static TOKEN_CACHE: RefCell<Option<TokenInfo>> = const { RefCell::new(None) };
 }
 
+#[allow(dead_code)]
 fn now_secs() -> usize {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

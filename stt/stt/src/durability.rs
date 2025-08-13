@@ -45,7 +45,7 @@ pub mod retry {
         loop {
             match f(attempt) {
                 Ok(v) => return Ok(v),
-                Err(e) if attempt < max_retries => {
+                Err(_e) if attempt < max_retries => {
                     let delay = base_delay_ms.saturating_mul(1 + attempt as u64);
                     std::thread::sleep(Duration::from_millis(delay));
                     attempt += 1;

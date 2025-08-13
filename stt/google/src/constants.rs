@@ -1,1 +1,2 @@
-pub const GOOGLE_SPEECH_ENDPOINT: &str = "https://speech.googleapis.com/v1/speech:recognize"; 
+#[allow(dead_code)]
+pub const GOOGLE_SPEECH_ENDPOINT: &str = "https://speech.googleapis.com/v1/speech:recognize";

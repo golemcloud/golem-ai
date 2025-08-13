@@ -4,6 +4,7 @@ use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeOptions, Trans
 use golem_stt::golem::stt::types::WordSegment;
 use golem_stt::golem::stt::types::SttError;
 use serde::Deserialize;
+#[cfg(feature = "durability")]
 use golem_stt::durability::durable_impl;
 
 #[derive(Deserialize)]
@@ -88,8 +89,7 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
 
     let mut attempts = 0u32;
     let max = cfg.max_retries;
-    let mut transcript_uri: Option<String> = None;
-    loop {
+    let transcript_uri: String = loop {
         let get_body = serde_json::json!({ "TranscriptionJobName": job_name });
         let payload = serde_json::to_vec(&get_body).map_err(|e| SttError::InternalError(format!("json {e}")))?;
         let amz_target = "Transcribe.GetTranscriptionJob".to_string();
@@ -102,16 +102,18 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
         let v: serde_json::Value = resp.json().map_err(|e| SttError::TranscriptionFailed(format!("resp {e}")))?;
         if let Some(state) = v.get("TranscriptionJob").and_then(|j| j.get("TranscriptionJobStatus")).and_then(|s| s.as_str()) {
             if state == "COMPLETED" {
-                transcript_uri = v.get("TranscriptionJob").and_then(|j| j.get("Transcript")).and_then(|t| t.get("TranscriptFileUri")).and_then(|u| u.as_str()).map(|s| s.to_string());
-                break;
+                if let Some(u) = v.get("TranscriptionJob").and_then(|j| j.get("Transcript")).and_then(|t| t.get("TranscriptFileUri")).and_then(|u| u.as_str()).map(|s| s.to_string()) {
+                    break u;
+                } else {
+                    return Err(SttError::TranscriptionFailed("no transcript uri".into()));
+                }
             } else if state == "FAILED" { return Err(SttError::TranscriptionFailed("job failed".into())); }
         }
         attempts += 1;
         if attempts > max { return Err(SttError::ServiceUnavailable("too many retries".into())); }
         std::thread::sleep(std::time::Duration::from_millis(500));
-    }
-    let t_uri = transcript_uri.ok_or_else(|| SttError::TranscriptionFailed("no transcript uri".into()))?;
-    let text_resp = client.get(t_uri).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
+    };
+    let text_resp = client.get(&transcript_uri).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
     let status = text_resp.status().as_u16();
     if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
     let body = text_resp.text().map_err(|e| SttError::NetworkError(format!("{e}")))?;
