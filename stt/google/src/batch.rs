@@ -28,7 +28,7 @@ pub fn transcribe_impl(
             let metadata = TranscriptionMetadata {
                 duration_seconds,
                 audio_size_bytes: audio.len() as u32,
-                request_id: String::new(),
+                request_id: uuid::Uuid::new_v4().to_string(),
                 model: opts.as_ref().and_then(|o| o.model.clone()),
                 language: opts
                     .as_ref()

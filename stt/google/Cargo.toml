@@ -36,6 +36,10 @@ jsonwebtoken = "9"
 [dev-dependencies]
 serial_test = "2"
 
+[dependencies.uuid]
+version = "1"
+features = ["v4"]
+
 [package.metadata.component]
 package = "golem:stt-google"
 
