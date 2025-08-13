@@ -157,3 +157,15 @@ pub fn extract_aws_error_message(body: &str) -> String {
         body.to_string()
     }
 }
+
+pub fn extract_whisper_error_message(body: &str) -> String {
+    // OpenAI/Whisper error format: {"error": {"message": "...", "type": "...", "code": "..."}}
+    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(body) {
+        if let Some(error) = parsed.get("error") {
+            if let Some(message) = error.get("message").and_then(|m| m.as_str()) {
+                return message.to_string();
+            }
+        }
+    }
+    body.to_string()
+}

@@ -42,8 +42,6 @@ impl AwsClient {
             .cloned()
     }
 
-
-
     fn region(&self) -> Result<String, InternalSttError> {
         self.cfg
             .region
@@ -103,7 +101,7 @@ impl AwsClient {
         let amz_date = now
             .format(
                 &time::format_description::parse("[year][month][day]T[hour][minute][second]Z")
-                    .unwrap(),
+                    .map_err(|e| InternalSttError::internal(format!("time format parse: {e}")))?,
             )
             .map_err(|e| InternalSttError::internal(format!("time format: {e}")))?;
         let date_stamp = now
@@ -208,7 +206,11 @@ impl AwsClient {
             }
             if let Some(vocab) = &opts.vocabulary {
                 let vocab_name = vocab.get::<VocabularyResource>().get_name();
-                request_body["Settings"] = request_body["Settings"].as_object().cloned().unwrap_or_default().into();
+                request_body["Settings"] = request_body["Settings"]
+                    .as_object()
+                    .cloned()
+                    .unwrap_or_default()
+                    .into();
                 request_body["Settings"]["VocabularyName"] = serde_json::json!(vocab_name);
             }
         }
@@ -234,7 +236,7 @@ impl AwsClient {
         let amz_date = now
             .format(
                 &time::format_description::parse("[year][month][day]T[hour][minute][second]Z")
-                    .unwrap(),
+                    .map_err(|e| InternalSttError::internal(format!("time format parse: {e}")))?,
             )
             .map_err(|e| InternalSttError::internal(format!("time format: {e}")))?;
         let date_stamp = now
@@ -289,7 +291,12 @@ impl AwsClient {
 
         let (status, text, _hdrs) = self
             .http
-            .post_bytes(&url, headers, body_str.into_bytes(), "application/x-amz-json-1.1")
+            .post_bytes(
+                &url,
+                headers,
+                body_str.into_bytes(),
+                "application/x-amz-json-1.1",
+            )
             .await?;
 
         if !status.is_success() {
@@ -388,7 +395,12 @@ impl AwsClient {
 
         let (status, text, _hdrs) = self
             .http
-            .post_bytes(&url, headers, body_str.into_bytes(), "application/x-amz-json-1.1")
+            .post_bytes(
+                &url,
+                headers,
+                body_str.into_bytes(),
+                "application/x-amz-json-1.1",
+            )
             .await?;
 
         if !status.is_success() {
@@ -447,10 +459,7 @@ impl AwsClient {
             }
 
             // Wait before next poll (exponential backoff)
-            let wait_secs = std::cmp::min(
-                5,
-                1 + start_time.elapsed().as_secs() / 10
-            );
+            let wait_secs = std::cmp::min(5, 1 + start_time.elapsed().as_secs() / 10);
 
             // Use proper async sleep - simulate with yield and counter
             for _ in 0..(wait_secs * 10) {
@@ -474,10 +483,7 @@ impl AwsClient {
         // For AWS Transcribe, the transcript URI is a pre-signed URL that doesn't need additional auth
         // AWS Transcribe provides pre-signed URLs for downloading results
         let headers = HeaderMap::new();
-        let (status, text, _hdrs) = self
-            .http
-            .get(transcript_file_uri, headers)
-            .await?;
+        let (status, text, _hdrs) = self.http.get(transcript_file_uri, headers).await?;
 
         if !status.is_success() {
             return Err(InternalSttError::failed(format!(
@@ -499,40 +505,57 @@ impl AwsClient {
         // Generate unique job name and S3 key
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .map_err(|e| InternalSttError::internal(format!("System time error: {e}")))?
             .as_secs();
         let job_name = format!("golem-stt-{}", timestamp);
-        let s3_key = format!("audio/{}.{}", timestamp, match config.format {
-            AudioFormat::Wav => "wav",
-            AudioFormat::Mp3 => "mp3",
-            AudioFormat::Flac => "flac",
-            AudioFormat::Ogg => "ogg",
-            AudioFormat::Aac => "aac",
-            AudioFormat::Pcm => "wav",
-        });
+        let s3_key = format!(
+            "audio/{}.{}",
+            timestamp,
+            match config.format {
+                AudioFormat::Wav => "wav",
+                AudioFormat::Mp3 => "mp3",
+                AudioFormat::Flac => "flac",
+                AudioFormat::Ogg => "ogg",
+                AudioFormat::Aac => "aac",
+                AudioFormat::Pcm => "wav",
+            }
+        );
 
         // Step 1: Upload audio to S3
         let content_type = Self::content_type_for(&config.format);
         let s3_uri = self.upload_to_s3(&audio, &s3_key, content_type).await?;
 
         // Step 2: Start transcription job
-        let _job_name = self.start_transcription_job(&s3_uri, &job_name, config, options).await?;
+        let _job_name = self
+            .start_transcription_job(&s3_uri, &job_name, config, options)
+            .await?;
 
         // Step 3: Poll for completion (with timeout)
         let timeout_secs = self.cfg.common.timeout_secs;
-        let job_response = self.poll_transcription_completion(&job_name, timeout_secs).await?;
+        let job_response = self
+            .poll_transcription_completion(&job_name, timeout_secs)
+            .await?;
 
         // Step 4: Download and return transcription results
         if let Some(job) = job_response.get("TranscriptionJob") {
             if let Some(transcript) = job.get("Transcript") {
-                if let Some(transcript_file_uri) = transcript.get("TranscriptFileUri").and_then(|u| u.as_str()) {
-                    let transcription_result = self.download_transcription_result(transcript_file_uri).await?;
+                if let Some(transcript_file_uri) =
+                    transcript.get("TranscriptFileUri").and_then(|u| u.as_str())
+                {
+                    let transcription_result = self
+                        .download_transcription_result(transcript_file_uri)
+                        .await?;
                     return Ok((200, transcription_result));
                 }
             }
         }
 
         // Fallback: return the job response if we can't get the transcript
-        Ok((200, serde_json::to_string(&job_response).unwrap()))
+        Ok((
+            200,
+            serde_json::to_string(&job_response).map_err(|e| {
+                InternalSttError::internal(format!("JSON serialization error: {e}"))
+            })?,
+        ))
     }
 }

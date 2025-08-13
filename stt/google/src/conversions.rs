@@ -32,7 +32,14 @@ struct GoogleResponse {
 fn parse_duration_secs(s: &str) -> f32 {
     // Formats like "12.345s" or "3.4s"
     let trimmed = s.trim_end_matches('s');
-    trimmed.parse::<f32>().unwrap_or(0.0)
+    match trimmed.parse::<f32>() {
+        Ok(duration) => duration,
+        Err(_) => {
+            // Log parsing error but don't fail the entire transcription
+            log::warn!("Failed to parse duration '{}', defaulting to 0.0", s);
+            0.0
+        }
+    }
 }
 
 pub fn to_wit_result(
@@ -85,10 +92,13 @@ pub fn to_wit_result(
     let metadata = wit_types::TranscriptionMetadata {
         duration_seconds: 0.0, // Not provided directly by Google synchronous recognize
         audio_size_bytes,
-        request_id: format!("google-{}", std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis()), // Google doesn't provide request IDs
+        request_id: format!(
+            "google-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+        ), // Google doesn't provide request IDs
         model,
         language,
     };
@@ -127,7 +137,9 @@ pub fn to_wit_error(err: InternalSttError) -> wit_types::SttError {
         InternalSttError::ServiceUnavailable(m) => wit_types::SttError::ServiceUnavailable(m),
         InternalSttError::NetworkError(m) => wit_types::SttError::NetworkError(m),
         InternalSttError::InternalError(m) => wit_types::SttError::InternalError(m),
-        InternalSttError::Timeout(m) => wit_types::SttError::TranscriptionFailed(format!("Timeout: {m}")),
+        InternalSttError::Timeout(m) => {
+            wit_types::SttError::TranscriptionFailed(format!("Timeout: {m}"))
+        }
     }
 }
 

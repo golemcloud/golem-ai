@@ -103,12 +103,14 @@ pub fn to_wit_error(err: InternalSttError) -> wit_types::SttError {
         InternalSttError::ServiceUnavailable(m) => wit_types::SttError::ServiceUnavailable(m),
         InternalSttError::NetworkError(m) => wit_types::SttError::NetworkError(m),
         InternalSttError::InternalError(m) => wit_types::SttError::InternalError(m),
-        InternalSttError::Timeout(m) => wit_types::SttError::TranscriptionFailed(format!("Timeout: {m}")),
+        InternalSttError::Timeout(m) => {
+            wit_types::SttError::TranscriptionFailed(format!("Timeout: {m}"))
+        }
     }
 }
 
 pub fn to_wit_error_from_whisper(status: u16, body: &str) -> wit_types::SttError {
-    let message = extract_google_error_message(body);
+    let message = extract_whisper_error_message(body);
     match status {
         400 => wit_types::SttError::UnsupportedFormat(message),
         401 => wit_types::SttError::Unauthorized(message),

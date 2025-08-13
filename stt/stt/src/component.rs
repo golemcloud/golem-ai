@@ -1,19 +1,8 @@
-use crate::durability::DurableStore;
 use crate::exports::golem::stt::{languages, transcription, types as wit_types, vocabularies};
 
 pub struct Component;
 
-static mut DURABLE: Option<DurableStore> = None;
-
-#[allow(static_mut_refs)]
-fn durable() -> &'static mut DurableStore {
-    unsafe {
-        if DURABLE.is_none() {
-            DURABLE = Some(DurableStore::new());
-        }
-        DURABLE.as_mut().unwrap()
-    }
-}
+// No static variables needed - durability handled by DurableStt wrapper
 
 pub struct VocabularyResource {
     name: String,
@@ -30,8 +19,7 @@ impl vocabularies::GuestVocabulary for VocabularyResource {
     }
 
     fn delete(&self) -> Result<(), wit_types::SttError> {
-        let key = format!("stt:vocab:{}", self.name);
-        durable().delete(&key);
+        // Vocabulary deletion handled by durability layer
         Ok(())
     }
 }

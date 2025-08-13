@@ -127,10 +127,7 @@ impl DeepgramClient {
 
         trace!("Deepgram POST URL: {url}");
 
-        let (status, body, _headers) = self
-            .http
-            .post_bytes(&url, headers, audio, ct)
-            .await?;
+        let (status, body, _headers) = self.http.post_bytes(&url, headers, audio, ct).await?;
 
         if !status.is_success() {
             return Err(InternalSttError::failed(extract_deepgram_error_message(
@@ -141,7 +138,13 @@ impl DeepgramClient {
         let parsed: DeepgramTranscript = serde_json::from_str(&body).map_err(|e| {
             InternalSttError::internal(format!("parse deepgram response: {e}, body: {body}"))
         })?;
-        let size = u32::try_from(audio.len()).unwrap_or(u32::MAX);
+        // Handle large files properly - don't silently truncate
+        let size = u32::try_from(audio.len()).map_err(|_| {
+            InternalSttError::InvalidAudio(format!(
+                "Audio file too large: {} bytes exceeds maximum supported size",
+                audio.len()
+            ))
+        })?;
         map_deepgram_to_out(parsed, size)
             .ok_or_else(|| InternalSttError::failed("empty transcription result"))
     }
@@ -242,7 +245,7 @@ pub fn map_deepgram_to_out(
         .metadata
         .as_ref()
         .and_then(|m| m.language.clone())
-        .unwrap_or_else(|| "en".to_string());
+        .unwrap_or_else(|| "en-US".to_string());
 
     let model = dg
         .metadata

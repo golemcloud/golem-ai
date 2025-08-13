@@ -62,18 +62,21 @@ impl HttpClient {
         body: Vec<u8>,
         content_type: &str,
     ) -> Result<(StatusCode, String, HeaderMap), InternalSttError> {
+        let url = url.to_string();
+        let content_type = content_type.to_string();
+
         self.retrying(|attempt| {
-            let url = url.to_string();
+            let url = url.clone();
             let headers = headers.clone();
-            let body = body.clone();
-            let content_type = content_type.to_string();
+            let body = body.clone(); // Clone only when retrying
+            let content_type = content_type.clone();
             let client = self.client.clone();
             async move {
-                let mut req = client
+                let req = client
                     .post(&url)
-                    .headers(headers.clone())
-                    .body(body.clone());
-                req = req.header("Content-Type", content_type);
+                    .headers(headers)
+                    .header("Content-Type", content_type)
+                    .body(body);
                 trace!("POST {url} attempt {attempt}");
                 let resp = req
                     .send()
@@ -105,7 +108,11 @@ impl HttpClient {
                     }
                     let backoff = backoff_delay(attempt);
                     debug!("retryable error on attempt {attempt}: {e:?}, backing off {backoff:?}");
-                    thread::sleep(backoff);
+                    // Use busy-wait loop for WASI compatibility (no async sleep available)
+                    let start = std::time::Instant::now();
+                    while start.elapsed() < backoff {
+                        wstd::runtime::yield_now().await;
+                    }
                 }
             }
         }

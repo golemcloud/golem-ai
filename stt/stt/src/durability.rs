@@ -86,11 +86,15 @@ impl StreamSnapshot {
 }
 
 /// Build a stable request key from audio and a salt (e.g., options hash).
+/// Uses streaming hash to avoid copying large audio data.
 pub fn make_request_key(audio: &[u8], salt: &str) -> String {
-    let mut data = Vec::with_capacity(audio.len() + salt.len());
-    data.extend_from_slice(audio);
-    data.extend_from_slice(salt.as_bytes());
-    request_checksum(&data)
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = DefaultHasher::new();
+    audio.hash(&mut hasher);
+    salt.hash(&mut hasher);
+    format!("{:x}", hasher.finish())
 }
 
 /// Wraps an STT implementation with custom durability
@@ -163,18 +167,19 @@ mod durable_impl {
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
     use golem_rust::{with_persistence_level, PersistenceLevel};
+    use serde::{Deserialize, Serialize};
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     struct ListLanguagesInput;
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     struct TranscribeInput {
         audio: Vec<u8>,
         config: AudioConfig,
         options: Option<TranscribeOptions>,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     struct CreateVocabularyInput {
         name: String,
         phrases: Vec<String>,
@@ -214,8 +219,9 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                // Don't persist large audio data - only persist metadata for replay
                 let input = TranscribeInput {
-                    audio: audio.clone(),
+                    audio: vec![], // Empty - audio not persisted to avoid memory issues
                     config: config.clone(),
                     options: options.clone(),
                 };

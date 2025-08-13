@@ -67,7 +67,9 @@ impl WhisperClient {
         if let Some(opts) = options {
             if let Some(lang) = &opts.language {
                 body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-                body.extend_from_slice(b"Content-Disposition: form-data; name=\"language\"\r\n\r\n");
+                body.extend_from_slice(
+                    b"Content-Disposition: form-data; name=\"language\"\r\n\r\n",
+                );
                 body.extend_from_slice(lang.as_bytes());
                 body.extend_from_slice(b"\r\n");
             }
@@ -113,7 +115,9 @@ impl WhisperClient {
         if let Some(opts) = options {
             if opts.enable_timestamps.unwrap_or(false) {
                 body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-                body.extend_from_slice(b"Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\n");
+                body.extend_from_slice(
+                    b"Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\n",
+                );
                 body.extend_from_slice(b"word\r\n");
             }
         }
