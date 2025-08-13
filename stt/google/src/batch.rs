@@ -6,6 +6,10 @@ use golem_stt::golem::stt::transcription::{
 use golem_stt::golem::stt::types::TranscriptionMetadata;
 use golem_stt::golem::stt::types::SttError;
 #[cfg(feature = "durability")]
+use golem_stt::durability::saga::{Saga, SttCheckpoint};
+#[cfg(feature = "durability")]
+use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
+#[cfg(feature = "durability")]
 use golem_rust::{FromValueAndType, IntoValue};
 #[cfg(feature = "durability")]
 use golem_stt::durability::durable_impl;
@@ -22,6 +26,10 @@ pub fn transcribe_impl(
     opts: Option<TranscribeOptions>,
     conf: AudioConfig,
 ) -> Result<TranscriptionResult, SttError> {
+    #[cfg(feature = "durability")]
+    let saga: Saga<TranscriptionResult, SttError> = Saga::new("golem_stt_google", "transcribe", DurableFunctionType::WriteRemote);
+    #[cfg(feature = "durability")]
+    saga.persist_checkpoint(SttCheckpoint { provider: "google".into(), state: "started".into(), job_id: None, media_uri: None, audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: 0 });
     let result = match recognize(&audio, cfg, &conf, &opts) {
         Ok(alternatives) => {
             let duration_seconds = if let (Some(sr), Some(ch)) = (conf.sample_rate, conf.channels) { compute_pcm_duration_seconds(audio.len(), sr, ch) } else { 0.0 };
@@ -42,6 +50,8 @@ pub fn transcribe_impl(
         }
         Err(e) => Err(e),
     };
+    #[cfg(feature = "durability")]
+    if result.is_ok() { saga.persist_checkpoint(SttCheckpoint { provider: "google".into(), state: "completed".into(), job_id: None, media_uri: None, audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: 0 }); }
     #[cfg(feature = "durability")]
     {
         #[derive(Clone, Debug, FromValueAndType, IntoValue)]

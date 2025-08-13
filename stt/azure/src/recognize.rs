@@ -1,7 +1,5 @@
 use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeOptions, TranscriptAlternative};
-use golem_stt::golem::stt::types::SttError;
-#[cfg(not(test))]
-use golem_stt::golem::stt::types::WordSegment;
+use golem_stt::golem::stt::types::{SttError, WordSegment};
 use crate::config::AzureConfig;
 
 fn map_audio_format_to_mime(format: golem_stt::golem::stt::types::AudioFormat) -> &'static str {

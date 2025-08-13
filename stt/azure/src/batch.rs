@@ -7,6 +7,10 @@ use golem_stt::golem::stt::transcription::{
 use golem_stt::golem::stt::types::TranscriptionMetadata;
 use golem_stt::golem::stt::types::SttError;
 #[cfg(feature = "durability")]
+use golem_stt::durability::saga::{Saga, SttCheckpoint};
+#[cfg(feature = "durability")]
+use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
+#[cfg(feature = "durability")]
 use golem_stt::durability::durable_impl;
 #[cfg(feature = "durability")]
 use golem_rust::{FromValueAndType, IntoValue};
@@ -23,6 +27,8 @@ pub fn transcribe_impl(
     opts: Option<TranscribeOptions>,
     conf: AudioConfig,
 ) -> Result<TranscriptionResult, SttError> {
+    #[cfg(feature = "durability")]
+    let saga: Saga<TranscriptionResult, SttError> = Saga::new("golem_stt_azure", "transcribe", DurableFunctionType::WriteRemote);
     let result = match recognize(&audio, cfg, &conf, &opts) {
         Ok(RecognizeOut { alternatives, request_id, elapsed_secs, server_duration_secs }) => {
             let model = opts.as_ref().and_then(|o| o.model.clone());
@@ -45,7 +51,7 @@ pub fn transcribe_impl(
                     .and_then(|o| o.language.clone())
                     .unwrap_or_else(|| "en-US".to_string()),
             };
-            Ok(TranscriptionResult { alternatives, metadata })
+                Ok(TranscriptionResult { alternatives, metadata })
         }
         Err(e) => {
             Err(e)
@@ -73,7 +79,9 @@ pub fn transcribe_impl(
             enable_word_confidence: opts.as_ref().and_then(|o| o.enable_word_confidence).unwrap_or(false),
             audio_size_bytes: audio.len() as u32,
         };
-        return durable_impl::persist_transcribe("golem_stt_azure", input, result);
+                    let out = durable_impl::persist_transcribe("golem_stt_azure", input, result);
+                    if out.is_ok() { saga.persist_checkpoint(SttCheckpoint { provider: "azure".into(), state: "completed".into(), job_id: None, media_uri: None, audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: 0 }); }
+                    return out;
     }
 
     #[cfg(not(feature = "durability"))]
