@@ -10,6 +10,7 @@ pub struct GoogleConfig {
     pub credentials_json: String,
     pub project_id: Option<String>,
     pub max_buffer_bytes: usize,
+    pub max_concurrency: usize,
 }
 
 impl GoogleConfig {
@@ -30,6 +31,7 @@ impl GoogleConfig {
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(5_000_000);
+        let max_concurrency = std::env::var("STT_MAX_CONCURRENCY").ok().and_then(|v| v.parse::<usize>().ok()).unwrap_or(8);
 
         let creds_path_or_json = std::env::var("GOOGLE_APPLICATION_CREDENTIALS")
             .map_err(|_| SttError::Unauthorized("missing GOOGLE_APPLICATION_CREDENTIALS".into()))?;
@@ -48,6 +50,7 @@ impl GoogleConfig {
             credentials_json,
             project_id,
             max_buffer_bytes,
+            max_concurrency,
         })
     }
 } 

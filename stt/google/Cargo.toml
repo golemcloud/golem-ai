@@ -15,8 +15,6 @@ crate-type = ["cdylib", "rlib"]
 default = []
 durability = ["golem-rust/durability", "golem-stt/durability"]
 durability_integration = []
-gateway = ["dep:tungstenite", "dep:url"]
-gateway_integration = []
 portable = []
 
 [dependencies]
@@ -29,13 +27,14 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 base64 = { workspace = true }
 reqwest = { workspace = true }
+[dependencies.once_cell]
+version = "1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 jsonwebtoken = "9"
-tungstenite = { version = "0.23", optional = true }
-url = { version = "2", optional = true }
 
 [dev-dependencies]
 serial_test = "2"
-tungstenite = { version = "0.23" }
 
 [package.metadata.component]
 package = "golem:stt-google"

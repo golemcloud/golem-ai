@@ -1,5 +1,5 @@
 use golem_stt_google::GoogleTranscriptionComponent;
-use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeOptions, TranscribeRequest, Guest as TranscriptionGuest};
+use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeRequest, Guest as TranscriptionGuest};
 use golem_stt::golem::stt::types::AudioFormat;
 
 #[test]

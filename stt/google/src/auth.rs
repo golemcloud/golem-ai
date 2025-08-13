@@ -1,10 +1,14 @@
 use serde::{Deserialize, Serialize};
+#[cfg(not(target_arch = "wasm32"))]
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use golem_stt::golem::stt::types::SttError;
 use crate::config::GoogleConfig;
+#[allow(unused_imports)]
 use reqwest::Client;
 use std::cell::RefCell;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Serialize, Deserialize)]
 struct Claims<'a> {
@@ -33,8 +37,18 @@ fn now_secs() -> usize {
         .as_secs() as usize
 }
 
+#[allow(dead_code)]
 fn should_retry_status(status: u16) -> bool { status == 429 || status == 500 || status == 502 || status == 503 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn fetch_token(_cfg: &GoogleConfig) -> Result<TokenInfo, SttError> {
+    if let Ok(tok) = std::env::var("GOOGLE_ACCESS_TOKEN") {
+        return Ok(TokenInfo { access_token: tok, expires_at: now_secs() + 3000 });
+    }
+    Err(SttError::Unauthorized("missing GOOGLE_ACCESS_TOKEN for wasm32 build".into()))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn fetch_token(cfg: &GoogleConfig) -> Result<TokenInfo, SttError> {
     let skew_secs: usize = 60;
 

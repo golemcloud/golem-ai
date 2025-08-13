@@ -1,5 +1,7 @@
 use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeOptions, TranscriptAlternative};
 use golem_stt::golem::stt::types::SttError;
+#[cfg(not(test))]
+use golem_stt::golem::stt::types::WordSegment;
 use crate::config::GoogleConfig;
 use serde_json::Value;
 
@@ -105,35 +107,50 @@ pub(crate) fn recognize(
     if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
 
     #[derive(Deserialize)]
-    struct AltObj {
-        transcript: String,
-        confidence: Option<f32>,
-    }
+    #[allow(non_snake_case)]
+    struct WordInfo { startTime: Option<String>, endTime: Option<String>, word: Option<String>, confidence: Option<f32>, speakerTag: Option<i32> }
     #[derive(Deserialize)]
-    struct ResultObj {
-        alternatives: Vec<AltObj>,
-    }
+    struct AltObj { transcript: String, confidence: Option<f32>, words: Option<Vec<WordInfo>> }
     #[derive(Deserialize)]
-    struct ApiResp {
-        results: Vec<ResultObj>,
-    }
+    struct ResultObj { alternatives: Vec<AltObj> }
+    #[derive(Deserialize)]
+    struct ApiResp { results: Vec<ResultObj> }
 
     let api_resp: ApiResp = resp
         .json()
         .map_err(|e| SttError::InternalError(format!("json parse {e}")))?;
 
+    let timestamps_enabled = opts.as_ref().and_then(|o| o.enable_timestamps).unwrap_or(false);
+    let diarization_enabled = opts.as_ref().and_then(|o| o.enable_speaker_diarization).unwrap_or(false);
     let mut collected = Vec::new();
     for res in api_resp.results {
         for alt in res.alternatives {
-            collected.push(TranscriptAlternative {
-                text: alt.transcript,
-                confidence: alt.confidence.unwrap_or(0.0),
-                words: Vec::new(),
-            });
+            let mut words_out = Vec::new();
+            if timestamps_enabled {
+                if let Some(words) = alt.words.as_ref() {
+                    for w in words {
+                        let start = parse_google_duration(&w.startTime).unwrap_or(0.0);
+                        let end = parse_google_duration(&w.endTime).unwrap_or(start);
+                        let speaker = if diarization_enabled { w.speakerTag.map(|t| t.to_string()) } else { None };
+                        words_out.push(WordSegment { text: w.word.clone().unwrap_or_default(), start_time: start, end_time: end, confidence: w.confidence, speaker_id: speaker });
+                    }
+                }
+            }
+            collected.push(TranscriptAlternative { text: alt.transcript, confidence: alt.confidence.unwrap_or(0.0), words: words_out });
         }
     }
 
     Ok(collected)
+}
+
+#[cfg_attr(test, allow(dead_code))]
+fn parse_google_duration(value: &Option<String>) -> Option<f32> {
+    if let Some(v) = value {
+        // Formats like "1.234s" or "2s"
+        let s = v.trim_end_matches('s');
+        if let Ok(f) = s.parse::<f32>() { return Some(f); }
+    }
+    None
 }
 
 #[cfg(test)]
