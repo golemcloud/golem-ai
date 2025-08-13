@@ -5,6 +5,8 @@ use golem_stt::golem::stt::types::WordSegment;
 use golem_stt::golem::stt::types::SttError;
 use serde::Deserialize;
 #[cfg(feature = "durability")]
+use golem_stt::durability::saga::{Saga, SttCheckpoint};
+#[cfg(feature = "durability")]
 use golem_stt::durability::durable_impl;
 
 fn sigv4(
@@ -105,6 +107,8 @@ fn parse_f32(s: Option<&String>) -> Option<f32> {
 }
 
 pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<TranscribeOptions>, config: AudioConfig) -> Result<TranscriptionResult, SttError> {
+    #[cfg(feature = "durability")]
+    let saga: Saga<TranscriptionResult, SttError> = Saga::new("golem_stt_amazon", "transcribe", golem_rust::bindings::golem::durability::durability::DurableFunctionType::WriteRemote);
     let bucket = cfg.s3_bucket.clone().ok_or_else(|| SttError::UnsupportedOperation("missing S3_BUCKET".into()))?;
     let ext = match config.format { golem_stt::golem::stt::types::AudioFormat::Wav => "wav", golem_stt::golem::stt::types::AudioFormat::Mp3 => "mp3", golem_stt::golem::stt::types::AudioFormat::Flac => "flac", golem_stt::golem::stt::types::AudioFormat::Ogg => "ogg", golem_stt::golem::stt::types::AudioFormat::Aac => "aac", golem_stt::golem::stt::types::AudioFormat::Pcm => "pcm" };
     let content_type = mime_guess::from_ext(ext).first_or_octet_stream().essence_str().to_string();
@@ -123,6 +127,8 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
     if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
 
     let media_uri = url;
+    #[cfg(feature = "durability")]
+    saga.persist_checkpoint(SttCheckpoint { provider: "amazon".into(), state: "uploaded".into(), job_id: None, media_uri: Some(media_uri.clone()), audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: golem_rust::time::now_epoch_millis() });
     let transcribe_host = cfg.endpoint.clone().unwrap_or_else(|| format!("https://transcribe.{}.amazonaws.com", cfg.region));
     let transcribe_url = format!("{}/", transcribe_host.trim_end_matches('/'));
     let params = SigV4Params { access_key: cfg.access_key.clone(), secret_key: cfg.secret_key.clone(), session_token: cfg.session_token.clone(), region: cfg.region.clone(), service: "transcribe".into() };
@@ -169,6 +175,8 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
     let resp = req.body(payload).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
     let status = resp.status().as_u16();
     if !(200..300).contains(&status) { if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); } return Err(crate::error::map_http_status(status)); }
+    #[cfg(feature = "durability")]
+    saga.persist_checkpoint(SttCheckpoint { provider: "amazon".into(), state: "started".into(), job_id: Some(job_name.clone()), media_uri: Some(media_uri.clone()), audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: golem_rust::time::now_epoch_millis() });
 
     let mut attempts = 0u32;
     let max = cfg.max_retries;
@@ -186,6 +194,8 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
         if let Some(state) = v.get("TranscriptionJob").and_then(|j| j.get("TranscriptionJobStatus")).and_then(|s| s.as_str()) {
             if state == "COMPLETED" {
                 if let Some(u) = v.get("TranscriptionJob").and_then(|j| j.get("Transcript")).and_then(|t| t.get("TranscriptFileUri")).and_then(|u| u.as_str()).map(|s| s.to_string()) {
+                    #[cfg(feature = "durability")]
+                    saga.persist_checkpoint(SttCheckpoint { provider: "amazon".into(), state: "completed".into(), job_id: Some(job_name.clone()), media_uri: Some(media_uri.clone()), audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: golem_rust::time::now_epoch_millis() });
                     break u;
                 } else {
                     if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); }
