@@ -1103,6 +1103,7 @@ dependencies = [
 name = "golem-stt-azure"
 version = "0.0.0"
 dependencies = [
+ "base64",
  "golem-rust",
  "golem-stt",
  "log",

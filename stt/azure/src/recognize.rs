@@ -38,6 +38,9 @@ fn build_azure_query_params(language: &str, opts: &Option<TranscribeOptions>) ->
 pub(crate) fn recognize(
     audio: &[u8], cfg: &AzureConfig, conf: &AudioConfig, opts: &Option<TranscribeOptions>,
 ) -> Result<RecognizeOut, SttError> {
+    if cfg.api_version != "v1" {
+        return recognize_rest_fast(audio, cfg, conf, opts);
+    }
     use reqwest::Client;
 
     let endpoint = cfg.endpoint.clone().unwrap_or_else(|| format!("https://{}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1", cfg.region));
@@ -110,6 +113,90 @@ pub(crate) fn recognize(
     }
 
     Ok(RecognizeOut { alternatives: alternatives_out, request_id: req_id, elapsed_secs, server_duration_secs })
+}
+
+fn recognize_rest_fast(
+    audio: &[u8], cfg: &AzureConfig, _conf: &AudioConfig, opts: &Option<TranscribeOptions>,
+) -> Result<RecognizeOut, SttError> {
+    use base64::engine::general_purpose::STANDARD;
+    use base64::Engine;
+    use reqwest::Client;
+    use serde_json::json;
+
+    let region = cfg.region.clone();
+    let endpoint = cfg.endpoint.clone().unwrap_or_else(|| format!("https://{}.api.cognitive.microsoft.com/speechtotext/2024-11-15/transcriptions:transcribe", region));
+    let lang = opts.as_ref().and_then(|o| o.language.clone()).unwrap_or_else(|| "en-US".into());
+    let mut features = serde_json::Map::new();
+    if let Some(o) = opts {
+        if let Some(t) = o.enable_timestamps { features.insert("wordLevelTimestampsEnabled".into(), json!(t)); }
+        if let Some(wc) = o.enable_word_confidence { features.insert("wordLevelConfidenceEnabled".into(), json!(wc)); }
+        if let Some(d) = o.enable_speaker_diarization { features.insert("diarizationEnabled".into(), json!(d)); }
+        if let Some(p) = o.profanity_filter { features.insert("profanityFilter".into(), json!(if p { "true" } else { "false" })); }
+        if let Some(ctx) = &o.speech_context { if !ctx.is_empty() { features.insert("phraseList".into(), json!(ctx)); } }
+    }
+
+    let model = opts.as_ref().and_then(|o| o.model.clone());
+    let payload = json!({
+        "contentUrls": [],
+        "content": STANDARD.encode(audio),
+        "locale": lang,
+        "displayFormWordLevelTimestampsEnabled": features.get("wordLevelTimestampsEnabled").cloned().unwrap_or(json!(false)),
+        "wordLevelConfidenceEnabled": features.get("wordLevelConfidenceEnabled").cloned().unwrap_or(json!(false)),
+        "diarizationEnabled": features.get("diarizationEnabled").cloned().unwrap_or(json!(false)),
+        "properties": {
+            "profanityFilter": features.get("profanityFilter").cloned().unwrap_or(json!("false")),
+            "phraseList": features.get("phraseList").cloned().unwrap_or(json!([])),
+            "model": model,
+        }
+    });
+
+    let client = Client::builder().timeout(std::time::Duration::from_secs(cfg.timeout_secs)).build().map_err(|e| SttError::InternalError(format!("client build {e}")))?;
+    let resp = client.post(&endpoint)
+        .header("Ocp-Apim-Subscription-Key", &cfg.subscription_key)
+        .json(&payload)
+        .send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
+    let status = resp.status().as_u16();
+    if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
+
+    #[derive(serde::Deserialize)]
+    struct Word { text: Option<String>, startTime: Option<String>, endTime: Option<String>, confidence: Option<f32>, speakerId: Option<String> }
+    #[derive(serde::Deserialize)]
+    struct Segment { text: Option<String>, words: Option<Vec<Word>>, confidence: Option<f32> }
+    #[derive(serde::Deserialize)]
+    struct Response { segments: Option<Vec<Segment>>, transcript: Option<String> }
+    let r: Response = resp.json().map_err(|e| SttError::InternalError(format!("json parse {e}")))?;
+
+    let timestamps_enabled = opts.as_ref().and_then(|o| o.enable_timestamps).unwrap_or(false);
+    let diarization_enabled = opts.as_ref().and_then(|o| o.enable_speaker_diarization).unwrap_or(false);
+    let mut alts = Vec::new();
+    if let Some(segs) = r.segments {
+        let mut words_acc = Vec::new();
+        for s in segs {
+            if timestamps_enabled {
+                if let Some(words) = s.words {
+                    for w in words {
+                        let start = parse_azure_duration(&w.startTime).unwrap_or(0.0);
+                        let end = parse_azure_duration(&w.endTime).unwrap_or(start);
+                        let speaker = if diarization_enabled { w.speakerId.clone() } else { None };
+                        words_acc.push(WordSegment { text: w.text.unwrap_or_default(), start_time: start, end_time: end, confidence: w.confidence, speaker_id: speaker });
+                    }
+                }
+            }
+        }
+        alts.push(TranscriptAlternative { text: r.transcript.unwrap_or_default(), confidence: 0.0, words: words_acc });
+    } else {
+        alts.push(TranscriptAlternative { text: r.transcript.unwrap_or_default(), confidence: 0.0, words: Vec::new() });
+    }
+    Ok(RecognizeOut { alternatives: alts, request_id: None, elapsed_secs: 0.0, server_duration_secs: None })
+}
+
+fn parse_azure_duration(s: &Option<String>) -> Option<f32> {
+    if let Some(v) = s {
+        if let Some(ns) = v.strip_prefix("PT").and_then(|x| x.strip_suffix("S")) {
+            return ns.parse::<f32>().ok();
+        }
+    }
+    None
 }
 
 #[cfg(test)]
