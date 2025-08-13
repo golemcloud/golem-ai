@@ -28,6 +28,7 @@ members = [
     "stt/stt",
     "stt/google",
     "stt/azure",
+    "stt/amazon",
 ]
 
 [profile.release]

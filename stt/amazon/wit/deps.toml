@@ -1,0 +1,2 @@
+[deps]
+"golem:stt" = { path = "deps/golem-stt" }
