@@ -118,6 +118,7 @@ pub(crate) fn recognize(
     Ok(RecognizeOut { alternatives: alternatives_out, request_id: req_id, elapsed_secs, server_duration_secs })
 }
 
+#[allow(dead_code)]
 fn recognize_rest_fast(
     audio: &[u8], cfg: &AzureConfig, _conf: &AudioConfig, opts: &Option<TranscribeOptions>,
 ) -> Result<RecognizeOut, SttError> {
@@ -208,6 +209,7 @@ fn recognize_rest_fast(
     Ok(RecognizeOut { alternatives: alts, request_id: None, elapsed_secs: 0.0, server_duration_secs: None })
 }
 
+#[allow(dead_code)]
 fn parse_azure_duration(s: &Option<String>) -> Option<f32> {
     if let Some(v) = s {
         if let Some(ns) = v.strip_prefix("PT").and_then(|x| x.strip_suffix("S")) {

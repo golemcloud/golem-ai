@@ -8,8 +8,6 @@ pub mod vocabularies;
 pub mod languages;
 mod transcribe;
 mod batch;
-#[cfg(feature = "durability")]
-mod durability;
 
 pub struct AmazonTranscriptionComponent;
 

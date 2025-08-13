@@ -11,8 +11,6 @@ pub mod languages;
 pub mod vocabularies;
 mod recognize;
 mod batch;
-#[cfg(feature = "durability")]
-pub mod durability;
 
 pub struct WhisperTranscriptionComponent;
 

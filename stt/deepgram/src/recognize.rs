@@ -1,6 +1,7 @@
 use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeOptions, TranscriptAlternative};
 use golem_stt::golem::stt::types::{SttError, WordSegment};
 use serde::Deserialize;
+use golem_stt::durability::retry;
 
 fn map_audio_format_to_mime(format: golem_stt::golem::stt::types::AudioFormat) -> &'static str {
     use golem_stt::golem::stt::types::AudioFormat as F;
@@ -68,10 +69,9 @@ pub(crate) fn recognize(
         full_url.push_str(&tail);
     }
 
-    let mut attempt: u32 = 0;
     let max_attempts = cfg.max_retries.max(1);
     let content_type = map_audio_format_to_mime(conf.format);
-    let resp = loop {
+    let resp = retry::with_retries(|attempt| {
         let r = client.post(&full_url)
             .header("Authorization", format!("Token {}", cfg.api_key))
             .header("Accept", "application/json")
@@ -81,17 +81,19 @@ pub(crate) fn recognize(
         match r {
             Ok(resp) => {
                 let status = resp.status().as_u16();
-                if status >= 200 && status < 300 { break resp; }
-                if attempt + 1 < max_attempts && should_retry_status(status) { attempt += 1; continue; }
-                let text = resp.text().unwrap_or_default();
-                return Err(crate::error::map_http_status(status, text));
+                if status >= 200 && status < 300 { return Ok(resp); }
+                if attempt + 1 < max_attempts && should_retry_status(status) { return Err(format!("retryable status {status}")); }
+                Ok(resp)
             }
-            Err(e) => {
-                if attempt + 1 < max_attempts { attempt += 1; continue; }
-                return Err(SttError::NetworkError(format!("{e}")));
-            }
+            Err(e) => Err(format!("{e}")),
         }
-    };
+    }, cfg.max_retries, 100).map_err(|e| SttError::NetworkError(e))?;
+
+    let status = resp.status().as_u16();
+    if !(200..300).contains(&status) {
+        let text = resp.text().unwrap_or_default();
+        return Err(crate::error::map_http_status(status, text));
+    }
 
     let request_id = resp.headers().get("dg-request-id").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
     let body = resp.text().map_err(|e| SttError::InternalError(format!("read body {e}")))?;

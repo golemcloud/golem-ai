@@ -8,7 +8,7 @@ fn diarization_integration() {
     let audio = std::fs::read(audio_path).unwrap_or_default();
     if audio.is_empty() { return; }
     let config = AudioConfig { format: AudioFormat::Wav, sample_rate: None, channels: None };
-    let mut opts = TranscribeOptions { enable_timestamps: None, enable_speaker_diarization: Some(true), language: None, model: None, profanity_filter: None, speech_context: None, enable_word_confidence: None, enable_timing_detail: None };
+    let opts = TranscribeOptions { enable_timestamps: None, enable_speaker_diarization: Some(true), language: None, model: None, profanity_filter: None, speech_context: None, enable_word_confidence: None, enable_timing_detail: None };
     let out = golem_stt_deepgram::DeepgramTranscriptionComponent::transcribe(audio, config, Some(opts));
     assert!(out.is_ok());
 }

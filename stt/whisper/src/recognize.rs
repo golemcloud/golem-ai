@@ -1,6 +1,7 @@
 use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeOptions, TranscriptAlternative};
 use golem_stt::golem::stt::types::{SttError, WordSegment};
 use serde::Deserialize;
+use golem_stt::durability::retry;
 
 #[derive(Deserialize)]
 struct WhisperVerboseWord { word: Option<String>, start: Option<f32>, end: Option<f32> }
@@ -49,9 +50,8 @@ pub(crate) fn recognize(
     body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
 
     let client = Client::builder().timeout(std::time::Duration::from_secs(cfg.timeout_secs)).build().map_err(|e| SttError::InternalError(format!("client build {e}")))?;
-    let mut attempt: u32 = 0;
     let max_attempts = cfg.max_retries.max(1);
-    let resp = loop {
+    let resp = retry::with_retries(|attempt| {
         let r = client.post(&url)
             .bearer_auth(&cfg.api_key)
             .header("Content-Type", format!("multipart/form-data; boundary={}", boundary))
@@ -60,17 +60,19 @@ pub(crate) fn recognize(
         match r {
             Ok(resp) => {
                 let status = resp.status().as_u16();
-                if (200..300).contains(&status) { break resp; }
-                if attempt + 1 < max_attempts && (status == 429 || status == 500 || status == 502 || status == 503) { attempt += 1; continue; }
-                let text = resp.text().unwrap_or_default();
-                return Err(crate::error::map_http_status(status, text));
+                if (200..300).contains(&status) { return Ok(resp); }
+                if attempt + 1 < max_attempts && (status == 429 || status == 500 || status == 502 || status == 503) { return Err(format!("retryable status {status}")); }
+                Ok(resp)
             }
-            Err(e) => {
-                if attempt + 1 < max_attempts { attempt += 1; continue; }
-                return Err(SttError::NetworkError(format!("{e}")));
-            }
+            Err(e) => Err(format!("{e}")),
         }
-    };
+    }, cfg.max_retries, 100).map_err(|e| SttError::NetworkError(e))?;
+
+    let status = resp.status().as_u16();
+    if !(200..300).contains(&status) {
+        let text = resp.text().unwrap_or_default();
+        return Err(crate::error::map_http_status(status, text));
+    }
 
     let request_id = resp.headers().get("x-request-id").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
     let body = resp.text().map_err(|e| SttError::InternalError(format!("read body {e}")))?;
