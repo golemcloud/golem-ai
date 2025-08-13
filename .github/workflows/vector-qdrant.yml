@@ -1,0 +1,25 @@
+name: vector-qdrant
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-vector-qdrant:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add wasm target
+        run: rustup target add wasm32-wasip1
+
+      - name: Install cargo-component
+        run: cargo install cargo-component --locked
+
+      - name: Build vector-qdrant component
+        run: cargo component build -p vector-qdrant 
