@@ -7,17 +7,81 @@ use serde::Deserialize;
 #[cfg(feature = "durability")]
 use golem_stt::durability::durable_impl;
 
+fn sigv4(
+    cfg: &AmazonConfig,
+    service: &str,
+    method: &str,
+    url: &str,
+    target: &str,
+    payload: &[u8],
+) -> Result<(reqwest::Client, String, String, Option<(String, String)>, String), SttError> {
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(cfg.timeout_secs)).build().map_err(|e| SttError::InternalError(format!("client {e}")))?;
+    let parsed = reqwest::Url::parse(url).map_err(|e| SttError::InternalError(format!("url {e}")))?;
+    let host_hdr = parsed.host_str().ok_or_else(|| SttError::InternalError("no host".into()))?;
+    let params = SigV4Params { access_key: cfg.access_key.clone(), secret_key: cfg.secret_key.clone(), session_token: cfg.session_token.clone(), region: cfg.region.clone(), service: service.into() };
+    let (amz_date, authorization, security_header, content_type_hdr) = sigv4_headers(&params, method, host_hdr, "/", target, payload);
+    Ok((client, amz_date, authorization, security_header, content_type_hdr))
+}
+
+fn create_vocabulary(cfg: &AmazonConfig, language: &str, name: &str, phrases: &[String]) -> Result<(), SttError> {
+    let host = cfg.endpoint.clone().unwrap_or_else(|| format!("https://transcribe.{}.amazonaws.com", cfg.region));
+    let url = format!("{}/", host.trim_end_matches('/'));
+    let body = serde_json::json!({ "VocabularyName": name, "LanguageCode": language, "Phrases": phrases });
+    let payload = serde_json::to_vec(&body).map_err(|e| SttError::InternalError(format!("json {e}")))?;
+    let (client, amz_date, authorization, security_header, content_type_hdr) = sigv4(cfg, "transcribe", "POST", &url, "Transcribe.CreateVocabulary", &payload)?;
+    let mut req = client.post(url).header("x-amz-date", amz_date).header("x-amz-target", "Transcribe.CreateVocabulary").header("authorization", authorization).header("content-type", content_type_hdr);
+    if let Some((k, v)) = security_header { req = req.header(k, v); }
+    let resp = req.body(payload).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
+    if !resp.status().is_success() { return Err(crate::error::map_http_status(resp.status().as_u16())); }
+    Ok(())
+}
+
+fn get_vocabulary_state(cfg: &AmazonConfig, name: &str) -> Result<String, SttError> {
+    let host = cfg.endpoint.clone().unwrap_or_else(|| format!("https://transcribe.{}.amazonaws.com", cfg.region));
+    let url = format!("{}/", host.trim_end_matches('/'));
+    let body = serde_json::json!({ "VocabularyName": name });
+    let payload = serde_json::to_vec(&body).map_err(|e| SttError::InternalError(format!("json {e}")))?;
+    let (client, amz_date, authorization, security_header, content_type_hdr) = sigv4(cfg, "transcribe", "POST", &url, "Transcribe.GetVocabulary", &payload)?;
+    let mut req = client.post(url).header("x-amz-date", amz_date).header("x-amz-target", "Transcribe.GetVocabulary").header("authorization", authorization).header("content-type", content_type_hdr);
+    if let Some((k, v)) = security_header { req = req.header(k, v); }
+    let resp = req.body(payload).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
+    if !resp.status().is_success() { return Err(crate::error::map_http_status(resp.status().as_u16())); }
+    let v: serde_json::Value = resp.json().map_err(|e| SttError::TranscriptionFailed(format!("resp {e}")))?;
+    let state = v.get("VocabularyState").and_then(|s| s.as_str()).unwrap_or("").to_string();
+    Ok(state)
+}
+
+fn wait_vocabulary_ready(cfg: &AmazonConfig, name: &str, max_attempts: u32) -> Result<(), SttError> {
+    let mut attempts = 0u32;
+    loop {
+        let st = get_vocabulary_state(cfg, name)?;
+        if st == "READY" { return Ok(()); }
+        if st == "FAILED" { return Err(SttError::TranscriptionFailed("vocabulary failed".into())); }
+        attempts += 1;
+        if attempts > max_attempts { return Err(SttError::ServiceUnavailable("vocabulary not ready".into())); }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+}
+
+fn delete_vocabulary(cfg: &AmazonConfig, name: &str) -> Result<(), SttError> {
+    let host = cfg.endpoint.clone().unwrap_or_else(|| format!("https://transcribe.{}.amazonaws.com", cfg.region));
+    let url = format!("{}/", host.trim_end_matches('/'));
+    let body = serde_json::json!({ "VocabularyName": name });
+    let payload = serde_json::to_vec(&body).map_err(|e| SttError::InternalError(format!("json {e}")))?;
+    let (client, amz_date, authorization, security_header, content_type_hdr) = sigv4(cfg, "transcribe", "POST", &url, "Transcribe.DeleteVocabulary", &payload)?;
+    let mut req = client.post(url).header("x-amz-date", amz_date).header("x-amz-target", "Transcribe.DeleteVocabulary").header("authorization", authorization).header("content-type", content_type_hdr);
+    if let Some((k, v)) = security_header { req = req.header(k, v); }
+    let resp = req.body(payload).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
+    if !resp.status().is_success() { return Err(crate::error::map_http_status(resp.status().as_u16())); }
+    Ok(())
+}
 #[derive(Deserialize)]
 struct TranscriptRoot {
     results: Option<Results>,
 }
 
 #[derive(Deserialize)]
-struct Results {
-    transcripts: Option<Vec<TranscriptText>>,
-    items: Option<Vec<Item>>, 
-    speaker_labels: Option<SpeakerLabels>,
-}
+struct Results { transcripts: Option<Vec<TranscriptText>>, items: Option<Vec<Item>> }
 
 #[derive(Deserialize, Clone)]
 struct TranscriptText { transcript: String }
@@ -35,8 +99,6 @@ struct Item {
 #[derive(Deserialize)]
 struct Alt { content: String, confidence: Option<String> }
 
-#[derive(Deserialize)]
-struct SpeakerLabels { speakers: Option<u32> }
 
 fn parse_f32(s: Option<&String>) -> Option<f32> {
     s.and_then(|v| v.parse::<f32>().ok())
@@ -67,6 +129,11 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
     let job_name = uuid::Uuid::new_v4().to_string();
     let language = options.as_ref().and_then(|o| o.language.clone()).unwrap_or_else(|| "en-US".into());
     let show_speakers = options.as_ref().and_then(|o| o.enable_speaker_diarization).unwrap_or(false);
+    let profanity = options.as_ref().and_then(|o| o.profanity_filter).unwrap_or(false);
+    let phrase_hints: Vec<String> = options.as_ref().and_then(|o| o.speech_context.clone()).unwrap_or_default();
+    let vocab_name_env = std::env::var("AWS_VOCABULARY_NAME").ok();
+    let vocab_filter_name_env = std::env::var("AWS_VOCABULARY_FILTER_NAME").ok();
+    let profanity_method_env = std::env::var("AWS_PROFANITY_METHOD").ok().unwrap_or_else(|| "mask".into());
     let model = options.as_ref().and_then(|o| o.model.clone());
     let mut body = serde_json::json!({
         "TranscriptionJobName": job_name,
@@ -75,6 +142,22 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
         "Media": { "MediaFileUri": media_uri },
         "Settings": { "ShowSpeakerLabels": show_speakers }
     });
+    let mut temp_vocab: Option<String> = None;
+    if let Some(vname) = vocab_name_env {
+        body["Settings"]["VocabularyName"] = serde_json::json!(vname);
+    } else if !phrase_hints.is_empty() {
+        let temp = format!("golem-temp-{}", uuid::Uuid::new_v4());
+        create_vocabulary(cfg, &language, &temp, &phrase_hints)?;
+        wait_vocabulary_ready(cfg, &temp, cfg.max_retries)?;
+        body["Settings"]["VocabularyName"] = serde_json::json!(temp.clone());
+        temp_vocab = Some(temp);
+    }
+    if profanity {
+        if let Some(vfname) = vocab_filter_name_env {
+            body["Settings"]["VocabularyFilterName"] = serde_json::json!(vfname);
+            body["Settings"]["VocabularyFilterMethod"] = serde_json::json!(profanity_method_env);
+        }
+    }
     if let Some(m) = &model { body["ModelSettings"] = serde_json::json!({ "LanguageModelName": m }); }
     let payload = serde_json::to_vec(&body).map_err(|e| SttError::InternalError(format!("json {e}")))?;
     let parsed = reqwest::Url::parse(&transcribe_url).map_err(|e| SttError::InternalError(format!("url {e}")))?;
@@ -85,7 +168,7 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
     if let Some((k, v)) = security_header { req = req.header(k, v); }
     let resp = req.body(payload).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
     let status = resp.status().as_u16();
-    if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
+    if !(200..300).contains(&status) { if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); } return Err(crate::error::map_http_status(status)); }
 
     let mut attempts = 0u32;
     let max = cfg.max_retries;
@@ -98,26 +181,33 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
         if let Some((k, v)) = security_header { req = req.header(k, v); }
         let resp = req.body(payload).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
         let status = resp.status().as_u16();
-        if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
+        if !(200..300).contains(&status) { if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); } return Err(crate::error::map_http_status(status)); }
         let v: serde_json::Value = resp.json().map_err(|e| SttError::TranscriptionFailed(format!("resp {e}")))?;
         if let Some(state) = v.get("TranscriptionJob").and_then(|j| j.get("TranscriptionJobStatus")).and_then(|s| s.as_str()) {
             if state == "COMPLETED" {
                 if let Some(u) = v.get("TranscriptionJob").and_then(|j| j.get("Transcript")).and_then(|t| t.get("TranscriptFileUri")).and_then(|u| u.as_str()).map(|s| s.to_string()) {
                     break u;
                 } else {
+                    if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); }
                     return Err(SttError::TranscriptionFailed("no transcript uri".into()));
                 }
-            } else if state == "FAILED" { return Err(SttError::TranscriptionFailed("job failed".into())); }
+            } else if state == "FAILED" { if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); } return Err(SttError::TranscriptionFailed("job failed".into())); }
         }
         attempts += 1;
-        if attempts > max { return Err(SttError::ServiceUnavailable("too many retries".into())); }
+        if attempts > max { if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); } return Err(SttError::ServiceUnavailable("too many retries".into())); }
         std::thread::sleep(std::time::Duration::from_millis(500));
     };
     let text_resp = client.get(&transcript_uri).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
     let status = text_resp.status().as_u16();
-    if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
+    if !(200..300).contains(&status) { if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); } return Err(crate::error::map_http_status(status)); }
     let body = text_resp.text().map_err(|e| SttError::NetworkError(format!("{e}")))?;
-    let result = map_transcript(&body, language, model, audio.len(), job_name, 0.0);
+    let duration_seconds = if let (Some(sr), Some(ch)) = (config.sample_rate, config.channels) {
+        let bytes_per_sample = 2u32;
+        let samples = audio.len() as f32 / (bytes_per_sample as f32 * ch as f32);
+        samples / sr as f32
+    } else { 0.0 };
+    let result = map_transcript(&body, language, model, audio.len(), job_name, duration_seconds);
+    if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); }
     #[cfg(feature = "durability")]
     {
         #[derive(golem_rust::FromValueAndType, golem_rust::IntoValue, Clone, Debug)]
@@ -157,5 +247,28 @@ pub fn map_transcript(json: &str, language: String, model: Option<String>, audio
         return Ok(TranscriptionResult { alternatives: vec![alt], metadata: meta });
     }
     Err(SttError::TranscriptionFailed("empty transcript".into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn parse_simple_transcript() {
+        let sample = r#"{
+            "results": {
+                "transcripts": [{"transcript": "hello world"}],
+                "items": [
+                    {"type": "pronunciation", "start_time": "0.0", "end_time": "0.5", "alternatives": [{"content": "hello", "confidence": "0.9"}], "speaker_label": "spk_0"},
+                    {"type": "pronunciation", "start_time": "0.5", "end_time": "1.0", "alternatives": [{"content": "world", "confidence": "0.8"}]}
+                ]
+            }
+        }"#;
+        let out = map_transcript(sample, "en-US".into(), None, 1000, "rid".into(), 1.0).unwrap();
+        assert_eq!(out.alternatives.len(), 1);
+        assert_eq!(out.alternatives[0].text, "hello world");
+        assert_eq!(out.alternatives[0].words.len(), 2);
+        assert_eq!(out.metadata.language, "en-US");
+        assert_eq!(out.metadata.duration_seconds, 1.0);
+    }
 }
 

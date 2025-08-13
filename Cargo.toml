@@ -29,6 +29,7 @@ members = [
     "stt/google",
     "stt/azure",
     "stt/amazon",
+    "stt/deepgram",
 ]
 
 [profile.release]

@@ -1119,6 +1119,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "golem-stt-deepgram"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "golem-rust",
+ "golem-stt",
+ "log",
+ "mime_guess",
+ "once_cell",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "url",
+ "uuid",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
 name = "golem-stt-google"
 version = "0.0.0"
 dependencies = [

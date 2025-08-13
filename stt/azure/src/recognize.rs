@@ -158,8 +158,10 @@ fn recognize_rest_fast(
     let status = resp.status().as_u16();
     if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
 
+    #[allow(non_snake_case)]
     #[derive(serde::Deserialize)]
     struct Word { text: Option<String>, startTime: Option<String>, endTime: Option<String>, confidence: Option<f32>, speakerId: Option<String> }
+    #[allow(dead_code)]
     #[derive(serde::Deserialize)]
     struct Segment { text: Option<String>, words: Option<Vec<Word>>, confidence: Option<f32> }
     #[derive(serde::Deserialize)]

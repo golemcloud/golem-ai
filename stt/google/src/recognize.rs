@@ -149,7 +149,7 @@ pub(crate) fn recognize(
 fn recognize_v2(
     audio: &[u8],
     cfg: &GoogleConfig,
-    conf: &AudioConfig,
+    _conf: &AudioConfig,
     opts: &Option<TranscribeOptions>,
 ) -> Result<Vec<TranscriptAlternative>, SttError> {
     use base64::engine::general_purpose::STANDARD;
@@ -188,6 +188,7 @@ fn recognize_v2(
     let status = resp.status().as_u16();
     if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
 
+    #[allow(non_snake_case)]
     #[derive(serde::Deserialize)]
     struct Word { startOffset: Option<String>, endOffset: Option<String>, word: Option<String>, confidence: Option<f32>, speaker: Option<String> }
     #[derive(serde::Deserialize)]

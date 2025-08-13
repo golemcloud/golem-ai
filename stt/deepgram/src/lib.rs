@@ -1,25 +1,28 @@
-use golem_stt::golem::stt::transcription::{Guest as TranscriptionGuest, AudioConfig, TranscribeOptions, TranscriptionResult, TranscribeRequest};
+use golem_stt::golem::stt::transcription::{
+    Guest as TranscriptionGuest,
+    AudioConfig, TranscribeOptions, TranscriptionResult,
+    TranscribeRequest,
+};
 use golem_stt::golem::stt::types::SttError;
 
 pub mod config;
-pub mod signer;
 pub mod error;
-pub mod vocabularies;
 pub mod languages;
-mod transcribe;
+pub mod vocabularies;
+mod recognize;
 mod batch;
 #[cfg(feature = "durability")]
-mod durability;
+pub mod durability;
 
-pub struct AmazonTranscriptionComponent;
+pub struct DeepgramTranscriptionComponent;
 
-impl TranscriptionGuest for AmazonTranscriptionComponent {
+impl TranscriptionGuest for DeepgramTranscriptionComponent {
     fn transcribe(
         audio: Vec<u8>,
         config: AudioConfig,
         options: Option<TranscribeOptions>,
     ) -> Result<TranscriptionResult, SttError> {
-        let cfg = crate::config::AmazonConfig::load()?;
+        let cfg = crate::config::DeepgramConfig::load()?;
         crate::batch::transcribe_impl(audio, &cfg, options, config)
     }
 
@@ -27,16 +30,14 @@ impl TranscriptionGuest for AmazonTranscriptionComponent {
         #[cfg(target_arch = "wasm32")]
         {
             let mut results = Vec::with_capacity(requests.len());
-            for req in requests {
-                results.push(Self::transcribe(req.audio, req.config, req.options)?);
-            }
+            for req in requests { results.push(Self::transcribe(req.audio, req.config, req.options)?); }
             return Ok(results);
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
             use std::sync::{Arc, Mutex, Condvar};
             use std::thread;
-            let cfg = crate::config::AmazonConfig::load()?;
+            let cfg = crate::config::DeepgramConfig::load()?;
             let max_in_flight = cfg.max_concurrency.max(1);
             let len = requests.len();
             let results: Arc<Mutex<Vec<Option<TranscriptionResult>>>> = Arc::new(Mutex::new(vec![None; len]));
@@ -72,11 +73,10 @@ impl TranscriptionGuest for AmazonTranscriptionComponent {
     }
 }
 
-pub struct AmazonLanguagesComponent;
+pub struct DeepgramLanguagesComponent;
 
-impl golem_stt::golem::stt::languages::Guest for AmazonLanguagesComponent {
+impl golem_stt::golem::stt::languages::Guest for DeepgramLanguagesComponent {
     fn list_languages() -> Result<Vec<golem_stt::golem::stt::languages::LanguageInfo>, SttError> {
-        crate::languages::AmazonLanguages::list_languages()
+        crate::languages::DeepgramLanguagesComponent::list_languages()
     }
 }
-

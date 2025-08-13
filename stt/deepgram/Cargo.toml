@@ -1,0 +1,50 @@
+[package]
+name = "golem-stt-deepgram"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-ai"
+description = "WebAssembly component for working with Deepgram STT, with special support for Golem Cloud"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["durability"]
+durability = ["golem-rust/durability", "golem-stt/durability"]
+durability_integration = []
+portable = []
+
+[dependencies]
+golem-stt = { workspace = true }
+log = { workspace = true }
+golem-rust = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+once_cell = "1"
+uuid = { version = "1", features = ["v4"] }
+base64 = { workspace = true }
+mime_guess = { workspace = true }
+url = { workspace = true }
+
+[package.metadata.component]
+package = "golem:stt-deepgram"
+
+[package.metadata.component.bindings]
+generate_unused_types = true
+
+[package.metadata.component.bindings.with]
+"golem:stt/types@1.0.0" = "golem_stt::golem::stt::types"
+"golem:stt/vocabularies@1.0.0" = "golem_stt::golem::stt::vocabularies"
+"golem:stt/languages@1.0.0" = "golem_stt::golem::stt::languages"
+"golem:stt/transcription@1.0.0" = "golem_stt::golem::stt::transcription"
+
+[package.metadata.component.target]
+path = "wit"
+
+[package.metadata.component.target.dependencies]
+"golem:stt" = { path = "wit/deps/golem-stt" }

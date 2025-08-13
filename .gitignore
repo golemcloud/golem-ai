@@ -1,3 +1,5 @@
+stt/deepgram/wit/deps/golem-stt/deps.lock
+stt/deepgram/src/bindings.rs
 *.iml
 .idea
 openapi
