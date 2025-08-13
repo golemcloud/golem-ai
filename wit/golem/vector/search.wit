@@ -1,0 +1,47 @@
+package golem:vector@1.0.0;
+
+/// Core similarity search operations
+interface search {
+    use types.{id, vector-data, search-result, filter-expression, vector-error};
+    
+    /// Search query variants
+    variant search-query {
+        vector(vector-data),
+        by-id(id),
+        multi-vector(list<tuple<string, vector-data>>),
+    }
+    
+    /// Similarity search
+    search-vectors: func(
+        collection: string,
+        query: search-query,
+        limit: u32,
+        filter: option<filter-expression>,
+        namespace: option<string>,
+        include-vectors: option<bool>,
+        include-metadata: option<bool>,
+        min-score: option<f32>,
+        max-distance: option<f32>,
+        search-params: option<list<tuple<string, string>>>
+    ) -> result<list<search-result>, vector-error>;
+    
+    /// Simple vector similarity search (convenience)
+    find-similar: func(
+        collection: string,
+        vector: vector-data,
+        limit: u32,
+        namespace: option<string>
+    ) -> result<list<search-result>, vector-error>;
+    
+    /// Batch similarity search
+    batch-search: func(
+        collection: string,
+        queries: list<search-query>,
+        limit: u32,
+        filter: option<filter-expression>,
+        namespace: option<string>,
+        include-vectors: option<bool>,
+        include-metadata: option<bool>,
+        search-params: option<list<tuple<string, string>>>
+    ) -> result<list<list<search-result>>, vector-error>;
+} 

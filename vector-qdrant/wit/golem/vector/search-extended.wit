@@ -1,0 +1,90 @@
+package golem:vector@1.0.0;
+
+/// Extended search capabilities (provider-dependent)
+interface search-extended {
+    use types.{id, vector-data, search-result, filter-expression, vector-error, metadata-value};
+    
+    /// Recommendation example types
+    variant recommendation-example {
+        vector-id(id),
+        vector-data(vector-data),
+    }
+    
+    enum recommendation-strategy {
+        average-vector,
+        best-score,
+        centroid,
+    }
+    
+    /// Context pair for discovery
+    record context-pair {
+        positive: recommendation-example,
+        negative: recommendation-example,
+    }
+    
+    /// Grouped search result
+    record grouped-search-result {
+        group-value: metadata-value,
+        results: list<search-result>,
+        group-count: u32,
+    }
+    
+    /// Recommendation-based search
+    recommend-vectors: func(
+        collection: string,
+        positive: list<recommendation-example>,
+        negative: option<list<recommendation-example>>,
+        limit: u32,
+        filter: option<filter-expression>,
+        namespace: option<string>,
+        strategy: option<recommendation-strategy>,
+        include-vectors: option<bool>,
+        include-metadata: option<bool>
+    ) -> result<list<search-result>, vector-error>;
+    
+    /// Discovery/context-based search
+    discover-vectors: func(
+        collection: string,
+        context-pairs: list<context-pair>,
+        limit: u32,
+        filter: option<filter-expression>,
+        namespace: option<string>,
+        include-vectors: option<bool>,
+        include-metadata: option<bool>
+    ) -> result<list<search-result>, vector-error>;
+    
+    /// Grouped search for diverse results
+    search-groups: func(
+        collection: string,
+        query: search-query,
+        group-by: string,
+        group-size: u32,
+        max-groups: u32,
+        filter: option<filter-expression>,
+        namespace: option<string>,
+        include-vectors: option<bool>,
+        include-metadata: option<bool>
+    ) -> result<list<grouped-search-result>, vector-error>;
+    
+    /// Range search within distance bounds
+    search-range: func(
+        collection: string,
+        vector: vector-data,
+        min-distance: option<f32>,
+        max-distance: f32,
+        filter: option<filter-expression>,
+        namespace: option<string>,
+        limit: option<u32>,
+        include-vectors: option<bool>,
+        include-metadata: option<bool>
+    ) -> result<list<search-result>, vector-error>;
+    
+    /// Text/document search (auto-embedding)
+    search-text: func(
+        collection: string,
+        query-text: string,
+        limit: u32,
+        filter: option<filter-expression>,
+        namespace: option<string>
+    ) -> result<list<search-result>, vector-error>;
+} 

@@ -1,0 +1,194 @@
+package golem:vector@1.0.0;
+
+/// Core types and fundamental data structures for vector operations
+interface types {
+    /// Unique identifier for vectors and collections
+    type id = string;
+    
+    /// Standard dense vector representation
+    type dense-vector = list<f32>;
+    
+    /// Sparse vector with explicit indices
+    record sparse-vector {
+        /// Zero-based indices of non-zero elements
+        indices: list<u32>,
+        /// Values corresponding to the indices
+        values: list<f32>,
+        /// Total dimensionality of the vector space
+        total-dimensions: u32,
+    }
+    
+    /// Binary vector representation
+    record binary-vector {
+        /// Packed binary data
+        data: list<u8>,
+        /// Number of bits/dimensions
+        dimensions: u32,
+    }
+    
+    /// Half-precision vector (16-bit floats)
+    record half-vector {
+        /// Half-precision values (represented as f32 for compatibility)
+        data: list<f32>,
+        /// Number of dimensions
+        dimensions: u32,
+    }
+    
+    /// Vector data supporting multiple representations
+    variant vector-data {
+        /// Standard 32-bit floating point vector
+        dense(dense-vector),
+        /// Sparse vector representation
+        sparse(sparse-vector),
+        /// Binary/bit vector
+        binary(binary-vector),
+        /// Half-precision vector
+        half(half-vector),
+        /// Named vectors for multi-vector collections
+        named(list<tuple<string, dense-vector>>),
+        /// Hybrid dense + sparse combination
+        hybrid(tuple<dense-vector, sparse-vector>),
+    }
+    
+    /// Supported distance metrics
+    enum distance-metric {
+        /// Cosine similarity (1 - cosine distance)
+        cosine,
+        /// Euclidean (L2) distance
+        euclidean,
+        /// Dot product / inner product
+        dot-product,
+        /// Manhattan (L1) distance
+        manhattan,
+        /// Hamming distance (for binary vectors)
+        hamming,
+        /// Jaccard distance (for binary/sparse vectors)
+        jaccard,
+    }
+    
+    /// Metadata value types
+    variant metadata-value {
+        string-val(string),
+        number-val(f64),
+        integer-val(s64),
+        boolean-val(bool),
+        array-val(list<metadata-value>),
+        object-val(list<tuple<string, metadata-value>>),
+        null-val,
+        /// Geographic coordinates
+        geo-val(geo-coordinates),
+        /// ISO 8601 datetime string
+        datetime-val(string),
+        /// Binary data
+        blob-val(list<u8>),
+    }
+    
+    /// Geographic coordinates
+    record geo-coordinates {
+        latitude: f64,
+        longitude: f64,
+    }
+    
+    /// Key-value metadata
+    type metadata = list<tuple<string, metadata-value>>;
+    
+    /// Filter operators for metadata queries
+    enum filter-operator {
+        /// Equal to
+        eq,
+        /// Not equal to
+        ne,
+        /// Greater than
+        gt,
+        /// Greater than or equal
+        gte,
+        /// Less than
+        lt,
+        /// Less than or equal
+        lte,
+        /// Value is in list
+        %in,
+        /// Value is not in list
+        nin,
+        /// Text contains substring (case insensitive)
+        contains,
+        /// Text doesn't contain substring
+        not-contains,
+        /// Regular expression match
+        regex,
+        /// Geographic distance within radius
+        geo-within,
+        /// Geographic bounding box
+        geo-bbox,
+    }
+    
+    /// Basic filter condition
+    record filter-condition {
+        /// Field path (supports nested fields with dot notation)
+        field: string,
+        /// Filter operator
+        operator: filter-operator,
+        /// Value to compare against
+        value: metadata-value,
+    }
+    
+    /// Complex filter expressions with boolean logic
+    variant filter-expression {
+        /// Simple condition
+        condition(filter-condition),
+        /// Logical AND of multiple expressions
+        and(list<filter-expression>),
+        /// Logical OR of multiple expressions
+        or(list<filter-expression>),
+        /// Logical NOT of expression
+        not(filter-expression),
+    }
+    
+    /// Vector record for storage operations
+    record vector-record {
+        /// Unique identifier
+        id: id,
+        /// Vector data
+        vector: vector-data,
+        /// Associated metadata
+        metadata: option<metadata>,
+    }
+    
+    /// Search result with similarity score
+    record search-result {
+        /// Vector identifier
+        id: id,
+        /// Similarity score (higher = more similar)
+        score: f32,
+        /// Distance from query vector (lower = more similar)
+        distance: f32,
+        /// Vector data (if requested)
+        vector: option<vector-data>,
+        /// Associated metadata (if requested)
+        metadata: option<metadata>,
+    }
+    
+    /// Standard error types
+    variant vector-error {
+        /// Resource not found
+        not-found(string),
+        /// Resource already exists
+        already-exists(string),
+        /// Invalid parameters or configuration
+        invalid-params(string),
+        /// Feature not supported by this provider
+        unsupported-feature(string),
+        /// Vector dimension mismatch
+        dimension-mismatch(string),
+        /// Invalid vector format or data
+        invalid-vector(string),
+        /// Authentication/authorization failure
+        unauthorized(string),
+        /// Rate limit exceeded
+        rate-limited(string),
+        /// Internal provider error
+        provider-error(string),
+        /// Network/connection issues
+        connection-error(string),
+    }
+} 

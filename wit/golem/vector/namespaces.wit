@@ -1,0 +1,44 @@
+package golem:vector@1.0.0;
+
+/// Namespace/partition management
+interface namespaces {
+    use types.{vector-error, metadata};
+    
+    /// Namespace information
+    record namespace-info {
+        name: string,
+        collection: string,
+        vector-count: u64,
+        size-bytes: u64,
+        created-at: option<u64>,
+        metadata: option<metadata>,
+    }
+    
+    /// Create or update namespace (upsert)
+    upsert-namespace: func(
+        collection: string,
+        namespace: string,
+        metadata: option<metadata>
+    ) -> result<namespace-info, vector-error>;
+    
+    /// List namespaces in collection
+    list-namespaces: func(collection: string) -> result<list<namespace-info>, vector-error>;
+    
+    /// Get namespace information
+    get-namespace: func(
+        collection: string,
+        namespace: string
+    ) -> result<namespace-info, vector-error>;
+    
+    /// Delete namespace and all vectors within it
+    delete-namespace: func(
+        collection: string,
+        namespace: string
+    ) -> result<_, vector-error>;
+    
+    /// Check if namespace exists
+    namespace-exists: func(
+        collection: string,
+        namespace: string
+    ) -> result<bool, vector-error>;
+} 

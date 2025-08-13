@@ -29,7 +29,7 @@ members = [
     "video/runway",
     "video/veo",
     "video/stability",
-    "exec/exec",
+    "exec/exec", "vector-qdrant",
 ]
 
 [profile.release]

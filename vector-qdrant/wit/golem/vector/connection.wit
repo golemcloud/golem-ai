@@ -1,0 +1,52 @@
+package golem:vector@1.0.0;
+
+/// Connection and configuration management
+interface connection {
+    use types.{vector-error, metadata};
+    
+    variant credentials {
+        api-key(string),
+        username-password(tuple<string, string>),
+        token(string),
+        certificate(list<u8>),
+        oauth(oauth-config),
+    }
+    
+    record oauth-config {
+        client-id: string,
+        client-secret: option<string>,
+        token-url: string,
+        scope: option<string>,
+    }
+    
+    /// Connection status
+    record connection-status {
+        connected: bool,
+        provider: option<string>,
+        endpoint: option<string>,
+        last-activity: option<u64>,
+        connection-id: option<string>,
+    }
+    
+    /// Establish connection to vector database
+    connect: func(
+        endpoint: string,
+        credentials: option<credentials>,
+        timeout-ms: option<u32>,
+        options: option<metadata>
+    ) -> result<_, vector-error>;
+    
+    /// Close connection
+    disconnect: func() -> result<_, vector-error>;
+    
+    /// Get current connection status
+    get-connection-status: func() -> result<connection-status, vector-error>;
+    
+    /// Test connection without modifying state
+    test-connection: func(
+        endpoint: string,
+        credentials: option<credentials>,
+        timeout-ms: option<u32>,
+        options: option<metadata>
+    ) -> result<bool, vector-error>;
+} 

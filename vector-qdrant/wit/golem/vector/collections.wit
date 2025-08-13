@@ -1,0 +1,55 @@
+package golem:vector@1.0.0;
+
+/// Collection/index management and configuration
+interface collections {
+    use types.{id, distance-metric, vector-error};
+    
+    /// Index configuration parameters
+    record index-config {
+        index-type: option<string>,
+        parameters: list<tuple<string, string>>,
+    }
+    
+    /// Collection information and statistics
+    record collection-info {
+        name: string,
+        description: option<string>,
+        dimension: u32,
+        metric: distance-metric,
+        vector-count: u64,
+        size-bytes: option<u64>,
+        index-ready: bool,
+        created-at: option<u64>,
+        updated-at: option<u64>,
+        provider-stats: option<metadata>,
+    }
+    
+    /// Create or update collection (upsert)
+    upsert-collection: func(
+        name: string,
+        description: option<string>,
+        dimension: u32,
+        metric: distance-metric,
+        index-config: option<index-config>,
+        metadata: option<metadata>
+    ) -> result<collection-info, vector-error>;
+    
+    /// List all collections
+    list-collections: func() -> result<list<collection-info>, vector-error>;
+    
+    /// Get collection information
+    get-collection: func(name: string) -> result<collection-info, vector-error>;
+    
+    /// Update collection metadata only
+    update-collection: func(
+        name: string,
+        description: option<string>,
+        metadata: option<metadata>
+    ) -> result<collection-info, vector-error>;
+    
+    /// Delete collection and all vectors
+    delete-collection: func(name: string) -> result<_, vector-error>;
+    
+    /// Check if collection exists
+    collection-exists: func(name: string) -> result<bool, vector-error>;
+} 

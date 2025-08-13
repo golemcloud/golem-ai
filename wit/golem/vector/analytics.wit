@@ -1,0 +1,59 @@
+package golem:vector@1.0.0;
+
+/// Analytics and statistics
+interface analytics {
+    use types.{vector-error, metadata-value, filter-expression};
+    
+    /// Collection statistics
+    record collection-stats {
+        vector-count: u64,
+        dimension: u32,
+        size-bytes: u64,
+        index-size-bytes: option<u64>,
+        namespace-stats: list<tuple<string, namespace-stats>>,
+        distance-distribution: option<distance-stats>,
+    }
+    
+    record namespace-stats {
+        vector-count: u64,
+        size-bytes: u64,
+    }
+    
+    record distance-stats {
+        min-distance: f32,
+        max-distance: f32,
+        avg-distance: f32,
+        percentiles: list<tuple<f32, f32>>,
+    }
+    
+    /// Field statistics for metadata
+    record field-stats {
+        field-name: string,
+        value-count: u64,
+        unique-values: u64,
+        null-count: u64,
+        data-type: string,
+        sample-values: list<metadata-value>,
+    }
+    
+    /// Get collection statistics
+    get-collection-stats: func(
+        collection: string,
+        namespace: option<string>
+    ) -> result<collection-stats, vector-error>;
+    
+    /// Get field statistics
+    get-field-stats: func(
+        collection: string,
+        field: string,
+        namespace: option<string>
+    ) -> result<field-stats, vector-error>;
+    
+    /// Get value distribution for a field
+    get-field-distribution: func(
+        collection: string,
+        field: string,
+        limit: option<u32>,
+        namespace: option<string>
+    ) -> result<list<tuple<metadata-value, u64>>, vector-error>;
+} 

@@ -1,0 +1,100 @@
+package golem:vector@1.0.0;
+
+/// Core vector operations (CRUD)
+interface vectors {
+    use types.{id, vector-record, vector-data, metadata, filter-expression, vector-error};
+    
+    /// Batch operation result
+    record batch-result {
+        success-count: u32,
+        failure-count: u32,
+        errors: list<tuple<u32, vector-error>>,
+    }
+    
+    /// List response with pagination
+    record list-response {
+        vectors: list<vector-record>,
+        next-cursor: option<string>,
+        total-count: option<u64>,
+    }
+    
+    /// Upsert vectors into collection
+    upsert-vectors: func(
+        collection: string,
+        vectors: list<vector-record>,
+        namespace: option<string>
+    ) -> result<batch-result, vector-error>;
+    
+    /// Upsert single vector (convenience)
+    upsert-vector: func(
+        collection: string,
+        id: id,
+        vector: vector-data,
+        metadata: option<metadata>,
+        namespace: option<string>
+    ) -> result<_, vector-error>;
+    
+    /// Get vectors by IDs
+    get-vectors: func(
+        collection: string,
+        ids: list<id>,
+        namespace: option<string>,
+        include-vectors: option<bool>,
+        include-metadata: option<bool>
+    ) -> result<list<vector-record>, vector-error>;
+    
+    /// Get single vector by ID (convenience)
+    get-vector: func(
+        collection: string,
+        id: id,
+        namespace: option<string>
+    ) -> result<option<vector-record>, vector-error>;
+    
+    /// Update vector in place
+    update-vector: func(
+        collection: string,
+        id: id,
+        vector: option<vector-data>,
+        metadata: option<metadata>,
+        namespace: option<string>,
+        merge-metadata: option<bool>
+    ) -> result<_, vector-error>;
+    
+    /// Delete vectors by IDs
+    delete-vectors: func(
+        collection: string,
+        ids: list<id>,
+        namespace: option<string>
+    ) -> result<u32, vector-error>;
+    
+    /// Delete vectors by filter
+    delete-by-filter: func(
+        collection: string,
+        filter: filter-expression,
+        namespace: option<string>
+    ) -> result<u32, vector-error>;
+    
+    /// Delete all vectors in namespace
+    delete-namespace: func(
+        collection: string,
+        namespace: string
+    ) -> result<u32, vector-error>;
+    
+    /// List vectors with filtering and pagination
+    list-vectors: func(
+        collection: string,
+        namespace: option<string>,
+        filter: option<filter-expression>,
+        limit: option<u32>,
+        cursor: option<string>,
+        include-vectors: option<bool>,
+        include-metadata: option<bool>
+    ) -> result<list-response, vector-error>;
+    
+    /// Count vectors matching filter
+    count-vectors: func(
+        collection: string,
+        filter: option<filter-expression>,
+        namespace: option<string>
+    ) -> result<u64, vector-error>;
+} 
