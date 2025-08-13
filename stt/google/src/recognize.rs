@@ -2,6 +2,7 @@ use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeOptions, Trans
 use golem_stt::golem::stt::types::{SttError, WordSegment};
 use crate::config::GoogleConfig;
 use serde_json::Value;
+use golem_stt::durability::retry;
 
 fn map_encoding(conf: &AudioConfig) -> Option<&'static str> {
     use golem_stt::golem::stt::types::AudioFormat as F;
@@ -71,38 +72,24 @@ pub(crate) fn recognize(
         .clone()
         .unwrap_or_else(|| crate::constants::GOOGLE_SPEECH_ENDPOINT.to_string());
 
-    let mut attempt: u32 = 0;
     let max_attempts = cfg.max_retries.max(1);
-    let resp = loop {
-        match client
+    let resp = retry::with_retries(|attempt| {
+        let r = client
             .post(&endpoint)
             .bearer_auth(&token)
             .json(&payload)
-            .send()
-        {
-            Ok(r) => {
-                let status = r.status().as_u16();
-                if status == 200 { break r; }
-                attempt += 1;
-                if attempt >= max_attempts || !should_retry_status(status) {
-                    return Err(crate::error::map_http_status(status));
+            .send();
+        match r {
+            Ok(res) => {
+                let status = res.status().as_u16();
+                if should_retry_status(status) && attempt + 1 < max_attempts {
+                    return Err(format!("retryable status {status}"));
                 }
-                let delay_ms = 200u64.saturating_mul(1u64 << (attempt - 1));
-                let jitter_ms = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos() as u64) % 100;
-                std::thread::sleep(std::time::Duration::from_millis(delay_ms + jitter_ms));
-                continue;
+                Ok(res)
             }
-            Err(e) => {
-                attempt += 1;
-                if attempt >= max_attempts {
-                    return Err(SttError::NetworkError(format!("{e}")));
-                }
-                let delay_ms = 200u64.saturating_mul(1u64 << (attempt - 1));
-                let jitter_ms = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos() as u64) % 100;
-                std::thread::sleep(std::time::Duration::from_millis(delay_ms + jitter_ms));
-            }
+            Err(e) => Err(format!("{e}")),
         }
-    };
+    }, cfg.max_retries, 100).map_err(|e| SttError::NetworkError(e))?;
 
     let status = resp.status().as_u16();
     if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
@@ -182,7 +169,21 @@ fn recognize_v2(
     });
 
     let client = Client::builder().timeout(std::time::Duration::from_secs(cfg.timeout_secs)).build().map_err(|e| SttError::InternalError(format!("client build {e}")))?;
-    let resp = client.post(&endpoint).bearer_auth(&token).json(&payload).send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
+    let max_attempts = cfg.max_retries.max(1);
+    let resp = retry::with_retries(|attempt| {
+        let r = client.post(&endpoint).bearer_auth(&token).json(&payload).send();
+        match r {
+            Ok(res) => {
+                let status = res.status().as_u16();
+                if status >= 200 && status < 300 { return Ok(res); }
+                if attempt + 1 < max_attempts && should_retry_status(status) {
+                    return Err(format!("retryable status {status}"));
+                }
+                Err(format!("status {status}"))
+            }
+            Err(e) => Err(format!("{e}")),
+        }
+    }, cfg.max_retries, 100).map_err(|e| SttError::NetworkError(e))?;
     let status = resp.status().as_u16();
     if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
 

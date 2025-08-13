@@ -7,8 +7,6 @@ mod recognize;
 mod batch;
 pub mod languages;
 pub mod vocabularies;
-#[cfg(feature = "durability")]
-mod durability;
 
 pub struct AzureTranscriptionComponent;
 

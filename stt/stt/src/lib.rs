@@ -14,6 +14,21 @@ pub use __export_stt_library_impl as export_stt;
 
 use std::cell::RefCell;
 use std::str::FromStr;
+#[cfg(test)]
+mod tests {
+    use super::durability::retry::backoff_delay_ms;
+    #[test]
+    fn backoff_grows_and_caps() {
+        let b = 100u64;
+        let m = 5000u64;
+        let d0 = backoff_delay_ms(0, b, m, 0);
+        let d1 = backoff_delay_ms(1, b, m, 0);
+        let d5 = backoff_delay_ms(5, b, m, 0);
+        assert!(d1 > d0);
+        assert!(d5 >= d1);
+        assert!(d5 <= m);
+    }
+}
 
 struct LoggingState {
     logging_initialized: bool,

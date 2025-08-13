@@ -45,8 +45,8 @@ pub mod retry {
         loop {
             match f(attempt) {
                 Ok(v) => return Ok(v),
-                Err(_e) if attempt < max_retries => {
-                    let delay = base_delay_ms.saturating_mul(1 + attempt as u64);
+                Err(_e) if attempt + 1 < max_retries => {
+                    let delay = backoff_delay_ms(attempt, base_delay_ms, base_delay_ms.saturating_mul(25), 100);
                     std::thread::sleep(Duration::from_millis(delay));
                     attempt += 1;
                     continue;
@@ -54,6 +54,14 @@ pub mod retry {
                 Err(e) => return Err(e),
             }
         }
+    }
+
+    pub fn backoff_delay_ms(attempt: u32, base_ms: u64, max_ms: u64, jitter_ms: u64) -> u64 {
+        let exp = 1u64 << attempt.min(20);
+        let raw = base_ms.saturating_mul(exp);
+        let capped = raw.min(max_ms);
+        let jitter = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos() as u64) % (jitter_ms.max(1));
+        capped.saturating_add(jitter)
     }
 }
 

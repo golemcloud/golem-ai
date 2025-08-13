@@ -1,6 +1,7 @@
 use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeOptions, TranscriptAlternative};
 use golem_stt::golem::stt::types::{SttError, WordSegment};
 use crate::config::AzureConfig;
+use golem_stt::durability::retry;
 
 fn map_audio_format_to_mime(format: golem_stt::golem::stt::types::AudioFormat) -> &'static str {
     use golem_stt::golem::stt::types::AudioFormat as F;
@@ -50,19 +51,23 @@ pub(crate) fn recognize(
     let client = Client::builder().timeout(std::time::Duration::from_secs(cfg.timeout_secs)).build().map_err(|e| SttError::InternalError(format!("client build {e}")))?;
 
     let started = std::time::Instant::now();
-    let mut attempt: u32 = 0;
     let max_attempts = cfg.max_retries.max(1);
-    let resp = loop {
-        match client.post(&url)
+    let resp = retry::with_retries(|attempt| {
+        let r = client.post(&url)
             .header("Ocp-Apim-Subscription-Key", &cfg.subscription_key)
             .header("Accept", "application/json")
             .header("Content-Type", map_audio_format_to_mime(conf.format))
             .body(audio.to_vec())
-            .send() {
-            Ok(r) => break r,
-            Err(e) => { if attempt + 1 >= max_attempts { return Err(SttError::NetworkError(format!("{e}"))); } attempt += 1; continue; }
+            .send();
+        match r {
+            Ok(ok) => Ok(ok),
+            Err(e) => {
+                if attempt + 1 >= max_attempts { return Err(e); }
+                Err(e)
+            }
         }
-    };
+    }, cfg.max_retries, 100) // 100ms base
+    .map_err(|e| SttError::NetworkError(format!("{e}")))?;
     let elapsed_secs = started.elapsed().as_secs_f32();
 
     let status = resp.status().as_u16();
@@ -149,10 +154,23 @@ fn recognize_rest_fast(
     });
 
     let client = Client::builder().timeout(std::time::Duration::from_secs(cfg.timeout_secs)).build().map_err(|e| SttError::InternalError(format!("client build {e}")))?;
-    let resp = client.post(&endpoint)
-        .header("Ocp-Apim-Subscription-Key", &cfg.subscription_key)
-        .json(&payload)
-        .send().map_err(|e| SttError::NetworkError(format!("{e}")))?;
+    let max_attempts = cfg.max_retries.max(1);
+    let resp = retry::with_retries(|attempt| {
+        let r = client.post(&endpoint)
+            .header("Ocp-Apim-Subscription-Key", &cfg.subscription_key)
+            .json(&payload)
+            .send();
+        match r {
+            Ok(res) => {
+                let status = res.status().as_u16();
+                if should_retry_status(status) && attempt + 1 < max_attempts {
+                    return Err(format!("retryable status {status}"));
+                }
+                Ok(res)
+            }
+            Err(e) => Err(format!("{e}")),
+        }
+    }, cfg.max_retries, 100).map_err(|e| SttError::NetworkError(e))?;
     let status = resp.status().as_u16();
     if !(200..300).contains(&status) { return Err(crate::error::map_http_status(status)); }
 
