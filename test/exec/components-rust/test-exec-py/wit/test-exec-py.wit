@@ -1,0 +1,19 @@
+package test:exec-py;
+
+// See https://component-model.bytecodealliance.org/design/wit.html for more details about the WIT syntax
+
+interface test-exec-py-api {
+  test1: func() -> bool;
+  test2: func() -> bool;
+  test3: func() -> bool;
+  test4: func() -> bool;
+  test5: func() -> bool;
+  test6: func() -> bool;
+  test7: func() -> bool;
+}
+
+world test-exec-py {
+  import golem:exec/types@1.0.0;
+  import golem:exec/executor@1.0.0;
+  export test-exec-py-api;
+}

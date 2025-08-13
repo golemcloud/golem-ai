@@ -1,0 +1,64 @@
+# Schema for IDEA:
+# $schema: https://schema.golem.cloud/app/golem/1.2.5/golem.schema.json
+# Schema for vscode-yaml
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.2.5/golem.schema.json
+
+# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
+# For creating APIs see https://learn.golem.cloud/invoke/making-custom-apis
+
+components:
+  test:exec-js:
+    profiles:
+      debug:
+        build:
+          - command: cargo component build --no-default-features
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_exec_js.wasm
+          - command: wac plug --plug ../../../../target/debug/golem_exec_javascript.wasm ../../target/wasm32-wasip1/debug/test_exec_js.wasm -o ../../target/wasm32-wasip1/debug/test_exec_js_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_exec_js.wasm
+              - ../../../../target/debug/golem_exec_javascript.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_exec_js_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_exec_js_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_exec_js_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      release:
+        build:
+          - command: cargo component build --release --no-default-features
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_exec_js.wasm
+          - command: wac plug --plug ../../../../target/release/golem_exec_javascript.wasm ../../target/wasm32-wasip1/release/test_exec_js.wasm -o ../../target/wasm32-wasip1/release/test_exec_js_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_exec_js.wasm
+              - ../../../../target/release/golem_exec_javascript.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_exec_js_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_exec_js_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_exec_js_release.wasm
+        clean:
+          - src/bindings.rs
+
+    defaultProfile: debug
+
+dependencies:
+  test:exec-js:
+# NOTE: cannot use wasm dependency here yet because of a bug in golem-cli 1.2.5
+#    - type: wasm
+#      path: ../../target/debug/golem_exec_javascript.wasm
+    - type: wasm-rpc
+      target: test:helper

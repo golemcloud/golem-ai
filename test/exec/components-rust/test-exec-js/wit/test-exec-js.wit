@@ -1,0 +1,23 @@
+package test:exec-js;
+
+// See https://component-model.bytecodealliance.org/design/wit.html for more details about the WIT syntax
+
+interface test-exec-js-api {
+  test01: func() -> bool;
+  test02: func() -> bool;
+  test03: func() -> bool;
+  test04: func() -> bool;
+  test05: func() -> bool;
+  test06: func() -> bool;
+  test07: func() -> bool;
+  test08: func() -> bool;
+  test09: func() -> bool;
+  test10: func() -> bool;
+  test11: func() -> bool;
+}
+
+world test-exec-js {
+  import golem:exec/types@1.0.0;
+  import golem:exec/executor@1.0.0;
+  export test-exec-js-api;
+}

@@ -1,0 +1,42 @@
+[package]
+name = "golem-exec"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-ai"
+description = "WebAssembly components for executing dynamic code snippets, with special support for Golem Cloud"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[features]
+default = ["javascript", "python", "durability"]
+durability = ["golem-rust/durability"]
+javascript = ["dep:rquickjs"]
+python = ["dep:rustpython"]
+
+[dependencies]
+golem-rust = { workspace = true }
+
+base64 = "0.22.1"
+encoding_rs = "0.8.35"
+futures = { workspace = true }
+hex = "0.4.3"
+indoc = "2.0.6"
+log = { workspace = true }
+rquickjs = { version = "0.9.0", default-features = false, features = ["futures", "bindgen", "loader", "macro"], optional = true }
+rustpython = { git = "https://github.com/RustPython/RustPython", rev = "d8f1d188c394eb2d970d3ebe95f0d3d7658f31a3", default-features = false, features = ["stdlib", "stdio", "importlib", "freeze-stdlib"], optional = true }
+wasi = { workspace = true }
+wasi-logger = "0.1.2"
+wit-bindgen = { version = "0.40.0" }
+wit-bindgen-rt = { workspace = true }
+wstd = { workspace = true }
+
+[package.metadata.component.bindings.with]
+"golem:exec/types@1.0.0" = "golem_exec::golem::exec::types"
+"golem:exec/executor@1.0.0" = "golem_exec::golem::exec::executor"
+
+[package.metadata.component.target.dependencies]
+"golem:exec" = { path = "wit/deps/golem-exec" }

@@ -1,0 +1,151 @@
+[config]
+default_to_workspace = false
+skip_core_tasks = true
+
+[tasks.build]
+run_task = { name = [
+    "build-javascript",
+    "build-python",
+    "build-full"
+] }
+
+[tasks.build-portable]
+run_task = { name = [
+    "build-javascript-portable",
+    "build-python-portable",
+    "build-full-portable",
+] }
+
+[tasks.release-build]
+run_task = { name = [
+    "release-build-javascript",
+    "release-build-python",
+    "release-build-full",
+] }
+
+[tasks.release-build-portable]
+run_task = { name = [
+    "release-build-javascript-portable",
+    "release-build-python-portable",
+    "release-build-full-portable",
+] }
+
+[tasks.build-javascript]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --no-default-features --features javascript --features durability
+cp ../target/wasm32-wasip1/debug/golem_exec.wasm ../target/debug/golem_exec_javascript.wasm
+'''
+
+
+[tasks.build-javascript-portable]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --no-default-features --features javascript
+cp ../target/wasm32-wasip1/debug/golem_exec.wasm ../target/debug/golem_exec_javascript_portable.wasm
+'''
+
+[tasks.build-python]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --no-default-features --features python --features durability
+cp ../target/wasm32-wasip1/debug/golem_exec.wasm ../target/debug/golem_exec_python.wasm
+'''
+
+[tasks.build-python-portable]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --no-default-features --features python
+cp ../target/wasm32-wasip1/debug/golem_exec.wasm ../target/debug/golem_exec_python_portable.wasm
+'''
+
+[tasks.build-full]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec
+cp ../target/wasm32-wasip1/debug/golem_exec.wasm ../target/debug/golem_exec.wasm
+'''
+
+[tasks.build-full-portable]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --no-default-features --features python --features javascript
+cp ../target/wasm32-wasip1/debug/golem_exec.wasm ../target/debug/golem_exec_portable.wasm
+'''
+
+[tasks.release-build-javascript]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --release --no-default-features --features javascript --features durability
+cp ../target/wasm32-wasip1/release/golem_exec.wasm ../target/release/golem_exec_javascript.wasm
+'''
+
+[tasks.release-build-javascript-portable]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --release --no-default-features --features javascript
+cp ../target/wasm32-wasip1/release/golem_exec.wasm ../target/release/golem_exec_javascript_portable.wasm
+'''
+
+[tasks.release-build-python]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --release --no-default-features --features python --features durability
+cp ../target/wasm32-wasip1/release/golem_exec.wasm ../target/release/golem_exec_python.wasm
+'''
+
+[tasks.release-build-python-portable]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --release --no-default-features --features python
+cp ../target/wasm32-wasip1/release/golem_exec.wasm ../target/release/golem_exec_python_portable.wasm
+'''
+
+[tasks.release-build-full]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --release
+cp ../target/wasm32-wasip1/release/golem_exec.wasm ../target/release/golem_exec.wasm
+'''
+
+[tasks.release-build-full-portable]
+script_runner = "@duckscript"
+script = '''
+exec cargo-component build -p golem-exec --release --no-default-features --features python --features javascript
+cp ../target/wasm32-wasip1/release/golem_exec.wasm ../target/release/golem_exec_portable.wasm
+'''
+
+[tasks.wit]
+script_runner = "@duckscript"
+script = """
+modules = array exec
+
+for module in ${modules}
+    rm -r ${module}/wit/deps
+    mkdir ${module}/wit/deps/golem-exec
+    cp wit/golem-exec.wit ${module}/wit/deps/golem-exec/golem-exec.wit
+
+    echo "Copied WIT for module exec::${module}"
+end
+
+# Copy WIT files for integration tests
+rm -r ../test/exec/wit
+mkdir ../test/exec/wit/deps/golem-exec
+cp wit/golem-exec.wit ../test/exec/wit/deps/golem-exec/golem-exec.wit
+
+echo "Copied WIT for module test"
+"""
+
+[tasks.build-test-components]
+dependencies = ["build"]
+install_crate = "cargo-binstall"
+description = "Builds exec test components with golem-cli"
+script = '''
+cargo-binstall golem-cli@1.2.5 --locked --no-confirm
+cargo-binstall wac-cli --locked --no-confirm
+cd ../test/exec
+
+golem-cli --version
+golem-cli app clean
+golem-cli app build
+'''

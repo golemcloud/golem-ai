@@ -52,7 +52,7 @@ search\x01'\x01i\x10\x01j\x01(\x01\x0f\x01@\x02\x05index\x01\x05query\x07\0)\x04
 get-schema\x01,\x01@\x02\x05index\x01\x06schema\x0d\0\x17\x04\0\x0dupdate-schema\
 \x01-\x04\0\x17golem:search/core@1.0.0\x05\x09\x04\0-golem:search-meilisearch/se\
 arch-library@1.0.0\x04\0\x0b\x14\x01\0\x0esearch-library\x03\0\0\0G\x09producers\
-\x01\x0cprocessed-by\x02\x0dwit-component\x070.220.1\x10wit-bindgen-rust\x060.36\
+\x01\x0cprocessed-by\x02\x0dwit-component\x070.220.0\x10wit-bindgen-rust\x060.36\
 .0";
 #[inline(never)]
 #[doc(hidden)]

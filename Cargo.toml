@@ -20,6 +20,10 @@ members = [
     "search/meilisearch",
     "search/opensearch",
     "search/typesense",
+    "graph/graph",
+    "graph/arangodb",
+    "graph/janusgraph",
+    "graph/neo4j",
     "video/video",
     "video/kling",
     "video/runway",
@@ -31,6 +35,7 @@ members = [
     "stt/amazon",
     "stt/deepgram",
     "stt/whisper",
+    "exec/exec",
 ]
 
 [profile.release]
@@ -42,14 +47,18 @@ opt-level = 's'
 golem-llm = { path = "llm/llm", version = "0.0.0", default-features = false }
 golem-search = { path = "search/search", version = "0.0.0", default-features = false}
 golem-video = { path = "video/video", version = "0.0.0", default-features = false}
+golem-graph = { path = "graph/graph" , version = "0.0.0" ,default-features =false}
 golem-stt = { path = "stt/stt", version = "0.0.0", default-features = false }
 golem-rust = "1.6.0"
+futures = "0.3.31"
 log = "0.4.27"
 reqwest = { git = "https://github.com/golemcloud/reqwest", branch = "update-may-2025", features = [
     "json",
 ] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
+wasi = "=0.13.1+wasi-0.2.0"
+wstd = { git = "https://github.com/golemcloud/wstd", branch = "0.5.3-wasi-0.2.0" }
 wit-bindgen-rt = { version = "0.40.0", features = ["bitflags"] }
 base64 = { version = "0.22.1" }
 mime_guess = { version = "2.0.5" }
