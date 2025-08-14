@@ -99,15 +99,6 @@ pub mod saga {
     use golem_rust::durability::Durability;
     use golem_rust::{FromValueAndType, IntoValue};
 
-    /// A lightweight checkpoint for saga-like observability of STT flows.
-    ///
-    /// Common `state` values used by providers:
-    /// - "started": processing has begun
-    /// - "uploaded": media asset uploaded (provider-specific)
-    /// - "completed": transcription finished successfully
-    /// A lightweight checkpoint for saga-like observability of STT flows.
-    ///
-    /// Fields are intentionally generic to support different providers.
     #[derive(Clone, Debug, FromValueAndType, IntoValue)]
     pub struct SttCheckpoint {
         pub provider: String,
@@ -120,7 +111,6 @@ pub mod saga {
         pub last_ts_ms: u64,
     }
 
-    // Common state constants for provider saga checkpoints
     pub const STATE_STARTED: &str = "started";
     pub const STATE_UPLOADED: &str = "uploaded";
     pub const STATE_COMPLETED: &str = "completed";
@@ -153,12 +143,9 @@ pub mod saga {
     #[cfg(feature = "durability")]
     impl<'a, OkT: Clone, ErrT: Clone> Saga<'a, OkT, ErrT> {
         pub fn new(component_id: &'static str, fn_name: &'static str, _kind: impl core::fmt::Debug) -> Self {
-            // Use a stable, static function name derived from the provided function name
-            // while satisfying the 'static requirements of the durability API.
             fn saga_fn_name_from(fn_name: &'static str) -> &'static str {
                 match fn_name {
                     "transcribe" => "transcribe_saga",
-                    // Fallback to transcribe_saga for any unknowns to keep a static name
                     _ => "transcribe_saga",
                 }
             }

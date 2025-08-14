@@ -194,10 +194,7 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
         if let Some(state) = v.get("TranscriptionJob").and_then(|j| j.get("TranscriptionJobStatus")).and_then(|s| s.as_str()) {
             if state == "COMPLETED" {
                 if let Some(u) = v.get("TranscriptionJob").and_then(|j| j.get("Transcript")).and_then(|t| t.get("TranscriptFileUri")).and_then(|u| u.as_str()).map(|s| s.to_string()) {
-                    #[cfg(feature = "durability")]
-                    {
-                        // Defer final outcome to persist_outcome after result mapping
-                    }
+                    
                     break u;
                 } else {
                     if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); }
