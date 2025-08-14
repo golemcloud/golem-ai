@@ -66,7 +66,19 @@ pub mod retry {
 }
 
 pub mod saga {
-    #[derive(Clone, Debug)]
+    #[cfg(feature = "durability")]
+    use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
+    #[cfg(feature = "durability")]
+    use golem_rust::durability::Durability;
+    use golem_rust::{FromValueAndType, IntoValue};
+
+    /// A lightweight checkpoint for saga-like observability of STT flows.
+    ///
+    /// Common `state` values used by providers:
+    /// - "started": processing has begun
+    /// - "uploaded": media asset uploaded (provider-specific)
+    /// - "completed": transcription finished successfully
+    #[derive(Clone, Debug, FromValueAndType, IntoValue)]
     pub struct SttCheckpoint {
         pub provider: String,
         pub state: String,
@@ -78,9 +90,43 @@ pub mod saga {
         pub last_ts_ms: u64,
     }
 
+    #[cfg(feature = "durability")]
+    #[derive(Clone, Debug, FromValueAndType, IntoValue)]
+    struct NoInput;
+
+    #[cfg(feature = "durability")]
+    #[derive(Debug, FromValueAndType, IntoValue)]
+    struct UnusedError;
+
+    #[cfg(feature = "durability")]
+    pub struct Saga<'a, OkT, ErrT> {
+        durability: Durability<SttCheckpoint, UnusedError>,
+        _p: core::marker::PhantomData<(&'a OkT, &'a ErrT)>,
+    }
+
+    #[cfg(not(feature = "durability"))]
     pub struct Saga<'a, OkT, ErrT> { _p: core::marker::PhantomData<(&'a OkT, &'a ErrT)> }
+
+    #[cfg(not(feature = "durability"))]
     impl<'a, OkT: Clone, ErrT: Clone> Saga<'a, OkT, ErrT> {
         pub fn new(_component_id: &'a str, _fn_name: &'a str, _kind: impl core::fmt::Debug) -> Self { Self { _p: core::marker::PhantomData } }
         pub fn persist_checkpoint<C>(&self, _ckpt: C) {}
+    }
+
+    #[cfg(feature = "durability")]
+    impl<'a, OkT: Clone, ErrT: Clone> Saga<'a, OkT, ErrT> {
+        pub fn new(component_id: &'static str, _fn_name: &'static str, _kind: impl core::fmt::Debug) -> Self {
+            // Use a stable, static function name to satisfy lifetime requirements.
+            // Current STT providers only use the "transcribe" function.
+            let durability: Durability<SttCheckpoint, UnusedError> =
+                Durability::new(component_id, "transcribe_saga", DurableFunctionType::WriteRemote);
+            Self { durability, _p: core::marker::PhantomData }
+        }
+
+        pub fn persist_checkpoint(&self, ckpt: SttCheckpoint) {
+            if self.durability.is_live() {
+                let _ = self.durability.persist_infallible(NoInput, ckpt);
+            }
+        }
     }
 }
