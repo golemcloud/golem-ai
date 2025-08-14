@@ -104,7 +104,8 @@ AWS_SESSION_TOKEN=your_session_token  # Optional, for temporary credentials
 ```bash
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 GOOGLE_CLOUD_PROJECT=your_project_id
-GOOGLE_ACCESS_TOKEN=your_oauth_token  # Alternative to service account
+# Optional override; if omitted, the component will derive a fresh access token from the service account
+# GOOGLE_ACCESS_TOKEN=your_oauth_token  
 ```
 
 #### OpenAI Whisper

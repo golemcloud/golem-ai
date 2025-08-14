@@ -1,8 +1,7 @@
-use base64::Engine;
 use golem_stt::config::WhisperConfig;
 use golem_stt::errors::InternalSttError;
 use golem_stt::exports::golem::stt::transcription::TranscribeOptions;
-use golem_stt::exports::golem::stt::types::AudioConfig;
+use golem_stt::exports::golem::stt::types::{AudioConfig, AudioFormat};
 use golem_stt::http::HttpClient;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 
@@ -106,7 +105,7 @@ impl WhisperClient {
         body.extend_from_slice(&audio);
         body.extend_from_slice(b"\r\n");
 
-        // Add response_format field
+        // Add response_format field to request JSON response
         body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
         body.extend_from_slice(b"Content-Disposition: form-data; name=\"response_format\"\r\n\r\n");
         body.extend_from_slice(b"verbose_json\r\n");

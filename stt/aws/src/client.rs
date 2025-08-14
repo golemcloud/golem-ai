@@ -37,14 +37,6 @@ impl AwsClient {
     fn region(&self) -> Result<String, InternalSttError> {
         self.cfg
             .region
-            .as_ref()
-            .ok_or_else(|| InternalSttError::unauthorized("AWS_REGION not set"))
-            .cloned()
-    }
-
-    fn region(&self) -> Result<String, InternalSttError> {
-        self.cfg
-            .region
             .clone()
             .ok_or_else(|| InternalSttError::unauthorized("AWS_REGION not set"))
     }
@@ -461,11 +453,8 @@ impl AwsClient {
             // Wait before next poll (exponential backoff)
             let wait_secs = std::cmp::min(5, 1 + start_time.elapsed().as_secs() / 10);
 
-            // Use proper async sleep - simulate with yield and counter
-            for _ in 0..(wait_secs * 10) {
-                wstd::runtime::yield_now().await;
-                // Each yield represents ~100ms, so 10 yields = ~1 second
-            }
+            // Use proper async sleep in WASI environment
+            wstd::task::sleep(std::time::Duration::from_secs(wait_secs)).await;
         }
     }
 

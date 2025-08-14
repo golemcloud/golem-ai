@@ -66,6 +66,7 @@ base64 = { version = "0.22.1" }
 mime_guess = { version = "2.0.5" }
 url = { version = "2.5.4" }
 urlencoding = { version = "2.1.3" }
+bytes = { version = "1.6.0" }
 
 
 # Workspace lints configuration

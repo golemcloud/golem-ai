@@ -1,13 +1,12 @@
 # Google STT Component
 
 ## Graceful Degradation
-- All features supported - no degradation needed
+- Streaming is not supported in WASI; `transcribe-stream` returns `unsupported-operation`
 
 Implements the `golem:stt` WIT interface for Google Cloud Speech-to-Text using a WASI 0.23 component.
 
 Features
 - Batch transcription with timestamps and alternatives
-- Emulated streaming via HTTP gateway (see below)
 - Optional language and model selection
 - Graceful degradation when fields are unavailable
 
@@ -21,16 +20,10 @@ Common:
 Provider-Specific:
 - GOOGLE_APPLICATION_CREDENTIALS: Path to service account JSON file
 - GOOGLE_CLOUD_PROJECT: Google Cloud project ID
-- GOOGLE_ACCESS_TOKEN: OAuth2 access token (alternative to service account)
+- GOOGLE_ACCESS_TOKEN: Optional; if not provided, the component derives an access token from the service account JSON
 
-Streaming (Emulated)
-Because native WebSockets/gRPC are limited in WASI, streaming is emulated via a gateway that exposes:
-
-- POST {STT_PROVIDER_ENDPOINT}/stream/send  body: { request_id, chunk_b64 }
-- POST {STT_PROVIDER_ENDPOINT}/stream/finish body: { request_id }
-- GET  {STT_PROVIDER_ENDPOINT}/stream/recv?request_id=... -> { alternative } or 204
-
-The component constructs content-type from the AudioConfig.
+Streaming
+Native WebSockets/gRPC for Google STT are not available in WASI components. This component does not implement streaming and returns `unsupported-operation` for `transcribe-stream`.
 
 Degradation
 - If diarization or word confidence are not available, they are omitted (None).

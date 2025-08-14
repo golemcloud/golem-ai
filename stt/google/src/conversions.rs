@@ -49,7 +49,7 @@ pub fn to_wit_result(
     model: Option<String>,
 ) -> Result<wit_types::TranscriptionResult, wit_types::SttError> {
     let parsed: GoogleResponse = serde_json::from_str(body)
-        .map_err(|e| wit_types::SttError::InternalError(format!("google parse error: {e}")))?;
+        .map_err(|e| wit_types::SttError::InternalError(format!("google parse error: {e}, body: {body}")))?;
 
     let mut alternatives_out: Vec<wit_types::TranscriptAlternative> = Vec::new();
 

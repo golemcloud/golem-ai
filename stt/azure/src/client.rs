@@ -9,6 +9,7 @@ use golem_stt::mapping::{
     TranscriptAlternativeOut, TranscriptionMetadataOut, TranscriptionResultOut, WordSegmentOut,
 };
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use golem_stt::errors::extract_azure_error_message;
 use serde::Deserialize;
 
 #[derive(Clone)]
@@ -149,8 +150,9 @@ impl AzureClient {
             .await?;
 
         if !status.is_success() {
+            let message = extract_azure_error_message(&text);
             return Err(InternalSttError::failed(format!(
-                "azure stt error: status={status}, body={text}"
+                "azure stt error: status={status}, body={message}"
             )));
         }
 

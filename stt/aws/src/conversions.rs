@@ -1,35 +1,4 @@
 use golem_stt::exports::golem::stt::types as wit_types;
-use serde::Deserialize;
-
-// This is a simplified structure similar to AWS Transcribe Streaming JSON result. For batch REST,
-// providers often return a job artifact; in our simplified REST endpoint, assume direct JSON result.
-#[derive(Debug, Deserialize)]
-struct AwsAltWord {
-    text: String,
-    #[serde(default)]
-    start_time: f32,
-    #[serde(default)]
-    end_time: f32,
-    #[serde(default)]
-    confidence: Option<f32>,
-    #[serde(default)]
-    speaker_label: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct AwsAlternative {
-    transcript: String,
-    #[serde(default)]
-    confidence: Option<f32>,
-    #[serde(default)]
-    words: Vec<AwsAltWord>,
-}
-
-#[derive(Debug, Deserialize)]
-struct AwsResponse {
-    #[serde(default)]
-    alternatives: Vec<AwsAlternative>,
-}
 
 pub fn to_wit_result(
     body: &str,
@@ -37,41 +6,80 @@ pub fn to_wit_result(
     language: String,
     model: Option<String>,
 ) -> Result<wit_types::TranscriptionResult, wit_types::SttError> {
-    let parsed: AwsResponse = serde_json::from_str(body)
-        .map_err(|e| wit_types::SttError::InternalError(format!("aws parse error: {e}")))?;
+    // Parse actual AWS Transcribe transcript file JSON
+    let v: serde_json::Value = serde_json::from_str(body)
+        .map_err(|e| wit_types::SttError::InternalError(format!("aws parse error: {e}, body: {body}")))?;
 
-    let mut alts_out: Vec<wit_types::TranscriptAlternative> = Vec::new();
+    let results = v.get("results").cloned().unwrap_or(serde_json::json!({}));
+    let transcripts = results
+        .get("transcripts")
+        .and_then(|t| t.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let full_text = transcripts
+        .get(0)
+        .and_then(|t| t.get("transcript"))
+        .and_then(|t| t.as_str())
+        .unwrap_or("")
+        .to_string();
 
-    for a in parsed.alternatives {
-        let words = a
-            .words
-            .into_iter()
-            .map(|w| wit_types::WordSegment {
-                text: w.text,
-                start_time: w.start_time,
-                end_time: w.end_time,
-                confidence: w.confidence,
-                speaker_id: w.speaker_label,
-            })
-            .collect::<Vec<_>>();
-
-        alts_out.push(wit_types::TranscriptAlternative {
-            text: a.transcript,
-            confidence: a.confidence.unwrap_or(1.0),
-            words,
-        });
+    let mut words_out: Vec<wit_types::WordSegment> = Vec::new();
+    if let Some(items) = results.get("items").and_then(|i| i.as_array()) {
+        for item in items {
+            let item_type = item.get("type").and_then(|t| t.as_str()).unwrap_or("");
+            if item_type == "pronunciation" {
+                let start = item
+                    .get("start_time")
+                    .and_then(|s| s.as_str())
+                    .and_then(|s| s.parse::<f32>().ok())
+                    .unwrap_or(0.0);
+                let end = item
+                    .get("end_time")
+                    .and_then(|s| s.as_str())
+                    .and_then(|s| s.parse::<f32>().ok())
+                    .unwrap_or(start);
+                let alt0 = item
+                    .get("alternatives")
+                    .and_then(|a| a.as_array())
+                    .and_then(|arr| arr.get(0))
+                    .cloned()
+                    .unwrap_or(serde_json::json!({}));
+                let text = alt0
+                    .get("content")
+                    .and_then(|c| c.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let confidence = alt0
+                    .get("confidence")
+                    .and_then(|c| c.as_str())
+                    .and_then(|s| s.parse::<f32>().ok());
+                words_out.push(wit_types::WordSegment {
+                    text,
+                    start_time: start,
+                    end_time: end,
+                    confidence,
+                    speaker_id: None,
+                });
+            }
+        }
     }
+
+    let alternative = wit_types::TranscriptAlternative {
+        text: full_text,
+        confidence: 1.0,
+        words: words_out,
+    };
 
     let metadata = wit_types::TranscriptionMetadata {
         duration_seconds: 0.0,
         audio_size_bytes,
-        request_id: "".to_string(),
+        request_id: "aws-transcribe".to_string(),
         model,
         language,
     };
 
     Ok(wit_types::TranscriptionResult {
-        alternatives: alts_out,
+        alternatives: vec![alternative],
         metadata,
     })
 }

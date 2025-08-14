@@ -24,6 +24,8 @@ base64 = { workspace = true }
 mime_guess = { workspace = true }
 url = { workspace = true }
 futures = { workspace = true }
+wstd = { workspace = true }
+bytes = { workspace = true }
 
 [features]
 default = []

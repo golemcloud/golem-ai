@@ -75,7 +75,7 @@ pub fn to_wit_result(
     })
 }
 
-use golem_stt::errors::{extract_google_error_message, InternalSttError};
+use golem_stt::errors::{extract_whisper_error_message, InternalSttError};
 
 pub fn to_wit_error(err: InternalSttError) -> wit_types::SttError {
     match err {

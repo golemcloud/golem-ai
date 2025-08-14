@@ -23,6 +23,9 @@ url = { workspace = true }
 # Align wit-bindgen with video components (0.40.x)
 wit-bindgen = { version = "0.40.0", features = ["macros"] }
 wit-bindgen-rt = { version = "0.40.0" }
+data-encoding = { version = "2.4" }
+rsa = { version = "0.9" }
+sha2 = { version = "0.10" }
 
 [features]
 mock_http = ["golem-stt/mock_http"]

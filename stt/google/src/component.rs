@@ -84,7 +84,7 @@ impl TranscriptionGuest for Component {
         let request_key = make_request_key(&audio, &options_hash);
 
         // Validate audio size before processing
-        let google_config = crate::config::GoogleConfig::from_env();
+        let google_config = golem_stt::config::GoogleConfig::from_env();
         google_config.common.validate_audio_size(&audio)?;
 
         // Direct API call - durability handled by DurableStt wrapper
@@ -119,7 +119,7 @@ impl TranscriptionGuest for Component {
         _options: Option<TranscribeOptions>,
     ) -> Result<transcription::TranscriptionStream, wit_types::SttError> {
         Err(wit_types::SttError::UnsupportedOperation(
-            "Google Cloud Speech streaming requires gRPC connection not supported in WASI environment".to_string(),
+            "Streaming is not supported for Google STT in WASI components".to_string(),
         ))
     }
 }

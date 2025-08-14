@@ -8,7 +8,6 @@ Implements the `golem:stt` WIT interface for Microsoft Azure Speech using a WASI
 
 Features
 - Batch transcription with timestamps and alternatives
-- Emulated streaming via HTTP gateway (see below)
 - Language and model selection where supported
 - Graceful degradation when fields are unavailable
 
@@ -23,14 +22,8 @@ Provider-Specific:
 - AZURE_SPEECH_KEY: Azure Speech service subscription key
 - AZURE_SPEECH_REGION: Azure region (e.g., eastus, westus2)
 
-Streaming (Emulated)
-Because native WebSockets/gRPC are limited in WASI, streaming is emulated via a gateway that exposes:
-
-- POST {STT_PROVIDER_ENDPOINT}/stream/send  body: { request_id, chunk_b64 }
-- POST {STT_PROVIDER_ENDPOINT}/stream/finish body: { request_id }
-- GET  {STT_PROVIDER_ENDPOINT}/stream/recv?request_id=... -> { alternative } or 204
-
-The component constructs content-type from the AudioConfig.
+Streaming
+Native WebSockets/gRPC are not available in WASI components. This component does not implement streaming and returns `unsupported-operation` for `transcribe-stream`.
 
 Degradation
 - If diarization or word confidence are not available, they are omitted (None).

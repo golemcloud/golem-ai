@@ -7,7 +7,6 @@ Implements the `golem:stt` WIT interface for Deepgram using a WASI 0.23 componen
 
 Features
 - Batch transcription with timestamps and alternatives
-- Emulated streaming via HTTP gateway (see below)
 - Language and model selection where supported
 - Graceful degradation when fields are unavailable
 
@@ -21,14 +20,8 @@ Common:
 Provider-Specific:
 - DEEPGRAM_API_KEY: API key for Deepgram authentication
 
-Streaming (Emulated)
-Because native WebSockets are limited in WASI, streaming is emulated via a gateway that exposes:
-
-- POST {STT_PROVIDER_ENDPOINT}/stream/send  body: { request_id, chunk_b64 }
-- POST {STT_PROVIDER_ENDPOINT}/stream/finish body: { request_id }
-- GET  {STT_PROVIDER_ENDPOINT}/stream/recv?request_id=... -> { alternative } or 204
-
-The component constructs content-type from the AudioConfig.
+Streaming
+Native WebSockets are not available in WASI components. This component does not implement streaming and returns `unsupported-operation` for `transcribe-stream`.
 
 Degradation
 - If diarization or word confidence are not available, they are omitted (None).

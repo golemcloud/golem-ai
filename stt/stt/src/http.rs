@@ -2,7 +2,6 @@ use crate::errors::InternalSttError;
 use log::{debug, trace};
 use reqwest::header::HeaderMap;
 use reqwest::StatusCode;
-use std::thread;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -64,19 +63,21 @@ impl HttpClient {
     ) -> Result<(StatusCode, String, HeaderMap), InternalSttError> {
         let url = url.to_string();
         let content_type = content_type.to_string();
+        // Use shared Bytes to avoid reallocating/copying the whole body on each retry
+        let body_bytes = bytes::Bytes::from(body);
 
         self.retrying(|attempt| {
             let url = url.clone();
             let headers = headers.clone();
-            let body = body.clone(); // Clone only when retrying
             let content_type = content_type.clone();
             let client = self.client.clone();
+            let body_bytes = body_bytes.clone();
             async move {
                 let req = client
                     .post(&url)
                     .headers(headers)
                     .header("Content-Type", content_type)
-                    .body(body);
+                    .body(body_bytes);
                 trace!("POST {url} attempt {attempt}");
                 let resp = req
                     .send()
@@ -108,11 +109,8 @@ impl HttpClient {
                     }
                     let backoff = backoff_delay(attempt);
                     debug!("retryable error on attempt {attempt}: {e:?}, backing off {backoff:?}");
-                    // Use busy-wait loop for WASI compatibility (no async sleep available)
-                    let start = std::time::Instant::now();
-                    while start.elapsed() < backoff {
-                        wstd::runtime::yield_now().await;
-                    }
+                    // Use proper async sleep in WASI via wstd
+                    wstd::task::sleep(backoff).await;
                 }
             }
         }
@@ -125,19 +123,23 @@ impl HttpClient {
         body: Vec<u8>,
         content_type: &str,
     ) -> Result<(StatusCode, String, HeaderMap), InternalSttError> {
+        let url = url.to_string();
+        let content_type = content_type.to_string();
+        let body_bytes = bytes::Bytes::from(body);
+
         self.retrying(|attempt| {
-            let url = url.to_string();
+            let url = url.clone();
             let headers = headers.clone();
-            let body = body.clone();
-            let content_type = content_type.to_string();
+            let content_type = content_type.clone();
             let client = self.client.clone();
+            let body_bytes = body_bytes.clone();
             async move {
                 trace!("PUT {url} attempt {attempt}");
                 let resp = client
                     .put(&url)
                     .headers(headers.clone())
                     .header("Content-Type", content_type)
-                    .body(body)
+                    .body(body_bytes)
                     .send()
                     .map_err(|e| InternalSttError::network(format!("network send error: {e}")))?;
                 let status = resp.status();
