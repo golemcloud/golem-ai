@@ -7,7 +7,7 @@ use golem_stt::golem::stt::transcription::{
 use golem_stt::golem::stt::types::TranscriptionMetadata;
 use golem_stt::golem::stt::types::SttError;
 #[cfg(feature = "durability")]
-use golem_stt::durability::saga::{Saga, SttCheckpoint};
+use golem_stt::durability::saga::Saga;
 #[cfg(feature = "durability")]
 use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
 #[cfg(feature = "durability")]
@@ -79,9 +79,9 @@ pub fn transcribe_impl(
             enable_word_confidence: opts.as_ref().and_then(|o| o.enable_word_confidence).unwrap_or(false),
             audio_size_bytes: audio.len() as u32,
         };
-                    let out = durable_impl::persist_transcribe("golem_stt_azure", input, result);
-                    if out.is_ok() { saga.persist_checkpoint(SttCheckpoint { provider: "azure".into(), state: "completed".into(), job_id: None, media_uri: None, audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: 0 }); }
-                    return out;
+        let out = durable_impl::persist_transcribe("golem_stt_azure", input, result);
+        saga.persist_outcome("azure", &out, 0);
+        return out;
     }
 
     #[cfg(not(feature = "durability"))]

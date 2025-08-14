@@ -51,7 +51,7 @@ pub fn transcribe_impl(
         Err(e) => Err(e),
     };
     #[cfg(feature = "durability")]
-    if result.is_ok() { saga.persist_checkpoint(SttCheckpoint { provider: "google".into(), state: "completed".into(), job_id: None, media_uri: None, audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: 0 }); }
+    saga.persist_outcome("google", &result, 0);
     #[cfg(feature = "durability")]
     {
         #[derive(Clone, Debug, FromValueAndType, IntoValue)]

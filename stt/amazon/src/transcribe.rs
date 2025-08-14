@@ -128,7 +128,7 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
 
     let media_uri = url;
     #[cfg(feature = "durability")]
-    saga.persist_checkpoint(SttCheckpoint { provider: "amazon".into(), state: "uploaded".into(), job_id: None, media_uri: Some(media_uri.clone()), audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: golem_rust::time::now_epoch_millis() });
+    saga.persist_checkpoint(SttCheckpoint { provider: "amazon".into(), state: "uploaded".into(), job_id: None, media_uri: Some(media_uri.clone()), audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0) });
     let transcribe_host = cfg.endpoint.clone().unwrap_or_else(|| format!("https://transcribe.{}.amazonaws.com", cfg.region));
     let transcribe_url = format!("{}/", transcribe_host.trim_end_matches('/'));
     let params = SigV4Params { access_key: cfg.access_key.clone(), secret_key: cfg.secret_key.clone(), session_token: cfg.session_token.clone(), region: cfg.region.clone(), service: "transcribe".into() };
@@ -176,7 +176,7 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
     let status = resp.status().as_u16();
     if !(200..300).contains(&status) { if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); } return Err(crate::error::map_http_status(status)); }
     #[cfg(feature = "durability")]
-    saga.persist_checkpoint(SttCheckpoint { provider: "amazon".into(), state: "started".into(), job_id: Some(job_name.clone()), media_uri: Some(media_uri.clone()), audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: golem_rust::time::now_epoch_millis() });
+    saga.persist_checkpoint(SttCheckpoint { provider: "amazon".into(), state: "started".into(), job_id: Some(job_name.clone()), media_uri: Some(media_uri.clone()), audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0) });
 
     let mut attempts = 0u32;
     let max = cfg.max_retries;
@@ -195,7 +195,9 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
             if state == "COMPLETED" {
                 if let Some(u) = v.get("TranscriptionJob").and_then(|j| j.get("Transcript")).and_then(|t| t.get("TranscriptFileUri")).and_then(|u| u.as_str()).map(|s| s.to_string()) {
                     #[cfg(feature = "durability")]
-                    saga.persist_checkpoint(SttCheckpoint { provider: "amazon".into(), state: "completed".into(), job_id: Some(job_name.clone()), media_uri: Some(media_uri.clone()), audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: golem_rust::time::now_epoch_millis() });
+                    {
+                        // Defer final outcome to persist_outcome after result mapping
+                    }
                     break u;
                 } else {
                     if let Some(name) = temp_vocab.as_ref() { let _ = delete_vocabulary(cfg, name); }
@@ -223,7 +225,9 @@ pub fn transcribe_once(audio: Vec<u8>, cfg: &AmazonConfig, options: Option<Trans
         #[derive(golem_rust::FromValueAndType, golem_rust::IntoValue, Clone, Debug)]
         struct TranscribeInputMeta { provider: String, audio_size_bytes: u32 }
         let meta = TranscribeInputMeta { provider: "amazon".into(), audio_size_bytes: audio.len() as u32 };
-        return durable_impl::persist_transcribe("golem_stt_amazon", meta, result);
+        let out = durable_impl::persist_transcribe("golem_stt_amazon", meta, result);
+        saga.persist_outcome("amazon", &out, attempts);
+        return out;
     }
     #[cfg(not(feature = "durability"))]
     { result }

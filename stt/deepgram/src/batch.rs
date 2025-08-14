@@ -1,7 +1,7 @@
 use golem_stt::golem::stt::transcription::{AudioConfig, TranscribeOptions, TranscriptionResult};
 use golem_stt::golem::stt::types::SttError;
 #[cfg(feature = "durability")]
-use golem_stt::durability::saga::{Saga, SttCheckpoint};
+use golem_stt::durability::saga::Saga;
 #[cfg(feature = "durability")]
 use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
 #[cfg(feature = "durability")]
@@ -57,7 +57,7 @@ pub fn transcribe_impl(
             audio_size_bytes: audio.len() as u32,
         };
         let out = durable_impl::persist_transcribe("golem_stt_deepgram", input, Ok(result));
-        if out.is_ok() { saga.persist_checkpoint(SttCheckpoint { provider: "deepgram".into(), state: "completed".into(), job_id: None, media_uri: None, audio_sha256: None, retry_count: 0, backoff_ms: 0, last_ts_ms: 0 }); }
+        saga.persist_outcome("deepgram", &out, 0);
         return out;
     }
 
