@@ -1,18 +1,17 @@
 # golem-ai
 
-WebAssembly Components providing API for modules LLM, WebSearch, Video and Search for various providers.
+WebAssembly Components providing API for modules LLM, WebSearch, Video, Vector and Search for various providers.
 
 ## Modules
 
 This repository contains five modules, each with multiple provider implementations:
 
-### STT (Speech-to-Text) Module
-Provides a unified API for various speech-to-text providers:
-- **Google Cloud** - Google Cloud Speech-to-Text API with streaming, timestamps, diarization and custom phrases
-- **Azure** - Microsoft Azure Speech Service with batch/streaming modes and custom speech models
-- **AWS** - Amazon Transcribe with streaming, diarization, custom vocabularies and content redaction
-- **Deepgram** - Fast, developer-first API with streaming, timing, diarization and keyword boosting
-- **Whisper** - OpenAI's open-source multilingual model with degraded interface support
+### Vector Module
+Provides a unified API for various Vector providers:
+- **Qdrant** - Offers advanced vector similarity search with support for sparse vectors, recommendations, and discovery operations.​
+- **Pinecone** - Provides managed vector database services with hybrid vector support and namespace organization.​
+- **Milvus** - Supplies enterprise-grade vector database with comprehensive data types and clustering capabilities.​
+- **Pgvector** - Extends PostgreSQL with vector operations, binary vectors, and mathematical functions.​
 
 ### LLM Module
 Provides a unified API for various Large Language Model providers:
@@ -61,14 +60,14 @@ Each provider has two versions available:
 - Example: `golem-llm-openai-portable.wasm`
 
 Every component **exports** the same unified interface for its module, defined in the respective WIT files:
-- STT: [`stt/wit/golem-stt.wit`](stt/wit/golem-stt.wit)
+- Vector: [`vector/wit/golem-vector.wit`](vector/wit/golem-vector.wit)
 - LLM: [`llm/wit/golem-llm.wit`](llm/wit/golem-llm.wit)
 - WebSearch: [`websearch/wit/golem-web-search.wit`](websearch/wit/golem-web-search.wit)
 - Search: [`search/wit/golem-search.wit`](search/wit/golem-search.wit)
 - Video: [`video/wit/golem-video.wit`](video/wit/golem-video.wit)
 
 For detailed information about each module and its providers, see the individual README files:
-- [STT Module](stt/README.md)
+- [Vector Module](vector/README.md)
 - [LLM Module](llm/README.md)
 - [WebSearch Module](websearch/README.md)
 - [Search Module](search/README.md)
@@ -129,11 +128,11 @@ components:
           - src/bindings.rs
 ```
 For detailed information about available profiles and environment variables for each module, see the individual README files:
-- [STT Module](stt/README.md)
 - [LLM Module](llm/README.md)
 - [WebSearch Module](websearch/README.md)
 - [Search Module](search/README.md)
 - [Video Module](video/README.md)
+- [Vector Module](vector/README.md)
 
 ### Using without Golem
 
@@ -148,12 +147,12 @@ To use the provider components in a WebAssembly project independent of Golem you
 The `test` directory contains comprehensive examples for each module:
 
 Individual test directories for each module (with examples):
-- [STT Test](test/stt/)
 - [LLM Test](test/llm/)
 - [WebSearch Test](test/websearch/)
 - [Search Test](test/search/)
 - [Video Test](test/video/)
 - [Video Advanced Test](test/video-advanced/)
+- [Vector Test](test/vector/)
 
 ### Running the examples
 
@@ -188,6 +187,7 @@ For detailed information about available profiles and environment variables for 
 - [WebSearch Module](websearch/README.md)
 - [Search Module](search/README.md)
 - [Video Module](video/README.md)
+- [Vector Module](vector/README.md)
 
 ## Development
 
@@ -209,7 +209,7 @@ Some of the important tasks are:
 **Note**: `cargo make` command build, release-build, build-portable, release-build-portable, wit, build-test-components, can be used with 
 `cargo make <command> <module>` to target only the selected module. (e.g. `cargo make build llm`, `cargo make wit video`)
 
-The `test` directory contains a **Golem application** for testing various features of the LLM, WebSearch, Video and Search components.
+The `test` directory contains a **Golem application** for testing various features of the LLM, WebSearch, Video, Search and Vector components.
 Check [the Golem documentation](https://learn.golem.cloud/quickstart) to learn how to install Golem and `golem-cli` to
 run these tests.
 

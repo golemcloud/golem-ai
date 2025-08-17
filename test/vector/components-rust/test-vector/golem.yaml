@@ -1,0 +1,139 @@
+# Schema for IDEA:
+# $schema: https://schema.golem.cloud/app/golem/1.2.2.1/golem.schema.json
+# Schema for vscode-yaml
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.2.2.1/golem.schema.json
+
+# Vector test component profiles mirroring `test/video`
+components:
+  test:vector:
+    profiles:
+      # DEBUG PROFILES ---------------------------------------------------
+      qdrant-debug:
+        build:
+          - command: cargo component build --no-default-features --features qdrant
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_vector.wasm
+        linkedWasm: ../../golem-temp/components/test_vector_qdrant_debug.wasm
+        clean:
+          - src/bindings.rs
+      pinecone-debug:
+        build:
+          - command: cargo component build --no-default-features --features pinecone
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_vector.wasm
+        linkedWasm: ../../golem-temp/components/test_vector_pinecone_debug.wasm
+        clean:
+          - src/bindings.rs
+      pgvector-debug:
+        build:
+          - command: cargo component build --no-default-features --features pgvector
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_vector.wasm
+        linkedWasm: ../../golem-temp/components/test_vector_pgvector_debug.wasm
+        clean:
+          - src/bindings.rs
+      milvus-debug:
+        build:
+          - command: cargo component build --no-default-features --features milvus
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_vector.wasm
+        linkedWasm: ../../golem-temp/components/test_vector_milvus_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      # RELEASE PROFILES -------------------------------------------------
+      qdrant-release:
+        build:
+          - command: cargo component build --release --no-default-features --features qdrant
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_vector.wasm
+        linkedWasm: ../../golem-temp/components/test_vector_qdrant_release.wasm
+        clean:
+          - src/bindings.rs
+      pinecone-release:
+        build:
+          - command: cargo component build --release --no-default-features --features pinecone
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_vector.wasm
+        linkedWasm: ../../golem-temp/components/test_vector_pinecone_release.wasm
+        clean:
+          - src/bindings.rs
+      pgvector-release:
+        build:
+          - command: cargo component build --release --no-default-features --features pgvector
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_vector.wasm
+        linkedWasm: ../../golem-temp/components/test_vector_pgvector_release.wasm
+        clean:
+          - src/bindings.rs
+      milvus-release:
+        build:
+          - command: cargo component build --release --no-default-features --features milvus
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_vector.wasm
+        linkedWasm: ../../golem-temp/components/test_vector_milvus_release.wasm
+        clean:
+          - src/bindings.rs
+
+    defaultProfile: qdrant-debug
+
+dependencies:
+  test:vector:
+  - target: test:helper
+    type: wasm-rpc
