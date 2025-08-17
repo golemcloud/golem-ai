@@ -1,0 +1,346 @@
+//! Minimal synchronous REST client for the Pinecone API.
+//!
+//! This is **not** feature-complete but implements the few endpoints that the
+//! current WIT component uses (`create_index`, `list_indexes`, `delete_index`,
+//! `upsert_vectors`, `query`).  All requests are blocking and use the
+//! [`reqwest`](https://docs.rs/reqwest) crate.
+
+use reqwest::blocking::Client;
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::Duration;
+
+use golem_vector::exports::golem::vector::types::{
+    FilterExpression, VectorData, VectorError, VectorRecord,
+};
+
+use crate::conversion::{metadata_to_json_map, metric_to_pinecone, vector_data_to_dense};
+
+#[derive(Clone)]
+pub struct PineconeApi {
+    http: Client,
+    controller_endpoint: String,
+    index_host: Option<String>,
+    api_key: String,
+    timeout: Duration,
+    max_retries: u32,
+}
+
+impl PineconeApi {
+    pub fn new(
+        controller_endpoint: String,
+        index_host: Option<String>,
+        api_key: String,
+    ) -> Self {
+        Self::new_with_config(controller_endpoint, index_host, api_key, Duration::from_secs(30), 3)
+    }
+
+    pub fn new_with_config(
+        controller_endpoint: String,
+        index_host: Option<String>,
+        api_key: String,
+        timeout: Duration,
+        max_retries: u32,
+    ) -> Self {
+        let client = Client::builder()
+            .timeout(timeout)
+            .build()
+            .expect("Failed to create HTTP client");
+        
+        Self {
+            http: client,
+            controller_endpoint: controller_endpoint.trim_end_matches('/').to_string(),
+            index_host,
+            api_key,
+            timeout,
+            max_retries,
+        }
+    }
+
+    pub fn health_check(&self) -> Result<bool, VectorError> {
+        match &self.index_host {
+            Some(host) => {
+                let url = format!("{}/describe_index_stats", host);
+                match self.http.get(url)
+                    .header("Api-Key", &self.api_key)
+                    .send() {
+                    Ok(resp) => Ok(resp.status().is_success()),
+                    Err(_) => Ok(false),
+                }
+            },
+            None => Ok(false), // Can't check health without index host
+        }
+    }
+
+    // Helper method for retry logic
+    fn with_retry<F, T>(&self, mut operation: F) -> Result<T, VectorError>
+    where
+        F: FnMut() -> Result<T, VectorError>,
+    {
+        for attempt in 0..=self.max_retries {
+            match operation() {
+                Ok(result) => return Ok(result),
+                Err(e) if attempt == self.max_retries => return Err(e),
+                Err(_) => std::thread::sleep(Duration::from_millis(100 * (attempt + 1) as u64)),
+            }
+        }
+        unreachable!()
+    }
+
+    fn auth_headers(&self, headers: &mut reqwest::header::HeaderMap) {
+        headers.insert("Api-Key", self.api_key.parse().unwrap());
+    }
+
+    // -------------------------- index management ---------------------------
+    pub fn create_index(
+        &self,
+        name: &str,
+        dimension: u32,
+        metric: &str,
+    ) -> Result<(), VectorError> {
+        #[derive(Serialize)]
+        struct Payload<'a> {
+            name: &'a str,
+            dimension: u32,
+            metric: &'a str,
+        }
+        let url = format!("{}/databases", self.base_url);
+        let mut req = self.http.post(url);
+        if let Some(key) = &self.api_key {
+            req = req.header("Api-Key", key);
+        }
+        let resp = req
+            .json(&Payload {
+                name,
+                dimension,
+                metric,
+            })
+            .send()
+            .map_err(to_vector_error)?;
+        match resp.status() {
+            StatusCode::OK | StatusCode::CREATED => Ok(()),
+            code => Err(VectorError::ProviderError(format!(
+                "Pinecone error: {}",
+                code
+            ))),
+        }
+    }
+
+    pub fn list_indexes(&self) -> Result<Vec<String>, VectorError> {
+        let url = format!("{}/databases", self.base_url);
+        let mut req = self.http.get(url);
+        if let Some(key) = &self.api_key {
+            req = req.header("Api-Key", key);
+        }
+        let resp = req.send().map_err(to_vector_error)?;
+        match resp.status() {
+            StatusCode::OK => {
+                let list: Vec<String> = resp.json().map_err(to_vector_error)?;
+                Ok(list)
+            }
+            code => Err(VectorError::ProviderError(format!(
+                "Pinecone error: {}",
+                code
+            ))),
+        }
+    }
+
+    pub fn delete_index(&self, name: &str) -> Result<(), VectorError> {
+        let url = format!("{}/databases/{}", self.base_url, name);
+        let mut req = self.http.delete(url);
+        if let Some(key) = &self.api_key {
+            req = req.header("Api-Key", key);
+        }
+        let resp = req.send().map_err(to_vector_error)?;
+        match resp.status() {
+            StatusCode::OK | StatusCode::NO_CONTENT => Ok(()),
+            code => Err(VectorError::ProviderError(format!(
+                "Pinecone error: {}",
+                code
+            ))),
+        }
+    }
+
+    // ------------------------------ vectors --------------------------------
+
+    pub fn upsert_vectors(
+        &self,
+        index_host: &str,
+        vectors: Vec<VectorRecord>,
+        namespace: Option<String>,
+    ) -> Result<(), VectorError> {
+        #[derive(Serialize)]
+        struct Vector<'a> {
+            id: &'a str,
+            values: &'a [f32],
+            #[serde(skip_serializing_if = "Option::is_none")]
+            metadata: Option<&'a HashMap<String, serde_json::Value>>,
+        }
+
+        #[derive(Serialize)]
+        struct Payload<'a> {
+            vectors: Vec<Vector<'a>>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            namespace: Option<String>,
+        }
+
+        let mut out_vecs = Vec::with_capacity(vectors.len());
+        let mut payload_maps: Vec<HashMap<String, serde_json::Value>> =
+            Vec::with_capacity(vectors.len());
+        // We need to keep payload maps alive until serialization completes.
+        for rec in &vectors {
+            let dense = vector_data_to_dense(rec.vector.clone())?;
+            let meta_map = metadata_to_json_map(rec.metadata.clone());
+            payload_maps.push(meta_map.clone());
+            out_vecs.push(Vector {
+                id: &rec.id,
+                values: &dense,
+                metadata: if meta_map.is_empty() {
+                    None
+                } else {
+                    Some(&meta_map)
+                },
+            });
+        }
+
+        let url = format!("{}/vectors/upsert", index_host.trim_end_matches('/'));
+        let mut req = self.http.post(url);
+        if let Some(key) = &self.api_key {
+            req = req.header("Api-Key", key);
+        }
+        let payload = Payload {
+            vectors: out_vecs,
+            namespace,
+        };
+        let resp = req.json(&payload).send().map_err(to_vector_error)?;
+        match resp.status() {
+            StatusCode::OK | StatusCode::ACCEPTED => Ok(()),
+            code => Err(VectorError::ProviderError(format!(
+                "Pinecone upsert error: {}",
+                code
+            ))),
+        }
+    }
+
+    pub fn fetch_vectors(
+        &self,
+        index_host: &str,
+        ids: Vec<String>,
+        namespace: Option<String>,
+    ) -> Result<Vec<FetchVector>, VectorError> {
+        #[derive(Deserialize)]
+        struct FetchResponse {
+            vectors: std::collections::HashMap<String, FetchVector>,
+        }
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut url = format!("{}/vectors/fetch?", index_host.trim_end_matches('/'));
+        for (i, id) in ids.iter().enumerate() {
+            if i > 0 {
+                url.push('&');
+            }
+            url.push_str(&format!("ids[]={}", urlencoding::encode(id)));
+        }
+        if let Some(ns) = &namespace {
+            url.push_str(&format!("&namespace={}", urlencoding::encode(ns)));
+        }
+        let mut req = self.http.get(url);
+        if let Some(key) = &self.api_key {
+            req = req.header("Api-Key", key);
+        }
+        let resp = req.send().map_err(to_vector_error)?;
+        match resp.status() {
+            StatusCode::OK => {
+                let body: FetchResponse = resp.json().map_err(to_vector_error)?;
+                Ok(body.vectors.into_iter().map(|(_, v)| v).collect())
+            }
+            StatusCode::NOT_FOUND => Ok(Vec::new()),
+            code => Err(VectorError::ProviderError(format!(
+                "Pinecone fetch error: {}",
+                code
+            ))),
+        }
+    }
+
+    pub fn query(
+        &self,
+        index_host: &str,
+        vector: Vec<f32>,
+        top_k: u32,
+        namespace: Option<String>,
+        filter: Option<serde_json::Value>,
+        include_values: bool,
+        include_metadata: bool,
+    ) -> Result<Vec<QueryMatch>, VectorError> {
+        #[derive(Serialize)]
+        struct Payload<'a> {
+            vector: &'a [f32],
+            top_k: u32,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            filter: Option<&'a serde_json::Value>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            namespace: Option<String>,
+            #[serde(skip_serializing_if = "std::ops::Not::not")]
+            include_values: bool,
+            #[serde(skip_serializing_if = "std::ops::Not::not")]
+            include_metadata: bool,
+        }
+
+        let url = format!("{}/query", index_host.trim_end_matches('/'));
+        let mut req = self.http.post(url);
+        if let Some(key) = &self.api_key {
+            req = req.header("Api-Key", key);
+        }
+        let payload = Payload {
+            vector: &vector,
+            top_k,
+            filter: filter.as_ref(),
+            namespace,
+            include_values,
+            include_metadata,
+        };
+        let resp = req.json(&payload).send().map_err(to_vector_error)?;
+        match resp.status() {
+            StatusCode::OK => {
+                let response: QueryResponse = resp.json().map_err(to_vector_error)?;
+                Ok(response.matches)
+            }
+            code => Err(VectorError::ProviderError(format!(
+                "Pinecone query error: {}",
+                code
+            ))),
+        }
+    }
+}
+
+// ---------------------------- DTOs ----------------------------
+
+#[derive(Deserialize)]
+pub struct FetchVector {
+    pub id: String,
+    #[serde(default)]
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
+    #[serde(default)]
+    pub values: Option<Vec<f32>>,
+}
+
+#[derive(Deserialize)]
+struct QueryResponse {
+    matches: Vec<QueryMatch>,
+}
+
+#[derive(Deserialize)]
+pub struct QueryMatch {
+    pub id: String,
+    pub score: f32,
+    #[serde(default)]
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
+    #[serde(default)]
+    pub values: Option<Vec<f32>>,
+}
+
+fn to_vector_error(e: impl std::fmt::Display) -> VectorError {
+    VectorError::ProviderError(e.to_string())
+}

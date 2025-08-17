@@ -1,0 +1,8 @@
+package golem:vector-qdrant@1.0.0;
+
+// Provider wrapper for Qdrant. It simply re-exports the shared vector-library
+// world so that this component can be referenced as a standalone WIT package.
+
+world vector-library {
+  include golem:vector/vector-library@1.0.0;
+}

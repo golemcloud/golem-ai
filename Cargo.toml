@@ -29,13 +29,12 @@ members = [
     "video/runway",
     "video/veo",
     "video/stability",
+    "vector/vector",
+    "vector/qdrant",
+    "vector/pinecone",
+    "vector/pgvector",
+    "vector/milvus",
     "exec/exec",
-    "stt/stt",
-    "stt/deepgram",
-    "stt/google",
-    "stt/azure",
-    "stt/aws",
-    "stt/whisper",
 ]
 
 [profile.release]
@@ -48,6 +47,7 @@ golem-llm = { path = "llm/llm", version = "0.0.0", default-features = false }
 golem-search = { path = "search/search", version = "0.0.0", default-features = false}
 golem-graph = { path = "graph/graph" , version = "0.0.0" ,default-features =false}
 golem-video = { path = "video/video", version = "0.0.0", default-features = false}
+golem-vector = { path = "vector/vector", version = "0.0.0", default-features = false}
 futures = "0.3.31"
 golem-rust = "=1.5.5"
 log = "0.4.27"

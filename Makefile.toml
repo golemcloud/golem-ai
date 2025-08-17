@@ -15,7 +15,7 @@ script_runner = "@duckscript"
 script = '''
 
 
-domains = array llm websearch search video exec stt graph
+domains = array llm websearch search video exec vector graph
 
 
 # if there is no domain passed run for every domain
@@ -33,7 +33,7 @@ script_runner = "@duckscript"
 script = '''
 
 
-domains = array llm websearch search video exec stt graph
+domains = array llm websearch search video exec vector graph
 
 
 # if there is no domain passed run for every domain
@@ -52,7 +52,7 @@ script = '''
 #!/bin/bash
 
 
-domains = array llm websearch search video exec stt graph
+domains = array llm websearch search video exec vector graph
 
 
 # if there is no domain passed run for every domain
@@ -71,7 +71,7 @@ script = '''
 #!/bin/bash
 
 
-domains = array llm websearch search video exec stt graph
+domains = array llm websearch search video exec vector graph
 
 
 # if there is no domain passed run for every domain
@@ -89,7 +89,7 @@ script_runner = "@duckscript"
 script = '''
 
 
-domains = array llm websearch search video exec stt graph
+domains = array llm websearch search video exec vector graph
 
 
 # if there is no domain passed run for every domain
@@ -108,7 +108,7 @@ script_runner = "@duckscript"
 script = '''
 
 
-domains = array llm websearch search video exec stt graph
+domains = array llm websearch search video exec vector graph
 
 
 # if there is no domain passed run for every domain
@@ -163,7 +163,7 @@ environment = get_env "ENVIRONMENT"
 is_dev = eq ${environment} "dev"
 
 
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability graph_arangodb graph_janusgraph graph_neo4j
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability vector_qdrant vector_pinecone vector_pgvector vector_milvus graph_arangodb graph_janusgraph graph_neo4j
 
 for target in ${targets}
     echo "Copying artifacts for ${target}..."
@@ -182,24 +182,6 @@ for target in ${targets}
     end
 end
 
-# Copy STT components with their actual names
-stt_targets = array stt_aws stt_azure stt_deepgram stt_google stt_whisper
-for stt_target in ${stt_targets}
-    echo "Copying artifacts for ${stt_target}..."
-    if ${is_portable}
-        if ${is_dev}
-            cp target/wasm32-wasip1/debug/${stt_target}.wasm components/debug/${stt_target}-portable-dev.wasm
-        else
-            cp target/wasm32-wasip1/debug/${stt_target}.wasm components/debug/${stt_target}-portable.wasm
-        end
-    else
-        if ${is_dev}
-            cp target/wasm32-wasip1/debug/${stt_target}.wasm components/debug/${stt_target}-dev.wasm
-        else
-            cp target/wasm32-wasip1/debug/${stt_target}.wasm components/debug/${stt_target}.wasm
-        end
-    end
-end
 
 echo "Copying artifacts for exec..."
 if ${is_portable}
@@ -235,7 +217,7 @@ environment = get_env "ENVIRONMENT"
 is_dev = eq ${environment} "dev"
 
 
-targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability graph_arangodb graph_janusgraph graph_neo4j
+targets = array llm_openai llm_anthropic llm_grok llm_openrouter llm_ollama web_search_brave web_search_google web_search_serper web_search_tavily search_algolia search_elasticsearch search_meilisearch search_opensearch search_typesense video_kling video_runway video_veo video_stability vector_qdrant vector_pinecone vector_pgvector vector_milvus graph_arangodb graph_janusgraph graph_neo4j
 
 for target in ${targets}
     echo "Copying artifacts for ${target}..."
@@ -250,25 +232,6 @@ for target in ${targets}
             cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}-dev.wasm
         else
             cp target/wasm32-wasip1/release/golem_${target}.wasm components/release/golem_${target}.wasm
-        end
-    end
-end
-
-# Copy STT components with their actual names
-stt_targets = array stt_aws stt_azure stt_deepgram stt_google stt_whisper
-for stt_target in ${stt_targets}
-    echo "Copying artifacts for ${stt_target}..."
-    if ${is_portable}
-        if ${is_dev}
-            cp target/wasm32-wasip1/release/${stt_target}.wasm components/release/${stt_target}-portable-dev.wasm
-        else
-            cp target/wasm32-wasip1/release/${stt_target}.wasm components/release/${stt_target}-portable.wasm
-        end
-    else
-        if ${is_dev}
-            cp target/wasm32-wasip1/release/${stt_target}.wasm components/release/${stt_target}-dev.wasm
-        else
-            cp target/wasm32-wasip1/release/${stt_target}.wasm components/release/${stt_target}.wasm
         end
     end
 end

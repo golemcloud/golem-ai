@@ -1,0 +1,47 @@
+[package]
+name = "golem-vector-pinecone"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-llm"
+description = "WebAssembly component for Pinecone vector database, with Golem Cloud"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[features]
+# Enable this feature once real functionality is implemented.
+default = ["durability"]
+durability = ["golem-rust/durability", "golem-vector/durability"]
+
+[dependencies]
+golem-vector = { path = "../vector", version = "0.0.0", default-features = false }
+log = { workspace = true }
+golem-rust = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+base64 = { workspace = true }
+
+[package.metadata.component]
+package = "golem:vector-pinecone"
+
+[package.metadata.component.bindings]
+# No bindings generated yet – will be enabled later.
+generate_unused_types = true
+
+[package.metadata.component.bindings.with]
+"golem:vector/types@1.0.0" = "golem_vector::golem::vector::types"
+"golem:vector/collections@1.0.0" = "golem_vector::golem::vector::collections"
+"golem:vector/vectors@1.0.0" = "golem_vector::golem::vector::vectors"
+"golem:vector/search@1.0.0" = "golem_vector::golem::vector::search"
+"golem:vector/search-extended@1.0.0" = "golem_vector::golem::vector::search_extended"
+"golem:vector/namespaces@1.0.0" = "golem_vector::golem::vector::namespaces"
+"golem:vector/connection@1.0.0" = "golem_vector::golem::vector::connection"
+
+[package.metadata.component.target]
+# Re-use the shared top-level WIT definitions
+path = "../wit"
