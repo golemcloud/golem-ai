@@ -17,7 +17,11 @@ log = { workspace = true }
 reqwest = { workspace = true }
 thiserror = "2.0.12"
 wasi-logger = "0.1.2"
+<<<<<<< HEAD
 wit-bindgen = { workspace = true }
+=======
+wit-bindgen = { version = "0.43.0" }
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 serde = { workspace = true }
 serde_json = { workspace = true }
 

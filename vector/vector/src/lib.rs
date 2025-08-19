@@ -1,7 +1,10 @@
 pub mod config;
 #[allow(dead_code)]
 pub mod durability;
+<<<<<<< HEAD
 pub mod conversion_errors;
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 pub mod error;
 
 wit_bindgen::generate!({
@@ -13,6 +16,10 @@ wit_bindgen::generate!({
     pub_export_macro: true,
 });
 
+<<<<<<< HEAD
+=======
+pub use crate::exports::golem;
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 pub use __export_vector_library_impl as export_vector;
 
 use std::cell::RefCell;

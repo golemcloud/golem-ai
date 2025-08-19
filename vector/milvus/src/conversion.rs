@@ -2,6 +2,7 @@
 
 use golem_vector::error::{invalid_vector, unsupported_feature, VectorError};
 use golem_vector::exports::golem::vector::types::{
+<<<<<<< HEAD
     DistanceMetric, FilterExpression, FilterOperator, FilterValue, Metadata, MetadataValue,
     VectorData, VectorError,
 };
@@ -20,6 +21,20 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
             metric: "sparse vectors".to_string(),
             provider: "Milvus".to_string(),
         }.into()),
+=======
+    DistanceMetric, FilterExpression, Metadata, MetadataValue, VectorData,
+};
+use serde_json::{json, Value};
+use std::collections::HashMap;
+
+/// Converts `VectorData` into a dense `Vec<f32>` compatible with Milvus.
+pub fn vector_data_to_dense(v: VectorData) -> Result<Vec<f32>, VectorError> {
+    match v {
+        VectorData::Dense(d) => Ok(d),
+        _ => Err(invalid_vector(
+            "Milvus currently supports only dense vectors",
+        )),
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
     }
 }
 
@@ -53,6 +68,7 @@ fn metadata_value_to_json(v: MetadataValue) -> Value {
     }
 }
 
+<<<<<<< HEAD
 /// Convert distance metric to Milvus metric type with validation
 pub fn metric_to_milvus(metric: DistanceMetric) -> Result<&'static str, VectorError> {
     match metric {
@@ -94,6 +110,26 @@ fn convert_filter_expression(expr: &FilterExpression) -> Result<String, VectorEr
 }
 
 fn build_expr(expr: &FilterExpression) -> Result<String, VectorError> {
+=======
+/// Maps distance metric to Milvus metric string.
+pub fn metric_to_milvus(metric: DistanceMetric) -> &'static str {
+    match metric {
+        DistanceMetric::Cosine => "COSINE",
+        DistanceMetric::Euclidean => "L2",
+        DistanceMetric::DotProduct => "IP",
+        _ => "COSINE",
+    }
+}
+
+/// Translate a limited `FilterExpression` into Milvus boolean expression string.
+///
+/// Supported: AND of simple equality comparisons.
+pub fn filter_expression_to_milvus(expr: Option<FilterExpression>) -> Option<String> {
+    expr.map(|e| build_expr(&e)).filter(|s| !s.is_empty())
+}
+
+fn build_expr(expr: &FilterExpression) -> String {
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
     use golem_vector::exports::golem::vector::types::{FilterCondition, FilterOperator};
     match expr {
         FilterExpression::Condition(FilterCondition {
@@ -102,6 +138,7 @@ fn build_expr(expr: &FilterExpression) -> Result<String, VectorError> {
             value,
         }) => {
             match operator {
+<<<<<<< HEAD
                 FilterOperator::Eq => Ok(format!("{} == {}", field, literal(value)?)),
                 FilterOperator::Gt => Ok(format!("{} > {}", field, literal(value)?)),
                 FilterOperator::Gte => Ok(format!("{} >= {}", field, literal(value)?)),
@@ -184,5 +221,39 @@ fn list_literal(v: &MetadataValue) -> Result<String, VectorError> {
             Ok(format!("[{}]", items.join(", ")))
         }
         _ => Err(ConversionError::ValidationFailed("Value must be array or list for IN operation".to_string()).into()),
+=======
+                FilterOperator::Eq => format!("{} == {}", field, literal(value)),
+                FilterOperator::In => format!("{} in {}", field, list_literal(value)),
+                _ => "".into(), // unsupported
+            }
+        }
+        FilterExpression::And(list) => list
+            .iter()
+            .map(build_expr)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join(" && "),
+        _ => "".into(), // other combinators unsupported for now
+    }
+}
+
+fn literal(v: &MetadataValue) -> String {
+    match v {
+        MetadataValue::StringVal(s) => format!("\"{}\"", s.replace('\"', "\\\"")),
+        MetadataValue::NumberVal(n) => n.to_string(),
+        MetadataValue::IntegerVal(i) => i.to_string(),
+        MetadataValue::BooleanVal(b) => b.to_string(),
+        _ => "null".into(),
+    }
+}
+
+fn list_literal(v: &MetadataValue) -> String {
+    match v {
+        MetadataValue::ArrayVal(arr) => {
+            let items: Vec<String> = arr.iter().map(literal).collect();
+            format!("[{}]", items.join(", "))
+        }
+        _ => "[]".into(),
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
     }
 }

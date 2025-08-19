@@ -9,7 +9,10 @@ use reqwest::blocking::Client;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+<<<<<<< HEAD
 use std::time::Duration;
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 
 use golem_vector::exports::golem::vector::types::{
     FilterExpression, VectorData, VectorError, VectorRecord,
@@ -20,6 +23,7 @@ use crate::conversion::{metadata_to_json_map, metric_to_pinecone, vector_data_to
 #[derive(Clone)]
 pub struct PineconeApi {
     http: Client,
+<<<<<<< HEAD
     controller_endpoint: String,
     index_host: Option<String>,
     api_key: String,
@@ -90,6 +94,26 @@ impl PineconeApi {
 
     fn auth_headers(&self, headers: &mut reqwest::header::HeaderMap) {
         headers.insert("Api-Key", self.api_key.parse().unwrap());
+=======
+    /// Base URL of the Pinecone controller or index service, **without** trailing slash.
+    base_url: String,
+    api_key: Option<String>,
+}
+
+impl PineconeApi {
+    pub fn new(base_url: impl Into<String>, api_key: Option<String>) -> Self {
+        Self {
+            http: Client::new(),
+            base_url: base_url.into().trim_end_matches('/').to_string(),
+            api_key,
+        }
+    }
+
+    fn auth_headers(&self, headers: &mut reqwest::header::HeaderMap) {
+        if let Some(key) = &self.api_key {
+            headers.insert("Api-Key", key.parse().unwrap());
+        }
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
     }
 
     // -------------------------- index management ---------------------------
@@ -223,6 +247,7 @@ impl PineconeApi {
         }
     }
 
+<<<<<<< HEAD
     pub fn fetch_vectors(
         &self,
         index_host: &str,
@@ -264,6 +289,8 @@ impl PineconeApi {
         }
     }
 
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
     pub fn query(
         &self,
         index_host: &str,
@@ -318,6 +345,7 @@ impl PineconeApi {
 // ---------------------------- DTOs ----------------------------
 
 #[derive(Deserialize)]
+<<<<<<< HEAD
 pub struct FetchVector {
     pub id: String,
     #[serde(default)]
@@ -327,6 +355,8 @@ pub struct FetchVector {
 }
 
 #[derive(Deserialize)]
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 struct QueryResponse {
     matches: Vec<QueryMatch>,
 }

@@ -1,5 +1,6 @@
 //! Durability wrapper for vector providers.
 //!
+<<<<<<< HEAD
 //! This follows the durability design used by other components:
 //! * Today, `DurableVector` is a thin passthrough that calls the underlying provider
 //!   implementation after initializing logging. This behavior is the same whether or not
@@ -10,16 +11,35 @@
 //! Keeping the passthrough implementation complete ensures the shared `vector` crate
 //! compiles cleanly and is production-safe while allowing a future drop-in durability
 //! implementation without API changes.
+=======
+//! This follows the durability design used by the `search` component:
+//! * When the `durability` feature flag is **off** (default), `DurableVector` is a thin
+//!   passthrough that merely calls the underlying provider implementation after
+//!   initializing logging.
+//! * When the `durability` feature flag is **on**, compilation fails until the full
+//!   durability logic (op-log persistence / replay) is implemented.
+//!
+//! Keeping the passthrough implementation complete ensures the shared `vector` crate
+//! compiles cleanly today while still allowing provider crates to opt-into durability
+//! later by enabling the feature.
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 
 use crate::exports::golem::vector::collections::Guest as CollectionsGuest;
 use crate::exports::golem::vector::connection::Guest as ConnectionGuest;
 use crate::exports::golem::vector::namespaces::Guest as NamespacesGuest;
+<<<<<<< HEAD
 use crate::exports::golem::vector::analytics::Guest as AnalyticsGuest;
 use crate::exports::golem::vector::search::Guest as SearchGuest;
 use crate::exports::golem::vector::search_extended::Guest as SearchExtendedGuest;
 use crate::exports::golem::vector::vectors::Guest as VectorsGuest;
 use crate::exports::golem::vector::types::{FilterExpression, Metadata, VectorError, VectorRecord};
 use crate::exports::golem::vector::vectors::BatchResult;
+=======
+use crate::exports::golem::vector::search::Guest as SearchGuest;
+use crate::exports::golem::vector::search_extended::Guest as SearchExtendedGuest;
+use crate::exports::golem::vector::types::{FilterExpression, Metadata, VectorError, VectorRecord};
+use crate::exports::golem::vector::vectors::{BatchResult, ListResponse};
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 use crate::init_logging;
 use std::marker::PhantomData;
 
@@ -28,6 +48,7 @@ pub struct DurableVector<Impl> {
     _phantom: PhantomData<Impl>,
 }
 
+<<<<<<< HEAD
 /// When the durability feature flag is off, wrapping with `DurableVector` is just a passthrough
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
@@ -55,6 +76,8 @@ mod passthrough_impl {
     }
 }
 
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 /// Providers must implement _all_ individual `Guest` traits plus `'static` to be wrapped.
 pub trait ExtendedGuest:
     CollectionsGuest
@@ -63,24 +86,38 @@ pub trait ExtendedGuest:
     + SearchExtendedGuest
     + NamespacesGuest
     + ConnectionGuest
+<<<<<<< HEAD
     + AnalyticsGuest
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
     + 'static
 {
 }
 
 // --- Passthrough implementation ---------------------------------------------------------------
+<<<<<<< HEAD
+=======
+#[cfg(not(feature = "durability"))]
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 mod passthrough_impl {
     use super::*;
     use crate::exports::golem::vector::collections::{CollectionInfo, IndexConfig};
     use crate::exports::golem::vector::connection::{ConnectionStatus, Credentials};
     use crate::exports::golem::vector::namespaces::NamespaceInfo;
+<<<<<<< HEAD
     use crate::exports::golem::vector::types::SearchQuery as SearchQueryEnum;
+=======
+    use crate::exports::golem::vector::search::SearchQuery as SearchQueryEnum;
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
     use crate::exports::golem::vector::search_extended::{
         GroupedSearchResult, RecommendationExample, RecommendationStrategy,
     };
     use crate::exports::golem::vector::types::{DistanceMetric, SearchResult};
+<<<<<<< HEAD
     use crate::exports::golem::vector::analytics::{CollectionStats, FieldStats};
     use crate::exports::golem::vector::types::MetadataValue;
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 
     // ----- collections ------------------------------------------------------------------------
     impl<T: ExtendedGuest> CollectionsGuest for DurableVector<T> {
@@ -126,6 +163,7 @@ mod passthrough_impl {
         }
     }
 
+<<<<<<< HEAD
     // ----- analytics -------------------------------------------------------------------------
     impl<T: ExtendedGuest> AnalyticsGuest for DurableVector<T> {
         fn get_collection_stats(
@@ -158,6 +196,10 @@ mod passthrough_impl {
 
     // ----- vectors ---------------------------------------------------------------------------
     
+=======
+    // ----- vectors ---------------------------------------------------------------------------
+    use crate::exports::golem::vector::types::Id;
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
     use crate::exports::golem::vector::vectors::ListResponse as VListResponse;
     impl<T: ExtendedGuest> crate::exports::golem::vector::vectors::Guest for DurableVector<T> {
         fn upsert_vectors(
@@ -236,6 +278,14 @@ mod passthrough_impl {
             T::delete_by_filter(collection, filter, namespace)
         }
 
+<<<<<<< HEAD
+=======
+        fn delete_namespace(collection: String, namespace: String) -> Result<u32, VectorError> {
+            init_logging();
+            T::delete_namespace(collection, namespace)
+        }
+
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
         fn list_vectors(
             collection: String,
             namespace: Option<String>,
@@ -508,3 +558,93 @@ mod passthrough_impl {
         }
     }
 }
+<<<<<<< HEAD
+=======
+
+// --- Compile-time placeholder for future durability -------------------------------------------
+#[cfg(feature = "durability")]
+mod todo_impl {
+    compile_error!("Full durability support for vector providers is not yet implemented – enable the feature once implemented.");
+}
+/*
+
+            description: Option<String>,
+            dimension: u32,
+            metric: crate::exports::golem::vector::types::DistanceMetric,
+            index_config: Option<crate::exports::golem::vector::collections::IndexConfig>,
+            metadata: Option<crate::exports::golem::vector::types::Metadata>,
+        ) -> Result<crate::exports::golem::vector::collections::CollectionInfo, VectorError> {
+            T::upsert_collection(name, description, dimension, metric, index_config, metadata)
+        }
+
+        fn list_collections(
+        ) -> Result<Vec<crate::exports::golem::vector::collections::CollectionInfo>, VectorError> {
+            T::list_collections()
+        }
+
+        fn get_collection(
+            name: String,
+        ) -> Result<crate::exports::golem::vector::collections::CollectionInfo, VectorError> {
+            T::get_collection(name)
+        }
+
+        fn update_collection(
+            name: String,
+            description: Option<String>,
+            metadata: Option<crate::exports::golem::vector::types::Metadata>,
+        ) -> Result<crate::exports::golem::vector::collections::CollectionInfo, VectorError> {
+            T::update_collection(name, description, metadata)
+        }
+
+        fn delete_collection(name: String) -> Result<(), VectorError> {
+            T::delete_collection(name)
+        }
+
+        fn collection_exists(name: String) -> Result<bool, VectorError> {
+            T::collection_exists(name)
+        }
+    }
+        fn upsert_vectors(
+            collection: String,
+            vectors: Vec<crate::exports::golem::vector::types::VectorRecord>,
+            namespace: Option<String>,
+        ) -> Result<crate::exports::golem::vector::vectors::BatchResult, VectorError> {
+            T::upsert_vectors(collection, vectors, namespace)
+        }
+
+        fn get_vector(
+            collection: String,
+            id: String,
+            namespace: Option<String>,
+        ) -> Result<Option<crate::exports::golem::vector::types::VectorRecord>, VectorError> {
+            T::get_vector(collection, id, namespace)
+        }
+
+        fn delete_vectors(
+            collection: String,
+            ids: Vec<String>,
+            namespace: Option<String>,
+        ) -> Result<u32, VectorError> {
+            T::delete_vectors(collection, ids, namespace)
+        }
+
+        fn count_vectors(
+            collection: String,
+            filter: Option<crate::exports::golem::vector::types::FilterExpression>,
+            namespace: Option<String>,
+        ) -> Result<u64, VectorError> {
+            T::count_vectors(collection, filter, namespace)
+        }
+
+    // Similar passthrough impls would follow for SearchGuest, SearchExtendedGuest, NamespacesGuest,
+    // and ConnectionGuest, but are omitted here for brevity while durability is disabled.
+}
+
+// --- Compile-time placeholder when `durability` feature IS enabled -----------------------------
+#[cfg(feature = "durability")]
+mod todo_impl {
+    // Intentionally fail compilation until full durability is implemented.
+    compile_error!("Durability support for vector providers is not yet implemented");
+}
+*/
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49

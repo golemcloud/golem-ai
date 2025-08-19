@@ -12,7 +12,10 @@ use golem_vector::exports::golem::vector::types::{
     DistanceMetric, FilterCondition, FilterExpression, FilterOperator, Metadata, MetadataValue,
     VectorData, VectorError,
 };
+<<<<<<< HEAD
 use golem_vector::conversion_errors::{ConversionError, validate_vector_dimension, validate_filter_depth};
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
@@ -31,6 +34,7 @@ pub fn metric_to_pinecone(metric: DistanceMetric) -> &'static str {
 
 pub fn vector_data_to_dense(v: VectorData) -> Result<Vec<f32>, VectorError> {
     match v {
+<<<<<<< HEAD
         VectorData::Dense(d) => {
             validate_vector_dimension(&d, None)?;
             Ok(d)
@@ -39,6 +43,10 @@ pub fn vector_data_to_dense(v: VectorData) -> Result<Vec<f32>, VectorError> {
             metric: "sparse vectors".to_string(),
             provider: "Pinecone".to_string(),
         }.into()),
+=======
+        VectorData::Dense(d) => Ok(d),
+        _ => Err(invalid_vector("Pinecone supports only dense vectors")),
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
     }
 }
 
@@ -90,6 +98,7 @@ pub fn metadata_to_json_map(meta: Option<Metadata>) -> HashMap<String, Value> {
 /// Convert a high-level `FilterExpression` into Pinecone filter JSON.
 /// Only a subset of operators is supported: `eq`, comparisons (`gt`, `gte`,
 /// `lt`, `lte`) and membership (`in`).  Unsupported or deeply-nested constructs
+<<<<<<< HEAD
 /// will return an error.
 pub fn filter_expression_to_pinecone(expr: Option<FilterExpression>) -> Result<Option<Value>, VectorError> {
     if let Some(expr) = expr {
@@ -175,6 +184,32 @@ fn convert_filter_expression(expr: &FilterExpression) -> Result<Value, VectorErr
                     provider: "Pinecone".to_string(),
                 }.into())
             }
+=======
+/// fall back to `None` so the caller can return an error.
+pub fn filter_expression_to_pinecone(expr: Option<FilterExpression>) -> Option<Value> {
+    fn cond_to_json(cond: &FilterCondition) -> Option<Value> {
+        let key = &cond.field;
+        match cond.operator {
+            FilterOperator::Eq => {
+                Some(json!({ key: { "$eq": metadata_value_to_json(cond.value.clone()) } }))
+            }
+            FilterOperator::Gt => {
+                Some(json!({ key: { "$gt": metadata_value_to_json(cond.value.clone()) } }))
+            }
+            FilterOperator::Gte => {
+                Some(json!({ key: { "$gte": metadata_value_to_json(cond.value.clone()) } }))
+            }
+            FilterOperator::Lt => {
+                Some(json!({ key: { "$lt": metadata_value_to_json(cond.value.clone()) } }))
+            }
+            FilterOperator::Lte => {
+                Some(json!({ key: { "$lte": metadata_value_to_json(cond.value.clone()) } }))
+            }
+            FilterOperator::In => {
+                Some(json!({ key: { "$in": metadata_value_to_json(cond.value.clone()) } }))
+            }
+            _ => None, // unsupported
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
         }
     }
 
@@ -187,6 +222,7 @@ fn convert_filter_expression(expr: &FilterExpression) -> Result<Value, VectorErr
         a
     }
 
+<<<<<<< HEAD
     fn walk(expr: &FilterExpression, acc: &mut Value) -> Result<(), VectorError> {
         match expr {
             FilterExpression::Condition(c) => {
@@ -208,12 +244,25 @@ fn convert_filter_expression(expr: &FilterExpression) -> Result<Value, VectorErr
                 }
                 for e in list {
                     walk(e, acc)?;
+=======
+    fn walk(expr: &FilterExpression, acc: &mut Value) {
+        match expr {
+            FilterExpression::Condition(c) => {
+                if let Some(j) = cond_to_json(c) {
+                    *acc = merge_objects(acc.take(), j);
+                }
+            }
+            FilterExpression::And(list) | FilterExpression::Or(list) => {
+                for e in list {
+                    walk(e, acc);
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
                 }
             }
             FilterExpression::Not(_) => {
                 // Pinecone does not support NOT directly – skip.
             }
         }
+<<<<<<< HEAD
         Ok(())
     }
 
@@ -224,5 +273,16 @@ fn convert_filter_expression(expr: &FilterExpression) -> Result<Value, VectorErr
         Err(ConversionError::FilterTranslation("Filter expression resulted in empty filter".to_string()).into())
     } else {
         Ok(root)
+=======
+    }
+
+    let mut root = Value::Object(serde_json::Map::new());
+    let expr = expr?; // early return if None
+    walk(&expr, &mut root);
+    if root.as_object().map_or(true, |m| m.is_empty()) {
+        None
+    } else {
+        Some(root)
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
     }
 }
