@@ -396,6 +396,7 @@ mod durable_impl {
         config: GenerationConfig,
     }
 
+    #[allow(dead_code)]
     #[derive(Debug, FromValueAndType, IntoValue)]
     struct UnusedError;
 

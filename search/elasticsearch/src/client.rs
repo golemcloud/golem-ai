@@ -91,6 +91,7 @@ pub struct ElasticsearchHit {
     pub highlight: Option<Value>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct ElasticsearchBulkOperation {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -103,6 +104,7 @@ pub struct ElasticsearchBulkOperation {
     pub delete: Option<ElasticsearchBulkAction>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct ElasticsearchBulkAction {
     #[serde(rename = "_index")]
