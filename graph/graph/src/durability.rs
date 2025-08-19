@@ -156,6 +156,7 @@ mod durable_impl {
         graph: G,
     }
 
+    #[allow(dead_code)]
     #[derive(Debug)]
     pub struct DurableTransaction<T: GuestTransaction> {
         pub inner: T,
@@ -773,6 +774,7 @@ mod durable_impl {
         }
     }
 
+    #[allow(dead_code)]
     #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
     struct CreateEdgeParams {
         edge_type: String,
@@ -781,6 +783,7 @@ mod durable_impl {
         properties: crate::golem::graph::types::PropertyMap,
     }
 
+    #[allow(dead_code)]
     #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
     struct UpsertEdgeParams {
         id: Option<crate::golem::graph::types::ElementId>,

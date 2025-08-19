@@ -6,12 +6,16 @@
 
 use golem_vector::error::unsupported_feature;
 <<<<<<< HEAD
+<<<<<<< HEAD
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric, MetadataValue, VectorData, VectorError, VectorRecord,
 };
 =======
 use golem_vector::exports::golem::vector::types::{DistanceMetric, VectorError, VectorRecord};
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+use golem_vector::exports::golem::vector::types::{DistanceMetric, VectorError, VectorRecord};
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 use crate::conversion::{
     filter_expression_to_milvus, metadata_to_json_map, metric_to_milvus, vector_data_to_dense,
@@ -64,6 +68,7 @@ impl MilvusClient {
         Self::err()
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
 
     pub fn get_vectors_by_ids(
         &self,
@@ -74,12 +79,15 @@ impl MilvusClient {
     }
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 }
 
 // ---------------------------- native impl ------------------------------
 #[cfg(not(target_family = "wasm"))]
 mod native {
     use super::*;
+<<<<<<< HEAD
 <<<<<<< HEAD
     use reqwest::blocking::{Client, Response};
     use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -88,6 +96,10 @@ mod native {
     use reqwest::blocking::Client;
     use serde::{Deserialize, Serialize};
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    use reqwest::blocking::Client;
+    use serde::{Deserialize, Serialize};
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
     #[derive(Clone)]
     pub struct MilvusClient {
@@ -95,14 +107,18 @@ mod native {
         base_url: String,
         api_key: Option<String>,
 <<<<<<< HEAD
+<<<<<<< HEAD
         timeout: Duration,
         max_retries: u32,
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     impl MilvusClient {
         pub fn new(endpoint: String, api_key: Option<String>) -> Self {
+<<<<<<< HEAD
 <<<<<<< HEAD
             Self::new_with_config(endpoint, api_key, Duration::from_secs(30), 3)
         }
@@ -160,6 +176,8 @@ mod native {
         }
 
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             Self {
                 http: Client::new(),
                 base_url: endpoint.trim_end_matches('/').to_string(),
@@ -167,7 +185,10 @@ mod native {
             }
         }
 
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         // -------------------- collections ---------------------------
         pub fn create_collection(
             &self,
@@ -193,9 +214,12 @@ mod native {
                 .send()
                 .map_err(to_err)?;
 <<<<<<< HEAD
+<<<<<<< HEAD
             self.handle_response::<serde_json::Value>(resp, "create_collection")?;
             Ok(())
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             if resp.status().is_success() {
                 Ok(())
             } else {
@@ -204,7 +228,10 @@ mod native {
                     resp.status()
                 )))
             }
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         }
 
         pub fn list_collections(&self) -> Result<Vec<String>, VectorError> {
@@ -219,9 +246,12 @@ mod native {
             let url = format!("{}/v1/vector/collections", self.base_url);
             let resp = self.http.get(url).send().map_err(to_err)?;
 <<<<<<< HEAD
+<<<<<<< HEAD
             let body: ListResp = self.handle_response(resp, "list_collections")?;
             Ok(body.data.into_iter().map(|c| c.collection_name).collect())
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             if resp.status().is_success() {
                 let body: ListResp = resp.json().map_err(to_err)?;
                 Ok(body.data.into_iter().map(|c| c.collection_name).collect())
@@ -231,16 +261,22 @@ mod native {
                     resp.status()
                 )))
             }
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         }
 
         pub fn delete_collection(&self, name: &str) -> Result<(), VectorError> {
             let url = format!("{}/v1/vector/collections/{}", self.base_url, name);
             let resp = self.http.delete(url).send().map_err(to_err)?;
 <<<<<<< HEAD
+<<<<<<< HEAD
             self.handle_response::<serde_json::Value>(resp, "delete_collection")?;
             Ok(())
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             if resp.status().is_success() {
                 Ok(())
             } else {
@@ -249,7 +285,10 @@ mod native {
                     resp.status()
                 )))
             }
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         }
 
         // -------------------- vectors ------------------------------
@@ -278,9 +317,12 @@ mod native {
             }
             let resp = self.http.post(url).json(&payloads).send().map_err(to_err)?;
 <<<<<<< HEAD
+<<<<<<< HEAD
             self.handle_response::<serde_json::Value>(resp, "upsert_vectors")?;
             Ok(())
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             if resp.status().is_success() {
                 Ok(())
             } else {
@@ -289,7 +331,10 @@ mod native {
                     resp.status()
                 )))
             }
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         }
 
         pub fn query_vectors(
@@ -326,6 +371,7 @@ mod native {
                 expr: expr.as_deref(),
             };
             let resp = self.http.post(url).json(&payload).send().map_err(to_err)?;
+<<<<<<< HEAD
 <<<<<<< HEAD
             let body: Resp = self.handle_response(resp, "query_vectors")?;
             Ok(body
@@ -384,6 +430,8 @@ mod native {
                     .collect(),
             )
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             if resp.status().is_success() {
                 let body: Resp = resp.json().map_err(to_err)?;
                 Ok(body
@@ -397,7 +445,10 @@ mod native {
                     resp.status()
                 )))
             }
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         }
     }
 

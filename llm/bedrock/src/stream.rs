@@ -36,7 +36,7 @@ impl BedrockChatStream {
         }
     }
 
-    fn stream_mut(&self) -> RefMut<Option<BedrockEventSource>> {
+    fn stream_mut(&self) -> RefMut<'_, Option<BedrockEventSource>> {
         self.stream.borrow_mut()
     }
 

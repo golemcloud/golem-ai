@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 //! Production-ready Qdrant vector database provider for Golem.
 //!
 //! This provider implements the full `golem:vector` WIT interface for Qdrant,
@@ -17,6 +18,8 @@
 //! Optional:
 //! - `GOLEM_VECTOR_LOG=trace`: Enable detailed logging
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 //! Qdrant vector provider component (work-in-progress)
 //!
 //! This crate wires the synchronous [`QdrantApi`] REST client to the
@@ -24,21 +27,28 @@
 //! behind the `provider_impl` feature flag.  Until enabled, compilation
 //! will fail with a clear message so that downstream workspaces are not
 //! surprised by partial functionality.
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 mod bindings;
 mod client;
 mod conversion;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 use log::{debug, error, info, warn};
 
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 use crate::client::{QdrantApi, QdrantPoint};
 use crate::conversion::*;
 use golem_vector::durability::{DurableVector, ExtendedGuest};
 use golem_vector::error::unsupported_feature;
+<<<<<<< HEAD
 <<<<<<< HEAD
 use golem_vector::exports::golem::vector::analytics::{CollectionStats, FieldStats, Guest as AnalyticsGuest};
 use golem_vector::exports::golem::vector::collections::{CollectionInfo, Guest as CollectionsGuest, IndexConfig};
@@ -49,16 +59,24 @@ use golem_vector::exports::golem::vector::connection::{
 use golem_vector::exports::golem::vector::collections::{CollectionInfo, IndexConfig};
 use golem_vector::exports::golem::vector::connection::{Credentials, Guest as ConnectionGuest};
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+use golem_vector::exports::golem::vector::collections::{CollectionInfo, IndexConfig};
+use golem_vector::exports::golem::vector::connection::{Credentials, Guest as ConnectionGuest};
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 use golem_vector::exports::golem::vector::namespaces::{Guest as NamespacesGuest, NamespaceInfo};
 use golem_vector::exports::golem::vector::search::{
     Guest as SearchGuest, SearchQuery as SearchQueryEnum,
 };
 use golem_vector::exports::golem::vector::search_extended::{
 <<<<<<< HEAD
+<<<<<<< HEAD
     ContextPair, GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
 =======
     GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     RecommendationStrategy,
 };
 use golem_vector::exports::golem::vector::types::*;
@@ -67,6 +85,7 @@ use golem_vector::exports::golem::vector::vectors::{
 };
 use golem_vector::init_logging;
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 // Export the durability wrapper as the component
 pub use golem_vector::durability::DurableVector as Component;
@@ -86,21 +105,29 @@ fn init_logging() {
 =======
 struct QdrantComponent;
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+struct QdrantComponent;
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 impl QdrantComponent {
     const ENDPOINT_ENV: &'static str = "QDRANT_ENDPOINT";
     const API_KEY_ENV: &'static str = "QDRANT_API_KEY";
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     /// Validate configuration and create client
     fn create_client() -> Result<QdrantApi, VectorError> {
 =======
     fn create_client() -> QdrantApi {
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    fn create_client() -> QdrantApi {
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         // Endpoint defaults to localhost if env var not set
         let endpoint = std::env::var(Self::ENDPOINT_ENV)
             .unwrap_or_else(|_| "http://localhost:6333".to_string());
         let api_key = std::env::var(Self::API_KEY_ENV).ok();
+<<<<<<< HEAD
 <<<<<<< HEAD
         
         debug!("Creating Qdrant client for endpoint: {}", endpoint);
@@ -122,27 +149,37 @@ impl QdrantComponent {
 =======
         QdrantApi::new(endpoint, api_key)
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        QdrantApi::new(endpoint, api_key)
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
 // -------------------- collections ---------------------------
+<<<<<<< HEAD
 <<<<<<< HEAD
 impl CollectionsGuest for QdrantComponent {
     fn upsert_collection(
         name: String,
         description: Option<String>,
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 impl golem_vector::exports::golem::vector::collections::Guest for QdrantComponent {
     fn upsert_collection(
         name: String,
         _description: Option<String>,
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         dimension: u32,
         metric: DistanceMetric,
         _index_config: Option<IndexConfig>,
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
         init_logging();
+<<<<<<< HEAD
 <<<<<<< HEAD
         Self::validate_config()?;
         
@@ -159,16 +196,22 @@ impl golem_vector::exports::golem::vector::collections::Guest for QdrantComponen
         info!("Successfully created Qdrant collection: {}", name);
         Ok(info)
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         let client = Self::create_client();
         let dist = metric_to_qdrant(metric);
         client
             .upsert_collection(&name, dimension, dist)
             .map(collection_desc_to_info)
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn list_collections() -> Result<Vec<CollectionInfo>, VectorError> {
         init_logging();
+<<<<<<< HEAD
 <<<<<<< HEAD
         Self::validate_config()?;
         
@@ -182,15 +225,21 @@ impl golem_vector::exports::golem::vector::collections::Guest for QdrantComponen
         info!("Found {} Qdrant collections", collections.len());
         Ok(collections)
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         let client = Self::create_client();
         client
             .list_collections()
             .map(|v| v.into_iter().map(collection_desc_to_info).collect())
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn get_collection(name: String) -> Result<CollectionInfo, VectorError> {
         init_logging();
+<<<<<<< HEAD
 <<<<<<< HEAD
         Self::validate_config()?;
         
@@ -216,6 +265,8 @@ impl golem_vector::exports::golem::vector::collections::Guest for QdrantComponen
         warn!("Qdrant does not support collection updates - returning current info for: {}", name);
         Self::get_collection(name)
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         let client = Self::create_client();
         client
             .list_collections() // Qdrant lacks single collection endpoint V1
@@ -235,11 +286,15 @@ impl golem_vector::exports::golem::vector::collections::Guest for QdrantComponen
         Err(unsupported_feature(
             "Update collection not supported by Qdrant",
         ))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn delete_collection(name: String) -> Result<(), VectorError> {
         init_logging();
+<<<<<<< HEAD
 <<<<<<< HEAD
         Self::validate_config()?;
         
@@ -263,13 +318,18 @@ impl golem_vector::exports::golem::vector::collections::Guest for QdrantComponen
         debug!("Qdrant collection '{}' exists: {}", name, exists);
         Ok(exists)
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         let client = Self::create_client();
         client.delete_collection(&name)
     }
 
     fn collection_exists(name: String) -> Result<bool, VectorError> {
         Self::list_collections().map(|cols| cols.iter().any(|c| c.name == name))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -281,6 +341,7 @@ impl VectorsGuest for QdrantComponent {
         namespace: Option<String>,
     ) -> Result<BatchResult, VectorError> {
         init_logging();
+<<<<<<< HEAD
 <<<<<<< HEAD
         Self::validate_config()?;
         
@@ -306,17 +367,23 @@ impl VectorsGuest for QdrantComponent {
         
         // Convert records to Qdrant points
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         let client = Self::create_client();
         let mut success = 0u32;
         let mut errors = Vec::new();
         let mut points: Vec<QdrantPoint> = Vec::with_capacity(vectors.len());
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         for (idx, rec) in vectors.into_iter().enumerate() {
             match record_to_qdrant_point(rec) {
                 Ok(p) => {
                     points.push(p);
                     success += 1;
                 }
+<<<<<<< HEAD
 <<<<<<< HEAD
                 Err(e) => {
                     error!("Failed to convert vector at index {}: {}", idx, e);
@@ -349,13 +416,18 @@ impl VectorsGuest for QdrantComponent {
         );
         
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
                 Err(e) => errors.push((idx as u32, e)),
             }
         }
         if !points.is_empty() {
             client.upsert_points(&collection, points, namespace)?;
         }
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Ok(BatchResult {
             success_count: success,
             failure_count: errors.len() as u32,
@@ -371,6 +443,7 @@ impl VectorsGuest for QdrantComponent {
         namespace: Option<String>,
     ) -> Result<(), VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Self::validate_config()?;
         
@@ -378,11 +451,14 @@ impl VectorsGuest for QdrantComponent {
         
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         let rec = VectorRecord {
             id,
             vector,
             metadata,
         };
+<<<<<<< HEAD
 <<<<<<< HEAD
         
         let result = Self::upsert_vectors(collection, vec![rec], namespace)?;
@@ -586,6 +662,8 @@ impl VectorsGuest for QdrantComponent {
             }
         }
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Self::upsert_vectors(collection, vec![rec], namespace).map(|_| ())
     }
 
@@ -632,7 +710,10 @@ impl VectorsGuest for QdrantComponent {
         _namespace: Option<String>,
     ) -> Result<u32, VectorError> {
         Err(unsupported_feature("Delete by filter not implemented"))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn list_vectors(
@@ -644,6 +725,7 @@ impl VectorsGuest for QdrantComponent {
         _include_vectors: Option<bool>,
         _include_metadata: Option<bool>,
     ) -> Result<ListResponse, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         // Qdrant supports scrolling through points, but it's complex to implement
@@ -680,6 +762,8 @@ impl VectorsGuest for QdrantComponent {
             }
         }
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Err(unsupported_feature("List vectors not implemented"))
     }
 
@@ -689,7 +773,10 @@ impl VectorsGuest for QdrantComponent {
         _namespace: Option<String>,
     ) -> Result<u64, VectorError> {
         Err(unsupported_feature("Count vectors not implemented"))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -708,6 +795,7 @@ impl SearchGuest for QdrantComponent {
         _search_params: Option<Vec<(String, String)>>,
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
+<<<<<<< HEAD
 <<<<<<< HEAD
         Self::validate_config()?;
         
@@ -734,13 +822,18 @@ impl SearchGuest for QdrantComponent {
         let include_meta = include_metadata.unwrap_or(false);
         
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         let client = Self::create_client();
         let vector = match query {
             SearchQueryEnum::Vector(v) => vector_data_to_dense(v)?,
             _ => return Err(unsupported_feature("Only vector queries supported")),
         };
         let q_filter = filter_expression_to_qdrant(filter.clone());
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         let results = client.search(
             &collection,
             vector,
@@ -748,21 +841,28 @@ impl SearchGuest for QdrantComponent {
             namespace,
             q_filter,
 <<<<<<< HEAD
+<<<<<<< HEAD
             include_vals,
             include_meta,
         )?;
         
         let search_results = results
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             include_vectors.unwrap_or(false),
             include_metadata.unwrap_or(false),
         )?;
         Ok(results
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             .into_iter()
             .map(|r| SearchResult {
                 id: r.id,
                 score: r.score,
+<<<<<<< HEAD
 <<<<<<< HEAD
                 distance: 1.0 - r.score, // Convert similarity to distance
                 vector: if include_vals {
@@ -785,6 +885,8 @@ impl SearchGuest for QdrantComponent {
         debug!("Found {} search results", search_results.len());
         Ok(search_results)
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
                 distance: 0.0,
                 vector: r.vector.map(VectorData::Dense),
                 metadata: r.payload.map(|p| {
@@ -794,7 +896,10 @@ impl SearchGuest for QdrantComponent {
                 }),
             })
             .collect())
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn find_similar(
@@ -804,26 +909,35 @@ impl SearchGuest for QdrantComponent {
         namespace: Option<String>,
     ) -> Result<Vec<SearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         debug!("Finding similar vectors (simplified search)");
         
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Self::search_vectors(
             collection,
             SearchQueryEnum::Vector(vector),
             limit,
+<<<<<<< HEAD
 <<<<<<< HEAD
             None, // no filter
             namespace,
             Some(false), // don't include vectors
             Some(true),  // include metadata
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             None,
             namespace,
             Some(true),
             Some(true),
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             None,
             None,
             None,
@@ -831,6 +945,7 @@ impl SearchGuest for QdrantComponent {
     }
 
     fn batch_search(
+<<<<<<< HEAD
 <<<<<<< HEAD
         collection: String,
         queries: Vec<SearchQueryEnum>,
@@ -874,6 +989,8 @@ impl SearchGuest for QdrantComponent {
         info!("Batch search completed successfully");
         Ok(results)
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _collection: String,
         _queries: Vec<SearchQueryEnum>,
         _limit: u32,
@@ -884,7 +1001,10 @@ impl SearchGuest for QdrantComponent {
         _search_params: Option<Vec<(String, String)>>,
     ) -> Result<Vec<Vec<SearchResult>>, VectorError> {
         Err(unsupported_feature("Batch search not implemented"))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -902,20 +1022,28 @@ impl SearchExtendedGuest for QdrantComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context("Recommendations not supported"))
 =======
         Err(unsupported_feature("Recommend not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Recommend not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn discover_vectors(
         _collection: String,
 <<<<<<< HEAD
+<<<<<<< HEAD
         _context_pairs: Vec<ContextPair>,
 =======
         _context_pairs: Vec<golem_vector::exports::golem::vector::search_extended::ContextPair>,
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        _context_pairs: Vec<golem_vector::exports::golem::vector::search_extended::ContextPair>,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _limit: u32,
         _filter: Option<FilterExpression>,
         _namespace: Option<String>,
@@ -923,11 +1051,15 @@ impl SearchExtendedGuest for QdrantComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context("Discovery not supported"))
 =======
         Err(unsupported_feature("Discover not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Discover not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn search_groups(
@@ -942,11 +1074,15 @@ impl SearchExtendedGuest for QdrantComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<GroupedSearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context("Grouped search not supported"))
 =======
         Err(unsupported_feature("Group search not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Group search not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn search_range(
@@ -961,11 +1097,15 @@ impl SearchExtendedGuest for QdrantComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context("Range search not supported"))
 =======
         Err(unsupported_feature("Range search not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Range search not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn search_text(
@@ -976,11 +1116,15 @@ impl SearchExtendedGuest for QdrantComponent {
         _namespace: Option<String>,
     ) -> Result<Vec<SearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context("Text search not supported"))
 =======
         Err(unsupported_feature("Text search not supported"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Text search not supported"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -991,6 +1135,7 @@ impl NamespacesGuest for QdrantComponent {
         _namespace: String,
         _metadata: Option<Metadata>,
     ) -> Result<NamespaceInfo, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context(
@@ -1004,18 +1149,24 @@ impl NamespacesGuest for QdrantComponent {
             "Namespace listing not supported by Qdrant API",
         ))
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Err(unsupported_feature("Namespaces not supported by Qdrant"))
     }
 
     fn list_namespaces(_collection: String) -> Result<Vec<NamespaceInfo>, VectorError> {
         Err(unsupported_feature("Namespaces not supported by Qdrant"))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn get_namespace(
         _collection: String,
         _namespace: String,
     ) -> Result<NamespaceInfo, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context(
@@ -1072,6 +1223,8 @@ impl AnalyticsGuest for QdrantComponent {
             "Field distribution not yet implemented",
         ))
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Err(unsupported_feature("Namespaces not supported by Qdrant"))
     }
 
@@ -1081,20 +1234,29 @@ impl AnalyticsGuest for QdrantComponent {
 
     fn namespace_exists(_collection: String, _namespace: String) -> Result<bool, VectorError> {
         Err(unsupported_feature("Namespaces not supported by Qdrant"))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
 // -------------------- connection ---------------------------
 <<<<<<< HEAD
+<<<<<<< HEAD
 impl ConnectionGuest for QdrantComponent {
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 use golem_vector::exports::golem::vector::connection::{
     ConnectionStatus, Guest as ConnectionGuestImpl,
 };
 
 impl ConnectionGuestImpl for QdrantComponent {
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -1102,25 +1264,33 @@ impl ConnectionGuestImpl for QdrantComponent {
         _options: Option<Metadata>,
     ) -> Result<(), VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Self::validate_config()?;
         info!("Qdrant connection validated via environment variables");
 =======
         // Client is created on-demand; nothing to do.
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        // Client is created on-demand; nothing to do.
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Ok(())
     }
 
     fn disconnect() -> Result<(), VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         debug!("Qdrant disconnect (no persistent connection to close)");
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Ok(())
     }
 
     fn get_connection_status() -> Result<ConnectionStatus, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         match Self::validate_config() {
@@ -1128,13 +1298,18 @@ impl ConnectionGuestImpl for QdrantComponent {
             Err(_) => Ok(ConnectionStatus::Disconnected),
         }
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Ok(ConnectionStatus {
             connected: true,
             provider: Some("qdrant".into()),
             endpoint: std::env::var(Self::ENDPOINT_ENV).ok(),
             last_activity: None,
         })
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn test_connection(
@@ -1143,6 +1318,7 @@ impl ConnectionGuestImpl for QdrantComponent {
         _timeout_ms: Option<u32>,
         _options: Option<Metadata>,
     ) -> Result<bool, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         let client = QdrantApi::new(endpoint, None);
@@ -1158,16 +1334,22 @@ impl ConnectionGuestImpl for QdrantComponent {
                 Ok(false)
             }
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         let client = QdrantApi::new(endpoint, None);
         // Attempt simple ping via list collections
         match client.list_collections() {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         }
     }
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 // Implement ExtendedGuest marker trait
 impl ExtendedGuest for QdrantComponent {}
@@ -1175,9 +1357,14 @@ impl ExtendedGuest for QdrantComponent {}
 // Export bindings for the component
 golem_vector::export_bindings!(Component);
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 impl ExtendedGuest for QdrantComponent {}
 
 type DurableQdrantComponent = DurableVector<QdrantComponent>;
 
 golem_vector::export_vector!(DurableQdrantComponent with_types_in golem_vector);
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da

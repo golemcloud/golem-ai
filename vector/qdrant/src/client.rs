@@ -5,9 +5,12 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 <<<<<<< HEAD
+<<<<<<< HEAD
 use std::time::Duration;
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 use golem_vector::exports::golem::vector::types::{
     FilterExpression, Metadata, VectorData, VectorError, VectorRecord,
@@ -19,14 +22,18 @@ pub struct QdrantApi {
     base_url: String,
     api_key: Option<String>,
 <<<<<<< HEAD
+<<<<<<< HEAD
     timeout: Duration,
     max_retries: u32,
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 }
 
 impl QdrantApi {
     pub fn new(base_url: impl Into<String>, api_key: Option<String>) -> Self {
+<<<<<<< HEAD
 <<<<<<< HEAD
         Self::new_with_config(base_url, api_key, Duration::from_secs(30), 3)
     }
@@ -57,11 +64,16 @@ impl QdrantApi {
             Ok(resp) => Ok(resp.status().is_success()),
             Err(_) => Ok(false),
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Self {
             http: Client::new(),
             base_url: base_url.into().trim_end_matches('/').to_string(),
             api_key,
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         }
     }
 
@@ -71,6 +83,7 @@ impl QdrantApi {
         }
     }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     // Helper method for retry logic
     fn with_retry<F, T>(&self, operation: F) -> Result<T, VectorError>
@@ -89,6 +102,8 @@ impl QdrantApi {
 
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     // ------------------------- collections -----------------------------
     pub fn upsert_collection(
         &self,
@@ -247,6 +262,7 @@ impl QdrantApi {
 
 // ----------------------------- DTOs ------------------------------
 <<<<<<< HEAD
+<<<<<<< HEAD
     /// Retrieve a single point by ID and namespace.
     pub fn get_point(
         &self,
@@ -279,6 +295,8 @@ impl QdrantApi {
 // ----------------------------- DTOs ------------------------------
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 #[derive(Deserialize)]
 struct QdrantResponse<T> {
     result: T,
@@ -287,6 +305,7 @@ struct QdrantResponse<T> {
 }
 
 #[derive(Deserialize)]
+<<<<<<< HEAD
 <<<<<<< HEAD
 pub struct PointOut {
     pub id: String,
@@ -300,6 +319,8 @@ pub struct PointOut {
 #[derive(Deserialize)]
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 struct CollectionsList {
     collections: Vec<CollectionDescription>,
 }
@@ -347,9 +368,12 @@ fn to_vector_error(e: impl std::fmt::Display) -> VectorError {
     VectorError::ProviderError(e.to_string())
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 fn to_vector_error_with_context(e: impl std::fmt::Display, operation: &str) -> VectorError {
     VectorError::ProviderError(format!("Qdrant {} error: {}", operation, e))
 }
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da

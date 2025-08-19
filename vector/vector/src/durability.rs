@@ -1,6 +1,7 @@
 //! Durability wrapper for vector providers.
 //!
 <<<<<<< HEAD
+<<<<<<< HEAD
 //! This follows the durability design used by other components:
 //! * Today, `DurableVector` is a thin passthrough that calls the underlying provider
 //!   implementation after initializing logging. This behavior is the same whether or not
@@ -12,6 +13,8 @@
 //! compiles cleanly and is production-safe while allowing a future drop-in durability
 //! implementation without API changes.
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 //! This follows the durability design used by the `search` component:
 //! * When the `durability` feature flag is **off** (default), `DurableVector` is a thin
 //!   passthrough that merely calls the underlying provider implementation after
@@ -22,11 +25,15 @@
 //! Keeping the passthrough implementation complete ensures the shared `vector` crate
 //! compiles cleanly today while still allowing provider crates to opt-into durability
 //! later by enabling the feature.
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 use crate::exports::golem::vector::collections::Guest as CollectionsGuest;
 use crate::exports::golem::vector::connection::Guest as ConnectionGuest;
 use crate::exports::golem::vector::namespaces::Guest as NamespacesGuest;
+<<<<<<< HEAD
 <<<<<<< HEAD
 use crate::exports::golem::vector::analytics::Guest as AnalyticsGuest;
 use crate::exports::golem::vector::search::Guest as SearchGuest;
@@ -35,11 +42,16 @@ use crate::exports::golem::vector::vectors::Guest as VectorsGuest;
 use crate::exports::golem::vector::types::{FilterExpression, Metadata, VectorError, VectorRecord};
 use crate::exports::golem::vector::vectors::BatchResult;
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 use crate::exports::golem::vector::search::Guest as SearchGuest;
 use crate::exports::golem::vector::search_extended::Guest as SearchExtendedGuest;
 use crate::exports::golem::vector::types::{FilterExpression, Metadata, VectorError, VectorRecord};
 use crate::exports::golem::vector::vectors::{BatchResult, ListResponse};
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 use crate::init_logging;
 use std::marker::PhantomData;
 
@@ -48,6 +60,7 @@ pub struct DurableVector<Impl> {
     _phantom: PhantomData<Impl>,
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 /// When the durability feature flag is off, wrapping with `DurableVector` is just a passthrough
 #[cfg(not(feature = "durability"))]
@@ -78,6 +91,8 @@ mod passthrough_impl {
 
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 /// Providers must implement _all_ individual `Guest` traits plus `'static` to be wrapped.
 pub trait ExtendedGuest:
     CollectionsGuest
@@ -87,37 +102,51 @@ pub trait ExtendedGuest:
     + NamespacesGuest
     + ConnectionGuest
 <<<<<<< HEAD
+<<<<<<< HEAD
     + AnalyticsGuest
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     + 'static
 {
 }
 
 // --- Passthrough implementation ---------------------------------------------------------------
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 #[cfg(not(feature = "durability"))]
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+#[cfg(not(feature = "durability"))]
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 mod passthrough_impl {
     use super::*;
     use crate::exports::golem::vector::collections::{CollectionInfo, IndexConfig};
     use crate::exports::golem::vector::connection::{ConnectionStatus, Credentials};
     use crate::exports::golem::vector::namespaces::NamespaceInfo;
 <<<<<<< HEAD
+<<<<<<< HEAD
     use crate::exports::golem::vector::types::SearchQuery as SearchQueryEnum;
 =======
     use crate::exports::golem::vector::search::SearchQuery as SearchQueryEnum;
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    use crate::exports::golem::vector::search::SearchQuery as SearchQueryEnum;
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     use crate::exports::golem::vector::search_extended::{
         GroupedSearchResult, RecommendationExample, RecommendationStrategy,
     };
     use crate::exports::golem::vector::types::{DistanceMetric, SearchResult};
 <<<<<<< HEAD
+<<<<<<< HEAD
     use crate::exports::golem::vector::analytics::{CollectionStats, FieldStats};
     use crate::exports::golem::vector::types::MetadataValue;
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
     // ----- collections ------------------------------------------------------------------------
     impl<T: ExtendedGuest> CollectionsGuest for DurableVector<T> {
@@ -164,6 +193,7 @@ mod passthrough_impl {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     // ----- analytics -------------------------------------------------------------------------
     impl<T: ExtendedGuest> AnalyticsGuest for DurableVector<T> {
         fn get_collection_stats(
@@ -200,6 +230,10 @@ mod passthrough_impl {
     // ----- vectors ---------------------------------------------------------------------------
     use crate::exports::golem::vector::types::Id;
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    // ----- vectors ---------------------------------------------------------------------------
+    use crate::exports::golem::vector::types::Id;
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     use crate::exports::golem::vector::vectors::ListResponse as VListResponse;
     impl<T: ExtendedGuest> crate::exports::golem::vector::vectors::Guest for DurableVector<T> {
         fn upsert_vectors(
@@ -279,13 +313,19 @@ mod passthrough_impl {
         }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         fn delete_namespace(collection: String, namespace: String) -> Result<u32, VectorError> {
             init_logging();
             T::delete_namespace(collection, namespace)
         }
 
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         fn list_vectors(
             collection: String,
             namespace: Option<String>,
@@ -559,7 +599,10 @@ mod passthrough_impl {
     }
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 // --- Compile-time placeholder for future durability -------------------------------------------
 #[cfg(feature = "durability")]
@@ -647,4 +690,7 @@ mod todo_impl {
     compile_error!("Durability support for vector providers is not yet implemented");
 }
 */
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da

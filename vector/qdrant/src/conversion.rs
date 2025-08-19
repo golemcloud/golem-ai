@@ -3,6 +3,7 @@ use golem_vector::error::invalid_vector;
 use golem_vector::exports::golem::vector::collections::CollectionInfo;
 use golem_vector::exports::golem::vector::types::{
 <<<<<<< HEAD
+<<<<<<< HEAD
     DistanceMetric, FilterExpression, FilterOperator, FilterValue, Metadata, MetadataValue,
     VectorData, VectorError, VectorRecord,
 };
@@ -22,6 +23,8 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
             provider: "Qdrant".to_string(),
         }.into()),
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     DistanceMetric, FilterExpression, Metadata, MetadataValue, VectorData, VectorError,
     VectorRecord,
 };
@@ -35,7 +38,10 @@ pub fn vector_data_to_dense(v: VectorData) -> Result<Vec<f32>, VectorError> {
         _ => Err(invalid_vector(
             "Qdrant currently supports only dense vectors",
         )),
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -75,6 +81,7 @@ fn metadata_value_to_json(v: MetadataValue) -> Value {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 /// Convert distance metric to Qdrant distance string with validation
 pub fn metric_to_qdrant(metric: DistanceMetric) -> Result<&'static str, VectorError> {
     match metric {
@@ -86,6 +93,8 @@ pub fn metric_to_qdrant(metric: DistanceMetric) -> Result<&'static str, VectorEr
             provider: "Qdrant".to_string(),
         }.into()),
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 /// Maps WIT `DistanceMetric` to Qdrant distance string.
 pub fn metric_to_qdrant(metric: DistanceMetric) -> &'static str {
     match metric {
@@ -93,7 +102,10 @@ pub fn metric_to_qdrant(metric: DistanceMetric) -> &'static str {
         DistanceMetric::Euclidean => "Euclid",
         DistanceMetric::DotProduct => "Dot",
         _ => "Cosine", // fallback
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -108,6 +120,7 @@ pub fn record_to_qdrant_point(rec: VectorRecord) -> Result<QdrantPoint, VectorEr
     })
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 /// Convert FilterExpression to Qdrant filter JSON with validation
 pub fn filter_expression_to_qdrant(expr: FilterExpression) -> Result<serde_json::Value, VectorError> {
@@ -125,6 +138,8 @@ pub fn filter_expression_to_qdrant(expr: FilterExpression) -> Result<serde_json:
 
 fn convert_filter_expression(expr: &FilterExpression) -> Result<serde_json::Value, VectorError> {
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 /// Convert a high-level `FilterExpression` into a (very limited) Qdrant filter.
 ///
 /// The mapping supports only a subset of operators that are straightforward to
@@ -137,7 +152,10 @@ fn convert_filter_expression(expr: &FilterExpression) -> Result<serde_json::Valu
 /// silently ignored.  If the expression cannot be translated, `None` is
 /// returned so that the caller can fall back to a provider error.
 pub fn filter_expression_to_qdrant(expr: Option<FilterExpression>) -> Option<QdrantFilter> {
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     use golem_vector::exports::golem::vector::types::{FilterCondition, FilterOperator};
 
     fn cond_to_json(cond: &FilterCondition) -> Option<Value> {
@@ -148,6 +166,7 @@ pub fn filter_expression_to_qdrant(expr: Option<FilterExpression>) -> Option<Qdr
             ),
             FilterOperator::Gt | FilterOperator::Gte | FilterOperator::Lt | FilterOperator::Lte => {
 <<<<<<< HEAD
+<<<<<<< HEAD
                 // Validate numeric operations only work with numeric values
                 let val_json = metadata_value_to_json(cond.value.clone());
                 if !val_json.is_number() {
@@ -155,6 +174,8 @@ pub fn filter_expression_to_qdrant(expr: Option<FilterExpression>) -> Option<Qdr
                 }
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
                 let op_str = match cond.operator {
                     FilterOperator::Gt => "gt",
                     FilterOperator::Gte => "gte",
@@ -166,6 +187,7 @@ pub fn filter_expression_to_qdrant(expr: Option<FilterExpression>) -> Option<Qdr
                     json!({ "key": key, "range": { op_str: metadata_value_to_json(cond.value.clone()) } }),
                 )
             }
+<<<<<<< HEAD
 <<<<<<< HEAD
             FilterOperator::In => {
                 if let FilterValue::ListVal(list) = &cond.value {
@@ -183,6 +205,11 @@ pub fn filter_expression_to_qdrant(expr: Option<FilterExpression>) -> Option<Qdr
                 json!({ "key": key, "match": { "any": metadata_value_to_json(cond.value.clone()) } }),
             ),
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+            FilterOperator::In => Some(
+                json!({ "key": key, "match": { "any": metadata_value_to_json(cond.value.clone()) } }),
+            ),
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             FilterOperator::Nin => Some(
                 json!({ "key": key, "match": { "not_any": metadata_value_to_json(cond.value.clone()) } }),
             ),
@@ -203,12 +230,17 @@ pub fn filter_expression_to_qdrant(expr: Option<FilterExpression>) -> Option<Qdr
                 }
             }
 <<<<<<< HEAD
+<<<<<<< HEAD
             FilterExpression::And(conditions) => {
                 for e in conditions {
 =======
             FilterExpression::And(list) => {
                 for e in list {
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+            FilterExpression::And(list) => {
+                for e in list {
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
                     walk(e, must, should, must_not);
                 }
             }
@@ -231,6 +263,7 @@ pub fn filter_expression_to_qdrant(expr: Option<FilterExpression>) -> Option<Qdr
         }
     }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     match expr {
         FilterExpression::And(conditions) => {
@@ -274,6 +307,8 @@ pub fn filter_expression_to_qdrant(expr: Option<FilterExpression>) -> Option<Qdr
             }
         }
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     let expr = expr?; // early return None if no filter
     let mut must = Vec::new();
     let mut should = Vec::new();
@@ -296,7 +331,10 @@ pub fn filter_expression_to_qdrant(expr: Option<FilterExpression>) -> Option<Qdr
                 Some(must_not)
             },
         })
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 

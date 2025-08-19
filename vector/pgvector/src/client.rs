@@ -13,6 +13,7 @@
 
 use golem_vector::error::unsupported_feature;
 <<<<<<< HEAD
+<<<<<<< HEAD
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric, Metadata, VectorData, VectorError, VectorRecord,
 };
@@ -22,6 +23,11 @@ use golem_vector::exports::golem::vector::types::{DistanceMetric, VectorError, V
 
 use crate::conversion::{filter_expression_to_sql, metric_to_pgvector, vector_data_to_dense};
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+use golem_vector::exports::golem::vector::types::{DistanceMetric, VectorError, VectorRecord};
+
+use crate::conversion::{filter_expression_to_sql, metric_to_pgvector, vector_data_to_dense};
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 #[cfg(target_family = "wasm")]
 pub struct PgvectorClient;
@@ -65,6 +71,7 @@ impl PgvectorClient {
         _query: Vec<f32>,
         _metric: DistanceMetric,
         _limit: u32,
+<<<<<<< HEAD
 <<<<<<< HEAD
         _filter_sql: Option<(String, Vec<String>)>,
     ) -> Result<Vec<(String, f32, Option<Vec<f32>>)>, VectorError> {
@@ -130,11 +137,16 @@ impl PgvectorClient {
         Self::err()
     }
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _filter_sql: Option<(String, Vec<serde_json::Value>)>,
     ) -> Result<Vec<(String, f32, Option<Vec<f32>>)>, VectorError> {
         Self::err()
     }
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 }
 
 // -----------------------------------------------------------------------------
@@ -145,6 +157,7 @@ mod native {
     use super::*;
     use postgres::{Client, NoTls, Row};
     use serde_json::Value;
+<<<<<<< HEAD
 <<<<<<< HEAD
     use std::time::Duration;
     use r2d2_postgres::{PostgresConnectionManager, r2d2::Pool};
@@ -208,6 +221,8 @@ mod native {
 
         pub fn create_collection(&self, name: &str, dimension: u32) -> Result<(), VectorError> {
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
     pub struct PgvectorClient {
         client: Client,
@@ -221,22 +236,30 @@ mod native {
         }
 
         pub fn create_collection(&mut self, name: &str, dimension: u32) -> Result<(), VectorError> {
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             let sql = format!(
                 "CREATE TABLE IF NOT EXISTS {} (id TEXT PRIMARY KEY, embedding vector({}), metadata JSONB)",
                 name, dimension
             );
+<<<<<<< HEAD
 <<<<<<< HEAD
             let mut conn = self.get_connection()?;
             conn.execute(sql.as_str(), &[]).map_err(to_err)?;
 =======
             self.client.execute(sql.as_str(), &[]).map_err(to_err)?;
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+            self.client.execute(sql.as_str(), &[]).map_err(to_err)?;
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             // index for faster similarity search
             let idx_sql = format!(
                 "CREATE INDEX IF NOT EXISTS {}_embedding_idx ON {} USING ivfflat (embedding)",
                 name, name
             );
+<<<<<<< HEAD
 <<<<<<< HEAD
             conn.execute(idx_sql.as_str(), &[]).map_err(to_err)?;
             Ok(())
@@ -246,6 +269,8 @@ mod native {
             let mut conn = self.get_connection()?;
             let rows = conn
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             self.client.execute(idx_sql.as_str(), &[]).map_err(to_err)?;
             Ok(())
         }
@@ -253,7 +278,10 @@ mod native {
         pub fn list_collections(&mut self) -> Result<Vec<String>, VectorError> {
             let rows = self
                 .client
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
                 .query(
                     "SELECT table_name FROM information_schema.tables WHERE table_schema='public'",
                     &[],
@@ -262,6 +290,7 @@ mod native {
             Ok(rows.iter().map(|r| r.get::<_, String>(0)).collect())
         }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
         pub fn delete_collection(&self, name: &str) -> Result<(), VectorError> {
             let sql = format!("DROP TABLE IF EXISTS {}", name);
@@ -272,20 +301,30 @@ mod native {
             let sql = format!("DROP TABLE IF EXISTS {}", name);
             self.client.execute(sql.as_str(), &[]).map_err(to_err)?;
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        pub fn delete_collection(&mut self, name: &str) -> Result<(), VectorError> {
+            let sql = format!("DROP TABLE IF EXISTS {}", name);
+            self.client.execute(sql.as_str(), &[]).map_err(to_err)?;
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             Ok(())
         }
 
         pub fn upsert_vectors(
 <<<<<<< HEAD
+<<<<<<< HEAD
             &self,
 =======
             &mut self,
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+            &mut self,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             table: &str,
             records: Vec<VectorRecord>,
             _namespace: Option<String>,
         ) -> Result<(), VectorError> {
             let sql = format!(
+<<<<<<< HEAD
 <<<<<<< HEAD
                 "INSERT INTO {} (id, embedding, metadata) VALUES ($1, $2::vector, $3) ON CONFLICT (id) DO UPDATE SET embedding = EXCLUDED.embedding, metadata = EXCLUDED.metadata",
                 table
@@ -298,6 +337,8 @@ mod native {
                     .map(|m| serde_json::Value::Object(metadata_to_json_map(Some(m))));
                 conn.execute(&sql, &[&rec.id, &dense, &meta])
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
                 "INSERT INTO {} (id, embedding, metadata) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET embedding = EXCLUDED.embedding, metadata = EXCLUDED.metadata",
                 table
             );
@@ -312,7 +353,10 @@ mod native {
                 });
                 self.client
                     .execute(&sql, &[&rec.id, &dense, &meta])
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
                     .map_err(to_err)?;
             }
             Ok(())
@@ -320,14 +364,19 @@ mod native {
 
         pub fn query_vectors(
 <<<<<<< HEAD
+<<<<<<< HEAD
             &self,
 =======
             &mut self,
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+            &mut self,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             table: &str,
             query: Vec<f32>,
             metric: DistanceMetric,
             limit: u32,
+<<<<<<< HEAD
 <<<<<<< HEAD
             filter_sql: Option<(String, Vec<String>)>,
         ) -> Result<Vec<(String, f32, Option<Vec<f32>>)>, VectorError> {
@@ -339,6 +388,8 @@ mod native {
             // Hold filter values so parameter references remain valid during query execution
             let mut held_filter_values: Vec<String> = Vec::new();
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             filter_sql: Option<(String, Vec<Value>)>,
         ) -> Result<Vec<(String, f32, Option<Vec<f32>>)>, VectorError> {
             let op = metric_to_pgvector(metric);
@@ -346,12 +397,16 @@ mod native {
                 "SELECT id, embedding {} $1 AS distance, embedding FROM {}",
                 op, table
             );
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             let mut params: Vec<&(dyn postgres::types::ToSql + Sync)> = Vec::new();
             params.push(&query);
             if let Some((filter, values)) = filter_sql {
                 sql.push_str(" WHERE ");
                 sql.push_str(&filter);
+<<<<<<< HEAD
 <<<<<<< HEAD
                 held_filter_values = values;
             }
@@ -362,10 +417,16 @@ mod native {
                     params.push(v);
                 }
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+                for v in &values {
+                    params.push(v);
+                }
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             }
             sql.push_str(" ORDER BY distance ASC LIMIT ");
             sql.push_str(&limit.to_string());
             let rows = self.client.query(sql.as_str(), &params).map_err(to_err)?;
+<<<<<<< HEAD
 <<<<<<< HEAD
             let mut out: Vec<(String, f32, Option<Vec<f32>>)> = Vec::with_capacity(rows.len());
             for row in rows.into_iter() {
@@ -576,6 +637,8 @@ mod native {
         }
         Some(out)
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             Ok(rows.into_iter().map(row_to_tuple).collect())
         }
     }
@@ -585,7 +648,10 @@ mod native {
         let dist: f32 = row.get(1);
         let embedding: Option<Vec<f32>> = row.get(2);
         (id, dist, embedding)
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn to_err(e: impl std::fmt::Display) -> VectorError {

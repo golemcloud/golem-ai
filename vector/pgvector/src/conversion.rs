@@ -7,18 +7,24 @@
 use golem_vector::error::invalid_vector;
 use golem_vector::exports::golem::vector::types::{
 <<<<<<< HEAD
+<<<<<<< HEAD
     DistanceMetric, FilterExpression, FilterOperator, FilterValue, Metadata, MetadataValue,
     VectorData, VectorError,
 };
 use golem_vector::conversion_errors::{ConversionError, validate_vector_dimension, validate_filter_depth};
 use serde_json::Value;
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     DistanceMetric, FilterCondition, FilterExpression, FilterOperator, Metadata, MetadataValue,
     VectorData, VectorError,
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 // -----------------------------------------------------------------------------
 // Metric mapping
@@ -29,10 +35,14 @@ pub fn metric_to_pgvector(metric: DistanceMetric) -> &'static str {
         DistanceMetric::Cosine => "<=>", // cosine distance operator in pgvector
         DistanceMetric::Euclidean => "<->", // l2 distance operator
 <<<<<<< HEAD
+<<<<<<< HEAD
         DistanceMetric::DotProduct => "<#>", // negative inner product
 =======
         DistanceMetric::Dot => "<#>",    // negative inner product
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        DistanceMetric::Dot => "<#>",    // negative inner product
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _ => "<->",
     }
 }
@@ -40,6 +50,7 @@ pub fn metric_to_pgvector(metric: DistanceMetric) -> &'static str {
 // -----------------------------------------------------------------------------
 // Vector conversion
 // -----------------------------------------------------------------------------
+<<<<<<< HEAD
 <<<<<<< HEAD
 /// Convert VectorData to dense f32 vector for Postgres/pgvector with validation
 pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
@@ -53,12 +64,17 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
             provider: "Pgvector".to_string(),
         }.into()),
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 pub fn vector_data_to_dense(v: VectorData) -> Result<Vec<f32>, VectorError> {
     match v {
         VectorData::Dense(d) => Ok(d),
         _ => Err(invalid_vector("pgvector supports only dense vectors")),
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -70,15 +86,21 @@ fn metadata_value_to_json(v: MetadataValue) -> Value {
     match v {
         MetadataValue::StringVal(s) => Value::String(s),
 <<<<<<< HEAD
+<<<<<<< HEAD
         MetadataValue::FloatVal(n) => Value::from(n),
         MetadataValue::IntVal(i) => Value::from(i),
         MetadataValue::BoolVal(b) => Value::from(b),
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         MetadataValue::NumberVal(n) => Value::from(n),
         MetadataValue::IntegerVal(i) => Value::from(i),
         MetadataValue::BooleanVal(b) => Value::from(b),
         MetadataValue::NullVal => Value::Null,
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         MetadataValue::ArrayVal(arr) => {
             Value::Array(arr.into_iter().map(metadata_value_to_json).collect())
         }
@@ -87,6 +109,7 @@ fn metadata_value_to_json(v: MetadataValue) -> Value {
                 .map(|(k, v)| (k, metadata_value_to_json(v)))
                 .collect(),
         ),
+<<<<<<< HEAD
 <<<<<<< HEAD
     }
 }
@@ -100,6 +123,8 @@ pub fn metadata_to_json_map(meta: Option<Metadata>) -> serde_json::Map<String, V
         })
         .unwrap_or_default()
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         MetadataValue::GeoVal(coords) => json!({ "lat": coords.latitude, "lon": coords.longitude }),
         MetadataValue::DatetimeVal(dt) => Value::String(dt),
         MetadataValue::BlobVal(b) => Value::String(base64::encode(b)),
@@ -113,7 +138,10 @@ pub fn metadata_to_json_map(meta: Option<Metadata>) -> HashMap<String, Value> {
             .collect::<HashMap<_, _>>()
     })
     .unwrap_or_default()
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 }
 
 // -----------------------------------------------------------------------------
@@ -122,6 +150,7 @@ pub fn metadata_to_json_map(meta: Option<Metadata>) -> HashMap<String, Value> {
 
 /// Translate `FilterExpression` into SQL fragment and parameter list.
 /// Returns `(sql, values)` where `values` are JSON-encoded.
+<<<<<<< HEAD
 <<<<<<< HEAD
 /// Convert FilterExpression to SQL WHERE clause with parameters and validation
 pub fn filter_expression_to_sql(
@@ -240,6 +269,8 @@ fn value_to_string(v: &FilterValue) -> String {
             format!("[{}]", items.join(", "))
         }
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 /// Unsupported constructs yield `None`.
 pub fn filter_expression_to_sql(expr: Option<FilterExpression>) -> Option<(String, Vec<Value>)> {
     fn cond_to_sql(cond: &FilterCondition, idx: usize) -> Option<(String, Value)> {
@@ -293,13 +324,17 @@ pub fn filter_expression_to_sql(expr: Option<FilterExpression>) -> Option<(Strin
     let mut parts = Vec::new();
     let mut params = Vec::new();
     walk(&expr, &mut parts, &mut params);
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     if parts.is_empty() {
         None
     } else {
         Some((parts.join(" AND "), params))
     }
 }
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 // -----------------------------------------------------------------------------
@@ -339,3 +374,5 @@ pub fn json_object_to_metadata(map: serde_json::Map<String, Value>) -> Metadata 
 }
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da

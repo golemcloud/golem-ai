@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 //! Production-ready Pinecone vector database provider for Golem.
 //!
 //! This provider implements the full `golem:vector` WIT interface for Pinecone,
@@ -47,6 +48,8 @@ use golem_vector::exports::golem::vector::analytics::{CollectionStats, FieldStat
 
 // Internal modules
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 //! Pinecone vector provider component (stub)
 //!
 //! This crate wires into the Golem Vector WIT interfaces but currently
@@ -54,11 +57,15 @@ use golem_vector::exports::golem::vector::analytics::{CollectionStats, FieldStat
 //! `unsupported_feature` errors.  The goal is to keep the workspace
 //! compiling until real Pinecone support is implemented.
 
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 mod bindings;
 mod client;
 mod conversion;
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 use client::{PineconeApi, QueryMatch};
 use conversion::{
@@ -152,6 +159,8 @@ impl PineconeComponent {
     }
 }
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 use golem_vector::durability::{DurableVector, ExtendedGuest};
 use golem_vector::error::{unsupported_feature, VectorError};
 use golem_vector::exports::golem::vector::collections::{
@@ -175,11 +184,15 @@ use golem_vector::exports::golem::vector::vectors::{
 use golem_vector::init_logging;
 
 struct PineconeComponent;
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 // -------------------- collections ---------------------------
 impl CollectionsGuest for PineconeComponent {
     fn upsert_collection(
+<<<<<<< HEAD
 <<<<<<< HEAD
         name: String,
         description: Option<String>,
@@ -295,6 +308,8 @@ impl CollectionsGuest for PineconeComponent {
         debug!("Pinecone index '{}' exists: {}", name, exists);
         Ok(exists)
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _name: String,
         _description: Option<String>,
         _dimension: u32,
@@ -327,13 +342,17 @@ impl CollectionsGuest for PineconeComponent {
 
     fn collection_exists(_name: String) -> Result<bool, VectorError> {
         Err(unsupported_feature("Pinecone provider not implemented"))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
 // -------------------- vectors -------------------------------
 impl VectorsGuest for PineconeComponent {
     fn upsert_vectors(
+<<<<<<< HEAD
 <<<<<<< HEAD
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -546,6 +565,8 @@ impl VectorsGuest for PineconeComponent {
             ))
         }
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _collection: String,
         _vectors: Vec<VectorRecord>,
         _namespace: Option<String>,
@@ -590,7 +611,10 @@ impl VectorsGuest for PineconeComponent {
         _merge_metadata: Option<bool>,
     ) -> Result<(), VectorError> {
         Err(unsupported_feature("Pinecone provider not implemented"))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn delete_vectors(
@@ -598,6 +622,7 @@ impl VectorsGuest for PineconeComponent {
         _ids: Vec<String>,
         _namespace: Option<String>,
     ) -> Result<u32, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         // Pinecone supports vector deletion but it's not implemented in our client yet
@@ -607,6 +632,9 @@ impl VectorsGuest for PineconeComponent {
 =======
         Err(unsupported_feature("Pinecone provider not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Pinecone provider not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn delete_by_filter(
@@ -614,6 +642,7 @@ impl VectorsGuest for PineconeComponent {
         _filter: FilterExpression,
         _namespace: Option<String>,
     ) -> Result<u32, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         // Pinecone supports filtering but delete by filter is complex
@@ -623,6 +652,9 @@ impl VectorsGuest for PineconeComponent {
 =======
         Err(unsupported_feature("Pinecone provider not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Pinecone provider not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn list_vectors(
@@ -635,6 +667,7 @@ impl VectorsGuest for PineconeComponent {
         _include_metadata: Option<bool>,
     ) -> Result<ListResponse, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         // Pinecone doesn't have a direct list vectors endpoint
         Err(unsupported_feature(
@@ -643,6 +676,9 @@ impl VectorsGuest for PineconeComponent {
 =======
         Err(unsupported_feature("Pinecone provider not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Pinecone provider not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn count_vectors(
@@ -650,6 +686,7 @@ impl VectorsGuest for PineconeComponent {
         _filter: Option<FilterExpression>,
         _namespace: Option<String>,
     ) -> Result<u64, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         // Would need to use describe_index_stats for this
@@ -659,12 +696,16 @@ impl VectorsGuest for PineconeComponent {
 =======
         Err(unsupported_feature("Pinecone provider not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Pinecone provider not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
 // -------------------- search --------------------------------
 impl SearchGuest for PineconeComponent {
     fn search_vectors(
+<<<<<<< HEAD
 <<<<<<< HEAD
         collection: String,
         query: SearchQueryEnum,
@@ -674,6 +715,8 @@ impl SearchGuest for PineconeComponent {
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _collection: String,
         _query: SearchQueryEnum,
         _limit: u32,
@@ -681,11 +724,15 @@ impl SearchGuest for PineconeComponent {
         _namespace: Option<String>,
         _include_vectors: Option<bool>,
         _include_metadata: Option<bool>,
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _min_score: Option<f32>,
         _max_distance: Option<f32>,
         _search_params: Option<Vec<(String, String)>>,
     ) -> Result<Vec<SearchResult>, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         Self::validate_config()?;
@@ -767,6 +814,8 @@ impl SearchGuest for PineconeComponent {
             None,
         )
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Err(unsupported_feature("Pinecone provider not implemented"))
     }
 
@@ -777,7 +826,10 @@ impl SearchGuest for PineconeComponent {
         _namespace: Option<String>,
     ) -> Result<Vec<SearchResult>, VectorError> {
         Err(unsupported_feature("Pinecone provider not implemented"))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn batch_search(
@@ -791,6 +843,7 @@ impl SearchGuest for PineconeComponent {
         _search_params: Option<Vec<(String, String)>>,
     ) -> Result<Vec<Vec<SearchResult>>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature(
             "Batch search not yet implemented for Pinecone",
@@ -800,12 +853,17 @@ impl SearchGuest for PineconeComponent {
 
 // -------------------- search-extended -----------------------
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Err(unsupported_feature("Pinecone provider not implemented"))
     }
 }
 
 // -------------------- search extended ----------------------
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 impl SearchExtendedGuest for PineconeComponent {
     fn recommend_vectors(
         _collection: String,
@@ -819,20 +877,28 @@ impl SearchExtendedGuest for PineconeComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature("Recommendations not supported by Pinecone"))
 =======
         Err(unsupported_feature("Pinecone provider not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Pinecone provider not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn discover_vectors(
         _collection: String,
 <<<<<<< HEAD
+<<<<<<< HEAD
         _context_pairs: Vec<ContextPair>,
 =======
         _context_pairs: Vec<golem_vector::exports::golem::vector::search_extended::ContextPair>,
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        _context_pairs: Vec<golem_vector::exports::golem::vector::search_extended::ContextPair>,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _limit: u32,
         _filter: Option<FilterExpression>,
         _namespace: Option<String>,
@@ -840,11 +906,15 @@ impl SearchExtendedGuest for PineconeComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature("Discovery not supported by Pinecone"))
 =======
         Err(unsupported_feature("Pinecone provider not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Pinecone provider not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn search_groups(
@@ -859,11 +929,15 @@ impl SearchExtendedGuest for PineconeComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<GroupedSearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature("Grouped search not supported by Pinecone"))
 =======
         Err(unsupported_feature("Pinecone provider not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Pinecone provider not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn search_range(
@@ -878,11 +952,15 @@ impl SearchExtendedGuest for PineconeComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature("Range search not supported by Pinecone"))
 =======
         Err(unsupported_feature("Pinecone provider not implemented"))
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature("Pinecone provider not implemented"))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn search_text(
@@ -893,6 +971,7 @@ impl SearchExtendedGuest for PineconeComponent {
         _namespace: Option<String>,
     ) -> Result<Vec<SearchResult>, VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature("Text search not supported by Pinecone"))
     }
@@ -900,18 +979,24 @@ impl SearchExtendedGuest for PineconeComponent {
 
 // -------------------- namespaces ----------------------------
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Err(unsupported_feature("Pinecone provider not implemented"))
     }
 }
 
 // -------------------- namespaces ---------------------------
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 impl NamespacesGuest for PineconeComponent {
     fn upsert_namespace(
         _collection: String,
         _namespace: String,
         _metadata: Option<Metadata>,
     ) -> Result<NamespaceInfo, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         Err(unsupported_feature(
@@ -925,18 +1010,24 @@ impl NamespacesGuest for PineconeComponent {
             "Namespace listing not supported by Pinecone API",
         ))
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Err(unsupported_feature("Pinecone provider not implemented"))
     }
 
     fn list_namespaces(_collection: String) -> Result<Vec<NamespaceInfo>, VectorError> {
         Err(unsupported_feature("Pinecone provider not implemented"))
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn get_namespace(
         _collection: String,
         _namespace: String,
     ) -> Result<NamespaceInfo, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         Err(unsupported_feature(
@@ -997,6 +1088,8 @@ impl AnalyticsGuest for PineconeComponent {
 // -------------------- connection ----------------------------
 impl ConnectionGuest for PineconeComponent {
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Err(unsupported_feature("Pinecone provider not implemented"))
     }
 
@@ -1011,7 +1104,10 @@ impl ConnectionGuest for PineconeComponent {
 
 // -------------------- connection ---------------------------
 impl ConnectionGuestImpl for PineconeComponent {
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -1020,23 +1116,30 @@ impl ConnectionGuestImpl for PineconeComponent {
     ) -> Result<(), VectorError> {
         init_logging();
 <<<<<<< HEAD
+<<<<<<< HEAD
         Self::validate_config()?;
         info!("Pinecone connection validated via environment variables");
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Ok(())
     }
 
     fn disconnect() -> Result<(), VectorError> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         debug!("Pinecone disconnect (no persistent connection to close)");
 =======
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Ok(())
     }
 
     fn get_connection_status() -> Result<ConnectionStatus, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         match Self::validate_config() {
@@ -1044,13 +1147,18 @@ impl ConnectionGuestImpl for PineconeComponent {
             Err(_) => Ok(ConnectionStatus::Disconnected),
         }
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Ok(ConnectionStatus {
             connected: false,
             provider: Some("pinecone".into()),
             endpoint: None,
             last_activity: None,
         })
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn test_connection(
@@ -1059,6 +1167,7 @@ impl ConnectionGuestImpl for PineconeComponent {
         _timeout_ms: Option<u32>,
         _options: Option<Metadata>,
     ) -> Result<bool, VectorError> {
+<<<<<<< HEAD
 <<<<<<< HEAD
         init_logging();
         // Test by trying to list indexes
@@ -1081,6 +1190,8 @@ impl ExtendedGuest for PineconeComponent {}
 // Export bindings for the component
 golem_vector::export_bindings!(Component);
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Err(unsupported_feature("Pinecone provider not implemented"))
     }
 }
@@ -1090,4 +1201,7 @@ impl ExtendedGuest for PineconeComponent {}
 type DurablePineconeComponent = DurableVector<PineconeComponent>;
 
 golem_vector::export_vector!(DurablePineconeComponent with_types_in golem_vector);
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da

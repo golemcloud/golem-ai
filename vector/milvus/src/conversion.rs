@@ -3,6 +3,7 @@
 use golem_vector::error::{invalid_vector, unsupported_feature, VectorError};
 use golem_vector::exports::golem::vector::types::{
 <<<<<<< HEAD
+<<<<<<< HEAD
     DistanceMetric, FilterExpression, FilterOperator, FilterValue, Metadata, MetadataValue,
     VectorData, VectorError,
 };
@@ -22,6 +23,8 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
             provider: "Milvus".to_string(),
         }.into()),
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     DistanceMetric, FilterExpression, Metadata, MetadataValue, VectorData,
 };
 use serde_json::{json, Value};
@@ -34,7 +37,10 @@ pub fn vector_data_to_dense(v: VectorData) -> Result<Vec<f32>, VectorError> {
         _ => Err(invalid_vector(
             "Milvus currently supports only dense vectors",
         )),
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -68,6 +74,7 @@ fn metadata_value_to_json(v: MetadataValue) -> Value {
     }
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 /// Convert distance metric to Milvus metric type with validation
 pub fn metric_to_milvus(metric: DistanceMetric) -> Result<&'static str, VectorError> {
@@ -111,6 +118,8 @@ fn convert_filter_expression(expr: &FilterExpression) -> Result<String, VectorEr
 
 fn build_expr(expr: &FilterExpression) -> Result<String, VectorError> {
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 /// Maps distance metric to Milvus metric string.
 pub fn metric_to_milvus(metric: DistanceMetric) -> &'static str {
     match metric {
@@ -129,7 +138,10 @@ pub fn filter_expression_to_milvus(expr: Option<FilterExpression>) -> Option<Str
 }
 
 fn build_expr(expr: &FilterExpression) -> String {
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     use golem_vector::exports::golem::vector::types::{FilterCondition, FilterOperator};
     match expr {
         FilterExpression::Condition(FilterCondition {
@@ -138,6 +150,7 @@ fn build_expr(expr: &FilterExpression) -> String {
             value,
         }) => {
             match operator {
+<<<<<<< HEAD
 <<<<<<< HEAD
                 FilterOperator::Eq => Ok(format!("{} == {}", field, literal(value)?)),
                 FilterOperator::Gt => Ok(format!("{} > {}", field, literal(value)?)),
@@ -222,6 +235,8 @@ fn list_literal(v: &MetadataValue) -> Result<String, VectorError> {
         }
         _ => Err(ConversionError::ValidationFailed("Value must be array or list for IN operation".to_string()).into()),
 =======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
                 FilterOperator::Eq => format!("{} == {}", field, literal(value)),
                 FilterOperator::In => format!("{} in {}", field, list_literal(value)),
                 _ => "".into(), // unsupported
@@ -254,6 +269,9 @@ fn list_literal(v: &MetadataValue) -> String {
             format!("[{}]", items.join(", "))
         }
         _ => "[]".into(),
+<<<<<<< HEAD
 >>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
