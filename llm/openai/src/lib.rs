@@ -58,11 +58,11 @@ impl LlmChatStreamState for OpenAIChatStream {
         *self.finished.borrow_mut() = true;
     }
 
-    fn stream(&self) -> Ref<Option<EventSource>> {
+    fn stream(&self) -> Ref<'_, Option<EventSource>> {
         self.stream.borrow()
     }
 
-    fn stream_mut(&self) -> RefMut<Option<EventSource>> {
+    fn stream_mut(&self) -> RefMut<'_, Option<EventSource>> {
         self.stream.borrow_mut()
     }
 

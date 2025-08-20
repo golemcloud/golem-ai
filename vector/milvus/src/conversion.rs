@@ -1,7 +1,8 @@
 //! Conversion helpers for Milvus provider.
 
 use golem_vector::exports::golem::vector::types::{
-    DistanceMetric, FilterExpression, Metadata, MetadataValue, VectorData, VectorError,
+    DistanceMetric, FilterExpression, FilterOperator, FilterValue, Metadata, MetadataValue,
+    VectorData, VectorError,
 };
 use golem_vector::conversion_errors::{validate_vector_dimension, ConversionError};
 use serde_json::Value;
@@ -18,6 +19,25 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
             metric: "sparse vectors".to_string(),
             provider: "Milvus".to_string(),
         }.into()),
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+    DistanceMetric, FilterExpression, Metadata, MetadataValue, VectorData,
+};
+use serde_json::{json, Value};
+use std::collections::HashMap;
+
+/// Converts `VectorData` into a dense `Vec<f32>` compatible with Milvus.
+pub fn vector_data_to_dense(v: VectorData) -> Result<Vec<f32>, VectorError> {
+    match v {
+        VectorData::Dense(d) => Ok(d),
+        _ => Err(invalid_vector(
+            "Milvus currently supports only dense vectors",
+        )),
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -51,8 +71,8 @@ fn metadata_value_to_json(v: MetadataValue) -> Value {
     }
 }
 
-/// Convert distance metric to Milvus metric type
-pub fn metric_to_milvus(metric: DistanceMetric) -> &'static str {
+/// Convert distance metric to Milvus metric type with validation
+pub fn metric_to_milvus(metric: DistanceMetric) -> Result<&'static str, VectorError> {
     match metric {
         DistanceMetric::Cosine => "COSINE",
         DistanceMetric::Euclidean => "L2",
@@ -74,19 +94,23 @@ pub fn filter_expression_to_milvus(expr: Option<FilterExpression>) -> Option<Str
     build_expr(&expr)
 }
 
-fn build_expr(expr: &FilterExpression) -> Option<String> {
+fn build_expr(expr: &FilterExpression) -> Result<String, VectorError> {
     use golem_vector::exports::golem::vector::types::{FilterCondition, FilterOperator};
     match expr {
         FilterExpression::Condition(FilterCondition { field, operator, value }) => {
             match operator {
-                FilterOperator::Eq => literal(value).map(|v| format!("{} == {}", field, v)),
-                FilterOperator::Gt => literal(value).map(|v| format!("{} > {}", field, v)),
-                FilterOperator::Gte => literal(value).map(|v| format!("{} >= {}", field, v)),
-                FilterOperator::Lt => literal(value).map(|v| format!("{} < {}", field, v)),
-                FilterOperator::Lte => literal(value).map(|v| format!("{} <= {}", field, v)),
-                FilterOperator::In => list_literal(value).map(|v| format!("{} in {}", field, v)),
-                FilterOperator::Nin | FilterOperator::NotIn => list_literal(value).map(|v| format!("!({} in {})", field, v)),
-                _ => None,
+                FilterOperator::Eq => Ok(format!("{} == {}", field, literal(value)?)),
+                FilterOperator::Gt => Ok(format!("{} > {}", field, literal(value)?)),
+                FilterOperator::Gte => Ok(format!("{} >= {}", field, literal(value)?)),
+                FilterOperator::Lt => Ok(format!("{} < {}", field, literal(value)?)),
+                FilterOperator::Lte => Ok(format!("{} <= {}", field, literal(value)?)),
+                FilterOperator::In => Ok(format!("{} in {}", field, list_literal(value)?)),
+                FilterOperator::Nin => Ok(format!("!({} in {})", field, list_literal(value)?)),
+                FilterOperator::NotIn => Ok(format!("!({} in {})", field, list_literal(value)?)),
+                _ => Err(ConversionError::UnsupportedFilterOperator {
+                    operator: format!("{:?}", operator),
+                    provider: "Milvus".to_string(),
+                }.into()),
             }
         }
         FilterExpression::And(list) => {
@@ -137,6 +161,6 @@ fn list_literal(v: &MetadataValue) -> Option<String> {
             }
             if items.is_empty() { None } else { Some(format!("[{}]", items.join(", "))) }
         }
-        _ => None,
+        _ => Err(ConversionError::ValidationFailed("Value must be array or list for IN operation".to_string()).into()),
     }
 }

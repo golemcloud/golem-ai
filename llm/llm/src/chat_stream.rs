@@ -8,8 +8,8 @@ pub trait LlmChatStreamState: 'static {
     fn failure(&self) -> &Option<Error>;
     fn is_finished(&self) -> bool;
     fn set_finished(&self);
-    fn stream(&self) -> Ref<Option<EventSource>>;
-    fn stream_mut(&self) -> RefMut<Option<EventSource>>;
+    fn stream(&self) -> Ref<'_, Option<EventSource>>;
+    fn stream_mut(&self) -> RefMut<'_, Option<EventSource>>;
     fn decode_message(&self, raw: &str) -> Result<Option<StreamEvent>, String>;
 }
 

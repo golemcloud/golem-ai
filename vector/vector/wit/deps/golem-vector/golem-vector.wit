@@ -65,6 +65,8 @@ interface types {
         /// Jaccard distance (for binary/sparse vectors)
         jaccard,
     }
+<<<<<<< HEAD
+<<<<<<< HEAD
 
 
     /// A metadata value with an ID and kind
@@ -100,6 +102,30 @@ interface types {
         value: metadata-value,
     }
 
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+    
+    /// Metadata value types
+    variant metadata-value {
+        string-val(string),
+        number-val(f64),
+        integer-val(s64),
+        boolean-val(bool),
+        array-val(list<metadata-value>),
+        object-val(list<tuple<string, metadata-value>>),
+        null-val,
+        /// Geographic coordinates
+        geo-val(geo-coordinates),
+        /// ISO 8601 datetime string
+        datetime-val(string),
+        /// Binary data
+        blob-val(list<u8>),
+    }
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     
     /// Geographic coordinates
     record geo-coordinates {
@@ -149,6 +175,8 @@ interface types {
         /// Value to compare against
         value: metadata-value,
     }
+<<<<<<< HEAD
+<<<<<<< HEAD
 
     /// Unique ID for each filter expression
     type filter-id = u64;
@@ -197,6 +225,25 @@ interface types {
         multi-vector(list<tuple<string, vector-data>>),
     }
 
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+    
+    /// Complex filter expressions with boolean logic
+    variant filter-expression {
+        /// Simple condition
+        condition(filter-condition),
+        /// Logical AND of multiple expressions
+        and(list<filter-expression>),
+        /// Logical OR of multiple expressions
+        or(list<filter-expression>),
+        /// Logical NOT of expression
+        not(filter-expression),
+    }
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     
     /// Vector record for storage operations
     record vector-record {
@@ -250,7 +297,15 @@ interface types {
 
 /// Collection/index management and configuration
 interface collections {
+<<<<<<< HEAD
+<<<<<<< HEAD
     use types.{id, distance-metric, vector-error, metadata, metadata-value};
+=======
+    use types.{id, distance-metric, vector-error};
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    use types.{id, distance-metric, vector-error};
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     
     /// Index configuration parameters
     record index-config {
@@ -269,9 +324,21 @@ interface collections {
         index-ready: bool,
         created-at: option<u64>,
         updated-at: option<u64>,
+<<<<<<< HEAD
+<<<<<<< HEAD
         provider-stats: option<metadata-value>,
     }
 
+=======
+        provider-stats: option<types.metadata>,
+    }
+    
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        provider-stats: option<types.metadata>,
+    }
+    
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     /// Create or update collection (upsert)
     upsert-collection: func(
         name: string,
@@ -279,7 +346,15 @@ interface collections {
         dimension: u32,
         metric: distance-metric,
         index-config: option<index-config>,
+<<<<<<< HEAD
+<<<<<<< HEAD
         metadata: option<metadata>
+=======
+        metadata: option<types.metadata>
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        metadata: option<types.metadata>
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     ) -> result<collection-info, vector-error>;
     
     /// List all collections
@@ -292,7 +367,15 @@ interface collections {
     update-collection: func(
         name: string,
         description: option<string>,
+<<<<<<< HEAD
+<<<<<<< HEAD
         metadata: option<metadata>
+=======
+        metadata: option<types.metadata>
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        metadata: option<types.metadata>
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     ) -> result<collection-info, vector-error>;
     
     /// Delete collection and all vectors
@@ -377,7 +460,20 @@ interface vectors {
     ) -> result<u32, vector-error>;
     
     /// Delete all vectors in namespace
+<<<<<<< HEAD
+<<<<<<< HEAD
     // Note: delete-namespace is defined in the `namespaces` interface.
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+    delete-namespace: func(
+        collection: string,
+        namespace: string
+    ) -> result<u32, vector-error>;
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     
     /// List vectors with filtering and pagination
     list-vectors: func(
@@ -400,7 +496,24 @@ interface vectors {
 
 /// Core similarity search operations
 interface search {
+<<<<<<< HEAD
+<<<<<<< HEAD
     use types.{id, vector-data, search-result, filter-expression, vector-error, search-query};
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+    use types.{id, vector-data, search-result, filter-expression, vector-error};
+    
+    /// Search query variants
+    variant search-query {
+        vector(vector-data),
+        by-id(id),
+        multi-vector(list<tuple<string, vector-data>>),
+    }
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     
     /// Similarity search
     search-vectors: func(
@@ -439,7 +552,15 @@ interface search {
 
 /// Extended search capabilities (provider-dependent)
 interface search-extended {
+<<<<<<< HEAD
+<<<<<<< HEAD
     use types.{id, vector-data, search-result, filter-expression, vector-error, metadata-value, search-query};
+=======
+    use types.{id, vector-data, search-result, filter-expression, vector-error, metadata-value};
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    use types.{id, vector-data, search-result, filter-expression, vector-error, metadata-value};
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     
     /// Recommendation example types
     variant recommendation-example {
@@ -493,7 +614,15 @@ interface search-extended {
     /// Grouped search for diverse results
     search-groups: func(
         collection: string,
+<<<<<<< HEAD
+<<<<<<< HEAD
         query: search-query,
+=======
+        query: search.search-query,
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        query: search.search-query,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         group-by: string,
         group-size: u32,
         max-groups: u32,

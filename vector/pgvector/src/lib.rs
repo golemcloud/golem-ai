@@ -1,8 +1,20 @@
 //! PgVector provider component
 //!
+<<<<<<< HEAD
+<<<<<<< HEAD
 //! Production-ready PostgreSQL with pgvector extension provider for Golem Vector.
 //! Implements comprehensive vector operations, collection management, and search 
 //! functionality with robust error handling and logging.
+=======
+//! This component bridges the synchronous `PgvectorClient` to the Golem Vector
+//! WIT interfaces. Only a subset of operations is functional for now; all
+//! others return `unsupported_feature`.
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+//! This component bridges the synchronous `PgvectorClient` to the Golem Vector
+//! WIT interfaces. Only a subset of operations is functional for now; all
+//! others return `unsupported_feature`.
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 mod bindings;
 mod client;
@@ -10,23 +22,49 @@ mod conversion;
 
 use crate::client::PgvectorClient;
 use crate::conversion::*;
+<<<<<<< HEAD
+<<<<<<< HEAD
 use golem_vector::durability::ExtendedGuest;
 use golem_vector::error::{unsupported_feature_with_context, VectorError};
 use golem_vector::exports::golem::vector::analytics::{
     CollectionStats, FieldStats, Guest as AnalyticsGuest,
 };
+=======
+use golem_vector::durability::{DurableVector, ExtendedGuest};
+use golem_vector::error::{unsupported_feature, VectorError};
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+use golem_vector::durability::{DurableVector, ExtendedGuest};
+use golem_vector::error::{unsupported_feature, VectorError};
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 use golem_vector::exports::golem::vector::collections::{
     CollectionInfo, Guest as CollectionsGuest, IndexConfig,
 };
 use golem_vector::exports::golem::vector::connection::{
+<<<<<<< HEAD
+<<<<<<< HEAD
     ConnectionStatus, Credentials, Guest as ConnectionGuest,
+=======
+    ConnectionStatus, Credentials, Guest as ConnectionGuestImpl,
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    ConnectionStatus, Credentials, Guest as ConnectionGuestImpl,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 };
 use golem_vector::exports::golem::vector::namespaces::{Guest as NamespacesGuest, NamespaceInfo};
 use golem_vector::exports::golem::vector::search::{
     Guest as SearchGuest, SearchQuery as SearchQueryEnum, SearchResult,
 };
 use golem_vector::exports::golem::vector::search_extended::{
+<<<<<<< HEAD
+<<<<<<< HEAD
     ContextPair, GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
+=======
+    GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     RecommendationStrategy,
 };
 use golem_vector::exports::golem::vector::types::*;
@@ -34,6 +72,8 @@ use golem_vector::exports::golem::vector::vectors::{
     BatchResult, Guest as VectorsGuest, ListResponse, VectorRecord,
 };
 use golem_vector::init_logging;
+<<<<<<< HEAD
+<<<<<<< HEAD
 use log::{debug, error, info, warn};
 use std::env;
 
@@ -108,20 +148,54 @@ impl AnalyticsGuest for Component {
         Err(unsupported_feature_with_context(
             "Field distribution not yet implemented",
         ))
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+
+struct PgvectorComponent;
+
+impl PgvectorComponent {
+    const URL_ENV: &'static str = "PGVECTOR_URL";
+
+    fn create_client() -> PgvectorClient {
+        let url = std::env::var(Self::URL_ENV)
+            .unwrap_or_else(|_| "postgres://postgres@localhost:5432/postgres".to_string());
+        PgvectorClient::new(url)
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
 // -------------------- collections ---------------------------
+<<<<<<< HEAD
+<<<<<<< HEAD
 impl CollectionsGuest for Component {
     fn upsert_collection(
         name: String,
         description: Option<String>,
         dimension: u32,
         metric: DistanceMetric,
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+impl CollectionsGuest for PgvectorComponent {
+    fn upsert_collection(
+        name: String,
+        _description: Option<String>,
+        dimension: u32,
+        _metric: DistanceMetric,
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _index_config: Option<IndexConfig>,
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
         init_logging();
+<<<<<<< HEAD
+<<<<<<< HEAD
         Self::validate_config()?;
         
         info!(
@@ -157,10 +231,33 @@ impl CollectionsGuest for Component {
                 Err(e)
             }
         }
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let mut client = Self::create_client();
+        client.create_collection(&name, dimension)?;
+        Ok(CollectionInfo {
+            name,
+            description: None,
+            dimension,
+            metric: DistanceMetric::Cosine,
+            vector_count: 0,
+            size_bytes: None,
+            index_ready: true,
+            created_at: None,
+            updated_at: None,
+            provider_stats: None,
+        })
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn list_collections() -> Result<Vec<CollectionInfo>, VectorError> {
         init_logging();
+<<<<<<< HEAD
+<<<<<<< HEAD
         Self::validate_config()?;
         
         debug!("Listing pgvector collections");
@@ -230,10 +327,53 @@ impl CollectionsGuest for Component {
         
         debug!("Updated collection metadata (description only)");
         Ok(existing)
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let mut client = Self::create_client();
+        client
+            .list_collections()?
+            .into_iter()
+            .map(|name| CollectionInfo {
+                name,
+                description: None,
+                dimension: 0,
+                metric: DistanceMetric::Cosine,
+                vector_count: 0,
+                size_bytes: None,
+                index_ready: true,
+                created_at: None,
+                updated_at: None,
+                provider_stats: None,
+            })
+            .collect::<Vec<_>>()
+            .into()
+    }
+
+    fn get_collection(_name: String) -> Result<CollectionInfo, VectorError> {
+        Err(unsupported_feature(
+            "get_collection not implemented for pgvector",
+        ))
+    }
+
+    fn update_collection(
+        _name: String,
+        _description: Option<String>,
+        _metadata: Option<Metadata>,
+    ) -> Result<CollectionInfo, VectorError> {
+        Err(unsupported_feature(
+            "update_collection not implemented for pgvector",
+        ))
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn delete_collection(name: String) -> Result<(), VectorError> {
         init_logging();
+<<<<<<< HEAD
+<<<<<<< HEAD
         Self::validate_config()?;
         
         info!("Deleting pgvector collection '{}'", name);
@@ -268,17 +408,40 @@ impl CollectionsGuest for Component {
                 Err(e)
             }
         }
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let mut client = Self::create_client();
+        client.delete_collection(&name)
+    }
+
+    fn collection_exists(name: String) -> Result<bool, VectorError> {
+        Self::list_collections().map(|list| list.iter().any(|c| c.name == name))
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
 // -------------------- vectors -------------------------------
+<<<<<<< HEAD
+<<<<<<< HEAD
 impl VectorsGuest for Component {
+=======
+impl VectorsGuest for PgvectorComponent {
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+impl VectorsGuest for PgvectorComponent {
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn upsert_vectors(
         collection: String,
         vectors: Vec<VectorRecord>,
         namespace: Option<String>,
     ) -> Result<BatchResult, VectorError> {
         init_logging();
+<<<<<<< HEAD
+<<<<<<< HEAD
         Self::validate_config()?;
         
         if vectors.is_empty() {
@@ -589,24 +752,139 @@ impl VectorsGuest for Component {
                 Err(e)
             }
         }
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let mut client = Self::create_client();
+        client.upsert_vectors(&collection, vectors.clone(), namespace)?;
+        Ok(BatchResult {
+            success_count: vectors.len() as u32,
+            failure_count: 0,
+            errors: vec![],
+        })
+    }
+
+    fn upsert_vector(
+        _collection: String,
+        _id: String,
+        _vector: VectorData,
+        _metadata: Option<Metadata>,
+        _namespace: Option<String>,
+    ) -> Result<(), VectorError> {
+        Err(unsupported_feature(
+            "Single-vector upsert not implemented for pgvector",
+        ))
+    }
+
+    fn get_vectors(
+        _collection: String,
+        _ids: Vec<String>,
+        _namespace: Option<String>,
+        _include_vectors: Option<bool>,
+        _include_metadata: Option<bool>,
+    ) -> Result<Vec<VectorRecord>, VectorError> {
+        Err(unsupported_feature(
+            "get_vectors not implemented for pgvector",
+        ))
+    }
+
+    fn get_vector(
+        _collection: String,
+        _id: String,
+        _namespace: Option<String>,
+    ) -> Result<Option<VectorRecord>, VectorError> {
+        Err(unsupported_feature(
+            "get_vector not implemented for pgvector",
+        ))
+    }
+
+    fn update_vector(
+        _collection: String,
+        _id: String,
+        _vector: Option<VectorData>,
+        _metadata: Option<Metadata>,
+        _namespace: Option<String>,
+        _merge_metadata: Option<bool>,
+    ) -> Result<(), VectorError> {
+        Err(unsupported_feature(
+            "update_vector not implemented for pgvector",
+        ))
+    }
+
+    fn delete_vectors(
+        _collection: String,
+        _ids: Vec<String>,
+        _namespace: Option<String>,
+    ) -> Result<u32, VectorError> {
+        Err(unsupported_feature(
+            "delete_vectors not implemented for pgvector",
+        ))
+    }
+
+    fn delete_by_filter(
+        _collection: String,
+        _filter: FilterExpression,
+        _namespace: Option<String>,
+    ) -> Result<u32, VectorError> {
+        Err(unsupported_feature(
+            "delete_by_filter not implemented for pgvector",
+        ))
+    }
+
+    fn list_vectors(
+        _collection: String,
+        _namespace: Option<String>,
+        _filter: Option<FilterExpression>,
+        _limit: Option<u32>,
+        _cursor: Option<String>,
+        _include_vectors: Option<bool>,
+        _include_metadata: Option<bool>,
+    ) -> Result<ListResponse, VectorError> {
+        Err(unsupported_feature(
+            "list_vectors not implemented for pgvector",
+        ))
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
 // -------------------- search --------------------------------
+<<<<<<< HEAD
+<<<<<<< HEAD
 impl SearchGuest for Component {
+=======
+impl SearchGuest for PgvectorComponent {
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+impl SearchGuest for PgvectorComponent {
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn search_vectors(
         collection: String,
         query: SearchQueryEnum,
         limit: u32,
         filter: Option<FilterExpression>,
         _namespace: Option<String>,
+<<<<<<< HEAD
+<<<<<<< HEAD
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
+=======
+        _include_vectors: Option<bool>,
+        _include_metadata: Option<bool>,
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        _include_vectors: Option<bool>,
+        _include_metadata: Option<bool>,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _min_score: Option<f32>,
         _max_distance: Option<f32>,
         _search_params: Option<Vec<(String, String)>>,
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
+<<<<<<< HEAD
+<<<<<<< HEAD
         Self::validate_config()?;
         
         debug!(
@@ -731,6 +1009,35 @@ impl SearchGuest for Component {
 
 // -------------------- search extended ----------------------
 impl SearchExtendedGuest for Component {
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let mut client = Self::create_client();
+        let vector = match query {
+            SearchQueryEnum::Vector(v) => vector_data_to_dense(v)?,
+            _ => return Err(unsupported_feature("Only vector queries supported")),
+        };
+        let filt_sql = filter_expression_to_sql(filter);
+        let metric = DistanceMetric::Cosine; // TODO derive from collection metadata
+        let results = client.query_vectors(&collection, vector, metric, limit, filt_sql)?;
+        Ok(results
+            .into_iter()
+            .map(|(id, distance, maybe_vec)| SearchResult {
+                id,
+                score: 0.0,
+                distance,
+                vector: maybe_vec.map(VectorData::Dense),
+                metadata: None,
+            })
+            .collect())
+    }
+}
+
+impl SearchExtendedGuest for PgvectorComponent {
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn search_groups(
         _collection: String,
         _query: SearchQueryEnum,
@@ -742,9 +1049,19 @@ impl SearchExtendedGuest for Component {
         _include_vectors: Option<bool>,
         _include_metadata: Option<bool>,
     ) -> Result<Vec<GroupedSearchResult>, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context(
             "Grouped search not supported by pgvector",
+=======
+        Err(unsupported_feature(
+            "Group search not implemented for pgvector",
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature(
+            "Group search not implemented for pgvector",
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         ))
     }
 
@@ -759,24 +1076,52 @@ impl SearchExtendedGuest for Component {
         _include_vectors: Option<bool>,
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context(
             "Recommendations not supported by pgvector",
+=======
+        Err(unsupported_feature(
+            "recommend_vectors not implemented for pgvector",
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature(
+            "recommend_vectors not implemented for pgvector",
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         ))
     }
 
     fn discover_vectors(
         _collection: String,
+<<<<<<< HEAD
+<<<<<<< HEAD
         _context_pairs: Vec<ContextPair>,
+=======
+        _context_pairs: Vec<golem_vector::exports::golem::vector::search_extended::ContextPair>,
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        _context_pairs: Vec<golem_vector::exports::golem::vector::search_extended::ContextPair>,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _limit: u32,
         _filter: Option<FilterExpression>,
         _namespace: Option<String>,
         _include_vectors: Option<bool>,
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context(
             "Discovery not supported by pgvector",
+=======
+        Err(unsupported_feature(
+            "discover_vectors not implemented for pgvector",
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature(
+            "discover_vectors not implemented for pgvector",
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         ))
     }
 
@@ -791,6 +1136,8 @@ impl SearchExtendedGuest for Component {
         _include_vectors: Option<bool>,
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context(
             "Range search not supported by pgvector",
@@ -807,17 +1154,35 @@ impl SearchExtendedGuest for Component {
         init_logging();
         Err(unsupported_feature_with_context(
             "Text search not supported by pgvector",
+=======
+        Err(unsupported_feature(
+            "search_range not implemented for pgvector",
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature(
+            "search_range not implemented for pgvector",
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         ))
     }
 }
 
 // -------------------- namespaces ---------------------------
+<<<<<<< HEAD
+<<<<<<< HEAD
 impl NamespacesGuest for Component {
+=======
+impl NamespacesGuest for PgvectorComponent {
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+impl NamespacesGuest for PgvectorComponent {
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn upsert_namespace(
         _collection: String,
         _namespace: String,
         _metadata: Option<Metadata>,
     ) -> Result<NamespaceInfo, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context(
             "Namespace management not supported by pgvector",
@@ -829,12 +1194,26 @@ impl NamespacesGuest for Component {
         Err(unsupported_feature_with_context(
             "Namespace listing not supported by pgvector",
         ))
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        Err(unsupported_feature("Namespaces not supported by pgvector"))
+    }
+
+    fn list_namespaces(_collection: String) -> Result<Vec<NamespaceInfo>, VectorError> {
+        Err(unsupported_feature("Namespaces not supported by pgvector"))
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn get_namespace(
         _collection: String,
         _namespace: String,
     ) -> Result<NamespaceInfo, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context(
             "Namespace info not supported by pgvector",
@@ -852,24 +1231,58 @@ impl NamespacesGuest for Component {
         init_logging();
         // pgvector uses table-based namespaces which are handled differently
         Ok(false)
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        Err(unsupported_feature("Namespaces not supported by pgvector"))
+    }
+
+    fn delete_namespace(_collection: String, _namespace: String) -> Result<(), VectorError> {
+        Err(unsupported_feature("Namespaces not supported by pgvector"))
+    }
+
+    fn namespace_exists(_collection: String, _namespace: String) -> Result<bool, VectorError> {
+        Err(unsupported_feature("Namespaces not supported by pgvector"))
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
 // -------------------- connection ---------------------------
+<<<<<<< HEAD
+<<<<<<< HEAD
 impl ConnectionGuest for Component {
+=======
+impl ConnectionGuestImpl for PgvectorComponent {
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+impl ConnectionGuestImpl for PgvectorComponent {
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
         _timeout_ms: Option<u32>,
         _options: Option<Metadata>,
     ) -> Result<(), VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Self::validate_config()?;
         info!("PgVector connection validated via environment variables");
+=======
+        // Connection is established on-demand; nothing to do here.
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        // Connection is established on-demand; nothing to do here.
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Ok(())
     }
 
     fn disconnect() -> Result<(), VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         debug!("PgVector disconnect (connections are managed per-request)");
         Ok(())
@@ -883,12 +1296,24 @@ impl ConnectionGuest for Component {
         }
     }
 
+=======
+        Ok(())
+    }
+
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Ok(())
+    }
+
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn test_connection(
         endpoint: String,
         _credentials: Option<Credentials>,
         _timeout_ms: Option<u32>,
         _options: Option<Metadata>,
     ) -> Result<bool, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         
         debug!("Testing PgVector connection with custom endpoint");
@@ -912,3 +1337,29 @@ impl ExtendedGuest for Component {}
 
 // Export bindings for the component
 golem_vector::export_bindings!(Component);
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let _ = PgvectorClient::new(endpoint);
+        Ok(true) // if constructor succeeded
+    }
+
+    fn get_connection_status() -> Result<ConnectionStatus, VectorError> {
+        Ok(ConnectionStatus {
+            connected: true,
+            provider: Some("pgvector".into()),
+            endpoint: std::env::var(Self::URL_ENV).ok(),
+            last_activity: None,
+        })
+    }
+}
+
+impl ExtendedGuest for PgvectorComponent {}
+
+type DurablePgvectorComponent = DurableVector<PgvectorComponent>;
+
+golem_vector::export_vector!(DurablePgvectorComponent with_types_in golem_vector);
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da

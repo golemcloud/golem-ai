@@ -23,7 +23,13 @@ reqwest = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 wit-bindgen-rt = { workspace = true }
+<<<<<<< HEAD
+<<<<<<< HEAD
 base64 = { workspace = true }
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 [package.metadata.component]
 package = "golem:vector-qdrant"

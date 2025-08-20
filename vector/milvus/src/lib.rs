@@ -1,3 +1,5 @@
+<<<<<<< HEAD
+<<<<<<< HEAD
 //! Production-ready Milvus vector database provider for Golem.
 //!
 //! This provider implements the full `golem:vector` WIT interface for Milvus,
@@ -15,30 +17,70 @@
 //!
 //! Optional:
 //! - `GOLEM_VECTOR_LOG=trace`: Enable detailed logging
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+//! Milvus provider component implementation.
+//!
+//! A minimal but functional scaffold mirroring the pattern used by Qdrant and
+//! Pinecone providers. Unsupported operations return `unsupported_feature` for
+//! now.
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 mod bindings;
 mod client;
 mod conversion;
 
+<<<<<<< HEAD
+<<<<<<< HEAD
 use log::{debug, error, info, warn};
 
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 use crate::client::MilvusClient;
 use crate::conversion::*;
 use golem_vector::durability::{DurableVector, ExtendedGuest};
 use golem_vector::error::{unsupported_feature, VectorError};
+<<<<<<< HEAD
+<<<<<<< HEAD
 use golem_vector::exports::golem::vector::analytics::{CollectionStats, FieldStats, Guest as AnalyticsGuest};
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 use golem_vector::exports::golem::vector::collections::{
     CollectionInfo, Guest as CollectionsGuest, IndexConfig,
 };
 use golem_vector::exports::golem::vector::connection::{
+<<<<<<< HEAD
+<<<<<<< HEAD
     ConnectionStatus, Credentials, Guest as ConnectionGuest,
+=======
+    ConnectionStatus, Credentials, Guest as ConnectionGuestImpl,
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    ConnectionStatus, Credentials, Guest as ConnectionGuestImpl,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 };
 use golem_vector::exports::golem::vector::namespaces::{Guest as NamespacesGuest, NamespaceInfo};
 use golem_vector::exports::golem::vector::search::{
     Guest as SearchGuest, SearchQuery as SearchQueryEnum, SearchResult,
 };
 use golem_vector::exports::golem::vector::search_extended::{
+<<<<<<< HEAD
+<<<<<<< HEAD
     ContextPair, GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
+=======
+    GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+    GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     RecommendationStrategy,
 };
 use golem_vector::exports::golem::vector::types::*;
@@ -47,6 +89,8 @@ use golem_vector::exports::golem::vector::vectors::{
 };
 use golem_vector::init_logging;
 
+<<<<<<< HEAD
+<<<<<<< HEAD
 // Export the durability wrapper as the component
 pub use golem_vector::durability::DurableVector as Component;
 
@@ -62,11 +106,19 @@ fn unsupported_feature_with_context(feature: &str) -> VectorError {
 fn init_logging() {
     golem_vector::init_logging();
 }
+=======
+struct MilvusComponent;
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+struct MilvusComponent;
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 impl MilvusComponent {
     const ENDPOINT_ENV: &'static str = "MILVUS_ENDPOINT";
     const API_KEY_ENV: &'static str = "MILVUS_API_KEY";
 
+<<<<<<< HEAD
+<<<<<<< HEAD
     /// Validate configuration and create client
     fn create_client() -> Result<MilvusClient, VectorError> {
         let endpoint =
@@ -89,6 +141,18 @@ impl MilvusComponent {
             }
         }
         Ok(())
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+    fn create_client() -> MilvusClient {
+        let endpoint =
+            std::env::var(Self::ENDPOINT_ENV).unwrap_or_else(|_| "http://localhost:19530".into());
+        let api_key = std::env::var(Self::API_KEY_ENV).ok();
+        MilvusClient::new(endpoint, api_key)
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -96,13 +160,23 @@ impl MilvusComponent {
 impl CollectionsGuest for MilvusComponent {
     fn upsert_collection(
         name: String,
+<<<<<<< HEAD
+<<<<<<< HEAD
         description: Option<String>,
+=======
+        _description: Option<String>,
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        _description: Option<String>,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         dimension: u32,
         metric: DistanceMetric,
         _index_config: Option<IndexConfig>,
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
         init_logging();
+<<<<<<< HEAD
+<<<<<<< HEAD
         Self::validate_config()?;
         
         info!("Creating Milvus collection: {} with dimension: {}", name, dimension);
@@ -113,6 +187,18 @@ impl CollectionsGuest for MilvusComponent {
         Ok(CollectionInfo {
             name,
             description,
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let client = Self::create_client();
+        client.create_collection(&name, dimension, metric)?;
+        Ok(CollectionInfo {
+            name,
+            description: None,
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
             dimension,
             metric,
             vector_count: 0,
@@ -126,6 +212,8 @@ impl CollectionsGuest for MilvusComponent {
 
     fn list_collections() -> Result<Vec<CollectionInfo>, VectorError> {
         init_logging();
+<<<<<<< HEAD
+<<<<<<< HEAD
         Self::validate_config()?;
         
         debug!("Listing Milvus collections");
@@ -200,6 +288,56 @@ impl CollectionsGuest for MilvusComponent {
             
         debug!("Milvus collection '{}' exists: {}", name, exists);
         Ok(exists)
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let client = Self::create_client();
+        client
+            .list_collections()?
+            .into_iter()
+            .map(|name| CollectionInfo {
+                name,
+                description: None,
+                dimension: 0,
+                metric: DistanceMetric::Cosine,
+                vector_count: 0,
+                size_bytes: None,
+                index_ready: true,
+                created_at: None,
+                updated_at: None,
+                provider_stats: None,
+            })
+            .collect::<Vec<_>>()
+            .into()
+    }
+
+    fn delete_collection(name: String) -> Result<(), VectorError> {
+        let client = Self::create_client();
+        client.delete_collection(&name)
+    }
+
+    fn get_collection(_name: String) -> Result<CollectionInfo, VectorError> {
+        Err(unsupported_feature(
+            "get_collection not implemented for Milvus",
+        ))
+    }
+
+    fn update_collection(
+        _name: String,
+        _description: Option<String>,
+        _metadata: Option<Metadata>,
+    ) -> Result<CollectionInfo, VectorError> {
+        Err(unsupported_feature(
+            "update_collection not implemented for Milvus",
+        ))
+    }
+
+    fn collection_exists(name: String) -> Result<bool, VectorError> {
+        Self::list_collections().map(|list| list.iter().any(|c| c.name == name))
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -211,6 +349,8 @@ impl VectorsGuest for MilvusComponent {
         _namespace: Option<String>,
     ) -> Result<BatchResult, VectorError> {
         init_logging();
+<<<<<<< HEAD
+<<<<<<< HEAD
         Self::validate_config()?;
         
         if vectors.is_empty() {
@@ -388,6 +528,66 @@ impl VectorsGuest for MilvusComponent {
                 ))),
             }
         }
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let client = Self::create_client();
+        client.upsert_vectors(&collection, vectors.clone())?;
+        Ok(BatchResult {
+            success_count: vectors.len() as u32,
+            failure_count: 0,
+            errors: vec![],
+        })
+    }
+
+    // Remaining vector ops unsupported for now
+    fn upsert_vector(
+        _collection: String,
+        _id: String,
+        _vector: VectorData,
+        _metadata: Option<Metadata>,
+        _namespace: Option<String>,
+    ) -> Result<(), VectorError> {
+        Err(unsupported_feature(
+            "Single-vector upsert not implemented for Milvus",
+        ))
+    }
+
+    fn get_vectors(
+        _collection: String,
+        _ids: Vec<String>,
+        _namespace: Option<String>,
+        _include_vectors: Option<bool>,
+        _include_metadata: Option<bool>,
+    ) -> Result<Vec<VectorRecord>, VectorError> {
+        Err(unsupported_feature(
+            "get_vectors not implemented for Milvus",
+        ))
+    }
+
+    fn get_vector(
+        _collection: String,
+        _id: String,
+        _namespace: Option<String>,
+    ) -> Result<Option<VectorRecord>, VectorError> {
+        Err(unsupported_feature("get_vector not implemented for Milvus"))
+    }
+
+    fn update_vector(
+        _collection: String,
+        _id: String,
+        _vector: Option<VectorData>,
+        _metadata: Option<Metadata>,
+        _namespace: Option<String>,
+        _merge_metadata: Option<bool>,
+    ) -> Result<(), VectorError> {
+        Err(unsupported_feature(
+            "update_vector not implemented for Milvus",
+        ))
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn delete_vectors(
@@ -395,10 +595,20 @@ impl VectorsGuest for MilvusComponent {
         _ids: Vec<String>,
         _namespace: Option<String>,
     ) -> Result<u32, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         // Milvus supports delete operations but not implemented in our client yet
         Err(unsupported_feature_with_context(
             "Delete vectors not yet implemented",
+=======
+        Err(unsupported_feature(
+            "delete_vectors not implemented for Milvus",
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature(
+            "delete_vectors not implemented for Milvus",
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         ))
     }
 
@@ -407,10 +617,20 @@ impl VectorsGuest for MilvusComponent {
         _filter: FilterExpression,
         _namespace: Option<String>,
     ) -> Result<u32, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         // Milvus supports filtering but delete by filter is complex
         Err(unsupported_feature_with_context(
             "Delete by filter not yet implemented",
+=======
+        Err(unsupported_feature(
+            "delete_by_filter not implemented for Milvus",
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature(
+            "delete_by_filter not implemented for Milvus",
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         ))
     }
 
@@ -423,6 +643,8 @@ impl VectorsGuest for MilvusComponent {
         _include_vectors: Option<bool>,
         _include_metadata: Option<bool>,
     ) -> Result<ListResponse, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         // Milvus has query/search capabilities but no direct list endpoint
         Err(unsupported_feature_with_context(
@@ -439,6 +661,14 @@ impl VectorsGuest for MilvusComponent {
         // Would need to implement count query with filter
         Err(unsupported_feature_with_context(
             "Count vectors not yet implemented",
+=======
+        Err(unsupported_feature(
+            "list_vectors not implemented for Milvus",
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature(
+            "list_vectors not implemented for Milvus",
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         ))
     }
 }
@@ -451,13 +681,25 @@ impl SearchGuest for MilvusComponent {
         limit: u32,
         filter: Option<FilterExpression>,
         _namespace: Option<String>,
+<<<<<<< HEAD
+<<<<<<< HEAD
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
+=======
+        _include_vectors: Option<bool>,
+        _include_metadata: Option<bool>,
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        _include_vectors: Option<bool>,
+        _include_metadata: Option<bool>,
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         _min_score: Option<f32>,
         _max_distance: Option<f32>,
         _search_params: Option<Vec<(String, String)>>,
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
+<<<<<<< HEAD
+<<<<<<< HEAD
         Self::validate_config()?;
         
         debug!(
@@ -579,6 +821,39 @@ impl SearchExtendedGuest for MilvusComponent {
         Err(unsupported_feature_with_context("Discovery not supported"))
     }
 
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let client = Self::create_client();
+        let vector = match query {
+            SearchQueryEnum::Vector(v) => vector_data_to_dense(v)?,
+            _ => {
+                return Err(unsupported_feature(
+                    "Only vector queries supported for Milvus",
+                ))
+            }
+        };
+        let expr = filter_expression_to_milvus(filter);
+        let metric = DistanceMetric::Cosine; // default
+        let results = client.query_vectors(&collection, vector, metric, limit, expr)?;
+        Ok(results
+            .into_iter()
+            .map(|(id, distance, _)| SearchResult {
+                id,
+                score: 0.0,
+                distance,
+                vector: None,
+                metadata: None,
+            })
+            .collect())
+    }
+}
+
+impl SearchExtendedGuest for MilvusComponent {
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn search_groups(
         _collection: String,
         _query: SearchQueryEnum,
@@ -590,8 +865,50 @@ impl SearchExtendedGuest for MilvusComponent {
         _include_vectors: Option<bool>,
         _include_metadata: Option<bool>,
     ) -> Result<Vec<GroupedSearchResult>, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context("Grouped search not supported"))
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        Err(unsupported_feature(
+            "Group search not implemented for Milvus",
+        ))
+    }
+
+    fn recommend_vectors(
+        _collection: String,
+        _positive: Vec<RecommendationExample>,
+        _negative: Option<Vec<RecommendationExample>>,
+        _limit: u32,
+        _filter: Option<FilterExpression>,
+        _namespace: Option<String>,
+        _strategy: Option<RecommendationStrategy>,
+        _include_vectors: Option<bool>,
+        _include_metadata: Option<bool>,
+    ) -> Result<Vec<SearchResult>, VectorError> {
+        Err(unsupported_feature(
+            "recommend_vectors not implemented for Milvus",
+        ))
+    }
+
+    fn discover_vectors(
+        _collection: String,
+        _context_pairs: Vec<golem_vector::exports::golem::vector::search_extended::ContextPair>,
+        _limit: u32,
+        _filter: Option<FilterExpression>,
+        _namespace: Option<String>,
+        _include_vectors: Option<bool>,
+        _include_metadata: Option<bool>,
+    ) -> Result<Vec<SearchResult>, VectorError> {
+        Err(unsupported_feature(
+            "discover_vectors not implemented for Milvus",
+        ))
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn search_range(
@@ -605,6 +922,8 @@ impl SearchExtendedGuest for MilvusComponent {
         _include_vectors: Option<bool>,
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context("Range search not supported"))
     }
@@ -618,6 +937,16 @@ impl SearchExtendedGuest for MilvusComponent {
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
         Err(unsupported_feature_with_context("Text search not supported"))
+=======
+        Err(unsupported_feature(
+            "search_range not implemented for Milvus",
+        ))
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Err(unsupported_feature(
+            "search_range not implemented for Milvus",
+        ))
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
@@ -628,6 +957,8 @@ impl NamespacesGuest for MilvusComponent {
         _namespace: String,
         _metadata: Option<Metadata>,
     ) -> Result<NamespaceInfo, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context(
             "Namespace management not supported by Milvus API",
@@ -639,12 +970,26 @@ impl NamespacesGuest for MilvusComponent {
         Err(unsupported_feature_with_context(
             "Namespace listing not supported by Milvus API",
         ))
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        Err(unsupported_feature("Namespaces not supported by Milvus"))
+    }
+
+    fn list_namespaces(_collection: String) -> Result<Vec<NamespaceInfo>, VectorError> {
+        Err(unsupported_feature("Namespaces not supported by Milvus"))
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 
     fn get_namespace(
         _collection: String,
         _namespace: String,
     ) -> Result<NamespaceInfo, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Err(unsupported_feature_with_context(
             "Namespace info not supported by Milvus API",
@@ -698,24 +1043,56 @@ impl AnalyticsGuest for MilvusComponent {
         Err(unsupported_feature_with_context(
             "Field distribution not yet implemented",
         ))
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        Err(unsupported_feature("Namespaces not supported by Milvus"))
+    }
+
+    fn delete_namespace(_collection: String, _namespace: String) -> Result<(), VectorError> {
+        Err(unsupported_feature("Namespaces not supported by Milvus"))
+    }
+
+    fn namespace_exists(_collection: String, _namespace: String) -> Result<bool, VectorError> {
+        Err(unsupported_feature("Namespaces not supported by Milvus"))
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     }
 }
 
 // -------------------- connection ---------------------------
+<<<<<<< HEAD
+<<<<<<< HEAD
 impl ConnectionGuest for MilvusComponent {
+=======
+impl ConnectionGuestImpl for MilvusComponent {
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+impl ConnectionGuestImpl for MilvusComponent {
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
         _timeout_ms: Option<u32>,
         _options: Option<Metadata>,
     ) -> Result<(), VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         Self::validate_config()?;
         info!("Milvus connection validated via environment variables");
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
         Ok(())
     }
 
     fn disconnect() -> Result<(), VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         debug!("Milvus disconnect (no persistent connection to close)");
         Ok(())
@@ -729,12 +1106,24 @@ impl ConnectionGuest for MilvusComponent {
         }
     }
 
+=======
+        Ok(())
+    }
+
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+        Ok(())
+    }
+
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     fn test_connection(
         endpoint: String,
         _credentials: Option<Credentials>,
         _timeout_ms: Option<u32>,
         _options: Option<Metadata>,
     ) -> Result<bool, VectorError> {
+<<<<<<< HEAD
+<<<<<<< HEAD
         init_logging();
         let client = MilvusClient::new(endpoint, None);
         
@@ -757,3 +1146,29 @@ impl ExtendedGuest for MilvusComponent {}
 
 // Export bindings for the component
 golem_vector::export_bindings!(Component);
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+        let _ = MilvusClient::new(endpoint, None);
+        Ok(true)
+    }
+
+    fn get_connection_status() -> Result<ConnectionStatus, VectorError> {
+        Ok(ConnectionStatus {
+            connected: true,
+            provider: Some("milvus".into()),
+            endpoint: std::env::var(Self::ENDPOINT_ENV).ok(),
+            last_activity: None,
+        })
+    }
+}
+
+impl ExtendedGuest for MilvusComponent {}
+
+type DurableMilvusComponent = DurableVector<MilvusComponent>;
+
+golem_vector::export_vector!(DurableMilvusComponent with_types_in golem_vector);
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da

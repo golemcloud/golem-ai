@@ -9,7 +9,13 @@ use reqwest::blocking::Client;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+<<<<<<< HEAD
+<<<<<<< HEAD
 use std::time::Duration;
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 
 use golem_vector::exports::golem::vector::types::{
     FilterExpression, VectorData, VectorError, VectorRecord,
@@ -20,8 +26,16 @@ use crate::conversion::{metadata_to_json_map, metric_to_pinecone, vector_data_to
 #[derive(Clone)]
 pub struct PineconeApi {
     http: Client,
+<<<<<<< HEAD
     base_url: String,
     api_key: Option<String>,
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+    controller_endpoint: String,
+    index_host: Option<String>,
+    api_key: String,
+>>>>>>> 54db59b006712dd19266b3696202a3a95d62010a
     timeout: Duration,
     max_retries: u32,
 }
@@ -79,9 +93,38 @@ impl PineconeApi {
     }
 
     fn auth_headers(&self, headers: &mut reqwest::header::HeaderMap) {
+<<<<<<< HEAD
         if let Some(key) = &self.api_key {
             headers.insert("Api-Key", key.parse().unwrap());
         }
+=======
+        headers.insert("Api-Key", self.api_key.parse().unwrap());
+=======
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+    /// Base URL of the Pinecone controller or index service, **without** trailing slash.
+    base_url: String,
+    api_key: Option<String>,
+}
+
+impl PineconeApi {
+    pub fn new(base_url: impl Into<String>, api_key: Option<String>) -> Self {
+        Self {
+            http: Client::new(),
+            base_url: base_url.into().trim_end_matches('/').to_string(),
+            api_key,
+        }
+    }
+
+    fn auth_headers(&self, headers: &mut reqwest::header::HeaderMap) {
+        if let Some(key) = &self.api_key {
+            headers.insert("Api-Key", key.parse().unwrap());
+        }
+<<<<<<< HEAD
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
+>>>>>>> 54db59b006712dd19266b3696202a3a95d62010a
     }
 
     // -------------------------- index management ---------------------------
@@ -214,6 +257,8 @@ impl PineconeApi {
         }
     }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
     pub fn fetch_vectors(
         &self,
         ids: Vec<String>,
@@ -254,6 +299,10 @@ impl PineconeApi {
         }
     }
 
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
     pub fn query(
         &self,
         vector: Vec<f32>,
@@ -307,6 +356,8 @@ impl PineconeApi {
 // ---------------------------- DTOs ----------------------------
 
 #[derive(Deserialize)]
+<<<<<<< HEAD
+<<<<<<< HEAD
 pub struct FetchVector {
     pub id: String,
     #[serde(default)]
@@ -316,6 +367,10 @@ pub struct FetchVector {
 }
 
 #[derive(Deserialize)]
+=======
+>>>>>>> a6364a7537634b59f83c3bc53e389acf5dd86b49
+=======
+>>>>>>> 99fae2e2b91a5f023d76b6603d8b38164ebb18da
 struct QueryResponse {
     matches: Vec<QueryMatch>,
 }

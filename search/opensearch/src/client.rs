@@ -95,6 +95,7 @@ pub struct OpenSearchHit {
     pub highlight: Option<Value>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct OpenSearchBulkOperation {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -107,6 +108,7 @@ pub struct OpenSearchBulkOperation {
     pub delete: Option<OpenSearchBulkAction>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct OpenSearchBulkAction {
     #[serde(rename = "_index")]
