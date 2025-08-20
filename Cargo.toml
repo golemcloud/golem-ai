@@ -6,8 +6,9 @@ members = [
     "llm/bedrock",
     "llm/anthropic",
     "llm/grok",
+
     "llm/ollama",
-    "llm/openai",
+    "llm/openai",h
     "llm/openrouter",
     "websearch/websearch",
     "websearch/brave",

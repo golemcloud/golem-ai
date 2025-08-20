@@ -305,6 +305,7 @@ impl VectorsGuest for PineconeComponent {
                         "Successfully upserted batch {} ({} vectors)",
                         chunk_idx,
                         chunk.len()
+                        chunk.id
                     );
                 }
                 Err(e) => {
