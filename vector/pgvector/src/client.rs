@@ -22,8 +22,8 @@ pub struct PgvectorClient;
 
 #[cfg(target_family = "wasm")]
 impl PgvectorClient {
-    pub fn new(_database_url: String) -> Self {
-        PgvectorClient
+    pub fn new(_database_url: String) -> Result<Self, VectorError> {
+        Ok(PgvectorClient)
     }
 
     fn err<T>() -> Result<T, VectorError> {
@@ -186,7 +186,7 @@ mod native {
         }
 
         // Helper to get a connection from the pool
-        fn get_connection(&self) -> Result<r2d2::PooledConnection<PostgresConnectionManager<NoTls>>, VectorError> {
+        fn get_connection(&self) -> Result<r2d2_postgres::r2d2::PooledConnection<PostgresConnectionManager<NoTls>>, VectorError> {
             self.pool.get().map_err(|e| VectorError::ProviderError(
                 format!("Failed to get database connection: {}", e)
             ))
@@ -242,7 +242,8 @@ mod native {
                 let meta = rec
                     .metadata
                     .map(|m| serde_json::Value::Object(metadata_to_json_map(Some(m))));
-                conn.execute(&sql, &[&rec.id, &dense, &meta])
+                let dense_text = to_vector_text(&dense);
+                conn.execute(&sql, &[&rec.id, &dense_text, &meta])
                     .map_err(to_err)?;
             }
             Ok(())
@@ -264,7 +265,8 @@ mod native {
             // Hold filter values so parameter references remain valid during query execution
             let mut held_filter_values: Vec<String> = Vec::new();
             let mut params: Vec<&(dyn postgres::types::ToSql + Sync)> = Vec::new();
-            params.push(&query);
+            let query_text = to_vector_text(&query);
+            params.push(&query_text);
             if let Some((filter, values)) = filter_sql {
                 sql.push_str(" WHERE ");
                 sql.push_str(&filter);
@@ -275,7 +277,8 @@ mod native {
             }
             sql.push_str(" ORDER BY distance ASC LIMIT ");
             sql.push_str(&limit.to_string());
-            let rows = self.client.query(sql.as_str(), &params).map_err(to_err)?;
+            let mut conn = self.get_connection()?;
+            let rows = conn.query(sql.as_str(), &params).map_err(to_err)?;
             let mut out: Vec<(String, f32, Option<Vec<f32>>)> = Vec::with_capacity(rows.len());
             for row in rows.into_iter() {
                 let id: String = row.get(0);
@@ -346,7 +349,9 @@ mod native {
             );
             let merge_flag = merge_metadata;
             let mut conn = self.get_connection()?;
-            conn.execute(&sql, &[&id, &dense_opt, &meta_json, &merge_flag])
+            // Convert optional vector to optional text for ::vector cast
+            let dense_opt_text: Option<String> = dense_opt.as_ref().map(|v| to_vector_text(v));
+            conn.execute(&sql, &[&id, &dense_opt_text, &meta_json, &merge_flag])
                 .map_err(to_err)?;
             Ok(())
         }
@@ -415,7 +420,8 @@ mod native {
                 params.push(v);
             }
 
-            let rows = self.client.query(sql.as_str(), &params).map_err(to_err)?;
+            let mut conn = self.get_connection()?;
+            let rows = conn.query(sql.as_str(), &params).map_err(to_err)?;
             let mut out = Vec::with_capacity(rows.len());
             for row in rows.iter() {
                 let id: String = row.get(0);
@@ -484,6 +490,17 @@ mod native {
             }
         }
         Some(out)
+    }
+
+    fn to_vector_text(v: &[f32]) -> String {
+        let mut s = String::with_capacity(v.len() * 6 + 2);
+        s.push('[');
+        for (i, val) in v.iter().enumerate() {
+            if i > 0 { s.push_str(", "); }
+            s.push_str(&val.to_string());
+        }
+        s.push(']');
+        s
     }
 
     fn to_err(e: impl std::fmt::Display) -> VectorError {

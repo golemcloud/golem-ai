@@ -10,7 +10,7 @@ use golem_vector::exports::golem::vector::types::{
 };
 
 use crate::conversion::{
-    filter_expression_to_milvus, metadata_to_json_map, metric_to_milvus, vector_data_to_dense,
+    metadata_to_json_map, metric_to_milvus, vector_data_to_dense,
 };
 
 #[cfg(target_family = "wasm")]
@@ -200,21 +200,20 @@ mod native {
             records: Vec<VectorRecord>,
         ) -> Result<(), VectorError> {
             #[derive(Serialize)]
-            struct VectorDataPayload<'a> {
-                id: &'a str,
-                vector: &'a [f32],
-                metadata: Option<&'a serde_json::Value>,
+            struct VectorDataPayload {
+                id: String,
+                vector: Vec<f32>,
+                metadata: Option<std::collections::HashMap<String, serde_json::Value>>,
             }
             let url = format!("{}/v1/vector/insert", self.base_url);
-            let mut payloads = Vec::new();
-            for rec in &records {
-                let dense = vector_data_to_dense(rec.vector.clone())?;
-                let meta_json = metadata_to_json_map(rec.metadata.clone());
-                let meta_ref = meta_json.as_ref().map(|m| m as &serde_json::Value);
+            let mut payloads: Vec<VectorDataPayload> = Vec::new();
+            for rec in records {
+                let dense = vector_data_to_dense(rec.vector)?;
+                let meta_json = metadata_to_json_map(rec.metadata);
                 payloads.push(VectorDataPayload {
-                    id: &rec.id,
-                    vector: &dense,
-                    metadata: meta_ref,
+                    id: rec.id,
+                    vector: dense,
+                    metadata: meta_json,
                 });
             }
             let resp = self.http.post(url).json(&payloads).send().map_err(to_err)?;

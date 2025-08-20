@@ -65,13 +65,13 @@ impl Component {
             .unwrap_or_else(|_| Self::DEFAULT_URL.to_string());
         
         debug!("Creating pgvector client");
-        Ok(PgvectorClient::new(url))
+        PgvectorClient::new(url)
     }
     
     /// Creates client with explicit URL for testing
     fn create_client_with_url(url: String) -> Result<PgvectorClient, VectorError> {
         debug!("Creating pgvector client with custom URL");
-        Ok(PgvectorClient::new(url))
+        PgvectorClient::new(url)
     }
 }
 

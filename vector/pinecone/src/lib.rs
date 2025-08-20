@@ -51,8 +51,7 @@ mod conversion;
 
 use client::{PineconeApi, QueryMatch};
 use conversion::{
-    filter_expression_to_pinecone, json_map_to_metadata, metadata_to_json_map, metric_to_pinecone,
-    vector_data_to_dense,
+    filter_expression_to_pinecone, metadata_to_json_map, metric_to_pinecone, vector_data_to_dense,
 };
 
 // Export the durability wrapper as the component
@@ -134,10 +133,10 @@ impl PineconeComponent {
     }
 
     /// Create index API client with host
-    fn index_client() -> (PineconeApi, String) {
+    fn index_client() -> PineconeApi {
         let host = env::var("PINECONE_INDEX_HOST").expect("PINECONE_INDEX_HOST must be set");
         let api_key = env::var("PINECONE_API_KEY").ok();
-        (PineconeApi::new(&host, api_key), host)
+        PineconeApi::new(host, api_key)
     }
 }
 
@@ -285,7 +284,7 @@ impl VectorsGuest for PineconeComponent {
             namespace
         );
 
-        let (api, host) = Self::index_client();
+        let api = Self::index_client();
 
         // Pinecone has batch size limits - handle in chunks if needed
         const MAX_BATCH_SIZE: usize = 1000;
@@ -299,7 +298,7 @@ impl VectorsGuest for PineconeComponent {
                 chunk.len()
             );
 
-            match api.upsert_vectors(&host, chunk.to_vec(), namespace.clone()) {
+            match api.upsert_vectors(chunk.to_vec(), namespace.clone()) {
                 Ok(()) => {
                     total_success += chunk.len() as u32;
                     debug!(
@@ -390,8 +389,8 @@ impl VectorsGuest for PineconeComponent {
             namespace
         );
 
-        let (api, host) = Self::index_client();
-        let fetched = api.fetch_vectors(&host, ids, namespace)?;
+        let api = Self::index_client();
+        let fetched = api.fetch_vectors(ids, namespace)?;
 
         let mut results = Vec::with_capacity(fetched.len());
 
@@ -568,7 +567,6 @@ impl SearchGuest for PineconeComponent {
         let include_meta = include_metadata.unwrap_or(false);
 
         let matches = api.query(
-            &host,
             vector,
             limit,
             namespace,

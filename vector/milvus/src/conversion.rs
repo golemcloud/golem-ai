@@ -1,12 +1,10 @@
 //! Conversion helpers for Milvus provider.
 
-use golem_vector::error::{invalid_vector, unsupported_feature, VectorError};
 use golem_vector::exports::golem::vector::types::{
-    DistanceMetric, FilterExpression, FilterOperator, FilterValue, Metadata, MetadataValue,
-    VectorData, VectorError,
+    DistanceMetric, FilterExpression, Metadata, MetadataValue, VectorData, VectorError,
 };
-use golem_vector::conversion_errors::{ConversionError, validate_vector_dimension, validate_filter_depth};
-use serde_json::{json, Value};
+use golem_vector::conversion_errors::{validate_vector_dimension, ConversionError};
+use serde_json::Value;
 use std::collections::HashMap;
 
 /// Convert VectorData to dense f32 vector for Milvus with validation
@@ -53,13 +51,13 @@ fn metadata_value_to_json(v: MetadataValue) -> Value {
     }
 }
 
-/// Convert distance metric to Milvus metric type with validation
-pub fn metric_to_milvus(metric: DistanceMetric) -> Result<&'static str, VectorError> {
+/// Convert distance metric to Milvus metric type
+pub fn metric_to_milvus(metric: DistanceMetric) -> &'static str {
     match metric {
-        DistanceMetric::Cosine => Ok("COSINE"),
-        DistanceMetric::Euclidean => Ok("L2"),
-        DistanceMetric::DotProduct => Ok("IP"),
-        DistanceMetric::Manhattan => Ok("L1"),
+        DistanceMetric::Cosine => "COSINE",
+        DistanceMetric::Euclidean => "L2",
+        DistanceMetric::DotProduct => "IP",
+        DistanceMetric::Manhattan => "L1",
     }
 }
 
@@ -71,118 +69,74 @@ pub fn metric_to_milvus(metric: DistanceMetric) -> Result<&'static str, VectorEr
 /// - Boolean: `and`, `or`, `not` (nested combinations are handled with parentheses)
 ///
 /// Unsupported constructs are skipped; if nothing remains, returns `None`.
-pub fn filter_expression_to_milvus(expr: FilterExpression) -> Result<String, VectorError> {
-    // Validate filter depth (Milvus has reasonable nesting limits)
-    validate_filter_depth(&expr, 0, 8, "Milvus", |e| {
-        match e {
-            FilterExpression::And(exprs) | FilterExpression::Or(exprs) => exprs.iter().collect(),
-            FilterExpression::Not(inner) => vec![inner.as_ref()],
-            _ => vec![],
-        }
-    })?;
-    
-    convert_filter_expression(&expr)
+pub fn filter_expression_to_milvus(expr: Option<FilterExpression>) -> Option<String> {
+    let expr = expr?;
+    build_expr(&expr)
 }
 
-fn convert_filter_expression(expr: &FilterExpression) -> Result<String, VectorError> {
-    let s = build_expr(expr)?;
-    if s.is_empty() { 
-        Err(ConversionError::FilterTranslation("empty filter expression".to_string()).into()) 
-    } else { 
-        Ok(s) 
-    }
-}
-
-fn build_expr(expr: &FilterExpression) -> Result<String, VectorError> {
+fn build_expr(expr: &FilterExpression) -> Option<String> {
     use golem_vector::exports::golem::vector::types::{FilterCondition, FilterOperator};
     match expr {
-        FilterExpression::Condition(FilterCondition {
-            field,
-            operator,
-            value,
-        }) => {
+        FilterExpression::Condition(FilterCondition { field, operator, value }) => {
             match operator {
-                FilterOperator::Eq => Ok(format!("{} == {}", field, literal(value)?)),
-                FilterOperator::Gt => Ok(format!("{} > {}", field, literal(value)?)),
-                FilterOperator::Gte => Ok(format!("{} >= {}", field, literal(value)?)),
-                FilterOperator::Lt => Ok(format!("{} < {}", field, literal(value)?)),
-                FilterOperator::Lte => Ok(format!("{} <= {}", field, literal(value)?)),
-                FilterOperator::In => Ok(format!("{} in {}", field, list_literal(value)?)),
-                FilterOperator::Nin => Ok(format!("!({} in {})", field, list_literal(value)?)),
-                FilterOperator::NotIn => Ok(format!("!({} in {})", field, list_literal(value)?)),
-                _ => Err(ConversionError::UnsupportedFilterOperator {
-                    operator: format!("{:?}", operator),
-                    provider: "Milvus".to_string(),
-                }.into()),
+                FilterOperator::Eq => literal(value).map(|v| format!("{} == {}", field, v)),
+                FilterOperator::Gt => literal(value).map(|v| format!("{} > {}", field, v)),
+                FilterOperator::Gte => literal(value).map(|v| format!("{} >= {}", field, v)),
+                FilterOperator::Lt => literal(value).map(|v| format!("{} < {}", field, v)),
+                FilterOperator::Lte => literal(value).map(|v| format!("{} <= {}", field, v)),
+                FilterOperator::In => list_literal(value).map(|v| format!("{} in {}", field, v)),
+                FilterOperator::Nin | FilterOperator::NotIn => list_literal(value).map(|v| format!("!({} in {})", field, v)),
+                _ => None,
             }
         }
         FilterExpression::And(list) => {
-            if list.is_empty() {
-                return Err(ConversionError::FilterTranslation("AND expression cannot be empty".to_string()).into());
-            }
-            let mut parts = Vec::new();
-            for expr in list {
-                let part = build_expr(expr)?;
-                if !part.is_empty() {
+            if list.is_empty() { return None; }
+            let mut parts: Vec<String> = Vec::new();
+            for e in list {
+                if let Some(part) = build_expr(e) {
                     let formatted = if part.contains(" || ") { format!("({})", part) } else { part };
                     parts.push(formatted);
                 }
             }
-            if parts.is_empty() {
-                return Err(ConversionError::FilterTranslation("No valid conditions in AND expression".to_string()).into());
-            }
-            Ok(parts.join(" && "))
+            if parts.is_empty() { None } else { Some(parts.join(" && ")) }
         }
         FilterExpression::Or(list) => {
-            if list.is_empty() {
-                return Err(ConversionError::FilterTranslation("OR expression cannot be empty".to_string()).into());
-            }
-            let mut parts = Vec::new();
-            for expr in list {
-                let part = build_expr(expr)?;
-                if !part.is_empty() {
+            if list.is_empty() { return None; }
+            let mut parts: Vec<String> = Vec::new();
+            for e in list {
+                if let Some(part) = build_expr(e) {
                     let formatted = if part.contains(" && ") { format!("({})", part) } else { part };
                     parts.push(formatted);
                 }
             }
-            if parts.is_empty() {
-                return Err(ConversionError::FilterTranslation("No valid conditions in OR expression".to_string()).into());
-            }
-            Ok(parts.join(" || "))
+            if parts.is_empty() { None } else { Some(parts.join(" || ")) }
         }
-        FilterExpression::Not(inner) => {
-            let s = build_expr(inner)?;
-            if s.is_empty() { 
-                Err(ConversionError::FilterTranslation("NOT expression cannot be empty".to_string()).into())
-            } else { 
-                Ok(format!("!({})", s)) 
-            }
-        }
+        FilterExpression::Not(inner) => build_expr(inner).map(|s| format!("!({})", s)),
     }
 }
 
-fn literal(v: &MetadataValue) -> Result<String, VectorError> {
+fn literal(v: &MetadataValue) -> Option<String> {
     match v {
-        MetadataValue::StringVal(s) => Ok(format!("\"{}\"", s.replace('\"', "\\\""))) ,
-        MetadataValue::NumberVal(n) => Ok(n.to_string()),
-        MetadataValue::IntegerVal(i) => Ok(i.to_string()),
-        MetadataValue::BooleanVal(b) => Ok(b.to_string()),
-        _ => Err(ConversionError::UnsupportedMetadata(format!("Unsupported metadata value type: {:?}", v)).into()),
+        MetadataValue::StringVal(s) => Some(format!("\"{}\"", s.replace('"', "\\\""))),
+        MetadataValue::NumberVal(n) => Some(n.to_string()),
+        MetadataValue::IntegerVal(i) => Some(i.to_string()),
+        MetadataValue::BooleanVal(b) => Some(b.to_string()),
+        _ => None,
     }
 }
 
-fn list_literal(v: &MetadataValue) -> Result<String, VectorError> {
+fn list_literal(v: &MetadataValue) -> Option<String> {
     match v {
         MetadataValue::ArrayVal(arr) => {
             if arr.is_empty() {
-                return Err(ConversionError::ValidationFailed("Array cannot be empty for IN operation".to_string()).into());
+                return None;
             }
             let mut items = Vec::new();
             for item in arr {
-                items.push(literal(item)?);
+                if let Some(s) = literal(item) { items.push(s); }
             }
-            Ok(format!("[{}]", items.join(", ")))
+            if items.is_empty() { None } else { Some(format!("[{}]", items.join(", "))) }
         }
-        _ => Err(ConversionError::ValidationFailed("Value must be array or list for IN operation".to_string()).into()),
+        _ => None,
     }
 }

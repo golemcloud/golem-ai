@@ -106,7 +106,7 @@ impl CollectionsGuest for QdrantComponent {
         
         info!("Creating Qdrant collection: {} with dimension: {}", name, dimension);
         let client = Self::create_client()?;
-        let dist = metric_to_qdrant(metric);
+        let dist = metric_to_qdrant(metric)?;
         
         let result = client.upsert_collection(&name, dimension, dist)?;
         let mut info = collection_desc_to_info(result);

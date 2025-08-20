@@ -1,11 +1,10 @@
 use crate::client::{CollectionDescription, QdrantFilter, QdrantPoint};
-use golem_vector::error::invalid_vector;
 use golem_vector::exports::golem::vector::collections::CollectionInfo;
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric, FilterExpression, FilterOperator, FilterValue, Metadata, MetadataValue,
     VectorData, VectorError, VectorRecord,
 };
-use golem_vector::conversion_errors::{ConversionError, validate_vector_dimension, validate_filter_depth};
+use golem_vector::conversion_errors::{ConversionError, validate_vector_dimension};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
@@ -82,35 +81,22 @@ pub fn record_to_qdrant_point(rec: VectorRecord) -> Result<QdrantPoint, VectorEr
     })
 }
 
-/// Convert FilterExpression to Qdrant filter JSON with validation
-pub fn filter_expression_to_qdrant(expr: FilterExpression) -> Result<serde_json::Value, VectorError> {
-    // Validate filter depth (Qdrant supports deep nesting but let's set a reasonable limit)
-    validate_filter_depth(&expr, 0, 10, "Qdrant", |e| {
-        match e {
-            FilterExpression::And(exprs) | FilterExpression::Or(exprs) => exprs.iter().collect(),
-            FilterExpression::Not(inner) => vec![inner.as_ref()],
-            _ => vec![],
-        }
-    })?;
-    
-    convert_filter_expression(&expr)
-}
-
-fn convert_filter_expression(expr: &FilterExpression) -> Result<serde_json::Value, VectorError> {
-    use golem_vector::exports::golem::vector::types::{FilterCondition, FilterOperator};
+/// Convert an optional `FilterExpression` into an optional `QdrantFilter`.
+/// Returns `None` if the input is `None` or if the expression cannot be translated.
+pub fn filter_expression_to_qdrant(expr: Option<FilterExpression>) -> Option<QdrantFilter> {
+    use golem_vector::exports::golem::vector::types::FilterCondition;
 
     fn cond_to_json(cond: &FilterCondition) -> Option<Value> {
         let key = &cond.field;
         match cond.operator {
-            FilterOperator::Eq => Some(
-                json!({ "key": key, "match": { "value": metadata_value_to_json(cond.value.clone()) } }),
-            ),
+            FilterOperator::Eq => Some(json!({
+                "key": key,
+                "match": { "value": metadata_value_to_json(cond.value.clone()) }
+            })),
             FilterOperator::Gt | FilterOperator::Gte | FilterOperator::Lt | FilterOperator::Lte => {
-                // Validate numeric operations only work with numeric values
+                // Numeric comparisons require numeric values
                 let val_json = metadata_value_to_json(cond.value.clone());
-                if !val_json.is_number() {
-                    return None; // Invalid operation for non-numeric value
-                }
+                if !val_json.is_number() { return None; }
                 let op_str = match cond.operator {
                     FilterOperator::Gt => "gt",
                     FilterOperator::Gte => "gte",
@@ -118,106 +104,62 @@ fn convert_filter_expression(expr: &FilterExpression) -> Result<serde_json::Valu
                     FilterOperator::Lte => "lte",
                     _ => unreachable!(),
                 };
-                Some(
-                    json!({ "key": key, "range": { op_str: metadata_value_to_json(cond.value.clone()) } }),
-                )
+                Some(json!({ "key": key, "range": { op_str: val_json } }))
             }
             FilterOperator::In => {
                 if let FilterValue::ListVal(list) = &cond.value {
-                    if list.is_empty() {
-                        return None; // Empty IN list is invalid
-                    }
+                    if list.is_empty() { return None; }
                     let values: Vec<Value> = list.iter().map(|v| metadata_value_to_json(v.clone())).collect();
                     Some(json!({ "key": key, "match": { "any": values } }))
                 } else {
                     None
                 }
-            },
-            FilterOperator::Nin => Some(
-                json!({ "key": key, "match": { "not_any": metadata_value_to_json(cond.value.clone()) } }),
-            ),
-            _ => None, // Unsupported operator
+            }
+            FilterOperator::Nin => Some(json!({
+                "key": key,
+                "match": { "not_any": metadata_value_to_json(cond.value.clone()) }
+            })),
+            _ => None,
         }
     }
 
-    fn walk(
-        expr: &FilterExpression,
-        must: &mut Vec<Value>,
-        should: &mut Vec<Value>,
-        must_not: &mut Vec<Value>,
-    ) {
+    fn convert(expr: &FilterExpression) -> Option<Value> {
         match expr {
-            FilterExpression::Condition(cond) => {
-                if let Some(j) = cond_to_json(cond) {
-                    must.push(j);
-                }
-            }
-            FilterExpression::And(conditions) => {
-                for e in conditions {
-                    walk(e, must, should, must_not);
-                }
+            FilterExpression::Condition(cond) => cond_to_json(cond),
+            FilterExpression::And(list) => {
+                if list.is_empty() { return None; }
+                let items: Vec<Value> = list.iter().filter_map(convert).collect();
+                if items.is_empty() { return None; }
+                Some(json!({ "must": items }))
             }
             FilterExpression::Or(list) => {
-                for e in list {
-                    let mut inner_should = Vec::new();
-                    walk(e, &mut inner_should, &mut Vec::new(), &mut Vec::new());
-                    if !inner_should.is_empty() {
-                        should.extend(inner_should);
-                    }
-                }
+                if list.is_empty() { return None; }
+                let items: Vec<Value> = list.iter().filter_map(convert).collect();
+                if items.is_empty() { return None; }
+                Some(json!({ "should": items }))
             }
             FilterExpression::Not(inner) => {
-                let mut temp = Vec::new();
-                walk(inner, &mut temp, &mut Vec::new(), &mut Vec::new());
-                if !temp.is_empty() {
-                    must_not.extend(temp);
-                }
+                let inner_val = convert(inner)?;
+                Some(json!({ "must_not": [inner_val] }))
             }
         }
     }
 
-    match expr {
-        FilterExpression::And(conditions) => {
-            if conditions.is_empty() {
-                return Err(ConversionError::FilterTranslation("AND expression cannot be empty".to_string()).into());
-            }
-            let must: Vec<Value> = conditions
-                .iter()
-                .filter_map(|e| convert_filter_expression(e).ok())
-                .collect();
-            if must.is_empty() {
-                return Err(ConversionError::FilterTranslation("No valid conditions in AND expression".to_string()).into());
-            }
-            Ok(json!({ "must": must }))
-        }
-        FilterExpression::Or(conditions) => {
-            if conditions.is_empty() {
-                return Err(ConversionError::FilterTranslation("OR expression cannot be empty".to_string()).into());
-            }
-            let should: Vec<Value> = conditions
-                .iter()
-                .filter_map(|e| convert_filter_expression(e).ok())
-                .collect();
-            if should.is_empty() {
-                return Err(ConversionError::FilterTranslation("No valid conditions in OR expression".to_string()).into());
-            }
-            Ok(json!({ "should": should }))
-        }
-        FilterExpression::Not(inner) => {
-            let inner_filter = convert_filter_expression(inner)?;
-            Ok(json!({ "must_not": [inner_filter] }))
-        }
-        FilterExpression::Condition(cond) => {
-            if let Some(json_cond) = cond_to_json(cond) {
-                Ok(json_cond)
+    let v = convert(&expr?);
+    v.map(|val| {
+        if let Value::Object(map) = &val {
+            let must = map.get("must").and_then(|v| v.as_array().cloned());
+            let should = map.get("should").and_then(|v| v.as_array().cloned());
+            let must_not = map.get("must_not").and_then(|v| v.as_array().cloned());
+            if must.is_some() || should.is_some() || must_not.is_some() {
+                QdrantFilter { must, should, must_not }
             } else {
-                Err(ConversionError::UnsupportedFilterOperator {
-                    operator: format!("{:?}", cond.operator),
-                    provider: "Qdrant".to_string(),
-                }.into())
+                QdrantFilter { must: Some(vec![val]), should: None, must_not: None }
             }
+        } else {
+            QdrantFilter { must: Some(vec![val]), should: None, must_not: None }
         }
-    }
+    })
 }
 
 /// Converts Qdrant collection description to WIT `CollectionInfo`.

@@ -20,26 +20,20 @@ use crate::conversion::{metadata_to_json_map, metric_to_pinecone, vector_data_to
 #[derive(Clone)]
 pub struct PineconeApi {
     http: Client,
-    controller_endpoint: String,
-    index_host: Option<String>,
-    api_key: String,
+    base_url: String,
+    api_key: Option<String>,
     timeout: Duration,
     max_retries: u32,
 }
 
 impl PineconeApi {
-    pub fn new(
-        controller_endpoint: String,
-        index_host: Option<String>,
-        api_key: String,
-    ) -> Self {
-        Self::new_with_config(controller_endpoint, index_host, api_key, Duration::from_secs(30), 3)
+    pub fn new(base_url: String, api_key: Option<String>) -> Self {
+        Self::new_with_config(base_url, api_key, Duration::from_secs(30), 3)
     }
 
     pub fn new_with_config(
-        controller_endpoint: String,
-        index_host: Option<String>,
-        api_key: String,
+        base_url: String,
+        api_key: Option<String>,
         timeout: Duration,
         max_retries: u32,
     ) -> Self {
@@ -47,11 +41,10 @@ impl PineconeApi {
             .timeout(timeout)
             .build()
             .expect("Failed to create HTTP client");
-        
+
         Self {
             http: client,
-            controller_endpoint: controller_endpoint.trim_end_matches('/').to_string(),
-            index_host,
+            base_url: base_url.trim_end_matches('/').to_string(),
             api_key,
             timeout,
             max_retries,
@@ -59,17 +52,14 @@ impl PineconeApi {
     }
 
     pub fn health_check(&self) -> Result<bool, VectorError> {
-        match &self.index_host {
-            Some(host) => {
-                let url = format!("{}/describe_index_stats", host);
-                match self.http.get(url)
-                    .header("Api-Key", &self.api_key)
-                    .send() {
-                    Ok(resp) => Ok(resp.status().is_success()),
-                    Err(_) => Ok(false),
-                }
-            },
-            None => Ok(false), // Can't check health without index host
+        let url = format!("{}/describe_index_stats", self.base_url);
+        let mut req = self.http.get(url);
+        if let Some(key) = &self.api_key {
+            req = req.header("Api-Key", key);
+        }
+        match req.send() {
+            Ok(resp) => Ok(resp.status().is_success()),
+            Err(_) => Ok(false),
         }
     }
 
@@ -89,7 +79,9 @@ impl PineconeApi {
     }
 
     fn auth_headers(&self, headers: &mut reqwest::header::HeaderMap) {
-        headers.insert("Api-Key", self.api_key.parse().unwrap());
+        if let Some(key) = &self.api_key {
+            headers.insert("Api-Key", key.parse().unwrap());
+        }
     }
 
     // -------------------------- index management ---------------------------
@@ -166,7 +158,6 @@ impl PineconeApi {
 
     pub fn upsert_vectors(
         &self,
-        index_host: &str,
         vectors: Vec<VectorRecord>,
         namespace: Option<String>,
     ) -> Result<(), VectorError> {
@@ -204,7 +195,7 @@ impl PineconeApi {
             });
         }
 
-        let url = format!("{}/vectors/upsert", index_host.trim_end_matches('/'));
+        let url = format!("{}/vectors/upsert", self.base_url);
         let mut req = self.http.post(url);
         if let Some(key) = &self.api_key {
             req = req.header("Api-Key", key);
@@ -225,7 +216,6 @@ impl PineconeApi {
 
     pub fn fetch_vectors(
         &self,
-        index_host: &str,
         ids: Vec<String>,
         namespace: Option<String>,
     ) -> Result<Vec<FetchVector>, VectorError> {
@@ -236,7 +226,7 @@ impl PineconeApi {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        let mut url = format!("{}/vectors/fetch?", index_host.trim_end_matches('/'));
+        let mut url = format!("{}/vectors/fetch?", self.base_url);
         for (i, id) in ids.iter().enumerate() {
             if i > 0 {
                 url.push('&');
@@ -266,7 +256,6 @@ impl PineconeApi {
 
     pub fn query(
         &self,
-        index_host: &str,
         vector: Vec<f32>,
         top_k: u32,
         namespace: Option<String>,
@@ -282,13 +271,13 @@ impl PineconeApi {
             filter: Option<&'a serde_json::Value>,
             #[serde(skip_serializing_if = "Option::is_none")]
             namespace: Option<String>,
-            #[serde(skip_serializing_if = "std::ops::Not::not")]
+            #[serde(skip_serializing_if = "crate::client::is_false")]
             include_values: bool,
-            #[serde(skip_serializing_if = "std::ops::Not::not")]
+            #[serde(skip_serializing_if = "crate::client::is_false")]
             include_metadata: bool,
         }
 
-        let url = format!("{}/query", index_host.trim_end_matches('/'));
+        let url = format!("{}/query", self.base_url);
         let mut req = self.http.post(url);
         if let Some(key) = &self.api_key {
             req = req.header("Api-Key", key);
@@ -344,3 +333,6 @@ pub struct QueryMatch {
 fn to_vector_error(e: impl std::fmt::Display) -> VectorError {
     VectorError::ProviderError(e.to_string())
 }
+
+// Helper for serde skip_serializing_if to omit false booleans
+pub(crate) fn is_false(b: &bool) -> bool { !*b }

@@ -1,15 +1,20 @@
 //! Conversions and helpers for the pgvector provider.
 //!
-//! * Convert WIT `VectorData` → Postgres array (Vec<f32>)
-//! * Translate filter expressions into SQL `WHERE` fragments (very limited)
+//! * Convert WIT `VectorData` → Postgres vector literal (Vec<f32>)
+//! * Translate filter expressions into SQL `WHERE` fragments
 //! * Map WIT `DistanceMetric` to pgvector operator / function names
 
-use golem_vector::error::invalid_vector;
 use golem_vector::exports::golem::vector::types::{
-    DistanceMetric, FilterExpression, FilterOperator, FilterValue, Metadata, MetadataValue,
-    VectorData, VectorError,
+    DistanceMetric,
+    FilterExpression,
+    FilterOperator,
+    FilterValue,
+    Metadata,
+    MetadataValue,
+    VectorData,
+    VectorError,
 };
-use golem_vector::conversion_errors::{ConversionError, validate_vector_dimension, validate_filter_depth};
+use golem_vector::conversion_errors::{ConversionError, validate_vector_dimension};
 use serde_json::Value;
 
 // -----------------------------------------------------------------------------
@@ -49,9 +54,10 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
 fn metadata_value_to_json(v: MetadataValue) -> Value {
     match v {
         MetadataValue::StringVal(s) => Value::String(s),
-        MetadataValue::FloatVal(n) => Value::from(n),
-        MetadataValue::IntVal(i) => Value::from(i),
-        MetadataValue::BoolVal(b) => Value::from(b),
+        MetadataValue::NumberVal(n) => Value::from(n),
+        MetadataValue::IntegerVal(i) => Value::from(i),
+        MetadataValue::BooleanVal(b) => Value::from(b),
+        MetadataValue::NullVal => Value::Null,
         MetadataValue::ArrayVal(arr) => {
             Value::Array(arr.into_iter().map(metadata_value_to_json).collect())
         }
@@ -60,6 +66,14 @@ fn metadata_value_to_json(v: MetadataValue) -> Value {
                 .map(|(k, v)| (k, metadata_value_to_json(v)))
                 .collect(),
         ),
+        MetadataValue::GeoVal(coords) => {
+            let mut map = serde_json::Map::new();
+            map.insert("lat".into(), Value::from(coords.latitude));
+            map.insert("lon".into(), Value::from(coords.longitude));
+            Value::Object(map)
+        }
+        MetadataValue::DatetimeVal(dt) => Value::String(dt),
+        MetadataValue::BlobVal(b) => Value::String(base64::encode(b)),
     }
 }
 
@@ -77,129 +91,108 @@ pub fn metadata_to_json_map(meta: Option<Metadata>) -> serde_json::Map<String, V
 // VERY small subset of filter → SQL translation
 // -----------------------------------------------------------------------------
 
-/// Translate `FilterExpression` into SQL fragment and parameter list.
-/// Returns `(sql, values)` where `values` are JSON-encoded.
-/// Convert FilterExpression to SQL WHERE clause with parameters and validation
+/// Translate an optional `FilterExpression` into an optional SQL fragment and parameter list.
+/// Returns `Some((sql, values))` where `values` are strings to bind, or `None` if no usable filter.
 pub fn filter_expression_to_sql(
-    expr: FilterExpression,
+    expr: Option<FilterExpression>,
     start_param_index: usize,
-) -> Result<(String, Vec<String>), VectorError> {
-    // Validate filter depth for SQL complexity
-    validate_filter_depth(&expr, 0, 6, "Pgvector", |e| {
-        match e {
-            FilterExpression::And(exprs) | FilterExpression::Or(exprs) => exprs.iter().collect(),
-            FilterExpression::Not(inner) => vec![inner.as_ref()],
-            _ => vec![],
-                    _ => j.to_string(),
-                }
-            }
+) -> Option<(String, Vec<String>)> {
+    use golem_vector::exports::golem::vector::types::FilterCondition;
+
+    fn value_to_param(v: &FilterValue) -> Option<String> {
+        match v {
+            FilterValue::StringVal(s) => Some(s.clone()),
+            FilterValue::NumberVal(n) => Some(n.to_string()),
+            FilterValue::IntegerVal(i) => Some(i.to_string()),
+            FilterValue::BooleanVal(b) => Some(if *b { "true".into() } else { "false".into() }),
+            FilterValue::ArrayVal(_) | FilterValue::ListVal(_) | FilterValue::ObjectVal(_) => None,
+            FilterValue::NullVal => None,
         }
     }
 
-    fn cond_to_sql(cond: &FilterCondition, idx: usize) -> Option<(String, String)> {
-        let placeholder = format!("${}", idx);
-        let field_text = format!("metadata->>'{}'", cond.field); // JSONB -> text
+    fn cond_to_sql(cond: &FilterCondition, idx: usize) -> Option<(String, Vec<String>, usize)> {
+        let field_text = format!("metadata->>'{}'", cond.field);
         match cond.operator {
-            // Compare as text explicitly to avoid type ambiguity
-            FilterOperator::Eq => Some((
-                format!("{} = {}::text", field_text, placeholder),
-                value_to_string(&cond.value),
-            )),
-            // Numeric comparisons – cast both sides to numeric and also cast the param
-            FilterOperator::Gt => Some((
-    let mut params = Vec::new();
-    let sql = build_sql_condition(&expr, start_param_index, &mut params)?;
-    if sql.trim().is_empty() {
-        return Err(ConversionError::FilterTranslation("Generated empty SQL condition".to_string()).into());
-    }
-    Ok((sql, params))
-}
-
-fn build_sql_condition(
-    expr: &FilterExpression,
-    start_param_index: usize,
-    params: &mut Vec<String>,
-) -> Result<String, VectorError> {
-    match expr {
-        FilterExpression::Condition(c) => {
-            let placeholder = format!("${}", start_param_index);
-            let field_text = format!("metadata->>'{}'", c.field); // JSONB -> text
-            match c.operator {
-                // Compare as text explicitly to avoid type ambiguity
-                FilterOperator::Eq => Some((
-                    format!("{} = {}::text", field_text, placeholder),
-                    value_to_string(&c.value),
-                )),
-                // Numeric comparisons – cast both sides to numeric and also cast the param
-                FilterOperator::Gt => Some((
-                    format!("({})::numeric > {}::numeric", field_text, placeholder),
-                    value_to_string(&c.value),
-                )),
-                FilterOperator::Gte => Some((
-                    format!("({})::numeric >= {}::numeric", field_text, placeholder),
-                    value_to_string(&c.value),
-                )),
-                FilterOperator::Lt => Some((
-                    format!("({})::numeric < {}::numeric", field_text, placeholder),
-                    value_to_string(&c.value),
-                )),
-                FilterOperator::Lte => Some((
-                    format!("({})::numeric <= {}::numeric", field_text, placeholder),
-                    value_to_string(&c.value),
-                )),
-                _ => None,
+            FilterOperator::Eq => {
+                let val = value_to_param(&cond.value)?;
+                let sql = format!("{} = ${}::text", field_text, idx);
+                Some((sql, vec![val], idx + 1))
             }
-        }
-        FilterExpression::And(list) => {
-            let mut parts = Vec::new();
-            for e in list {
-                let sql = build_sql_condition(e, start_param_index, params)?;
-                parts.push(sql);
+            FilterOperator::Gt | FilterOperator::Gte | FilterOperator::Lt | FilterOperator::Lte => {
+                let val = value_to_param(&cond.value)?;
+                let op = match cond.operator {
+                    FilterOperator::Gt => ">",
+                    FilterOperator::Gte => ">=",
+                    FilterOperator::Lt => "<",
+                    FilterOperator::Lte => "<=",
+                    _ => unreachable!(),
+                };
+                let sql = format!("({})::numeric {} ${}::numeric", field_text, op, idx);
+                Some((sql, vec![val], idx + 1))
             }
-            Some((parts.join(" AND "), String::new()))
-        }
-        _ => None,
-    }
-    .ok_or(ConversionError::UnsupportedFilterOperator(c.operator.to_string()))?
-}
-
-fn value_to_string(v: &FilterValue) -> String {
-    match v {
-        FilterValue::StringVal(s) => s.clone(),
-        FilterValue::NumberVal(n) => n.to_string(),
-        FilterValue::IntegerVal(i) => i.to_string(),
-        FilterValue::BooleanVal(b) => {
-            if *b {
-                "true".to_string()
-            } else {
-                "false".to_string()
-            }
-        }
-        FilterValue::ListVal(list) => {
-            let items: Vec<String> = list.iter().map(|v| {
-                let j = metadata_value_to_json(v.clone());
-                match j {
-                    Value::String(s) => s,
-                    _ => j.to_string(),
+            FilterOperator::In | FilterOperator::Nin => {
+                if let FilterValue::ListVal(list) = &cond.value {
+                    let mut vals: Vec<String> = Vec::new();
+                    let mut phs: Vec<String> = Vec::new();
+                    let mut cur = idx;
+                    for v in list {
+                        if let Some(s) = value_to_param(v) {
+                            vals.push(s);
+                            phs.push(format!("${}::text", cur));
+                            cur += 1;
+                        }
+                    }
+                    if vals.is_empty() { return None; }
+                    let op = if matches!(cond.operator, FilterOperator::In) { "IN" } else { "NOT IN" };
+                    let sql = format!("{} {} ({})", field_text, op, phs.join(", "));
+                    Some((sql, vals, cur))
+                } else {
+                    None
                 }
-            }).collect();
-            format!("[{}]", items.join(", "))
+            }
+            _ => None,
         }
-        FilterValue::ArrayVal(arr) => {
-            let items: Vec<String> = arr.iter().map(|v| {
-                let j = metadata_value_to_json(v.clone());
-                match j {
-                    Value::String(s) => s,
-                    _ => j.to_string(),
-                }
-            }).collect();
-            format!("[{}]", items.join(", "))
-        }
-    if parts.is_empty() {
-        None
-    } else {
-        Some((parts.join(" AND "), params))
     }
+
+    fn build_sql(expr: &FilterExpression, mut idx: usize) -> Option<(String, Vec<String>, usize)> {
+        match expr {
+            FilterExpression::Condition(c) => cond_to_sql(c, idx),
+            FilterExpression::And(list) => {
+                let mut parts: Vec<String> = Vec::new();
+                let mut params: Vec<String> = Vec::new();
+                let mut cur = idx;
+                for e in list {
+                    if let Some((sql, vals, next)) = build_sql(e, cur) {
+                        parts.push(sql);
+                        params.extend(vals);
+                        cur = next;
+                    }
+                }
+                if parts.is_empty() { None } else { Some((parts.join(" AND "), params, cur)) }
+            }
+            FilterExpression::Or(list) => {
+                let mut parts: Vec<String> = Vec::new();
+                let mut params: Vec<String> = Vec::new();
+                let mut cur = idx;
+                for e in list {
+                    if let Some((sql, vals, next)) = build_sql(e, cur) {
+                        parts.push(sql);
+                        params.extend(vals);
+                        cur = next;
+                    }
+                }
+                if parts.is_empty() { None } else { Some((format!("({})", parts.join(" OR ")), params, cur)) }
+            }
+            FilterExpression::Not(inner) => {
+                let (sql, vals, next) = build_sql(inner, idx)?;
+                Some((format!("NOT ({})", sql), vals, next))
+            }
+        }
+    }
+
+    let expr = expr?;
+    let (sql, params, _) = build_sql(&expr, start_param_index)?;
+    if sql.trim().is_empty() { None } else { Some((sql, params)) }
 }
 
 // -----------------------------------------------------------------------------
@@ -210,24 +203,19 @@ pub fn json_to_metadata_value(v: &Value) -> MetadataValue {
     match v {
         Value::String(s) => MetadataValue::StringVal(s.clone()),
         Value::Number(n) => {
-            if let Some(u) = n.as_u64() {
-                MetadataValue::IntVal(u)
+            if let Some(i) = n.as_i64() {
+                MetadataValue::IntegerVal(i)
             } else if let Some(f) = n.as_f64() {
-                MetadataValue::FloatVal(f)
+                MetadataValue::NumberVal(f)
             } else {
-                // Fallback to string representation
                 MetadataValue::StringVal(n.to_string())
             }
         }
-        Value::Bool(b) => MetadataValue::BoolVal(*b),
-        Value::Null => MetadataValue::StringVal("null".into()),
-        Value::Array(arr) => {
-            MetadataValue::ArrayVal(arr.iter().map(json_to_metadata_value).collect())
-        }
+        Value::Bool(b) => MetadataValue::BooleanVal(*b),
+        Value::Null => MetadataValue::NullVal,
+        Value::Array(arr) => MetadataValue::ArrayVal(arr.iter().map(json_to_metadata_value).collect()),
         Value::Object(map) => MetadataValue::ObjectVal(
-            map.iter()
-                .map(|(k, v)| (k.clone(), json_to_metadata_value(v)))
-                .collect(),
+            map.iter().map(|(k, v)| (k.clone(), json_to_metadata_value(v))).collect(),
         ),
     }
 }

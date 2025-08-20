@@ -154,10 +154,21 @@ impl QdrantApi {
             #[serde(skip_serializing_if = "Option::is_none")]
             wait: Option<bool>,
         }
-        let mut url = format!("{}/collections/{}/points", self.base_url, collection);
-        if let Some(ns) = &namespace {
-            url.push_str(&format!("?namespace={}", ns));
-        }
+        let url = format!("{}/collections/{}/points", self.base_url, collection);
+        // Emulate namespaces by writing a payload field `namespace`
+        let points = if let Some(ns) = &namespace {
+            let mut out = Vec::with_capacity(points.len());
+            for mut p in points {
+                let mut payload = p.payload.unwrap_or_default();
+                payload.insert("namespace".to_string(), serde_json::Value::String(ns.clone()));
+                p.payload = Some(payload);
+                out.push(p);
+            }
+            out
+        } else {
+            points
+        };
+
         let mut req = self.http.put(url);
         if let Some(key) = &self.api_key {
             req = req.header("api-key", key);
@@ -194,24 +205,43 @@ impl QdrantApi {
             limit: u32,
             #[serde(skip_serializing_if = "Option::is_none")]
             filter: Option<&'a QdrantFilter>,
-            #[serde(rename = "with_vectors", skip_serializing_if = "Option::is_none")]
-            with_vectors: Option<bool>,
+            #[serde(rename = "with_vector", skip_serializing_if = "Option::is_none")]
+            with_vector: Option<bool>,
             #[serde(rename = "with_payload", skip_serializing_if = "Option::is_none")]
             with_payload: Option<bool>,
         }
-        let mut url = format!("{}/collections/{}/points/search", self.base_url, collection);
-        if let Some(ns) = &namespace {
-            url.push_str(&format!("?namespace={}", ns));
-        }
+        let url = format!("{}/collections/{}/points/search", self.base_url, collection);
         let mut req = self.http.post(url);
         if let Some(key) = &self.api_key {
             req = req.header("api-key", key);
         }
+        // Merge namespace constraint into filter if provided
+        let mut filter_owned = filter;
+        if let Some(ns) = &namespace {
+            let ns_cond = serde_json::json!({ "key": "namespace", "match": { "value": ns } });
+            match &mut filter_owned {
+                Some(f) => {
+                    if let Some(must) = &mut f.must {
+                        must.push(ns_cond);
+                    } else {
+                        f.must = Some(vec![ns_cond]);
+                    }
+                }
+                None => {
+                    filter_owned = Some(QdrantFilter {
+                        must: Some(vec![ns_cond]),
+                        should: None,
+                        must_not: None,
+                    });
+                }
+            }
+        }
+
         let payload = Payload {
             vector: &vector,
             limit,
-            filter: filter.as_ref(),
-            with_vectors: Some(with_vector),
+            filter: filter_owned.as_ref(),
+            with_vector: Some(with_vector),
             with_payload: Some(with_payload),
         };
         let resp = req.json(&payload).send().map_err(to_vector_error)?;
@@ -227,20 +257,15 @@ impl QdrantApi {
             ))),
         }
     }
-}
-
-// ----------------------------- DTOs ------------------------------
-    /// Retrieve a single point by ID and namespace.
+    
+    /// Retrieve a single point by ID and namespace (namespace emulated via payload).
     pub fn get_point(
         &self,
         collection: &str,
         id: &str,
         namespace: Option<String>,
     ) -> Result<Option<PointOut>, VectorError> {
-        let mut url = format!("{}/collections/{}/points/{}", self.base_url, collection, id);
-        if let Some(ns) = &namespace {
-            url.push_str(&format!("?namespace={}", ns));
-        }
+        let url = format!("{}/collections/{}/points/{}", self.base_url, collection, id);
         let mut req = self.http.get(url);
         if let Some(key) = &self.api_key {
             req = req.header("api-key", key);
@@ -249,6 +274,19 @@ impl QdrantApi {
         match resp.status() {
             StatusCode::OK => {
                 let body: QdrantResponse<PointOut> = resp.json().map_err(to_vector_error)?;
+                // If namespace provided, enforce it client-side by checking payload
+                if let Some(ns) = namespace {
+                    if let Some(payload) = &body.result.payload {
+                        if let Some(val) = payload.get("namespace") {
+                            if val == &serde_json::Value::String(ns) {
+                                return Ok(Some(body.result));
+                            } else {
+                                return Ok(None);
+                            }
+                        }
+                    }
+                    return Ok(None);
+                }
                 Ok(Some(body.result))
             }
             StatusCode::NOT_FOUND => Ok(None),
@@ -258,6 +296,140 @@ impl QdrantApi {
             ))),
         }
     }
+
+    /// Delete points by IDs.
+    pub fn delete_points(
+        &self,
+        collection: &str,
+        ids: Vec<String>,
+        _namespace: Option<String>,
+    ) -> Result<(), VectorError> {
+        #[derive(Serialize)]
+        struct Payload<'a> {
+            points: &'a [String],
+            #[serde(skip_serializing_if = "Option::is_none")]
+            wait: Option<bool>,
+        }
+        let url = format!("{}/collections/{}/points/delete", self.base_url, collection);
+        let mut req = self.http.post(url);
+        if let Some(key) = &self.api_key {
+            req = req.header("api-key", key);
+        }
+        let resp = req
+            .json(&Payload { points: &ids, wait: Some(true) })
+            .send()
+            .map_err(to_vector_error)?;
+        match resp.status() {
+            StatusCode::OK | StatusCode::ACCEPTED => Ok(()),
+            code => Err(VectorError::ProviderError(format!(
+                "Qdrant delete_points error: {}",
+                code
+            ))),
+        }
+    }
+
+    /// Delete points matching a filter; returns the number of points deleted (best-effort based on pre-count).
+    pub fn delete_points_by_filter(
+        &self,
+        collection: &str,
+        filter: Option<QdrantFilter>,
+        namespace: Option<String>,
+    ) -> Result<u32, VectorError> {
+        // Pre-count (best-effort)
+        let count = self.count_points(collection, filter.clone(), namespace.clone())? as u32;
+
+        #[derive(Serialize)]
+        struct Payload<'a> {
+            filter: &'a QdrantFilter,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            wait: Option<bool>,
+        }
+
+        // Merge namespace into filter
+        let mut filter_owned = filter.unwrap_or_default();
+        if let Some(ns) = &namespace {
+            let ns_cond = serde_json::json!({ "key": "namespace", "match": { "value": ns } });
+            if let Some(must) = &mut filter_owned.must {
+                must.push(ns_cond);
+            } else {
+                filter_owned.must = Some(vec![ns_cond]);
+            }
+        }
+
+        let url = format!("{}/collections/{}/points/delete", self.base_url, collection);
+        let mut req = self.http.post(url);
+        if let Some(key) = &self.api_key {
+            req = req.header("api-key", key);
+        }
+        let resp = req
+            .json(&Payload { filter: &filter_owned, wait: Some(true) })
+            .send()
+            .map_err(to_vector_error)?;
+        match resp.status() {
+            StatusCode::OK | StatusCode::ACCEPTED => Ok(count),
+            code => Err(VectorError::ProviderError(format!(
+                "Qdrant delete_by_filter error: {}",
+                code
+            ))),
+        }
+    }
+
+    /// Count points matching a filter (exact count).
+    pub fn count_points(
+        &self,
+        collection: &str,
+        filter: Option<QdrantFilter>,
+        namespace: Option<String>,
+    ) -> Result<u64, VectorError> {
+        #[derive(Serialize)]
+        struct Payload<'a> {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            filter: Option<&'a QdrantFilter>,
+            exact: bool,
+        }
+        #[derive(Deserialize)]
+        struct CountResult { count: u64 }
+
+        let url = format!("{}/collections/{}/points/count", self.base_url, collection);
+        let mut req = self.http.post(url);
+        if let Some(key) = &self.api_key {
+            req = req.header("api-key", key);
+        }
+
+        // Merge namespace into filter if provided
+        let mut filter_owned = filter;
+        if let Some(ns) = &namespace {
+            let ns_cond = serde_json::json!({ "key": "namespace", "match": { "value": ns } });
+            match &mut filter_owned {
+                Some(f) => {
+                    if let Some(must) = &mut f.must {
+                        must.push(ns_cond);
+                    } else {
+                        f.must = Some(vec![ns_cond]);
+                    }
+                }
+                None => {
+                    filter_owned = Some(QdrantFilter { must: Some(vec![ns_cond]), should: None, must_not: None });
+                }
+            }
+        }
+
+        let resp = req
+            .json(&Payload { filter: filter_owned.as_ref(), exact: true })
+            .send()
+            .map_err(to_vector_error)?;
+        match resp.status() {
+            StatusCode::OK => {
+                let body: QdrantResponse<CountResult> = resp.json().map_err(to_vector_error)?;
+                Ok(body.result.count)
+            }
+            code => Err(VectorError::ProviderError(format!(
+                "Qdrant count_points error: {}",
+                code
+            ))),
+        }
+    }
+}
 
 // ----------------------------- DTOs ------------------------------
 #[derive(Deserialize)]
@@ -301,7 +473,7 @@ pub struct QdrantPoint {
     pub payload: Option<HashMap<String, serde_json::Value>>,
 }
 
-#[derive(Serialize, Default)]
+#[derive(Serialize, Default, Clone)]
 pub struct QdrantFilter {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub must: Option<Vec<serde_json::Value>>,
