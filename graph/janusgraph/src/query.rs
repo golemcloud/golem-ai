@@ -301,13 +301,13 @@ fn parse_gremlin_response(response: Value) -> Result<QueryResult, GraphError> {
                 maps.push(row);
             }
         }
-        return Ok(QueryResult::Maps(maps));
+        Ok(QueryResult::Maps(maps))
     } else if obj.contains_key("@type") && obj.contains_key("@value") {
         let values = arr
             .iter()
             .map(conversions::from_gremlin_value)
             .collect::<Result<Vec<_>, _>>()?;
-        return Ok(QueryResult::Values(values));
+        Ok(QueryResult::Values(values))
     } else {
         let mut maps = Vec::new();
         for item in arr {
@@ -315,7 +315,7 @@ fn parse_gremlin_response(response: Value) -> Result<QueryResult, GraphError> {
                 maps.push(row);
             }
         }
-        return Ok(QueryResult::Maps(maps));
+        Ok(QueryResult::Maps(maps))
     }
 }
 
