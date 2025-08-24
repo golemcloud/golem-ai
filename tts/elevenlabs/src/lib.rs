@@ -1,4 +1,5 @@
 #![allow(static_mut_refs)]
+mod retry;
 mod bindings;
 
 struct Component;
