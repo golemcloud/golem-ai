@@ -1,5 +1,4 @@
 mod bindings;
-use bindings::exports::golem::tts::{bootstrap, voices, synthesis};
 
 struct Component;
 bindings::export!(Component with_types_in bindings);
