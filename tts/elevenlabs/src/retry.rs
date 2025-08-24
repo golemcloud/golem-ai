@@ -95,3 +95,5 @@ pub fn execute_with_retry(client: &Client, request: reqwest::Request) -> Result<
     }
     unreachable!("loop returns on success or last attempt")
 }
+
+pub fn send_with_retry(client: &reqwest::Client, rb: reqwest::RequestBuilder) -> Result<reqwest::Response, reqwest::Error> { post_with_retry(client, rb) }
