@@ -23,3 +23,6 @@ package = "golem:tts-elevenlabs"
 [package.metadata.component.target]
 path  = "wit"
 world = "provider"
+
+[dev-dependencies]
+base64 = "0.22"
