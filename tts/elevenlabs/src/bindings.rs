@@ -4,7 +4,8 @@
 #[doc(hidden)]
 #[allow(non_snake_case)]
 pub unsafe fn _export_health_cabi<T: Guest>() -> *mut u8 {
-    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+    #[cfg(target_arch = "wasm32")]
+    _rt::run_ctors_once();
     let result0 = T::health();
     let ptr1 = _RET_AREA.0.as_mut_ptr().cast::<u8>();
     let vec2 = (result0.into_bytes()).into_boxed_slice();
@@ -30,7 +31,8 @@ pub unsafe fn _export_synth_b64_cabi<T: Guest>(
     arg2: *mut u8,
     arg3: usize,
 ) -> *mut u8 {
-    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+    #[cfg(target_arch = "wasm32")]
+    _rt::run_ctors_once();
     let len0 = arg1;
     let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
     let len1 = arg3;
@@ -79,10 +81,7 @@ pub unsafe fn __post_return_synth_b64<T: Guest>(arg0: *mut u8) {
 pub trait Guest {
     /// world-level helpers you can call directly from Wasmtime CLI
     fn health() -> _rt::String;
-    fn synth_b64(
-        voice_id: _rt::String,
-        text: _rt::String,
-    ) -> Result<_rt::String, _rt::String>;
+    fn synth_b64(voice_id: _rt::String, text: _rt::String) -> Result<_rt::String, _rt::String>;
 }
 #[doc(hidden)]
 macro_rules! __export_world_provider_cabi {

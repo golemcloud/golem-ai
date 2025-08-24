@@ -1,5 +1,5 @@
-use std::process::Command;
 use base64::{engine::general_purpose, Engine as _};
+use std::process::Command;
 
 fn wasm_path() -> String {
     // Use workspace target if CARGO_TARGET_DIR is not set
@@ -26,11 +26,7 @@ fn strip_wave(s: &str) -> Result<String, String> {
 fn health_ok() {
     // No key needed for health()
     let out = Command::new("wasmtime")
-        .args([
-            "run", "-S", "http",
-            "--invoke", "health()",
-            &wasm_path(),
-        ])
+        .args(["run", "-S", "http", "--invoke", "health()", &wasm_path()])
         .output()
         .expect("run wasmtime");
     assert!(out.status.success(), "wasmtime exit {:?}", out.status);
@@ -49,13 +45,17 @@ fn synth_nonempty_mp3() {
     };
 
     let voice = std::env::var("VOICE_ID").unwrap_or_else(|_| "21m00Tcm4TlvDq8ikWAM".to_string());
-    let text  = "Hello from ElevenLabs on Golem!";
+    let text = "Hello from ElevenLabs on Golem!";
 
     let out = Command::new("wasmtime")
         .args([
-            "run", "-S", "http",
-            "--env", &format!("ELEVENLABS_API_KEY={key}"),
-            "--invoke", &format!("synth-b64(\"{voice}\",\"{text}\")"),
+            "run",
+            "-S",
+            "http",
+            "--env",
+            &format!("ELEVENLABS_API_KEY={key}"),
+            "--invoke",
+            &format!("synth-b64(\"{voice}\",\"{text}\")"),
             &wasm_path(),
         ])
         .output()
@@ -67,13 +67,19 @@ fn synth_nonempty_mp3() {
     let b64 = strip_wave(&printed).expect("ok(...) result");
 
     // Unescape the simple backslash escapes Wasmtime prints
-    let cleaned = b64.replace("\\n", "")
-                     .replace("\\/", "/")
-                     .replace("\\\"", "\"");
+    let cleaned = b64
+        .replace("\\n", "")
+        .replace("\\/", "/")
+        .replace("\\\"", "\"");
 
-    let audio = general_purpose::STANDARD.decode(cleaned)
+    let audio = general_purpose::STANDARD
+        .decode(cleaned)
         .expect("valid base64");
 
     // Sanity: produced MP3 should be at least ~10KB
-    assert!(audio.len() > 10_000, "MP3 too small ({} bytes)", audio.len());
+    assert!(
+        audio.len() > 10_000,
+        "MP3 too small ({} bytes)",
+        audio.len()
+    );
 }
