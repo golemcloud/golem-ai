@@ -51,7 +51,7 @@ mod voices_impl {
             let key = http::api_key()?;
             let client = http::client()?;
 
-            let resp = retry::send_with_retry(&client, client.get("https://api.elevenlabs.io/v1/voices")
+            let resp = crate::retry::send_with_retry(&client, client.get("https://api.elevenlabs.io/v1/voices")
                 .header("xi-api-key", &key)
                 .header("accept", "application/json")
                 )
@@ -104,7 +104,7 @@ mod synth_impl {
         let url = format!("https://api.elevenlabs.io/v1/text-to-speech/{voice_id}");
         let body = SynthReq { text };
 
-        let resp = retry::send_with_retry(&client, client.post(url)
+        let resp = crate::retry::send_with_retry(&client, client.post(url)
             .header("xi-api-key", &key)
             .header("accept", "audio/mpeg")
             .header("content-type", "application/json")
