@@ -63,3 +63,35 @@ fn retry_after_delay(resp: &Response) -> Option<Duration> {
     }
     None
 }
+
+/// Execute any built Request with bounded backoff; honors Retry-After for 429/503.
+pub fn execute_with_retry(client: &Client, request: reqwest::Request) -> Result<Response, reqwest::Error> {
+    use std::time::Duration;
+    let max_tries = 5;
+    let mut backoff = Duration::from_millis(250);
+    let max_backoff = Duration::from_secs(5);
+
+    // If the request can't be cloned, we can only try once.
+    if request.try_clone().is_none() {
+        return client.execute(request);
+    }
+
+    for attempt in 1..=max_tries {
+        let req = request.try_clone().expect("cloned above");
+        let resp = client.execute(req)?;
+        match resp.status() {
+            StatusCode::TOO_MANY_REQUESTS | StatusCode::SERVICE_UNAVAILABLE => {
+                // Respect a server-provided Retry-After if present; else backoff.
+                let delay = retry_after_delay(&resp).unwrap_or(backoff);
+                if attempt == max_tries {
+                    return Ok(resp);
+                }
+                std::thread::sleep(delay);
+                backoff = std::cmp::min(backoff.saturating_mul(2), max_backoff);
+                continue;
+            }
+            _ => return Ok(resp),
+        }
+    }
+    unreachable!("loop returns on success or last attempt")
+}
