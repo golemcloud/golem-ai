@@ -51,7 +51,7 @@ mod voices_impl {
             let key = http::api_key()?;
             let client = http::client()?;
 
-            let resp = crate::retry::send_with_retry(&client, client.get("https://api.elevenlabs.io/v1/voices")
+            let resp = crate::retry::send_with_retry(&client, client.get("https://api.elevenlabs.io/v2/voices")
                 .header("xi-api-key", &key)
                 .header("accept", "application/json")
                 )
