@@ -1,70 +1,65 @@
+use httpdate::parse_http_date;
+use reqwest::{header::RETRY_AFTER, Client, RequestBuilder, Response, StatusCode};
 use std::time::{Duration, SystemTime};
-use reqwest::{Client, StatusCode};
-use reqwest::header::RETRY_AFTER;
 
-/// Map HTTP status + body into a compact provider error message.
-pub fn map_http_error(status: StatusCode, body_snippet: &str) -> String {
-    match status {
-        StatusCode::UNAUTHORIZED => "unauthorized: check ELEVENLABS_API_KEY".to_string(),
-        StatusCode::FORBIDDEN => "forbidden/missing permissions (e.g., voices_read)".to_string(),
-        StatusCode::NOT_FOUND => "voice not found (404)".to_string(),
-        StatusCode::TOO_MANY_REQUESTS => "rate_limited (429)".to_string(),
-        s if s.is_server_error() => format!("server_error ({}): {}", s.as_u16(), body_snippet),
-        s => format!("http_error ({}): {}", s.as_u16(), body_snippet),
-    }
-}
+/// Execute a POST with bounded exponential backoff, honoring `Retry-After` on 429/503.
+/// NOTE: this is synchronous (`.send()`), matching the reqwest fork used under WASI.
+pub fn post_with_retry(client: &Client, rb: RequestBuilder) -> Result<Response, reqwest::Error> {
+    let base_req = rb.build()?; // build once
+    let max_tries = 5;
+    let mut backoff = Duration::from_millis(250);
+    let max_backoff = Duration::from_secs(5);
 
-/// Parse Retry-After header in either seconds or HTTP-date form.
-/// If absent/invalid, fall back to exponential backoff: 1s, 2s, 4s (cap 5s).
-fn compute_backoff(h: Option<&str>, attempt: u32) -> Duration {
-    if let Some(v) = h {
-        if let Ok(secs) = v.trim().parse::<u64>() {
-            return Duration::from_secs(secs.min(10));
-        }
-        if let Ok(dt) = httpdate::parse_http_date(v) {
-            let now = SystemTime::now();
-            if let Ok(dur) = dt.duration_since(now) {
-                return dur.min(Duration::from_secs(10));
+    for attempt in 1..=max_tries {
+        // Try to clone the built Request for this attempt; if we can't, execute once and return.
+        let to_send = match base_req.try_clone() {
+            Some(r) => r,
+            None => {
+                // Not clonable — do a single attempt without retries.
+                return client.execute(base_req);
             }
-        }
-    }
-    Duration::from_secs((1u64 << attempt).min(5)) // 1,2,4,5…
-}
+        };
 
-/// POST bytes with backoff on 429. Returns Ok(body bytes) or Err(message).
-pub async fn post_with_retry(
-    client: &Client,
-    url: &str,
-    headers: &[(&str, &str)],
-    body: Vec<u8>,
-) -> Result<Vec<u8>, String> {
-    let mut last_err = String::new();
-    for attempt in 0..3 {
-        let mut req = client.post(url).body(body.clone());
-        for (k, v) in headers {
-            req = req.header(*k, *v);
-        }
-
-        match req.send().await {
+        match client.execute(to_send) {
             Ok(resp) => {
                 let status = resp.status();
-                if status.is_success() {
-                    return resp.bytes().await
-                        .map(|b| b.to_vec())
-                        .map_err(|e| format!("read_body_failed: {e}"));
-                }
-                // Non-2xx
-                let retry_after = resp.headers().get(RETRY_AFTER)
-                    .and_then(|v| v.to_str().ok());
-                let snippet = resp.text().await.unwrap_or_default();
-                if status == StatusCode::TOO_MANY_REQUESTS && attempt < 2 {
-                    std::thread::sleep(compute_backoff(retry_after, attempt));
+                if (status == StatusCode::TOO_MANY_REQUESTS || status == StatusCode::SERVICE_UNAVAILABLE)
+                    && attempt < max_tries
+                {
+                    // Respect Retry-After seconds or HTTP-date per RFC 9110 §10.2.3
+                    let wait = retry_after_delay(&resp).unwrap_or(backoff);
+                    std::thread::sleep(wait);
+                    backoff = (backoff * 2).min(max_backoff);
                     continue;
                 }
-                return Err(map_http_error(status, snippet.get(0..160).unwrap_or("")));
+                return Ok(resp);
             }
-            Err(e) => { last_err = format!("request_failed: {e}"); }
+            Err(err) => {
+                if attempt >= max_tries {
+                    return Err(err);
+                }
+                std::thread::sleep(backoff);
+                backoff = (backoff * 2).min(max_backoff);
+                continue;
+            }
         }
     }
-    Err(last_err)
+
+    unreachable!("loop exits via return");
+}
+
+fn retry_after_delay(resp: &Response) -> Option<Duration> {
+    let val = resp.headers().get(RETRY_AFTER)?;
+    let s = val.to_str().ok()?;
+
+    // Retry-After can be delta-seconds or an HTTP-date
+    if let Ok(secs) = s.parse::<u64>() {
+        return Some(Duration::from_secs(secs));
+    }
+    if let Ok(when) = parse_http_date(s) {
+        if let Ok(diff) = when.duration_since(SystemTime::now()) {
+            return Some(diff);
+        }
+    }
+    None
 }
