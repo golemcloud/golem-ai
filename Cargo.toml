@@ -2,6 +2,7 @@
 resolver = "2"
 
 members = [
+    "tts/elevenlabs",
     "llm/llm",
     "llm/bedrock",
     "llm/anthropic",
