@@ -1,4 +1,5 @@
 #![allow(static_mut_refs)]
+use crate::retry::SendRetryExt;
 mod retry;
 mod bindings;
 
@@ -55,7 +56,7 @@ mod voices_impl {
                 .get("https://api.elevenlabs.io/v1/voices")
                 .header("xi-api-key", &key)
                 .header("accept", "application/json")
-                .send()
+                .send_with_retry()
                 .map_err(|e| format!("GET /v1/voices: {e}"))?;
 
             let status = resp.status();
@@ -111,7 +112,7 @@ mod synth_impl {
             .header("accept", "audio/mpeg")
             .header("content-type", "application/json")
             .body(serde_json::to_vec(&body).map_err(|e| format!("encode JSON: {e}"))?)
-            .send()
+            .send_with_retry()
             .map_err(|e| format!("POST text-to-speech: {e}"))?;
 
         let status = resp.status();

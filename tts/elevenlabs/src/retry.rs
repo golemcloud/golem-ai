@@ -97,3 +97,17 @@ pub fn execute_with_retry(client: &Client, request: reqwest::Request) -> Result<
 }
 
 pub fn send_with_retry(client: &reqwest::Client, rb: reqwest::RequestBuilder) -> Result<reqwest::Response, reqwest::Error> { post_with_retry(client, rb) }
+
+pub trait SendRetryExt {
+    fn send_with_retry(self) -> Result<reqwest::Response, reqwest::Error>;
+}
+
+impl SendRetryExt for reqwest::RequestBuilder {
+    fn send_with_retry(self) -> Result<reqwest::Response, reqwest::Error> {
+        // Split out the embedded Client + built Request, then execute with backoff.
+        let (client, req_res) = self.build_split();
+        let req = req_res?;
+        // Uses your existing Retry-After aware backoff (429/503).
+        execute_with_retry(&client, req)
+    }
+}
