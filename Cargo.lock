@@ -5353,6 +5353,7 @@ name = "tts-elevenlabs"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "httpdate",
  "reqwest 0.12.15 (git+https://github.com/golemcloud/reqwest?branch=update-april-2025)",
  "serde",
  "serde_json",
