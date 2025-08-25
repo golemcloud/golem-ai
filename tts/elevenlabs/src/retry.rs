@@ -67,7 +67,6 @@ fn retry_after_delay(resp: &Response) -> Option<Duration> {
 
 /// Execute any built Request with bounded backoff; honors Retry-After for 429/503.
 #[allow(dead_code)]
-
 pub fn execute_with_retry(
     client: &Client,
     request: reqwest::Request,
@@ -110,13 +109,11 @@ pub fn send_with_retry(
 }
 
 #[allow(dead_code)]
-
 pub trait SendRetryExt {
     fn send_with_retry(self) -> Result<reqwest::Response, reqwest::Error>;
 }
 
 #[allow(dead_code)]
-
 impl SendRetryExt for reqwest::RequestBuilder {
     fn send_with_retry(self) -> Result<reqwest::Response, reqwest::Error> {
         // Split out the embedded Client + built Request, then execute with backoff.
