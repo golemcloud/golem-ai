@@ -5349,6 +5349,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "tts-deepgram"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "httpdate",
+ "reqwest 0.12.15 (git+https://github.com/golemcloud/reqwest?branch=update-april-2025)",
+ "serde",
+ "serde_json",
+ "wit-bindgen 0.44.0",
+ "wit-bindgen-rt 0.44.0",
+]
+
+[[package]]
 name = "tts-elevenlabs"
 version = "0.1.0"
 dependencies = [

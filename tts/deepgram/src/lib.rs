@@ -10,7 +10,7 @@ mod http {
     use reqwest::Client;
 
     pub fn api_key() -> Result<String, String> {
-        std::env::var("ELEVENLABS_API_KEY").map_err(|_| "ELEVENLABS_API_KEY not set".to_string())
+        std::env::var("DEEPGRAM_API_KEY").map_err(|_| "DEEPGRAM_API_KEY not set".to_string())
     }
 
     pub fn client() -> Result<Client, String> {
@@ -55,7 +55,7 @@ mod voices_impl {
                 &client,
                 client
                     .get("https://api.elevenlabs.io/v2/voices")
-                    .header("xi-api-key", &key)
+                    .header("Authorization", &format!("Token {}", key))
                     .header("accept", "application/json"),
             )
             .map_err(|e| format!("GET /v1/voices: {e}"))?;
@@ -104,14 +104,14 @@ mod synth_impl {
     pub fn synthesize_mp3(voice_id: &str, text: &str) -> Result<Vec<u8>, String> {
         let key = http::api_key()?;
         let client = http::client()?;
-        let url = format!("https://api.elevenlabs.io/v1/text-to-speech/{voice_id}");
+        let url = format!("https://api.deepgram.com/v1/speak?model={}", voice_id);
         let body = SynthReq { text };
 
         let resp = crate::retry::send_with_retry(
             &client,
             client
                 .post(url)
-                .header("xi-api-key", &key)
+                .header("Authorization", &format!("Token {}", key))
                 .header("accept", "audio/mpeg")
                 .header("content-type", "application/json")
                 .body(serde_json::to_vec(&body).map_err(|e| format!("encode JSON: {e}"))?),

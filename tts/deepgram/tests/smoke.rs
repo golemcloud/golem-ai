@@ -36,10 +36,10 @@ fn health_ok() {
 
 #[test]
 fn synth_nonempty_mp3() {
-    let key = match std::env::var("ELEVENLABS_API_KEY") {
+    let key = match std::env::var("DEEPGRAM_API_KEY") {
         Ok(k) => k,
         Err(_) => {
-            eprintln!("ELEVENLABS_API_KEY not set -> skipping synth test");
+            eprintln!("DEEPGRAM_API_KEY not set -> skipping synth test");
             return;
         }
     };
@@ -53,7 +53,7 @@ fn synth_nonempty_mp3() {
             "-S",
             "http",
             "--env",
-            &format!("ELEVENLABS_API_KEY={key}"),
+            &format!("DEEPGRAM_API_KEY={key}"),
             "--invoke",
             &format!("synth-b64(\"{voice}\",\"{text}\")"),
             &wasm_path(),
