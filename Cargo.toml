@@ -37,6 +37,7 @@ members = [
     "stt/aws",
     "stt/azure",
     "stt/google",
+    "tts/deepgram",
 ]
 
 [profile.release]
