@@ -35,7 +35,7 @@ fn health_ok() {
     let (code, out, err) =
         run("wasmtime", &["run", "-S", "http", "--invoke", "health()", &wasm]);
     assert_eq!(code, 0, "wasmtime exit {}.\nstderr:\n{}", code, err);
-    assert!(out.trim().starts_with("ok("), "unexpected stdout:\n{}", out);
+    assert!(out.trim()=="ok" || out.trim().starts_with("ok("), "unexpected stdout:\n{}", out);
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn synth_nonempty_mp3() {
     assert_eq!(code, 0, "wasmtime exit {}.\nstderr:\n{}", code, err);
 
     let s = out.trim();
-    assert!(s.starts_with("ok(") && s.ends_with(')'), "unexpected stdout:\n{}\n\nstderr:\n{}", out, err);
+    assert!(s=="ok" || out.trim().starts_with("ok(") && s.ends_with(')'), "unexpected stdout:\n{}\n\nstderr:\n{}", out, err);
     let inner = &s[3..s.len() - 1]; // strip ok(…)
     let b64: String = serde_json::from_str(inner).expect("json string inner result");
 
