@@ -44,7 +44,7 @@ fn synth_nonempty_mp3() {
         }
     };
 
-    let voice = std::env::var("VOICE_ID").unwrap_or_else(|_| "21m00Tcm4TlvDq8ikWAM".to_string());
+    let voice = std::env::var("VOICE_ID").unwrap_or_else(|_| "aura-2-thalia-en".to_string());
     let text = "Hello from ElevenLabs on Golem!";
 
     let out = Command::new("wasmtime")
