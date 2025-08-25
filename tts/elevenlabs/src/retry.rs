@@ -23,7 +23,8 @@ pub fn post_with_retry(client: &Client, rb: RequestBuilder) -> Result<Response, 
         match client.execute(to_send) {
             Ok(resp) => {
                 let status = resp.status();
-                if (status == StatusCode::TOO_MANY_REQUESTS || status == StatusCode::SERVICE_UNAVAILABLE)
+                if (status == StatusCode::TOO_MANY_REQUESTS
+                    || status == StatusCode::SERVICE_UNAVAILABLE)
                     && attempt < max_tries
                 {
                     // Respect Retry-After seconds or HTTP-date per RFC 9110 §10.2.3
@@ -65,7 +66,12 @@ fn retry_after_delay(resp: &Response) -> Option<Duration> {
 }
 
 /// Execute any built Request with bounded backoff; honors Retry-After for 429/503.
-pub fn execute_with_retry(client: &Client, request: reqwest::Request) -> Result<Response, reqwest::Error> {
+#[allow(dead_code)]
+
+pub fn execute_with_retry(
+    client: &Client,
+    request: reqwest::Request,
+) -> Result<Response, reqwest::Error> {
     use std::time::Duration;
     let max_tries = 5;
     let mut backoff = Duration::from_millis(250);
@@ -96,11 +102,20 @@ pub fn execute_with_retry(client: &Client, request: reqwest::Request) -> Result<
     unreachable!("loop returns on success or last attempt")
 }
 
-pub fn send_with_retry(client: &reqwest::Client, rb: reqwest::RequestBuilder) -> Result<reqwest::Response, reqwest::Error> { post_with_retry(client, rb) }
+pub fn send_with_retry(
+    client: &reqwest::Client,
+    rb: reqwest::RequestBuilder,
+) -> Result<reqwest::Response, reqwest::Error> {
+    post_with_retry(client, rb)
+}
+
+#[allow(dead_code)]
 
 pub trait SendRetryExt {
     fn send_with_retry(self) -> Result<reqwest::Response, reqwest::Error>;
 }
+
+#[allow(dead_code)]
 
 impl SendRetryExt for reqwest::RequestBuilder {
     fn send_with_retry(self) -> Result<reqwest::Response, reqwest::Error> {

@@ -1,6 +1,6 @@
 #![allow(static_mut_refs)]
-mod retry;
 mod bindings;
+mod retry;
 
 struct Component;
 bindings::export!(Component with_types_in bindings);
@@ -51,11 +51,14 @@ mod voices_impl {
             let key = http::api_key()?;
             let client = http::client()?;
 
-            let resp = crate::retry::send_with_retry(&client, client.get("https://api.elevenlabs.io/v2/voices")
-                .header("xi-api-key", &key)
-                .header("accept", "application/json")
-                )
-                .map_err(|e| format!("GET /v1/voices: {e}"))?;
+            let resp = crate::retry::send_with_retry(
+                &client,
+                client
+                    .get("https://api.elevenlabs.io/v2/voices")
+                    .header("xi-api-key", &key)
+                    .header("accept", "application/json"),
+            )
+            .map_err(|e| format!("GET /v1/voices: {e}"))?;
 
             let status = resp.status();
             let body = resp.bytes().map_err(|e| format!("read body: {e}"))?;
@@ -104,13 +107,16 @@ mod synth_impl {
         let url = format!("https://api.elevenlabs.io/v1/text-to-speech/{voice_id}");
         let body = SynthReq { text };
 
-        let resp = crate::retry::send_with_retry(&client, client.post(url)
-            .header("xi-api-key", &key)
-            .header("accept", "audio/mpeg")
-            .header("content-type", "application/json")
-            .body(serde_json::to_vec(&body).map_err(|e| format!("encode JSON: {e}"))?)
-            )
-            .map_err(|e| format!("POST text-to-speech: {e}"))?;
+        let resp = crate::retry::send_with_retry(
+            &client,
+            client
+                .post(url)
+                .header("xi-api-key", &key)
+                .header("accept", "audio/mpeg")
+                .header("content-type", "application/json")
+                .body(serde_json::to_vec(&body).map_err(|e| format!("encode JSON: {e}"))?),
+        )
+        .map_err(|e| format!("POST text-to-speech: {e}"))?;
 
         let status = resp.status();
         let bytes = resp.bytes().map_err(|e| format!("read audio bytes: {e}"))?;
