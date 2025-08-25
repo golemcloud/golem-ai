@@ -17,7 +17,6 @@ base64          = "0.22"
 # Golem's WASI-capable reqwest fork (synchronous on WASI):
 # keep default-features = false; "charset" pulls in encoding_rs used by this fork.
 reqwest = { git = "https://github.com/golemcloud/reqwest", branch = "update-april-2025", default-features = false, features = ["json", "charset"] }
-
 [package.metadata.component]
 package = "golem:tts-elevenlabs"
 

@@ -1,5 +1,4 @@
 #![allow(static_mut_refs)]
-mod errors;
 mod retry;
 mod bindings;
 
