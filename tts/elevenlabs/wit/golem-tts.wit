@@ -1,0 +1,28 @@
+package golem:tts@1.0.0;
+
+interface bootstrap {
+  /// Health check
+  ping: func() -> string;
+}
+
+interface voices {
+  /// Minimal voice info
+  record voice { id: string, name: string }
+  /// Return provider voices or an error
+  list-voices: func() -> result<list<voice>, string>;
+}
+
+interface synthesis {
+  /// Return MP3 bytes or an error
+  synthesize: func(voice-id: string, text: string) -> result<list<u8>, string>;
+}
+
+world provider {
+  export bootstrap;
+  export voices;
+  export synthesis;
+
+  // world-level helpers you can call directly from Wasmtime CLI
+  export health: func() -> string;
+  export synth-b64: func(voice-id: string, text: string) -> result<string, string>;
+}
