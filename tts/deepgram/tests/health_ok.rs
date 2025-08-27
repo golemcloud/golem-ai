@@ -1,10 +1,26 @@
 use std::process::Command;
+use std::path::PathBuf;
+
+fn ws_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).ancestors().nth(2).unwrap().to_path_buf()
+}
+fn wasm() -> String {
+    ws_root().join("target/wasm32-wasip1/release/tts_deepgram.wasm").to_string_lossy().to_string()
+}
+
 #[test]
 fn health_ok() {
+    let ok = Command::new("cargo")
+        .args(["component","build","--release","-p","tts-deepgram"])
+        .status().expect("spawn cargo component build (deepgram)");
+    assert!(ok.success(), "cargo component build failed (deepgram)");
+
     let out = Command::new("wasmtime")
-        .args(["run","-S","http","--invoke","health()","target/wasm32-wasip1/release/tts_deepgram.wasm"])
+        .args(["run","-S","http","--invoke","health()", &wasm()])
         .output().expect("spawn wasmtime");
-    assert!(out.status.success(), "wasmtime exit {:?}", out.status);
+
+    assert!(out.status.success(), "wasmtime exit: {:?}", out.status);
     let txt = String::from_utf8_lossy(&out.stdout);
-    assert_eq!(txt.trim().trim_matches('"'), "ok", "unexpected stdout: {:?}", txt);
+    let norm = txt.trim().trim_matches('"');
+    assert_eq!(norm, "ok", "unexpected stdout: {:?}", txt);
 }
