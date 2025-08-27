@@ -1,155 +1,95 @@
-#![allow(static_mut_refs)]
 mod bindings;
-mod retry;
+
+use bindings::exports::golem::tts::api::Guest;
+use bindings::wasi::http::types as http;
+use bindings::wasi::http::outgoing_handler;
+use bindings::wasi::io::streams;
+
+use serde_json::json;
+use base64::engine::general_purpose::STANDARD as B64;
+use base64::Engine;
+
+mod sigv4;
 
 struct Component;
-bindings::export!(Component with_types_in bindings);
 
-/// ---------- tiny helpers ----------
-mod http {
-    use reqwest::Client;
+impl Guest for Component {
+    fn health() -> String { "ok".to_string() }
 
-    pub fn api_key() -> Result<String, String> {
-        std::env::var("DEEPGRAM_API_KEY").map_err(|_| "DEEPGRAM_API_KEY not set".to_string())
-    }
+    fn synth_b64(voice: String, text: String) -> Result<String, String> {
+        // 1) AWS env
+        let region = std::env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string());
+        let akid   = std::env::var("AWS_ACCESS_KEY_ID").map_err(|_| "AWS_ACCESS_KEY_ID not set".to_string())?;
+        let secret = std::env::var("AWS_SECRET_ACCESS_KEY").map_err(|_| "AWS_SECRET_ACCESS_KEY not set".to_string())?;
+        let session = std::env::var("AWS_SESSION_TOKEN").ok();
+        let amz_date = std::env::var("AWS_AMZ_DATE").ok(); // optional host override
 
-    pub fn client() -> Result<Client, String> {
-        Client::builder()
-            .build()
-            .map_err(|e| format!("reqwest client build: {e}"))
-    }
-}
+        // 2) Endpoint + body
+        let host = format!("polly.{region}.amazonaws.com");
+        let uri  = "/v1/speech";
+        let body = json!({
+            "Text": text,
+            "VoiceId": voice,
+            "OutputFormat": "mp3"
+        }).to_string();
 
-/// ---------- bootstrap interface ----------
-mod bootstrap_impl {
-    use super::bindings::exports::golem::tts::bootstrap;
-    impl bootstrap::Guest for super::Component {
-        fn ping() -> String {
-            "ok".to_string()
+        // 3) SigV4 headers
+        let sig = sigv4::sign_post_json(&host, uri, &region, "polly", &akid, &secret, session.as_deref(), amz_date.as_deref(), &body);
+
+        let mut headers = http::Fields::new();
+        headers.append(&http::HeaderName::from_bytes(b"content-type").unwrap(),
+                       &http::HeaderValue::from_bytes(b"application/json").unwrap()).unwrap();
+        headers.append(&http::HeaderName::from_bytes(b"host").unwrap(),
+                       &http::HeaderValue::from_bytes(host.as_bytes()).unwrap()).unwrap();
+        headers.append(&http::HeaderName::from_bytes(b"x-amz-content-sha256").unwrap(),
+                       &http::HeaderValue::from_bytes(sig.content_sha256.as_bytes()).unwrap()).unwrap();
+        headers.append(&http::HeaderName::from_bytes(b"x-amz-date").unwrap(),
+                       &http::HeaderValue::from_bytes(sig.amz_date.as_bytes()).unwrap()).unwrap();
+        headers.append(&http::HeaderName::from_bytes(b"authorization").unwrap(),
+                       &http::HeaderValue::from_bytes(sig.authorization.as_bytes()).unwrap()).unwrap();
+        if let Some(tok) = session.as_deref() {
+            headers.append(&http::HeaderName::from_bytes(b"x-amz-security-token").unwrap(),
+                           &http::HeaderValue::from_bytes(tok.as_bytes()).unwrap()).unwrap();
         }
-    }
-}
 
-/// ---------- voices interface ----------
-mod voices_impl {
-    use super::bindings::exports::golem::tts::voices;
-    use super::http;
-    use serde::Deserialize;
+        // 4) Request
+        let req = http::OutgoingRequest::new(
+            &http::Scheme::Https,
+            Some(&host),
+            &uri.to_string(),
+            &http::Method::Post,
+            Some(&headers)
+        );
 
-    #[derive(Deserialize)]
-    struct VoiceItem {
-        voice_id: String,
-        name: String,
-    }
-    #[derive(Deserialize)]
-    struct VoicesResponse {
-        voices: Vec<VoiceItem>,
-    }
+        let out = req.body().expect("body");
+        out.write().expect("stream")
+            .blocking_write_and_flush(body.as_bytes()).expect("write");
+        out.finish().expect("finish");
 
-    impl voices::Guest for super::Component {
-        fn list_voices() -> Result<Vec<voices::Voice>, String> {
-            let key = http::api_key()?;
-            let client = http::client()?;
+        let resp = match outgoing_handler::handle(req, None) {
+            Ok(r) => r,
+            Err(e) => return Err(format!("dispatch: {:?}", e)),
+        };
 
-            let resp = crate::retry::send_with_retry(
-                &client,
-                client
-                    .get("https://api.elevenlabs.io/v2/voices")
-                    .header("Authorization", &format!("Token {}", key))
-                    .header("accept", "application/json"),
-            )
-            .map_err(|e| format!("GET /v1/voices: {e}"))?;
-
-            let status = resp.status();
-            let body = resp.bytes().map_err(|e| format!("read body: {e}"))?;
-            if !status.is_success() {
-                return Err(format!(
-                    "ElevenLabs voices failed: HTTP {status} - {}",
-                    String::from_utf8_lossy(&body)
-                ));
-            }
-
-            let parsed: VoicesResponse = serde_json::from_slice(&body).map_err(|e| {
-                format!(
-                    "parse voices JSON: {e}; body: {}",
-                    String::from_utf8_lossy(&body)
-                )
-            })?;
-
-            Ok(parsed
-                .voices
-                .into_iter()
-                .map(|v| voices::Voice {
-                    id: v.voice_id,
-                    name: v.name,
-                })
-                .collect())
-        }
-    }
-}
-
-/// ---------- synthesis interface ----------
-mod synth_impl {
-    use super::bindings::exports::golem::tts::synthesis;
-    use super::http;
-    use serde::Serialize;
-
-    #[derive(Serialize)]
-    struct SynthReq<'a> {
-        text: &'a str,
-        // you can add model_id / voice_settings here if you want
-    }
-
-    /// Internal helper both the interface and world-level export will call.
-    pub fn synthesize_mp3(voice_id: &str, text: &str) -> Result<Vec<u8>, String> {
-        let key = http::api_key()?;
-        let client = http::client()?;
-        let url = format!("https://api.deepgram.com/v1/speak?model={}", voice_id);
-        let body = SynthReq { text };
-
-        let resp = crate::retry::send_with_retry(
-            &client,
-            client
-                .post(url)
-                .header("Authorization", &format!("Token {}", key))
-                .header("accept", "audio/mpeg")
-                .header("content-type", "application/json")
-                .body(serde_json::to_vec(&body).map_err(|e| format!("encode JSON: {e}"))?),
-        )
-        .map_err(|e| format!("POST text-to-speech: {e}"))?;
-
+        // 5) Read body (Polly returns raw MP3 bytes)
         let status = resp.status();
-        let bytes = resp.bytes().map_err(|e| format!("read audio bytes: {e}"))?;
-        if !status.is_success() {
-            return Err(format!(
-                "synthesize failed: HTTP {status} - {}",
-                String::from_utf8_lossy(&bytes)
-            ));
-        }
-        Ok(bytes.to_vec())
-    }
-
-    impl synthesis::Guest for super::Component {
-        fn synthesize(voice_id: String, text: String) -> Result<Vec<u8>, String> {
-            synthesize_mp3(&voice_id, &text)
-        }
-    }
-}
-
-/// ---------- world-level exports (for easy CLI testing) ----------
-mod world_impl {
-    use super::bindings::Guest as WorldGuest;
-    use super::synth_impl;
-    use base64::{engine::general_purpose, Engine as _};
-
-    impl WorldGuest for super::Component {
-        fn health() -> String {
-            "ok".to_string()
+        let in_body = resp.consume().expect("consume");
+        let stream = in_body.stream().expect("stream");
+        let mut mp3 = Vec::new();
+        loop {
+            match stream.read(32 * 1024) {
+                Ok(Some(chunk)) => mp3.extend_from_slice(&chunk),
+                Ok(None) => break,
+                Err(e) => return Err(format!("read: {:?}", e)),
+            }
         }
 
-        fn synth_b64(voice_id: String, text: String) -> Result<String, String> {
-            let bytes = synth_impl::synthesize_mp3(&voice_id, &text)?;
-            Ok(general_purpose::STANDARD.encode(bytes))
+        if u16::from(status) / 100 != 2 {
+            return Err(format!("polly http {}: {}", u16::from(status), String::from_utf8_lossy(&mp3)));
         }
+
+        Ok(B64.encode(mp3))
     }
 }
+
+bindings::export!(Component);

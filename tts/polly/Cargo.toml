@@ -26,3 +26,5 @@ world = "provider"
 
 [dev-dependencies]
 base64 = "0.22"
+hmac = "0.12"
+sha2 = "0.10"
