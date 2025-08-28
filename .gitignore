@@ -6,3 +6,8 @@ target
 tmp
 components
 .DS_Store
+
+# demo recordings
+*.cast
+
+*.mp3
