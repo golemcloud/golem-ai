@@ -1,4 +1,4 @@
-//! Production-ready Milvus vector database provider for Golem.
+//! Milvus vector database provider for Golem.
 //!
 //! This provider implements the full `golem:vector` WIT interface for Milvus,
 //! supporting:
@@ -141,17 +141,37 @@ impl CollectionsGuest for MilvusComponent {
             .into_iter()
             .map(|name| {
                 debug!("Found collection: {name}");
-                CollectionInfo {
-                    name,
-                    description: None,
-                    dimension: 0, // Would need describe_collection call to get actual dimension
-                    metric: DistanceMetric::Cosine, // Default, would need describe for actual
-                    vector_count: 0, // Would need stats call to get actual count
-                    size_bytes: None,
-                    index_ready: true,
-                    created_at: None,
-                    updated_at: None,
-                    provider_stats: None,
+                match client.describe_collection(&name) {
+                    Ok((dimension, metric, count)) => {
+                        let size_bytes = Some((dimension as u64) * (count as u64) * 4);
+                        CollectionInfo {
+                            name,
+                            description: None,
+                            dimension,
+                            metric,
+                            vector_count: count,
+                            size_bytes,
+                            index_ready: true,
+                            created_at: None,
+                            updated_at: None,
+                            provider_stats: None,
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Failed to describe Milvus collection {}: {}", name, e);
+                        CollectionInfo {
+                            name,
+                            description: None,
+                            dimension: 0,
+                            metric: DistanceMetric::Cosine,
+                            vector_count: 0,
+                            size_bytes: None,
+                            index_ready: true,
+                            created_at: None,
+                            updated_at: None,
+                            provider_stats: None,
+                        }
+                    }
                 }
             })
             .collect::<Vec<_>>();
@@ -390,55 +410,119 @@ impl VectorsGuest for MilvusComponent {
     }
 
     fn delete_vectors(
-        _collection: String,
-        _ids: Vec<String>,
+        collection: String,
+        ids: Vec<String>,
         _namespace: Option<String>,
     ) -> Result<u32, VectorError> {
         init_logging();
-        // Milvus supports delete operations but not implemented in our client yet
-        Err(unsupported_feature_with_context(
-            "Delete vectors not yet implemented",
-        ))
+        Self::validate_config()?;
+
+        if ids.is_empty() {
+            return Ok(0);
+        }
+        info!(
+            "Deleting {} vectors from Milvus collection: {}",
+            ids.len(),
+            collection
+        );
+
+        let client = Self::create_client()?;
+        match client.delete_vectors(&collection, ids) {
+            Ok(count) => {
+                info!("Successfully deleted {count} vectors");
+                Ok(count)
+            }
+            Err(e) => {
+                error!("Failed to delete vectors: {e}");
+                Err(e)
+            }
+        }
     }
 
     fn delete_by_filter(
-        _collection: String,
-        _filter: FilterExpression,
+        collection: String,
+        filter: FilterExpression,
         _namespace: Option<String>,
     ) -> Result<u32, VectorError> {
         init_logging();
-        // Milvus supports filtering but delete by filter is complex
-        Err(unsupported_feature_with_context(
-            "Delete by filter not yet implemented",
-        ))
+        Self::validate_config()?;
+
+        let expr = filter_expression_to_milvus(Some(filter)).ok_or_else(|| {
+            VectorError::InvalidParams("Unsupported or empty filter expression".into())
+        })?;
+
+        let client = Self::create_client()?;
+        // Milvus REST allows maximum limit 16384 per query; iterate until all IDs deleted
+        let mut offset: u32 = 0;
+        let limit: u32 = 16384;
+        let mut total_deleted: u32 = 0;
+        loop {
+            let ids = client.query_ids(&collection, Some(expr.clone()), limit, offset)?;
+            if ids.is_empty() {
+                break;
+            }
+            total_deleted += client.delete_vectors(&collection, ids.clone())? as u32;
+            if ids.len() < limit as usize {
+                break;
+            }
+            offset += limit;
+        }
+        Ok(total_deleted)
     }
 
     fn list_vectors(
-        _collection: String,
+        collection: String,
         _namespace: Option<String>,
-        _filter: Option<FilterExpression>,
-        _limit: Option<u32>,
-        _cursor: Option<String>,
-        _include_vectors: Option<bool>,
-        _include_metadata: Option<bool>,
+        filter: Option<FilterExpression>,
+        limit: Option<u32>,
+        cursor: Option<String>,
+        include_vectors: Option<bool>,
+        include_metadata: Option<bool>,
     ) -> Result<ListResponse, VectorError> {
         init_logging();
-        // Milvus has query/search capabilities but no direct list endpoint
-        Err(unsupported_feature_with_context(
-            "List vectors not supported by Milvus API",
-        ))
+        Self::validate_config()?;
+
+        let lim = limit.unwrap_or(100).min(16384);
+        let offset = cursor
+            .as_deref()
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(0);
+        let expr = filter_expression_to_milvus(filter);
+        let client = Self::create_client()?;
+        let ids = client.query_ids(&collection, expr, lim, offset)?;
+
+        // Fetch records respecting include options
+        let records = Self::get_vectors(
+            collection.clone(),
+            ids.clone(),
+            None,
+            include_vectors,
+            include_metadata,
+        )?;
+
+        let next_cursor = if (ids.len() as u32) == lim {
+            Some((offset + lim).to_string())
+        } else {
+            None
+        };
+
+        Ok(ListResponse {
+            vectors: records,
+            next_cursor,
+            total_count: None,
+        })
     }
 
     fn count_vectors(
-        _collection: String,
-        _filter: Option<FilterExpression>,
+        collection: String,
+        filter: Option<FilterExpression>,
         _namespace: Option<String>,
     ) -> Result<u64, VectorError> {
         init_logging();
-        // Would need to implement count query with filter
-        Err(unsupported_feature_with_context(
-            "Count vectors not yet implemented",
-        ))
+        Self::validate_config()?;
+        let expr = filter_expression_to_milvus(filter);
+        let client = Self::create_client()?;
+        client.count_vectors(&collection, expr)
     }
 }
 

@@ -1,4 +1,4 @@
-//! Minimal Pinecone REST client (Data Plane).
+//! Pinecone REST client (Data Plane).
 //!
 //! The native build uses reqwest to interact with Pinecone. In wasm builds, we
 //! return an `unsupported_feature` error because outbound HTTP is disallowed in
@@ -295,6 +295,65 @@ mod native {
                 .map_err(|e| golem_vector::error::from_reqwest_error("delete", e))?;
             let _: serde_json::Value = self.handle(resp, "delete_vectors")?;
             Ok(ids.len() as u32)
+        }
+
+        /// Delete vectors matching filter via /vectors/delete with filter JSON.
+        pub fn delete_by_filter(
+            &self,
+            namespace: &str,
+            filter: serde_json::Value,
+        ) -> Result<(), VectorError> {
+            #[derive(Serialize)]
+            struct Body {
+                filter: serde_json::Value,
+                namespace: String,
+            }
+            let body = Body {
+                filter,
+                namespace: namespace.to_string(),
+            };
+            let url = format!("{}/vectors/delete", self.base_url);
+            let resp = self
+                .auth_header(self.http.post(url).json(&body))
+                .send()
+                .map_err(|e| golem_vector::error::from_reqwest_error("delete_by_filter", e))?;
+            let _: serde_json::Value = self.handle(resp, "delete_by_filter")?;
+            Ok(())
+        }
+
+        /// Count vectors matching optional filter using /describe_index_stats.
+        pub fn count_vectors(
+            &self,
+            namespace: &str,
+            filter: Option<serde_json::Value>,
+        ) -> Result<u64, VectorError> {
+            #[derive(Serialize)]
+            struct Body {
+                namespace: String,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                filter: Option<serde_json::Value>,
+            }
+            let body = Body {
+                namespace: namespace.to_string(),
+                filter,
+            };
+            let url = format!("{}/describe_index_stats", self.base_url);
+            let resp = self
+                .auth_header(self.http.post(url).json(&body))
+                .send()
+                .map_err(|e| golem_vector::error::from_reqwest_error("describe_index_stats", e))?;
+            #[derive(Deserialize)]
+            struct StatsNs {
+                #[serde(rename = "vectorCount")]
+                vector_count: u64,
+            }
+            #[derive(Deserialize)]
+            struct Resp {
+                namespaces: std::collections::HashMap<String, StatsNs>,
+            }
+            let r: Resp = self.handle(resp, "count_vectors")?;
+            let ns_stats = r.namespaces.get(namespace).or_else(|| r.namespaces.get(""));
+            Ok(ns_stats.map(|s| s.vector_count).unwrap_or(0))
         }
     }
 }

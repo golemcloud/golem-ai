@@ -146,6 +146,78 @@ mod native {
         }
 
         // -------------------- collections ---------------------------
+        /// Describe a collection and return (dimension, metric, vector_count)
+        pub fn describe_collection(&self, name: &str) -> Result<(u32, DistanceMetric, u64), VectorError> {
+            #[derive(Deserialize)]
+            struct RespData {
+                fields: Vec<Field>,
+                #[serde(default)]
+                indexes: Vec<Index>,
+                #[serde(rename = "rowCount", default)]
+                row_count: Option<u64>,
+            }
+            #[derive(Deserialize)]
+            struct DescribeResp {
+                data: RespData,
+            }
+            #[derive(Deserialize)]
+            struct Field {
+                #[serde(rename = "name")]
+                name: String,
+                #[serde(default)]
+                params: Vec<Param>,
+            }
+            #[derive(Deserialize)]
+            struct Param {
+                key: String,
+                value: String,
+            }
+            #[derive(Deserialize)]
+            struct Index {
+                #[serde(rename = "metricType", default)]
+                metric_type: Option<String>,
+            }
+
+            fn metric_from_str(s: &str) -> DistanceMetric {
+                match s.to_uppercase().as_str() {
+                    "COSINE" => DistanceMetric::Cosine,
+                    "IP" => DistanceMetric::DotProduct,
+                    "L2" => DistanceMetric::Euclidean,
+                    "HAMMING" => DistanceMetric::Hamming,
+                    "JACCARD" => DistanceMetric::Jaccard,
+                    _ => DistanceMetric::Cosine,
+                }
+            }
+
+            let url = format!("{}/v1/vector/collections/describe?collectionName={}", self.base_url, name);
+            let resp = self.http.get(url).send().map_err(to_err)?;
+            let body: DescribeResp = self.handle_response(resp, "describe_collection")?;
+
+            // dimension: look for FloatVector field with dim param
+            let mut dimension: u32 = 0;
+            for field in &body.data.fields {
+                for p in &field.params {
+                    if p.key.eq_ignore_ascii_case("dim") {
+                        if let Ok(d) = p.value.parse::<u32>() {
+                            dimension = d;
+                        }
+                    }
+                }
+            }
+
+            // metric: use first index metricType if available
+            let metric = body
+                .data
+                .indexes
+                .iter()
+                .find_map(|idx| idx.metric_type.as_deref())
+                .map(metric_from_str)
+                .unwrap_or(DistanceMetric::Cosine);
+
+            let count = body.data.row_count.unwrap_or(0);
+
+            Ok((dimension, metric, count))
+        }
         pub fn create_collection(
             &self,
             name: &str,
@@ -196,6 +268,87 @@ mod native {
         }
 
         // -------------------- vectors ------------------------------
+        /// Delete vectors by IDs via Milvus REST `/v1/vector/delete` endpoint.
+        pub fn delete_vectors(
+            &self,
+            name: &str,
+            ids: Vec<String>,
+        ) -> Result<u32, VectorError> {
+            if ids.is_empty() {
+                return Ok(0);
+            }
+            #[derive(Serialize)]
+            struct DelReq<'a> {
+                #[serde(rename = "collectionName")]
+                collection_name: &'a str,
+                #[serde(rename = "id")]
+                id: &'a [String],
+            }
+            let url = format!("{}/v1/vector/delete", self.base_url);
+            let payload = DelReq {
+                collection_name: name,
+                id: &ids,
+            };
+            let resp = self.http.post(url).json(&payload).send().map_err(to_err)?;
+            // Successful deletion returns HTTP 200 with empty data.
+            self.handle_response::<serde_json::Value>(resp, "delete_vectors")?;
+            Ok(ids.len() as u32)
+        }
+
+        /// Low-level helper wrapping `/v1/vector/query` and returning raw JSON body.
+        fn query_raw(&self, body: &serde_json::Value) -> Result<serde_json::Value, VectorError> {
+            let url = format!("{}/v1/vector/query", self.base_url);
+            let resp = self.http.post(url).json(body).send().map_err(to_err)?;
+            self.handle_response(resp, "query_raw")
+        }
+
+        /// Query only `id` field, honoring filter / limit / offset.
+        pub fn query_ids(
+            &self,
+            name: &str,
+            expr: Option<String>,
+            limit: u32,
+            offset: u32,
+        ) -> Result<Vec<String>, VectorError> {
+            use serde_json::json;
+            let body = json!({
+                "collectionName": name,
+                "outputFields": ["id"],
+                "filter": expr,
+                "limit": limit,
+                "offset": offset
+            });
+            let json = self.query_raw(&body)?;
+            let arr = json.get("data").and_then(|d| d.as_array()).cloned().unwrap_or_default();
+            Ok(arr
+                .into_iter()
+                .filter_map(|v| v.get("id").and_then(|i| i.as_str()).map(|s| s.to_string()))
+                .collect())
+        }
+
+        /// Count vectors matching optional filter by requesting `count(*)`.
+        pub fn count_vectors(
+            &self,
+            name: &str,
+            expr: Option<String>,
+        ) -> Result<u64, VectorError> {
+            use serde_json::json;
+            let body = json!({
+                "collectionName": name,
+                "outputFields": ["count(*)"],
+                "filter": expr,
+                "limit": 0,
+                "offset": 0
+            });
+            let json = self.query_raw(&body)?;
+            json.get("data")
+                .and_then(|d| d.get(0))
+                .and_then(|obj| obj.get("count(*)"))
+                .and_then(|c| c.as_u64())
+                .ok_or_else(|| VectorError::ProviderError("Milvus count parse error".into()))
+        }
+
+// -------------------- vectors ------------------------------
         pub fn upsert_vectors(
             &self,
             name: &str,

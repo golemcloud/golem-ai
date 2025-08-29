@@ -1,16 +1,3 @@
-//! Durability wrapper for vector providers.
-//!
-//! This follows the durability design used by other components:
-//! * Today, `DurableVector` is a thin passthrough that calls the underlying provider
-//!   implementation after initializing logging. This behavior is the same whether or not
-//!   the `durability` feature is enabled (i.e., durability is currently a no-op).
-//! * In the future, the `durability` feature may enable true op-log persistence & replay
-//!   without breaking production code paths.
-//!
-//! Keeping the passthrough implementation complete ensures the shared `vector` crate
-//! compiles cleanly and is production-safe while allowing a future drop-in durability
-//! implementation without API changes.
-
 use crate::exports::golem::vector::analytics::Guest as AnalyticsGuest;
 use crate::exports::golem::vector::collections::Guest as CollectionsGuest;
 use crate::exports::golem::vector::connection::Guest as ConnectionGuest;

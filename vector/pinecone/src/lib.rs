@@ -1,4 +1,4 @@
-//! Production-ready Pinecone vector database provider for Golem.
+//! Pinecone vector database provider for Golem.
 //!
 //! Supported capabilities:
 //! * Vector upsert / get / delete
@@ -226,10 +226,16 @@ impl VectorsGuest for PineconeComponent {
     // Bulk helpers not supported ----------------------------------------------------------------
     fn delete_by_filter(
         _collection: String,
-        _filter: FilterExpression,
-        _namespace: Option<String>,
+        filter: FilterExpression,
+        namespace: Option<String>,
     ) -> Result<u32, VectorError> {
-        Err(Self::unsupported("delete_by_filter"))
+        Self::init_logging();
+        let ns = namespace.unwrap_or_default();
+        let filt_json = filter_expression_to_pinecone(Some(filter))
+            .ok_or_else(|| Self::unsupported("filter not translatable"))?;
+        Self::create_client()?.delete_by_filter(&ns, filt_json)?;
+        // Pinecone does not return count; return 0 to indicate success but unknown number.
+        Ok(0)
     }
     fn list_vectors(
         _collection: String,
@@ -244,10 +250,13 @@ impl VectorsGuest for PineconeComponent {
     }
     fn count_vectors(
         _collection: String,
-        _filter: Option<FilterExpression>,
-        _namespace: Option<String>,
+        filter: Option<FilterExpression>,
+        namespace: Option<String>,
     ) -> Result<u64, VectorError> {
-        Err(Self::unsupported("count_vectors"))
+        Self::init_logging();
+        let ns = namespace.unwrap_or_default();
+        let filt_json = filter_expression_to_pinecone(filter);
+        Self::create_client()?.count_vectors(&ns, filt_json)
     }
 }
 

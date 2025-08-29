@@ -346,6 +346,110 @@ mod native {
             let _: Value = self.handle(resp, "delete_vectors")?;
             Ok(ids.len() as u32)
         }
+
+        /// Scroll (list) vectors with optional filter & pagination.
+        /// Returns (records, next_cursor)
+        pub fn scroll_vectors(
+            &self,
+            collection: &str,
+            filter: Option<Value>,
+            limit: u32,
+            cursor: Option<String>,
+            with_vectors: bool,
+            with_payload: bool,
+        ) -> Result<(Vec<VectorRecord>, Option<String>), VectorError> {
+            #[derive(Serialize)]
+            struct Body<'a> {
+                limit: u32,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                filter: Option<&'a Value>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                offset: Option<serde_json::Value>,
+                with_vector: bool,
+                with_payload: bool,
+            }
+            let offset_val = cursor.map(|id| json!({"point_id": id}));
+            let body = Body {
+                limit,
+                filter: filter.as_ref(),
+                offset: offset_val,
+                with_vector: with_vectors,
+                with_payload,
+            };
+            let url = format!("{}/collections/{}/points/scroll", self.base_url, collection);
+            let resp = self
+                .auth(self.http.post(url).json(&body))
+                .send()
+                .map_err(|e| golem_vector::error::from_reqwest_error("scroll_vectors", e))?;
+            #[derive(Deserialize)]
+            struct Pt {
+                id: serde_json::Value,
+                vector: Option<Vec<f32>>,
+                payload: Option<Map<String, Value>>,
+            }
+            #[derive(Deserialize)]
+            struct Resp {
+                result: ScrollResult,
+            }
+            #[derive(Deserialize)]
+            struct ScrollResult {
+                points: Vec<Pt>,
+                #[serde(rename = "next_page_offset")]
+                next: Option<serde_json::Value>,
+            }
+            let r: Resp = self.handle(resp, "scroll_vectors")?;
+            let records = r
+                .result
+                .points
+                .into_iter()
+                .map(|p| {
+                    let id_str = p
+                        .id
+                        .as_str()
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| p.id.to_string());
+                    VectorRecord {
+                        id: id_str,
+                        vector: VectorData::Dense(p.vector.unwrap_or_default()),
+                        metadata: p.payload.map(|map| {
+                            map.into_iter()
+                                .map(|(k, v)| (k, json_to_metadata_value(&v)))
+                                .collect()
+                        }),
+                    }
+                })
+                .collect();
+            let next_cursor = r
+                .result
+                .next
+                .and_then(|val| val.get("point_id").cloned())
+                .and_then(|v| v.as_str().map(|s| s.to_string()));
+            Ok((records, next_cursor))
+        }
+
+        /// Count vectors matching optional filter using /points/count
+        pub fn count_vectors(
+            &self,
+            collection: &str,
+            filter: Option<Value>,
+        ) -> Result<u64, VectorError> {
+            let url = format!("{}/collections/{}/points/count", self.base_url, collection);
+            let body = json!({"filter": filter, "exact": true});
+            #[derive(Deserialize)]
+            struct Resp {
+                result: CountResult,
+            }
+            #[derive(Deserialize)]
+            struct CountResult {
+                count: u64,
+            }
+            let resp = self
+                .auth(self.http.post(url).json(&body))
+                .send()
+                .map_err(|e| golem_vector::error::from_reqwest_error("count_vectors", e))?;
+            let r: Resp = self.handle(resp, "count_vectors")?;
+            Ok(r.result.count)
+        }
     }
 }
 

@@ -226,29 +226,73 @@ impl VectorsGuest for QdrantComponent {
     }
 
     fn delete_by_filter(
-        _collection: String,
-        _filter: FilterExpression,
+        collection: String,
+        filter: FilterExpression,
         _namespace: Option<String>,
     ) -> Result<u32, VectorError> {
-        Err(Self::unsupported("delete_by_filter"))
+        Self::init_logging();
+        let client = Self::create_client()?;
+        let filter_json = filter_expression_to_qdrant(Some(filter));
+        // Scroll to collect IDs in batches
+        let mut cursor: Option<String> = None;
+        let mut total_deleted = 0u32;
+        loop {
+            let (records, next) = client.scroll_vectors(
+                &collection,
+                filter_json.clone(),
+                256,
+                cursor.clone(),
+                false,
+                false,
+            )?;
+            if records.is_empty() {
+                break;
+            }
+            let ids: Vec<String> = records.into_iter().map(|r| r.id).collect();
+            total_deleted += client.delete_vectors(&collection, ids)?;
+            cursor = next;
+            if cursor.is_none() {
+                break;
+            }
+        }
+        Ok(total_deleted)
     }
     fn list_vectors(
-        _collection: String,
+        collection: String,
         _namespace: Option<String>,
-        _filter: Option<FilterExpression>,
-        _limit: Option<u32>,
-        _cursor: Option<String>,
-        _include_vectors: Option<bool>,
-        _include_metadata: Option<bool>,
+        filter: Option<FilterExpression>,
+        limit: Option<u32>,
+        cursor: Option<String>,
+        include_vectors: Option<bool>,
+        include_metadata: Option<bool>,
     ) -> Result<ListResponse, VectorError> {
-        Err(Self::unsupported("list_vectors"))
+        Self::init_logging();
+        let client = Self::create_client()?;
+        let filter_json = filter_expression_to_qdrant(filter);
+        let lim = limit.unwrap_or(100);
+        let (records, next_cursor) = client.scroll_vectors(
+            &collection,
+            filter_json,
+            lim,
+            cursor.clone(),
+            include_vectors.unwrap_or(true),
+            include_metadata.unwrap_or(true),
+        )?;
+        Ok(ListResponse {
+            vectors: records,
+            next_cursor,
+            total_count: None,
+        })
     }
     fn count_vectors(
-        _collection: String,
-        _filter: Option<FilterExpression>,
+        collection: String,
+        filter: Option<FilterExpression>,
         _namespace: Option<String>,
     ) -> Result<u64, VectorError> {
-        Err(Self::unsupported("count_vectors"))
+        Self::init_logging();
+        let client = Self::create_client()?;
+        let filter_json = filter_expression_to_qdrant(filter);
+        client.count_vectors(&collection, filter_json)
     }
 }
 
