@@ -24,11 +24,12 @@ use log::{debug, error, info, warn};
 
 use crate::client::MilvusClient;
 use crate::conversion::*;
-use golem_vector::durability::ExtendedGuest;
 use golem_vector::durability::DurableVector;
+use golem_vector::durability::ExtendedGuest;
 use golem_vector::error::unsupported_feature;
-use golem_vector::exports::golem::vector::types::VectorError;
-use golem_vector::exports::golem::vector::analytics::{CollectionStats, FieldStats, Guest as AnalyticsGuest};
+use golem_vector::exports::golem::vector::analytics::{
+    CollectionStats, FieldStats, Guest as AnalyticsGuest,
+};
 use golem_vector::exports::golem::vector::collections::{
     CollectionInfo, Guest as CollectionsGuest, IndexConfig,
 };
@@ -43,6 +44,7 @@ use golem_vector::exports::golem::vector::search_extended::{
     ContextPair, GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
     RecommendationStrategy,
 };
+use golem_vector::exports::golem::vector::types::VectorError;
 use golem_vector::exports::golem::vector::types::*;
 use golem_vector::exports::golem::vector::vectors::{
     BatchResult, Guest as VectorsGuest, ListResponse, VectorRecord,
@@ -57,7 +59,7 @@ pub struct MilvusComponent;
 
 /// Helper function to create unsupported feature errors
 fn unsupported_feature_with_context(feature: &str) -> VectorError {
-    unsupported_feature(&format!("Milvus: {}", feature))
+    unsupported_feature(format!("Milvus: {feature}"))
 }
 
 /// Initialize logging once per component lifecycle
@@ -74,8 +76,8 @@ impl MilvusComponent {
         let endpoint =
             std::env::var(Self::ENDPOINT_ENV).unwrap_or_else(|_| "http://localhost:19530".into());
         let api_key = std::env::var(Self::API_KEY_ENV).ok();
-        
-        debug!("Creating Milvus client for endpoint: {}", endpoint);
+
+        debug!("Creating Milvus client for endpoint: {endpoint}");
         Ok(MilvusClient::new(endpoint, api_key))
     }
 
@@ -86,7 +88,7 @@ impl MilvusComponent {
         if let Ok(key) = std::env::var(Self::API_KEY_ENV) {
             if key.trim().is_empty() {
                 return Err(VectorError::InvalidParams(
-                    "MILVUS_API_KEY is set but empty".to_string()
+                    "MILVUS_API_KEY is set but empty".to_string(),
                 ));
             }
         }
@@ -106,12 +108,14 @@ impl CollectionsGuest for MilvusComponent {
     ) -> Result<CollectionInfo, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        info!("Creating Milvus collection: {} with dimension: {}", name, dimension);
+
+        info!(
+            "Creating Milvus collection: {name} with dimension: {dimension}"
+        );
         let client = Self::create_client()?;
         client.create_collection(&name, dimension, metric)?;
-        
-        info!("Successfully created Milvus collection: {}", name);
+
+        info!("Successfully created Milvus collection: {name}");
         Ok(CollectionInfo {
             name,
             description,
@@ -129,14 +133,14 @@ impl CollectionsGuest for MilvusComponent {
     fn list_collections() -> Result<Vec<CollectionInfo>, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         debug!("Listing Milvus collections");
         let client = Self::create_client()?;
         let collections = client
             .list_collections()?
             .into_iter()
             .map(|name| {
-                debug!("Found collection: {}", name);
+                debug!("Found collection: {name}");
                 CollectionInfo {
                     name,
                     description: None,
@@ -151,7 +155,7 @@ impl CollectionsGuest for MilvusComponent {
                 }
             })
             .collect::<Vec<_>>();
-            
+
         info!("Found {} Milvus collections", collections.len());
         Ok(collections)
     }
@@ -159,26 +163,26 @@ impl CollectionsGuest for MilvusComponent {
     fn delete_collection(name: String) -> Result<(), VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        info!("Deleting Milvus collection: {}", name);
+
+        info!("Deleting Milvus collection: {name}");
         let client = Self::create_client()?;
         client.delete_collection(&name)?;
-        
-        info!("Successfully deleted Milvus collection: {}", name);
+
+        info!("Successfully deleted Milvus collection: {name}");
         Ok(())
     }
 
     fn get_collection(name: String) -> Result<CollectionInfo, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        debug!("Getting Milvus collection details for: {}", name);
+
+        debug!("Getting Milvus collection details for: {name}");
         let collections = Self::list_collections()?;
-        
+
         collections
             .into_iter()
             .find(|c| c.name == name)
-            .ok_or_else(|| VectorError::NotFound(format!("Collection '{}' not found", name)))
+            .ok_or_else(|| VectorError::NotFound(format!("Collection '{name}' not found")))
     }
 
     fn update_collection(
@@ -187,20 +191,20 @@ impl CollectionsGuest for MilvusComponent {
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
         init_logging();
-        warn!("Milvus does not support collection updates - returning current info for: {}", name);
+        warn!(
+            "Milvus does not support collection updates - returning current info for: {name}"
+        );
         Self::get_collection(name)
     }
 
     fn collection_exists(name: String) -> Result<bool, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        debug!("Checking if Milvus collection exists: {}", name);
-        let exists = Self::list_collections()?
-            .iter()
-            .any(|c| c.name == name);
-            
-        debug!("Milvus collection '{}' exists: {}", name, exists);
+
+        debug!("Checking if Milvus collection exists: {name}");
+        let exists = Self::list_collections()?.iter().any(|c| c.name == name);
+
+        debug!("Milvus collection '{name}' exists: {exists}");
         Ok(exists)
     }
 }
@@ -214,7 +218,7 @@ impl VectorsGuest for MilvusComponent {
     ) -> Result<BatchResult, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         if vectors.is_empty() {
             return Ok(BatchResult {
                 success_count: 0,
@@ -222,15 +226,15 @@ impl VectorsGuest for MilvusComponent {
                 errors: vec![],
             });
         }
-        
+
         info!(
             "Upserting {} vectors to Milvus collection: {}",
             vectors.len(),
             collection
         );
-        
+
         let client = Self::create_client()?;
-        
+
         match client.upsert_vectors(&collection, vectors.clone()) {
             Ok(()) => {
                 info!("Successfully upserted {} vectors", vectors.len());
@@ -241,7 +245,7 @@ impl VectorsGuest for MilvusComponent {
                 })
             }
             Err(e) => {
-                error!("Failed to upsert vectors: {}", e);
+                error!("Failed to upsert vectors: {e}");
                 // Mark all vectors as failed
                 let errors = (0..vectors.len())
                     .map(|idx| (idx as u32, e.clone()))
@@ -264,17 +268,19 @@ impl VectorsGuest for MilvusComponent {
     ) -> Result<(), VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        debug!("Upserting single vector '{}' to Milvus collection: {}", id, collection);
-        
+
+        debug!(
+            "Upserting single vector '{id}' to Milvus collection: {collection}"
+        );
+
         let record = VectorRecord {
             id,
             vector,
             metadata,
         };
-        
+
         let result = Self::upsert_vectors(collection, vec![record], namespace)?;
-        
+
         if result.failure_count > 0 {
             if let Some((_, error)) = result.errors.first() {
                 return Err(error.clone());
@@ -283,7 +289,7 @@ impl VectorsGuest for MilvusComponent {
                 "Unknown upsert error".to_string(),
             ));
         }
-        
+
         debug!("Successfully upserted single vector");
         Ok(())
     }
@@ -297,33 +303,33 @@ impl VectorsGuest for MilvusComponent {
     ) -> Result<Vec<VectorRecord>, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        
+
         debug!(
             "Fetching {} vectors from Milvus collection: {}",
             ids.len(),
             collection
         );
-        
+
         let client = Self::create_client()?;
         let mut records = client.get_vectors_by_ids(&collection, ids)?;
-        
+
         // Apply include filters
         if !include_vectors.unwrap_or(true) {
             for record in &mut records {
                 record.vector = VectorData::Dense(vec![]); // Empty vector if not requested
             }
         }
-        
+
         if !include_metadata.unwrap_or(true) {
             for record in &mut records {
                 record.metadata = None;
             }
         }
-        
+
         debug!("Successfully fetched {} vectors", records.len());
         Ok(records)
     }
@@ -335,20 +341,13 @@ impl VectorsGuest for MilvusComponent {
     ) -> Result<Option<VectorRecord>, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         debug!(
-            "Fetching single vector '{}' from Milvus collection: {}",
-            id, collection
+            "Fetching single vector '{id}' from Milvus collection: {collection}"
         );
-        
-        let results = Self::get_vectors(
-            collection,
-            vec![id],
-            namespace,
-            Some(true),
-            Some(true),
-        )?;
-        
+
+        let results = Self::get_vectors(collection, vec![id], namespace, Some(true), Some(true))?;
+
         let result = results.into_iter().next();
         debug!("Single vector fetch result: {}", result.is_some());
         Ok(result)
@@ -363,19 +362,18 @@ impl VectorsGuest for MilvusComponent {
         _merge_metadata: Option<bool>,
     ) -> Result<(), VectorError> {
         init_logging();
-        
+
         // In Milvus, update is the same as upsert
         debug!(
-            "Updating vector '{}' in Milvus collection: {} (treated as upsert)",
-            id, collection
+            "Updating vector '{id}' in Milvus collection: {collection} (treated as upsert)"
         );
-        
+
         if let Some(vector_data) = vector {
             Self::upsert_vector(collection, id, vector_data, metadata, namespace)
         } else {
             // If no vector data provided, we need to fetch existing vector first
             warn!("Cannot update metadata without vector data in Milvus - fetching existing vector first");
-            
+
             let existing = Self::get_vector(collection.clone(), id.clone(), namespace.clone())?;
             match existing {
                 Some(mut record) => {
@@ -385,8 +383,7 @@ impl VectorsGuest for MilvusComponent {
                     Self::upsert_vector(collection, id, record.vector, record.metadata, namespace)
                 }
                 None => Err(VectorError::NotFound(format!(
-                    "Vector '{}' not found for update",
-                    id
+                    "Vector '{id}' not found for update"
                 ))),
             }
         }
@@ -461,14 +458,13 @@ impl SearchGuest for MilvusComponent {
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         debug!(
-            "Searching {} vectors in Milvus collection: {}",
-            limit, collection
+            "Searching {limit} vectors in Milvus collection: {collection}"
         );
-        
+
         let client = Self::create_client()?;
-        
+
         // Convert query to vector
         let vector = match query {
             SearchQueryEnum::Vector(v) => vector_data_to_dense(v)?,
@@ -478,15 +474,15 @@ impl SearchGuest for MilvusComponent {
                 ))
             }
         };
-        
+
         // Convert filter and set defaults
         let expr = filter_expression_to_milvus(filter);
         let metric = DistanceMetric::Cosine; // default metric
         let include_vals = include_vectors.unwrap_or(false);
         let include_meta = include_metadata.unwrap_or(false);
-        
+
         let results = client.query_vectors(&collection, vector, metric, limit, expr)?;
-        
+
         let search_results: Vec<SearchResult> = results
             .into_iter()
             .map(|(id, distance, vector_data)| SearchResult {
@@ -506,7 +502,7 @@ impl SearchGuest for MilvusComponent {
                 },
             })
             .collect();
-            
+
         debug!("Found {} search results", search_results.len());
         Ok(search_results)
     }
@@ -519,13 +515,13 @@ impl SearchGuest for MilvusComponent {
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
         debug!("Finding similar vectors (simplified search)");
-        
+
         Self::search_vectors(
             collection,
             SearchQueryEnum::Vector(vector),
             limit,
-            None, // no filter
-            None, // no namespace
+            None,        // no filter
+            None,        // no namespace
             Some(false), // don't include vectors
             Some(true),  // include metadata
             None,
@@ -565,7 +561,9 @@ impl SearchExtendedGuest for MilvusComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
-        Err(unsupported_feature_with_context("Recommendations not supported"))
+        Err(unsupported_feature_with_context(
+            "Recommendations not supported",
+        ))
     }
 
     fn discover_vectors(
@@ -593,7 +591,9 @@ impl SearchExtendedGuest for MilvusComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<GroupedSearchResult>, VectorError> {
         init_logging();
-        Err(unsupported_feature_with_context("Grouped search not supported"))
+        Err(unsupported_feature_with_context(
+            "Grouped search not supported",
+        ))
     }
 
     fn search_range(
@@ -608,7 +608,9 @@ impl SearchExtendedGuest for MilvusComponent {
         _include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
-        Err(unsupported_feature_with_context("Range search not supported"))
+        Err(unsupported_feature_with_context(
+            "Range search not supported",
+        ))
     }
 
     fn search_text(
@@ -619,7 +621,9 @@ impl SearchExtendedGuest for MilvusComponent {
         _namespace: Option<String>,
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
-        Err(unsupported_feature_with_context("Text search not supported"))
+        Err(unsupported_feature_with_context(
+            "Text search not supported",
+        ))
     }
 }
 
@@ -743,7 +747,7 @@ impl ConnectionGuest for MilvusComponent {
     ) -> Result<bool, VectorError> {
         init_logging();
         let client = MilvusClient::new(endpoint, None);
-        
+
         // Test by trying to list collections
         match client.list_collections() {
             Ok(_) => {
@@ -751,7 +755,7 @@ impl ConnectionGuest for MilvusComponent {
                 Ok(true)
             }
             Err(e) => {
-                error!("Milvus connection test failed: {}", e);
+                error!("Milvus connection test failed: {e}");
                 Ok(false)
             }
         }

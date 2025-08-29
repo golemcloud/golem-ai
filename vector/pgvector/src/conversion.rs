@@ -4,16 +4,11 @@
 //! * Translate filter expressions into SQL `WHERE` fragments
 //! * Map WIT `DistanceMetric` to pgvector operator / function names
 
+use golem_vector::conversion_errors::{validate_vector_dimension, ConversionError};
 use golem_vector::exports::golem::vector::types::{
-    DistanceMetric,
-    FilterExpression,
-    Metadata,
-    MetadataKind,
-    MetadataValue,
-    VectorData,
+    DistanceMetric, FilterExpression, Metadata, MetadataKind, MetadataValue, VectorData,
     VectorError,
 };
-use golem_vector::conversion_errors::{ConversionError, validate_vector_dimension};
 use serde_json::Value;
 
 // -----------------------------------------------------------------------------
@@ -38,12 +33,13 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
         VectorData::Dense(values) => {
             validate_vector_dimension(&values, None)?;
             Ok(values)
-        },
+        }
         // Non-dense representations are not supported by this provider currently
         _ => Err(ConversionError::UnsupportedMetric {
             metric: "non-dense vector representation".to_string(),
             provider: "Pgvector".to_string(),
-        }.into()),
+        }
+        .into()),
     }
 }
 
@@ -65,13 +61,12 @@ fn metadata_value_to_json(v: MetadataValue) -> Value {
 }
 
 pub fn metadata_to_json_map(meta: Option<Metadata>) -> serde_json::Map<String, Value> {
-    meta
-        .map(|m| {
-            m.into_iter()
-                .map(|(k, v)| (k, metadata_value_to_json(v)))
-                .collect::<serde_json::Map<_, _>>()
-        })
-        .unwrap_or_default()
+    meta.map(|m| {
+        m.into_iter()
+            .map(|(k, v)| (k, metadata_value_to_json(v)))
+            .collect::<serde_json::Map<_, _>>()
+    })
+    .unwrap_or_default()
 }
 
 // -----------------------------------------------------------------------------
@@ -91,28 +86,34 @@ pub fn filter_expression_to_sql(
     let expr = expr?;
     match expr.kind {
         FilterKind::Equals(EqualsCondition { key, value }) => {
-            let sql = format!("metadata->>'{}' = ${}::text", key, start_param_index);
+            let sql = format!("metadata->>'{key}' = ${start_param_index}::text");
             Some((sql, vec![value]))
         }
         FilterKind::NotEquals(EqualsCondition { key, value }) => {
-            let sql = format!("metadata->>'{}' <> ${}::text", key, start_param_index);
+            let sql = format!("metadata->>'{key}' <> ${start_param_index}::text");
             Some((sql, vec![value]))
         }
         FilterKind::GreaterThan(CompareCondition { key, number }) => {
-            let sql = format!("(metadata->>'{}')::numeric > ${}::numeric", key, start_param_index);
+            let sql = format!(
+                "(metadata->>'{key}')::numeric > ${start_param_index}::numeric"
+            );
             Some((sql, vec![number.to_string()]))
         }
         FilterKind::LessThan(CompareCondition { key, number }) => {
-            let sql = format!("(metadata->>'{}')::numeric < ${}::numeric", key, start_param_index);
+            let sql = format!(
+                "(metadata->>'{key}')::numeric < ${start_param_index}::numeric"
+            );
             Some((sql, vec![number.to_string()]))
         }
         FilterKind::InList(InListCondition { key, values }) => {
-            if values.is_empty() { return None; }
+            if values.is_empty() {
+                return None;
+            }
             let mut placeholders = Vec::with_capacity(values.len());
             let mut params = Vec::with_capacity(values.len());
             let mut cur = start_param_index;
             for v in values.into_iter() {
-                placeholders.push(format!("${}::text", cur));
+                placeholders.push(format!("${cur}::text"));
                 params.push(v);
                 cur += 1;
             }
@@ -131,21 +132,45 @@ pub fn filter_expression_to_sql(
 
 pub fn json_to_metadata_value(v: &Value) -> MetadataValue {
     match v {
-        Value::String(s) => MetadataValue { id: 0, kind: MetadataKind::StringVal(s.clone()) },
+        Value::String(s) => MetadataValue {
+            id: 0,
+            kind: MetadataKind::StringVal(s.clone()),
+        },
         Value::Number(n) => {
             if let Some(i) = n.as_u64() {
-                MetadataValue { id: 0, kind: MetadataKind::IntVal(i) }
+                MetadataValue {
+                    id: 0,
+                    kind: MetadataKind::IntVal(i),
+                }
             } else if let Some(f) = n.as_f64() {
-                MetadataValue { id: 0, kind: MetadataKind::FloatVal(f) }
+                MetadataValue {
+                    id: 0,
+                    kind: MetadataKind::FloatVal(f),
+                }
             } else {
-                MetadataValue { id: 0, kind: MetadataKind::StringVal(n.to_string()) }
+                MetadataValue {
+                    id: 0,
+                    kind: MetadataKind::StringVal(n.to_string()),
+                }
             }
         }
-        Value::Bool(b) => MetadataValue { id: 0, kind: MetadataKind::BoolVal(*b) },
-        Value::Null => MetadataValue { id: 0, kind: MetadataKind::StringVal("null".to_string()) },
+        Value::Bool(b) => MetadataValue {
+            id: 0,
+            kind: MetadataKind::BoolVal(*b),
+        },
+        Value::Null => MetadataValue {
+            id: 0,
+            kind: MetadataKind::StringVal("null".to_string()),
+        },
         // Without an arena to allocate referenced values, emit placeholders
-        Value::Array(_arr) => MetadataValue { id: 0, kind: MetadataKind::ArrayVal(Vec::new()) },
-        Value::Object(_map) => MetadataValue { id: 0, kind: MetadataKind::ObjectVal(Vec::new()) },
+        Value::Array(_arr) => MetadataValue {
+            id: 0,
+            kind: MetadataKind::ArrayVal(Vec::new()),
+        },
+        Value::Object(_map) => MetadataValue {
+            id: 0,
+            kind: MetadataKind::ObjectVal(Vec::new()),
+        },
     }
 }
 

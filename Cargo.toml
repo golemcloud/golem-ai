@@ -32,6 +32,8 @@ members = [
     "vector/vector",
     "vector/pgvector",
     "vector/milvus",
+    "vector/pinecone",
+    "vector/qdrant",
     "exec/exec",
 ]
 

@@ -1,7 +1,7 @@
 pub mod config;
+pub mod conversion_errors;
 #[allow(dead_code)]
 pub mod durability;
-pub mod conversion_errors;
 pub mod error;
 
 wit_bindgen::generate!({

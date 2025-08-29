@@ -11,15 +11,15 @@
 //! compiles cleanly and is production-safe while allowing a future drop-in durability
 //! implementation without API changes.
 
+use crate::exports::golem::vector::analytics::Guest as AnalyticsGuest;
 use crate::exports::golem::vector::collections::Guest as CollectionsGuest;
 use crate::exports::golem::vector::connection::Guest as ConnectionGuest;
 use crate::exports::golem::vector::namespaces::Guest as NamespacesGuest;
-use crate::exports::golem::vector::analytics::Guest as AnalyticsGuest;
 use crate::exports::golem::vector::search::Guest as SearchGuest;
 use crate::exports::golem::vector::search_extended::Guest as SearchExtendedGuest;
-use crate::exports::golem::vector::vectors::Guest as VectorsGuest;
 use crate::exports::golem::vector::types::{FilterExpression, Metadata, VectorError, VectorRecord};
 use crate::exports::golem::vector::vectors::BatchResult;
+use crate::exports::golem::vector::vectors::Guest as VectorsGuest;
 use crate::init_logging;
 use std::marker::PhantomData;
 
@@ -27,7 +27,6 @@ use std::marker::PhantomData;
 pub struct DurableVector<Impl> {
     _phantom: PhantomData<Impl>,
 }
-
 
 /// Providers must implement _all_ individual `Guest` traits plus `'static` to be wrapped.
 pub trait ExtendedGuest:
@@ -45,16 +44,16 @@ pub trait ExtendedGuest:
 // --- Passthrough implementation ---------------------------------------------------------------
 mod passthrough_impl {
     use super::*;
+    use crate::exports::golem::vector::analytics::{CollectionStats, FieldStats};
     use crate::exports::golem::vector::collections::{CollectionInfo, IndexConfig};
     use crate::exports::golem::vector::connection::{ConnectionStatus, Credentials};
     use crate::exports::golem::vector::namespaces::NamespaceInfo;
-    use crate::exports::golem::vector::types::SearchQuery as SearchQueryEnum;
     use crate::exports::golem::vector::search_extended::{
         GroupedSearchResult, RecommendationExample, RecommendationStrategy,
     };
-    use crate::exports::golem::vector::types::{DistanceMetric, SearchResult};
-    use crate::exports::golem::vector::analytics::{CollectionStats, FieldStats};
     use crate::exports::golem::vector::types::MetadataValue;
+    use crate::exports::golem::vector::types::SearchQuery as SearchQueryEnum;
+    use crate::exports::golem::vector::types::{DistanceMetric, SearchResult};
 
     // ----- collections ------------------------------------------------------------------------
     impl<T: ExtendedGuest> CollectionsGuest for DurableVector<T> {
@@ -131,7 +130,7 @@ mod passthrough_impl {
     }
 
     // ----- vectors ---------------------------------------------------------------------------
-    
+
     use crate::exports::golem::vector::vectors::ListResponse as VListResponse;
     impl<T: ExtendedGuest> crate::exports::golem::vector::vectors::Guest for DurableVector<T> {
         fn upsert_vectors(

@@ -1,0 +1,7 @@
+package golem:vector-pinecone@1.0.0;
+
+// Wrapper world that re-exports the shared vector-library definitions so that
+// this provider component can be used independently.
+world vector-library {
+  include golem:vector/vector-library@1.0.0;
+}

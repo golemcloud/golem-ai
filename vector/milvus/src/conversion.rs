@@ -1,9 +1,10 @@
 //! Conversion helpers for Milvus provider.
 
-use golem_vector::exports::golem::vector::types::{
-    DistanceMetric, FilterExpression, Metadata, MetadataValue, MetadataKind, FilterKind, VectorData, VectorError,
-};
 use golem_vector::conversion_errors::{validate_vector_dimension, ConversionError};
+use golem_vector::exports::golem::vector::types::{
+    DistanceMetric, FilterExpression, FilterKind, Metadata, MetadataKind, MetadataValue,
+    VectorData, VectorError,
+};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -13,12 +14,13 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
         VectorData::Dense(values) => {
             validate_vector_dimension(&values, None)?;
             Ok(values)
-        },
+        }
         // Only dense vectors are supported by this client path currently
         _ => Err(ConversionError::UnsupportedMetric {
             metric: "non-dense vectors".to_string(),
             provider: "Milvus".to_string(),
-        }.into()),
+        }
+        .into()),
     }
 }
 
@@ -64,8 +66,15 @@ pub fn filter_expression_to_milvus(expr: Option<FilterExpression>) -> Option<Str
         FilterKind::GreaterThan(cond) => Some(format!("{} > {}", cond.key, cond.number)),
         FilterKind::LessThan(cond) => Some(format!("{} < {}", cond.key, cond.number)),
         FilterKind::InList(cond) => {
-            if cond.values.is_empty() { return None; }
-            let vals = cond.values.iter().map(|s| quote_str(s)).collect::<Vec<_>>().join(", ");
+            if cond.values.is_empty() {
+                return None;
+            }
+            let vals = cond
+                .values
+                .iter()
+                .map(|s| quote_str(s))
+                .collect::<Vec<_>>()
+                .join(", ");
             Some(format!("{} in [{}]", cond.key, vals))
         }
         FilterKind::And(_) | FilterKind::Or(_) | FilterKind::Not(_) => None,

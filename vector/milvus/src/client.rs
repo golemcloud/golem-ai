@@ -8,9 +8,7 @@ use golem_vector::exports::golem::vector::types::{
     DistanceMetric, Metadata, MetadataKind, MetadataValue, VectorData, VectorError, VectorRecord,
 };
 
-use crate::conversion::{
-    metadata_to_json_map, metric_to_milvus, vector_data_to_dense,
-};
+use crate::conversion::{metadata_to_json_map, metric_to_milvus, vector_data_to_dense};
 
 #[cfg(target_family = "wasm")]
 pub struct MilvusClient;
@@ -73,9 +71,9 @@ impl MilvusClient {
 mod native {
     use super::*;
     use reqwest::{Client, Response};
-    use serde::{Deserialize, Serialize, de::DeserializeOwned};
-    use std::time::Duration;
+    use serde::{de::DeserializeOwned, Deserialize, Serialize};
     use std::collections::HashMap;
+    use std::time::Duration;
 
     #[derive(Clone)]
     pub struct MilvusClient {
@@ -92,16 +90,16 @@ mod native {
         }
 
         pub fn new_with_config(
-            endpoint: String, 
+            endpoint: String,
             api_key: Option<String>,
             timeout: Duration,
-            max_retries: u32
+            max_retries: u32,
         ) -> Self {
             let client = Client::builder()
                 .timeout(timeout)
                 .build()
                 .expect("Failed to create HTTP client");
-            
+
             Self {
                 http: client,
                 base_url: endpoint.trim_end_matches('/').to_string(),
@@ -112,18 +110,22 @@ mod native {
         }
 
         // Helper method for consistent response handling
-        fn handle_response<T: DeserializeOwned>(&self, resp: Response, operation: &str) -> Result<T, VectorError> {
+        fn handle_response<T: DeserializeOwned>(
+            &self,
+            resp: Response,
+            operation: &str,
+        ) -> Result<T, VectorError> {
             match resp.status() {
-                status if status.is_success() => {
-                    resp.json().map_err(|e| VectorError::ProviderError(
-                        format!("Milvus {} response parsing error: {}", operation, e)
+                status if status.is_success() => resp.json().map_err(|e| {
+                    VectorError::ProviderError(format!(
+                        "Milvus {operation} response parsing error: {e}"
                     ))
-                }
+                }),
                 status => {
                     let error_body = resp.text().unwrap_or_default();
-                    Err(VectorError::ProviderError(
-                        format!("Milvus {} error {}: {}", operation, status, error_body)
-                    ))
+                    Err(VectorError::ProviderError(format!(
+                        "Milvus {operation} error {status}: {error_body}"
+                    )))
                 }
             }
         }
@@ -296,17 +298,15 @@ mod native {
             };
             let resp = self.http.post(url).json(&payload).send().map_err(to_err)?;
             let body: GetResp = self.handle_response(resp, "get_vectors_by_ids")?;
-            Ok(
-                body
-                    .data
-                    .into_iter()
-                    .map(|it| VectorRecord {
-                        id: it.id,
-                        vector: VectorData::Dense(it.vector),
-                        metadata: it.metadata.map(json_to_metadata),
-                    })
-                    .collect(),
-            )
+            Ok(body
+                .data
+                .into_iter()
+                .map(|it| VectorRecord {
+                    id: it.id,
+                    vector: VectorData::Dense(it.vector),
+                    metadata: it.metadata.map(json_to_metadata),
+                })
+                .collect())
         }
     }
 
@@ -334,7 +334,11 @@ mod native {
                 } else if let Some(f) = n.as_f64() {
                     Some(MetadataKind::FloatVal(f))
                 } else if let Some(i) = n.as_i64() {
-                    if i >= 0 { Some(MetadataKind::IntVal(i as u64)) } else { Some(MetadataKind::FloatVal(i as f64)) }
+                    if i >= 0 {
+                        Some(MetadataKind::IntVal(i as u64))
+                    } else {
+                        Some(MetadataKind::FloatVal(i as f64))
+                    }
                 } else {
                     None
                 }

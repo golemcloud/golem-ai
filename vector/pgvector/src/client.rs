@@ -11,12 +11,14 @@
 //!
 //! Runtime selection happens via `cfg(target_family = "wasm")`.
 
+use crate::conversion::{
+    json_object_to_metadata, metadata_to_json_map, metric_to_pgvector, vector_data_to_dense,
+};
 #[cfg(target_family = "wasm")]
 use golem_vector::error::unsupported_feature;
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric, Metadata, VectorData, VectorError, VectorRecord,
 };
-use crate::conversion::{metric_to_pgvector, vector_data_to_dense, metadata_to_json_map, json_object_to_metadata};
 
 #[cfg(target_family = "wasm")]
 pub struct PgvectorClient;
@@ -132,9 +134,9 @@ impl PgvectorClient {
 mod native {
     use super::*;
     use postgres::NoTls;
+    use r2d2_postgres::{r2d2::Pool, PostgresConnectionManager};
     use serde_json::Value;
     use std::time::Duration;
-    use r2d2_postgres::{PostgresConnectionManager, r2d2::Pool};
 
     pub struct PgvectorClient {
         pool: Pool<PostgresConnectionManager<NoTls>>,
@@ -154,16 +156,16 @@ mod native {
             max_retries: u32,
         ) -> Result<Self, VectorError> {
             let manager = PostgresConnectionManager::new(
-                database_url.parse().map_err(|e| VectorError::InvalidParams(
-                    format!("Invalid database URL: {}", e)
-                ))?,
+                database_url.parse().map_err(|e| {
+                    VectorError::InvalidParams(format!("Invalid database URL: {e}"))
+                })?,
                 NoTls,
             );
             let pool = Pool::builder()
                 .max_size(max_connections)
                 .connection_timeout(timeout)
                 .build(manager)
-                .map_err(|e| VectorError::ProviderError(format!("Pool creation error: {}", e)))?;
+                .map_err(|e| VectorError::ProviderError(format!("Pool creation error: {e}")))?;
             Ok(Self {
                 pool,
                 timeout,
@@ -187,23 +189,26 @@ mod native {
         }
 
         // Helper to get a connection from the pool
-        fn get_connection(&self) -> Result<r2d2_postgres::r2d2::PooledConnection<PostgresConnectionManager<NoTls>>, VectorError> {
-            self.pool.get().map_err(|e| VectorError::ProviderError(
-                format!("Failed to get database connection: {}", e)
-            ))
+        fn get_connection(
+            &self,
+        ) -> Result<
+            r2d2_postgres::r2d2::PooledConnection<PostgresConnectionManager<NoTls>>,
+            VectorError,
+        > {
+            self.pool.get().map_err(|e| {
+                VectorError::ProviderError(format!("Failed to get database connection: {e}"))
+            })
         }
 
         pub fn create_collection(&self, name: &str, dimension: u32) -> Result<(), VectorError> {
             let sql = format!(
-                "CREATE TABLE IF NOT EXISTS {} (id TEXT PRIMARY KEY, embedding vector({}), metadata JSONB)",
-                name, dimension
+                "CREATE TABLE IF NOT EXISTS {name} (id TEXT PRIMARY KEY, embedding vector({dimension}), metadata JSONB)"
             );
             let mut conn = self.get_connection()?;
             conn.execute(sql.as_str(), &[]).map_err(to_err)?;
             // index for faster similarity search
             let idx_sql = format!(
-                "CREATE INDEX IF NOT EXISTS {}_embedding_idx ON {} USING ivfflat (embedding)",
-                name, name
+                "CREATE INDEX IF NOT EXISTS {name}_embedding_idx ON {name} USING ivfflat (embedding)"
             );
             conn.execute(idx_sql.as_str(), &[]).map_err(to_err)?;
             Ok(())
@@ -221,7 +226,7 @@ mod native {
         }
 
         pub fn delete_collection(&self, name: &str) -> Result<(), VectorError> {
-            let sql = format!("DROP TABLE IF EXISTS {}", name);
+            let sql = format!("DROP TABLE IF EXISTS {name}");
             let mut conn = self.get_connection()?;
             conn.execute(sql.as_str(), &[]).map_err(to_err)?;
             Ok(())
@@ -234,8 +239,7 @@ mod native {
             _namespace: Option<String>,
         ) -> Result<(), VectorError> {
             let sql = format!(
-                "INSERT INTO {} (id, embedding, metadata) VALUES ($1, $2::vector, $3) ON CONFLICT (id) DO UPDATE SET embedding = EXCLUDED.embedding, metadata = EXCLUDED.metadata",
-                table
+                "INSERT INTO {table} (id, embedding, metadata) VALUES ($1, $2::vector, $3) ON CONFLICT (id) DO UPDATE SET embedding = EXCLUDED.embedding, metadata = EXCLUDED.metadata"
             );
             let mut conn = self.get_connection()?;
             for rec in records {
@@ -260,8 +264,7 @@ mod native {
         ) -> Result<Vec<(String, f32, Option<Vec<f32>>, Option<Metadata>)>, VectorError> {
             let op = metric_to_pgvector(metric);
             let mut sql = format!(
-                "SELECT id, embedding {} $1::vector AS distance, embedding::text, metadata FROM {}",
-                op, table
+                "SELECT id, embedding {op} $1::vector AS distance, embedding::text, metadata FROM {table}"
             );
             // Hold filter values so parameter references remain valid during query execution
             let mut held_filter_values: Vec<String> = Vec::new();
@@ -280,7 +283,8 @@ mod native {
             sql.push_str(&limit.to_string());
             let mut conn = self.get_connection()?;
             let rows = conn.query(sql.as_str(), &params).map_err(to_err)?;
-            let mut out: Vec<(String, f32, Option<Vec<f32>>, Option<Metadata>)> = Vec::with_capacity(rows.len());
+            let mut out: Vec<(String, f32, Option<Vec<f32>>, Option<Metadata>)> =
+                Vec::with_capacity(rows.len());
             for row in rows.into_iter() {
                 let id: String = row.get(0);
                 let dist: f32 = row.get(1);
@@ -307,8 +311,7 @@ mod native {
             }
             // Select id, embedding, metadata for provided IDs
             let sql = format!(
-                "SELECT id, embedding::text, metadata FROM {} WHERE id = ANY($1)",
-                table
+                "SELECT id, embedding::text, metadata FROM {table} WHERE id = ANY($1)"
             );
             let mut conn = self.get_connection()?;
             let rows = conn.query(sql.as_str(), &[&ids]).map_err(to_err)?;
@@ -346,12 +349,11 @@ mod native {
                 Some(v) => Some(vector_data_to_dense(v)?),
                 None => None,
             };
-            let meta_json: Option<Value> = metadata
-                .map(|m| Value::Object(metadata_to_json_map(Some(m))));
+            let meta_json: Option<Value> =
+                metadata.map(|m| Value::Object(metadata_to_json_map(Some(m))));
 
             let sql = format!(
-                "UPDATE {} SET embedding = CASE WHEN $2 IS NULL THEN embedding ELSE $2::vector END, metadata = CASE WHEN $3 IS NULL THEN metadata ELSE CASE WHEN $4 THEN COALESCE(metadata, '{{}}'::jsonb) || $3 ELSE $3 END END WHERE id = $1",
-                table
+                "UPDATE {table} SET embedding = CASE WHEN $2 IS NULL THEN embedding ELSE $2::vector END, metadata = CASE WHEN $3 IS NULL THEN metadata ELSE CASE WHEN $4 THEN COALESCE(metadata, '{{}}'::jsonb) || $3 ELSE $3 END END WHERE id = $1"
             );
             let merge_flag = merge_metadata;
             let mut conn = self.get_connection()?;
@@ -371,7 +373,7 @@ mod native {
             if ids.is_empty() {
                 return Ok(0);
             }
-            let sql = format!("DELETE FROM {} WHERE id = ANY($1)", table);
+            let sql = format!("DELETE FROM {table} WHERE id = ANY($1)");
             let mut conn = self.get_connection()?;
             let n = conn.execute(sql.as_str(), &[&ids]).map_err(to_err)?;
             Ok(n as u32)
@@ -384,7 +386,7 @@ mod native {
             _namespace: Option<String>,
         ) -> Result<u32, VectorError> {
             let (where_sql, values) = filter_sql;
-            let sql = format!("DELETE FROM {} WHERE {}", table, where_sql);
+            let sql = format!("DELETE FROM {table} WHERE {where_sql}");
             // Build params vec
             let mut params: Vec<&(dyn postgres::types::ToSql + Sync)> = Vec::new();
             for v in &values {
@@ -409,7 +411,7 @@ mod native {
                 .and_then(|s| s.parse::<i64>().ok())
                 .unwrap_or(0);
 
-            let mut sql = format!("SELECT id, embedding::text, metadata FROM {}", table);
+            let mut sql = format!("SELECT id, embedding::text, metadata FROM {table}");
             // Hold filter values so parameter references remain valid during query execution
             let mut held_filter_values: Vec<String> = Vec::new();
             let mut params: Vec<&(dyn postgres::types::ToSql + Sync)> = Vec::new();
@@ -459,7 +461,7 @@ mod native {
             filter_sql: Option<(String, Vec<String>)>,
             _namespace: Option<String>,
         ) -> Result<u64, VectorError> {
-            let mut sql = format!("SELECT COUNT(*) FROM {}", table);
+            let mut sql = format!("SELECT COUNT(*) FROM {table}");
             // Hold filter values so parameter references remain valid during query execution
             let mut held_filter_values: Vec<String> = Vec::new();
             let mut params: Vec<&(dyn postgres::types::ToSql + Sync)> = Vec::new();
@@ -502,7 +504,9 @@ mod native {
         let mut s = String::with_capacity(v.len() * 6 + 2);
         s.push('[');
         for (i, val) in v.iter().enumerate() {
-            if i > 0 { s.push_str(", "); }
+            if i > 0 {
+                s.push_str(", ");
+            }
             s.push_str(&val.to_string());
         }
         s.push(']');

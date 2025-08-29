@@ -1,7 +1,7 @@
 //! PgVector provider component
 //!
 //! Production-ready PostgreSQL with pgvector extension provider for Golem Vector.
-//! Implements comprehensive vector operations, collection management, and search 
+//! Implements comprehensive vector operations, collection management, and search
 //! functionality with robust error handling and logging.
 
 mod bindings;
@@ -10,8 +10,8 @@ mod conversion;
 
 use crate::client::PgvectorClient;
 use crate::conversion::*;
-use golem_vector::durability::ExtendedGuest;
 use golem_vector::durability::DurableVector;
+use golem_vector::durability::ExtendedGuest;
 use golem_vector::error::unsupported_feature;
 use golem_vector::exports::golem::vector::analytics::{
     CollectionStats, FieldStats, Guest as AnalyticsGuest,
@@ -40,7 +40,7 @@ use std::env;
 
 /// Helper to add provider context to unsupported feature errors
 fn unsupported_feature_with_context(feature: &str) -> VectorError {
-    unsupported_feature(format!("Pgvector: {}", feature))
+    unsupported_feature(format!("Pgvector: {feature}"))
 }
 
 /// Exported component type is a durable wrapper around the provider implementation
@@ -52,28 +52,26 @@ pub struct PgvectorComponent;
 impl PgvectorComponent {
     /// Environment variable for PostgreSQL connection URL
     const URL_ENV: &'static str = "PGVECTOR_URL";
-    
+
     /// Default PostgreSQL connection URL
     const DEFAULT_URL: &'static str = "postgres://postgres@localhost:5432/postgres";
 
     /// Validates pgvector configuration
     fn validate_config() -> Result<(), VectorError> {
-        let _url = env::var(Self::URL_ENV)
-            .unwrap_or_else(|_| Self::DEFAULT_URL.to_string());
-        
+        let _url = env::var(Self::URL_ENV).unwrap_or_else(|_| Self::DEFAULT_URL.to_string());
+
         debug!("Using PostgreSQL URL: {}", _url.replace("://", "://***@"));
         Ok(())
     }
 
     /// Creates and returns a configured PgvectorClient
     fn create_client() -> Result<PgvectorClient, VectorError> {
-        let url = env::var(Self::URL_ENV)
-            .unwrap_or_else(|_| Self::DEFAULT_URL.to_string());
-        
+        let url = env::var(Self::URL_ENV).unwrap_or_else(|_| Self::DEFAULT_URL.to_string());
+
         debug!("Creating pgvector client");
         PgvectorClient::new(url)
     }
-    
+
     /// Creates client with explicit URL for testing
     fn create_client_with_url(url: String) -> Result<PgvectorClient, VectorError> {
         debug!("Creating pgvector client with custom URL");
@@ -129,22 +127,21 @@ impl CollectionsGuest for PgvectorComponent {
     ) -> Result<CollectionInfo, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         info!(
-            "Creating/updating pgvector collection '{}' with dimension {}",
-            name, dimension
+            "Creating/updating pgvector collection '{name}' with dimension {dimension}"
         );
-        
+
         if dimension == 0 {
             return Err(VectorError::InvalidParams(
                 "Vector dimension must be greater than 0".to_string(),
             ));
         }
-        
+
         let client = Self::create_client()?;
         match client.create_collection(&name, dimension) {
             Ok(()) => {
-                info!("Successfully created/updated collection '{}'", name);
+                info!("Successfully created/updated collection '{name}'");
                 Ok(CollectionInfo {
                     name,
                     description,
@@ -159,7 +156,7 @@ impl CollectionsGuest for PgvectorComponent {
                 })
             }
             Err(e) => {
-                error!("Failed to create/update collection '{}': {}", name, e);
+                error!("Failed to create/update collection '{name}': {e}");
                 Err(e)
             }
         }
@@ -168,9 +165,9 @@ impl CollectionsGuest for PgvectorComponent {
     fn list_collections() -> Result<Vec<CollectionInfo>, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         debug!("Listing pgvector collections");
-        
+
         let client = Self::create_client()?;
         match client.list_collections() {
             Ok(collection_names) => {
@@ -189,12 +186,12 @@ impl CollectionsGuest for PgvectorComponent {
                         provider_stats: None,
                     })
                     .collect();
-                
+
                 debug!("Found {} collections", collections.len());
                 Ok(collections)
             }
             Err(e) => {
-                error!("Failed to list collections: {}", e);
+                error!("Failed to list collections: {e}");
                 Err(e)
             }
         }
@@ -203,20 +200,19 @@ impl CollectionsGuest for PgvectorComponent {
     fn get_collection(name: String) -> Result<CollectionInfo, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        debug!("Getting pgvector collection info for '{}'", name);
-        
+
+        debug!("Getting pgvector collection info for '{name}'");
+
         // Check if collection exists by listing all collections
         let collections = Self::list_collections()?;
-        
+
         match collections.into_iter().find(|c| c.name == name) {
             Some(collection) => {
-                debug!("Found collection '{}'", name);
+                debug!("Found collection '{name}'");
                 Ok(collection)
             }
             None => Err(VectorError::NotFound(format!(
-                "Collection '{}' not found",
-                name
+                "Collection '{name}' not found"
             ))),
         }
     }
@@ -227,13 +223,13 @@ impl CollectionsGuest for PgvectorComponent {
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
         init_logging();
-        warn!("Collection update requested for '{}' - pgvector collections have limited update support", name);
-        
+        warn!("Collection update requested for '{name}' - pgvector collections have limited update support");
+
         // For pgvector, we can only update metadata that we store separately
         // The table schema itself is immutable
         let mut existing = Self::get_collection(name)?;
         existing.description = description;
-        
+
         debug!("Updated collection metadata (description only)");
         Ok(existing)
     }
@@ -241,17 +237,17 @@ impl CollectionsGuest for PgvectorComponent {
     fn delete_collection(name: String) -> Result<(), VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        info!("Deleting pgvector collection '{}'", name);
-        
+
+        info!("Deleting pgvector collection '{name}'");
+
         let client = Self::create_client()?;
         match client.delete_collection(&name) {
             Ok(()) => {
-                info!("Successfully deleted collection '{}'", name);
+                info!("Successfully deleted collection '{name}'");
                 Ok(())
             }
             Err(e) => {
-                error!("Failed to delete collection '{}': {}", name, e);
+                error!("Failed to delete collection '{name}': {e}");
                 Err(e)
             }
         }
@@ -260,17 +256,17 @@ impl CollectionsGuest for PgvectorComponent {
     fn collection_exists(name: String) -> Result<bool, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        debug!("Checking if pgvector collection '{}' exists", name);
-        
+
+        debug!("Checking if pgvector collection '{name}' exists");
+
         match Self::list_collections() {
             Ok(collections) => {
                 let exists = collections.iter().any(|c| c.name == name);
-                debug!("Collection '{}' exists: {}", name, exists);
+                debug!("Collection '{name}' exists: {exists}");
                 Ok(exists)
             }
             Err(e) => {
-                error!("Failed to check collection existence: {}", e);
+                error!("Failed to check collection existence: {e}");
                 Err(e)
             }
         }
@@ -286,7 +282,7 @@ impl VectorsGuest for PgvectorComponent {
     ) -> Result<BatchResult, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         if vectors.is_empty() {
             return Ok(BatchResult {
                 success_count: 0,
@@ -294,13 +290,13 @@ impl VectorsGuest for PgvectorComponent {
                 errors: vec![],
             });
         }
-        
+
         info!(
             "Upserting {} vectors to pgvector collection: {}",
             vectors.len(),
             collection
         );
-        
+
         let client = Self::create_client()?;
         match client.upsert_vectors(&collection, vectors.clone(), namespace) {
             Ok(()) => {
@@ -312,7 +308,7 @@ impl VectorsGuest for PgvectorComponent {
                 })
             }
             Err(e) => {
-                error!("Failed to upsert vectors: {}", e);
+                error!("Failed to upsert vectors: {e}");
                 // For pgvector, treat as complete failure since it's transactional
                 let errors = (0..vectors.len())
                     .map(|idx| (idx as u32, e.clone()))
@@ -335,17 +331,19 @@ impl VectorsGuest for PgvectorComponent {
     ) -> Result<(), VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        debug!("Upserting single vector '{}' to pgvector collection: {}", id, collection);
-        
+
+        debug!(
+            "Upserting single vector '{id}' to pgvector collection: {collection}"
+        );
+
         let record = VectorRecord {
             id,
             vector,
             metadata,
         };
-        
+
         let result = Self::upsert_vectors(collection, vec![record], namespace)?;
-        
+
         if result.failure_count > 0 {
             if let Some((_, error)) = result.errors.first() {
                 return Err(error.clone());
@@ -354,7 +352,7 @@ impl VectorsGuest for PgvectorComponent {
                 "Unknown upsert error".to_string(),
             ));
         }
-        
+
         debug!("Successfully upserted single vector");
         Ok(())
     }
@@ -368,33 +366,33 @@ impl VectorsGuest for PgvectorComponent {
     ) -> Result<Vec<VectorRecord>, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        
+
         debug!(
             "Fetching {} vectors from pgvector collection: {}",
             ids.len(),
             collection
         );
-        
+
         let client = Self::create_client()?;
         let mut records = client.get_vectors_by_ids(&collection, ids, namespace)?;
-        
+
         // Apply include filters
         if !include_vectors.unwrap_or(true) {
             for record in &mut records {
                 record.vector = VectorData::Dense(vec![]); // Empty vector if not requested
             }
         }
-        
+
         if !include_metadata.unwrap_or(true) {
             for record in &mut records {
                 record.metadata = None;
             }
         }
-        
+
         debug!("Successfully fetched {} vectors", records.len());
         Ok(records)
     }
@@ -406,20 +404,13 @@ impl VectorsGuest for PgvectorComponent {
     ) -> Result<Option<VectorRecord>, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         debug!(
-            "Fetching single vector '{}' from pgvector collection: {}",
-            id, collection
+            "Fetching single vector '{id}' from pgvector collection: {collection}"
         );
-        
-        let results = Self::get_vectors(
-            collection,
-            vec![id],
-            namespace,
-            Some(true),
-            Some(true),
-        )?;
-        
+
+        let results = Self::get_vectors(collection, vec![id], namespace, Some(true), Some(true))?;
+
         let result = results.into_iter().next();
         debug!("Single vector fetch result: {}", result.is_some());
         Ok(result)
@@ -435,12 +426,11 @@ impl VectorsGuest for PgvectorComponent {
     ) -> Result<(), VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         debug!(
-            "Updating vector '{}' in pgvector collection: {}",
-            id, collection
+            "Updating vector '{id}' in pgvector collection: {collection}"
         );
-        
+
         let client = Self::create_client()?;
         match client.update_vector(
             &collection,
@@ -455,7 +445,7 @@ impl VectorsGuest for PgvectorComponent {
                 Ok(())
             }
             Err(e) => {
-                error!("Failed to update vector: {}", e);
+                error!("Failed to update vector: {e}");
                 Err(e)
             }
         }
@@ -468,25 +458,25 @@ impl VectorsGuest for PgvectorComponent {
     ) -> Result<u32, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         if ids.is_empty() {
             return Ok(0);
         }
-        
+
         info!(
             "Deleting {} vectors from pgvector collection: {}",
             ids.len(),
             collection
         );
-        
+
         let client = Self::create_client()?;
         match client.delete_vectors(&collection, ids, namespace) {
             Ok(count) => {
-                info!("Successfully deleted {} vectors", count);
+                info!("Successfully deleted {count} vectors");
                 Ok(count)
             }
             Err(e) => {
-                error!("Failed to delete vectors: {}", e);
+                error!("Failed to delete vectors: {e}");
                 Err(e)
             }
         }
@@ -499,25 +489,25 @@ impl VectorsGuest for PgvectorComponent {
     ) -> Result<u32, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         debug!(
-            "Deleting vectors by filter from pgvector collection: {}",
-            collection
+            "Deleting vectors by filter from pgvector collection: {collection}"
         );
-        
+
         let client = Self::create_client()?;
-        let filter_sql = filter_expression_to_sql(Some(filter), 1)
-            .ok_or_else(|| VectorError::InvalidParams(
+        let filter_sql = filter_expression_to_sql(Some(filter), 1).ok_or_else(|| {
+            VectorError::InvalidParams(
                 "Unsupported filter expression for delete operation".to_string(),
-            ))?;
-            
+            )
+        })?;
+
         match client.delete_by_filter(&collection, filter_sql, namespace) {
             Ok(count) => {
-                info!("Successfully deleted {} vectors by filter", count);
+                info!("Successfully deleted {count} vectors by filter");
                 Ok(count)
             }
             Err(e) => {
-                error!("Failed to delete by filter: {}", e);
+                error!("Failed to delete by filter: {e}");
                 Err(e)
             }
         }
@@ -534,15 +524,14 @@ impl VectorsGuest for PgvectorComponent {
     ) -> Result<ListResponse, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         debug!(
-            "Listing vectors from pgvector collection: {} (limit: {:?})",
-            collection, limit
+            "Listing vectors from pgvector collection: {collection} (limit: {limit:?})"
         );
-        
+
         let client = Self::create_client()?;
         let filter_sql = filter_expression_to_sql(filter, 1);
-        
+
         match client.list_vectors(&collection, filter_sql, limit, cursor, namespace) {
             Ok((mut vectors, next_cursor)) => {
                 // Apply include filters
@@ -551,13 +540,13 @@ impl VectorsGuest for PgvectorComponent {
                         v.vector = VectorData::Dense(vec![]);
                     }
                 }
-                
+
                 if matches!(include_metadata, Some(false)) {
                     for v in vectors.iter_mut() {
                         v.metadata = None;
                     }
                 }
-                
+
                 debug!("Listed {} vectors", vectors.len());
                 Ok(ListResponse {
                     vectors,
@@ -566,7 +555,7 @@ impl VectorsGuest for PgvectorComponent {
                 })
             }
             Err(e) => {
-                error!("Failed to list vectors: {}", e);
+                error!("Failed to list vectors: {e}");
                 Err(e)
             }
         }
@@ -579,19 +568,19 @@ impl VectorsGuest for PgvectorComponent {
     ) -> Result<u64, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        debug!("Counting vectors in pgvector collection: {}", collection);
-        
+
+        debug!("Counting vectors in pgvector collection: {collection}");
+
         let client = Self::create_client()?;
         let filter_sql = filter_expression_to_sql(filter, 1);
-        
+
         match client.count_vectors(&collection, filter_sql, namespace) {
             Ok(count) => {
-                debug!("Found {} vectors in collection", count);
+                debug!("Found {count} vectors in collection");
                 Ok(count)
             }
             Err(e) => {
-                error!("Failed to count vectors: {}", e);
+                error!("Failed to count vectors: {e}");
                 Err(e)
             }
         }
@@ -614,14 +603,13 @@ impl SearchGuest for PgvectorComponent {
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
+
         debug!(
-            "Searching {} vectors in pgvector collection: {}",
-            limit, collection
+            "Searching {limit} vectors in pgvector collection: {collection}"
         );
-        
+
         let client = Self::create_client()?;
-        
+
         // Convert query to vector
         let vector = match query {
             SearchQueryEnum::Vector(v) => vector_data_to_dense(v)?,
@@ -631,13 +619,13 @@ impl SearchGuest for PgvectorComponent {
                 ))
             }
         };
-        
+
         // $1 is used by the query vector; filters must start at $2
         let filt_sql = filter_expression_to_sql(filter, 2);
         let metric = DistanceMetric::Cosine; // Default metric, could be derived from collection metadata
         let include_vecs = include_vectors.unwrap_or(false);
         let include_meta = include_metadata.unwrap_or(false);
-        
+
         match client.query_vectors(&collection, vector, metric, limit, filt_sql) {
             Ok(results) => {
                 let search_results: Vec<SearchResult> = results
@@ -654,12 +642,12 @@ impl SearchGuest for PgvectorComponent {
                         metadata: if include_meta { maybe_meta } else { None },
                     })
                     .collect();
-                    
+
                 debug!("Found {} search results", search_results.len());
                 Ok(search_results)
             }
             Err(e) => {
-                error!("Search failed: {}", e);
+                error!("Search failed: {e}");
                 Err(e)
             }
         }
@@ -673,7 +661,7 @@ impl SearchGuest for PgvectorComponent {
     ) -> Result<Vec<SearchResult>, VectorError> {
         init_logging();
         debug!("Finding similar vectors (simplified search)");
-        
+
         Self::search_vectors(
             collection,
             SearchQueryEnum::Vector(vector),
@@ -700,15 +688,23 @@ impl SearchGuest for PgvectorComponent {
     ) -> Result<Vec<Vec<SearchResult>>, VectorError> {
         init_logging();
         Self::validate_config()?;
-        
-        debug!("Batch searching {} queries in pgvector collection: {}", queries.len(), collection);
-        
+
+        debug!(
+            "Batch searching {} queries in pgvector collection: {}",
+            queries.len(),
+            collection
+        );
+
         let mut all_results: Vec<Vec<SearchResult>> = Vec::with_capacity(queries.len());
-        
+
         // Execute each query individually
         for (idx, query) in queries.into_iter().enumerate() {
-            debug!("Executing batch query {} of {}", idx + 1, all_results.capacity());
-            
+            debug!(
+                "Executing batch query {} of {}",
+                idx + 1,
+                all_results.capacity()
+            );
+
             let results = Self::search_vectors(
                 collection.clone(),
                 query,
@@ -721,11 +717,14 @@ impl SearchGuest for PgvectorComponent {
                 None,
                 None,
             )?;
-            
+
             all_results.push(results);
         }
-        
-        debug!("Batch search completed with {} result sets", all_results.len());
+
+        debug!(
+            "Batch search completed with {} result sets",
+            all_results.len()
+        );
         Ok(all_results)
     }
 }
@@ -879,7 +878,8 @@ impl ConnectionGuest for PgvectorComponent {
     fn get_connection_status() -> Result<ConnectionStatus, VectorError> {
         init_logging();
         let connected = Self::validate_config().is_ok();
-        let endpoint = std::env::var(Self::URL_ENV).unwrap_or_else(|_| Self::DEFAULT_URL.to_string());
+        let endpoint =
+            std::env::var(Self::URL_ENV).unwrap_or_else(|_| Self::DEFAULT_URL.to_string());
         Ok(ConnectionStatus {
             connected,
             provider: Some("pgvector".to_string()),
@@ -896,9 +896,9 @@ impl ConnectionGuest for PgvectorComponent {
         _options: Option<Metadata>,
     ) -> Result<bool, VectorError> {
         init_logging();
-        
+
         debug!("Testing PgVector connection with custom endpoint");
-        
+
         match Self::create_client_with_url(endpoint) {
             Ok(_client) => {
                 // Could test by trying to execute a simple query
@@ -906,7 +906,7 @@ impl ConnectionGuest for PgvectorComponent {
                 Ok(true)
             }
             Err(e) => {
-                error!("PgVector connection test failed: {}", e);
+                error!("PgVector connection test failed: {e}");
                 Ok(false)
             }
         }

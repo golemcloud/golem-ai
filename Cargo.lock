@@ -1640,6 +1640,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "golem-vector-pinecone"
+version = "0.0.0"
+dependencies = [
+ "golem-rust",
+ "golem-vector",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.43.0",
+]
+
+[[package]]
+name = "golem-vector-qdrant"
+version = "0.0.0"
+dependencies = [
+ "golem-rust",
+ "golem-vector",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.43.0",
+]
+
+[[package]]
 name = "golem-video"
 version = "0.0.0"
 dependencies = [
