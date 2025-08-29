@@ -11,7 +11,8 @@ mod conversion;
 use crate::client::PgvectorClient;
 use crate::conversion::*;
 use golem_vector::durability::ExtendedGuest;
-use golem_vector::error::{unsupported_feature_with_context, VectorError};
+use golem_vector::durability::DurableVector;
+use golem_vector::error::unsupported_feature;
 use golem_vector::exports::golem::vector::analytics::{
     CollectionStats, FieldStats, Guest as AnalyticsGuest,
 };
@@ -37,13 +38,18 @@ use golem_vector::init_logging;
 use log::{debug, error, info, warn};
 use std::env;
 
-/// PgVector provider component
-/// 
-/// Provides PostgreSQL with pgvector extension integration for Golem Vector.
-/// Supports comprehensive vector operations, collection management, and semantic search.
-struct Component;
+/// Helper to add provider context to unsupported feature errors
+fn unsupported_feature_with_context(feature: &str) -> VectorError {
+    unsupported_feature(format!("Pgvector: {}", feature))
+}
 
-impl Component {
+/// Exported component type is a durable wrapper around the provider implementation
+pub type Component = DurableVector<PgvectorComponent>;
+
+/// PgVector provider implementation (wrapped by DurableVector for export)
+pub struct PgvectorComponent;
+
+impl PgvectorComponent {
     /// Environment variable for PostgreSQL connection URL
     const URL_ENV: &'static str = "PGVECTOR_URL";
     
@@ -76,7 +82,7 @@ impl Component {
 }
 
 // -------------------- analytics -----------------------------
-impl AnalyticsGuest for Component {
+impl AnalyticsGuest for PgvectorComponent {
     fn get_collection_stats(
         _collection: String,
         _namespace: Option<String>,
@@ -112,7 +118,7 @@ impl AnalyticsGuest for Component {
 }
 
 // -------------------- collections ---------------------------
-impl CollectionsGuest for Component {
+impl CollectionsGuest for PgvectorComponent {
     fn upsert_collection(
         name: String,
         description: Option<String>,
@@ -130,12 +136,12 @@ impl CollectionsGuest for Component {
         );
         
         if dimension == 0 {
-            return Err(VectorError::InvalidInput(
+            return Err(VectorError::InvalidParams(
                 "Vector dimension must be greater than 0".to_string(),
             ));
         }
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         match client.create_collection(&name, dimension) {
             Ok(()) => {
                 info!("Successfully created/updated collection '{}'", name);
@@ -165,10 +171,10 @@ impl CollectionsGuest for Component {
         
         debug!("Listing pgvector collections");
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         match client.list_collections() {
             Ok(collection_names) => {
-                let collections = collection_names
+                let collections: Vec<CollectionInfo> = collection_names
                     .into_iter()
                     .map(|name| CollectionInfo {
                         name,
@@ -238,7 +244,7 @@ impl CollectionsGuest for Component {
         
         info!("Deleting pgvector collection '{}'", name);
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         match client.delete_collection(&name) {
             Ok(()) => {
                 info!("Successfully deleted collection '{}'", name);
@@ -272,7 +278,7 @@ impl CollectionsGuest for Component {
 }
 
 // -------------------- vectors -------------------------------
-impl VectorsGuest for Component {
+impl VectorsGuest for PgvectorComponent {
     fn upsert_vectors(
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -295,7 +301,7 @@ impl VectorsGuest for Component {
             collection
         );
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         match client.upsert_vectors(&collection, vectors.clone(), namespace) {
             Ok(()) => {
                 info!("Successfully upserted {} vectors", vectors.len());
@@ -373,7 +379,7 @@ impl VectorsGuest for Component {
             collection
         );
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         let mut records = client.get_vectors_by_ids(&collection, ids, namespace)?;
         
         // Apply include filters
@@ -435,7 +441,7 @@ impl VectorsGuest for Component {
             id, collection
         );
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         match client.update_vector(
             &collection,
             id,
@@ -473,7 +479,7 @@ impl VectorsGuest for Component {
             collection
         );
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         match client.delete_vectors(&collection, ids, namespace) {
             Ok(count) => {
                 info!("Successfully deleted {} vectors", count);
@@ -499,9 +505,9 @@ impl VectorsGuest for Component {
             collection
         );
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         let filter_sql = filter_expression_to_sql(Some(filter), 1)
-            .ok_or_else(|| VectorError::InvalidInput(
+            .ok_or_else(|| VectorError::InvalidParams(
                 "Unsupported filter expression for delete operation".to_string(),
             ))?;
             
@@ -534,7 +540,7 @@ impl VectorsGuest for Component {
             collection, limit
         );
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         let filter_sql = filter_expression_to_sql(filter, 1);
         
         match client.list_vectors(&collection, filter_sql, limit, cursor, namespace) {
@@ -576,7 +582,7 @@ impl VectorsGuest for Component {
         
         debug!("Counting vectors in pgvector collection: {}", collection);
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         let filter_sql = filter_expression_to_sql(filter, 1);
         
         match client.count_vectors(&collection, filter_sql, namespace) {
@@ -593,7 +599,7 @@ impl VectorsGuest for Component {
 }
 
 // -------------------- search --------------------------------
-impl SearchGuest for Component {
+impl SearchGuest for PgvectorComponent {
     fn search_vectors(
         collection: String,
         query: SearchQueryEnum,
@@ -614,7 +620,7 @@ impl SearchGuest for Component {
             limit, collection
         );
         
-        let mut client = Self::create_client()?;
+        let client = Self::create_client()?;
         
         // Convert query to vector
         let vector = match query {
@@ -634,9 +640,9 @@ impl SearchGuest for Component {
         
         match client.query_vectors(&collection, vector, metric, limit, filt_sql) {
             Ok(results) => {
-                let search_results = results
+                let search_results: Vec<SearchResult> = results
                     .into_iter()
-                    .map(|(id, distance, maybe_vec)| SearchResult {
+                    .map(|(id, distance, maybe_vec, maybe_meta)| SearchResult {
                         id,
                         score: 1.0 - distance, // Convert distance to similarity score
                         distance,
@@ -645,12 +651,7 @@ impl SearchGuest for Component {
                         } else {
                             None
                         },
-                        metadata: if include_meta {
-                            // pgvector client would need enhancement to return metadata in search
-                            None
-                        } else {
-                            None
-                        },
+                        metadata: if include_meta { maybe_meta } else { None },
                     })
                     .collect();
                     
@@ -730,7 +731,7 @@ impl SearchGuest for Component {
 }
 
 // -------------------- search extended ----------------------
-impl SearchExtendedGuest for Component {
+impl SearchExtendedGuest for PgvectorComponent {
     fn search_groups(
         _collection: String,
         _query: SearchQueryEnum,
@@ -812,7 +813,7 @@ impl SearchExtendedGuest for Component {
 }
 
 // -------------------- namespaces ---------------------------
-impl NamespacesGuest for Component {
+impl NamespacesGuest for PgvectorComponent {
     fn upsert_namespace(
         _collection: String,
         _namespace: String,
@@ -856,7 +857,7 @@ impl NamespacesGuest for Component {
 }
 
 // -------------------- connection ---------------------------
-impl ConnectionGuest for Component {
+impl ConnectionGuest for PgvectorComponent {
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -877,10 +878,15 @@ impl ConnectionGuest for Component {
 
     fn get_connection_status() -> Result<ConnectionStatus, VectorError> {
         init_logging();
-        match Self::validate_config() {
-            Ok(()) => Ok(ConnectionStatus::Connected),
-            Err(_) => Ok(ConnectionStatus::Disconnected),
-        }
+        let connected = Self::validate_config().is_ok();
+        let endpoint = std::env::var(Self::URL_ENV).unwrap_or_else(|_| Self::DEFAULT_URL.to_string());
+        Ok(ConnectionStatus {
+            connected,
+            provider: Some("pgvector".to_string()),
+            endpoint: Some(endpoint),
+            last_activity: None,
+            connection_id: None,
+        })
     }
 
     fn test_connection(
@@ -908,7 +914,7 @@ impl ConnectionGuest for Component {
 }
 
 // Implement ExtendedGuest marker trait
-impl ExtendedGuest for Component {}
+impl ExtendedGuest for PgvectorComponent {}
 
 // Export bindings for the component
-golem_vector::export_bindings!(Component);
+golem_vector::export_vector!(Component with_types_in golem_vector);

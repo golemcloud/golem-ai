@@ -4,9 +4,8 @@
 //! return an `unsupported_feature` error because outbound HTTP is unavailable in
 //! the sandboxed runtime.
 
-use golem_vector::error::unsupported_feature;
 use golem_vector::exports::golem::vector::types::{
-    DistanceMetric, MetadataValue, VectorData, VectorError, VectorRecord,
+    DistanceMetric, Metadata, MetadataKind, MetadataValue, VectorData, VectorError, VectorRecord,
 };
 
 use crate::conversion::{
@@ -73,9 +72,10 @@ impl MilvusClient {
 #[cfg(not(target_family = "wasm"))]
 mod native {
     use super::*;
-    use reqwest::blocking::{Client, Response};
+    use reqwest::{Client, Response};
     use serde::{Deserialize, Serialize, de::DeserializeOwned};
     use std::time::Duration;
+    use std::collections::HashMap;
 
     #[derive(Clone)]
     pub struct MilvusClient {
@@ -303,14 +303,47 @@ mod native {
                     .map(|it| VectorRecord {
                         id: it.id,
                         vector: VectorData::Dense(it.vector),
-                        metadata: it.metadata.map(|m| {
-                            m.into_iter()
-                                .map(|(k, v)| (k, MetadataValue::StringVal(v.to_string())))
-                                .collect()
-                        }),
+                        metadata: it.metadata.map(json_to_metadata),
                     })
                     .collect(),
             )
+        }
+    }
+
+    // Convert a JSON object returned by Milvus into the new Metadata format
+    fn json_to_metadata(map: HashMap<String, serde_json::Value>) -> Metadata {
+        let mut next_id: u64 = 1;
+        map.into_iter()
+            .filter_map(|(k, v)| {
+                json_to_kind(&v).map(|kind| {
+                    let id = next_id;
+                    next_id += 1;
+                    (k, MetadataValue { id, kind })
+                })
+            })
+            .collect()
+    }
+
+    fn json_to_kind(v: &serde_json::Value) -> Option<MetadataKind> {
+        match v {
+            serde_json::Value::String(s) => Some(MetadataKind::StringVal(s.clone())),
+            serde_json::Value::Bool(b) => Some(MetadataKind::BoolVal(*b)),
+            serde_json::Value::Number(n) => {
+                if let Some(u) = n.as_u64() {
+                    Some(MetadataKind::IntVal(u))
+                } else if let Some(f) = n.as_f64() {
+                    Some(MetadataKind::FloatVal(f))
+                } else if let Some(i) = n.as_i64() {
+                    if i >= 0 { Some(MetadataKind::IntVal(i as u64)) } else { Some(MetadataKind::FloatVal(i as f64)) }
+                } else {
+                    None
+                }
+            }
+            // For arrays/objects/null, fall back to stringified JSON to avoid building reference graphs
+            serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+                Some(MetadataKind::StringVal(v.to_string()))
+            }
+            serde_json::Value::Null => None,
         }
     }
 

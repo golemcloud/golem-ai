@@ -7,9 +7,8 @@
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric,
     FilterExpression,
-    FilterOperator,
-    FilterValue,
     Metadata,
+    MetadataKind,
     MetadataValue,
     VectorData,
     VectorError,
@@ -40,8 +39,9 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
             validate_vector_dimension(&values, None)?;
             Ok(values)
         },
-        VectorData::Sparse { .. } => Err(ConversionError::UnsupportedMetric {
-            metric: "sparse vectors".to_string(),
+        // Non-dense representations are not supported by this provider currently
+        _ => Err(ConversionError::UnsupportedMetric {
+            metric: "non-dense vector representation".to_string(),
             provider: "Pgvector".to_string(),
         }.into()),
     }
@@ -52,28 +52,15 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
 // -----------------------------------------------------------------------------
 
 fn metadata_value_to_json(v: MetadataValue) -> Value {
-    match v {
-        MetadataValue::StringVal(s) => Value::String(s),
-        MetadataValue::NumberVal(n) => Value::from(n),
-        MetadataValue::IntegerVal(i) => Value::from(i),
-        MetadataValue::BooleanVal(b) => Value::from(b),
-        MetadataValue::NullVal => Value::Null,
-        MetadataValue::ArrayVal(arr) => {
-            Value::Array(arr.into_iter().map(metadata_value_to_json).collect())
-        }
-        MetadataValue::ObjectVal(obj) => Value::Object(
-            obj.into_iter()
-                .map(|(k, v)| (k, metadata_value_to_json(v)))
-                .collect(),
-        ),
-        MetadataValue::GeoVal(coords) => {
-            let mut map = serde_json::Map::new();
-            map.insert("lat".into(), Value::from(coords.latitude));
-            map.insert("lon".into(), Value::from(coords.longitude));
-            Value::Object(map)
-        }
-        MetadataValue::DatetimeVal(dt) => Value::String(dt),
-        MetadataValue::BlobVal(b) => Value::String(base64::encode(b)),
+    match v.kind {
+        MetadataKind::StringVal(s) => Value::String(s),
+        MetadataKind::IntVal(i) => Value::from(i),
+        MetadataKind::FloatVal(n) => Value::from(n),
+        MetadataKind::BoolVal(b) => Value::from(b),
+        // Complex kinds reference other metadata values by ID. Without a resolver
+        // context, we emit placeholders to keep behavior defined.
+        MetadataKind::ArrayVal(_ids) => Value::Array(Vec::new()),
+        MetadataKind::ObjectVal(_fields) => Value::Object(serde_json::Map::new()),
     }
 }
 
@@ -97,102 +84,45 @@ pub fn filter_expression_to_sql(
     expr: Option<FilterExpression>,
     start_param_index: usize,
 ) -> Option<(String, Vec<String>)> {
-    use golem_vector::exports::golem::vector::types::FilterCondition;
-
-    fn value_to_param(v: &FilterValue) -> Option<String> {
-        match v {
-            FilterValue::StringVal(s) => Some(s.clone()),
-            FilterValue::NumberVal(n) => Some(n.to_string()),
-            FilterValue::IntegerVal(i) => Some(i.to_string()),
-            FilterValue::BooleanVal(b) => Some(if *b { "true".into() } else { "false".into() }),
-            FilterValue::ArrayVal(_) | FilterValue::ListVal(_) | FilterValue::ObjectVal(_) => None,
-            FilterValue::NullVal => None,
-        }
-    }
-
-    fn cond_to_sql(cond: &FilterCondition, idx: usize) -> Option<(String, Vec<String>, usize)> {
-        let field_text = format!("metadata->>'{}'", cond.field);
-        match cond.operator {
-            FilterOperator::Eq => {
-                let val = value_to_param(&cond.value)?;
-                let sql = format!("{} = ${}::text", field_text, idx);
-                Some((sql, vec![val], idx + 1))
-            }
-            FilterOperator::Gt | FilterOperator::Gte | FilterOperator::Lt | FilterOperator::Lte => {
-                let val = value_to_param(&cond.value)?;
-                let op = match cond.operator {
-                    FilterOperator::Gt => ">",
-                    FilterOperator::Gte => ">=",
-                    FilterOperator::Lt => "<",
-                    FilterOperator::Lte => "<=",
-                    _ => unreachable!(),
-                };
-                let sql = format!("({})::numeric {} ${}::numeric", field_text, op, idx);
-                Some((sql, vec![val], idx + 1))
-            }
-            FilterOperator::In | FilterOperator::Nin => {
-                if let FilterValue::ListVal(list) = &cond.value {
-                    let mut vals: Vec<String> = Vec::new();
-                    let mut phs: Vec<String> = Vec::new();
-                    let mut cur = idx;
-                    for v in list {
-                        if let Some(s) = value_to_param(v) {
-                            vals.push(s);
-                            phs.push(format!("${}::text", cur));
-                            cur += 1;
-                        }
-                    }
-                    if vals.is_empty() { return None; }
-                    let op = if matches!(cond.operator, FilterOperator::In) { "IN" } else { "NOT IN" };
-                    let sql = format!("{} {} ({})", field_text, op, phs.join(", "));
-                    Some((sql, vals, cur))
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
-
-    fn build_sql(expr: &FilterExpression, mut idx: usize) -> Option<(String, Vec<String>, usize)> {
-        match expr {
-            FilterExpression::Condition(c) => cond_to_sql(c, idx),
-            FilterExpression::And(list) => {
-                let mut parts: Vec<String> = Vec::new();
-                let mut params: Vec<String> = Vec::new();
-                let mut cur = idx;
-                for e in list {
-                    if let Some((sql, vals, next)) = build_sql(e, cur) {
-                        parts.push(sql);
-                        params.extend(vals);
-                        cur = next;
-                    }
-                }
-                if parts.is_empty() { None } else { Some((parts.join(" AND "), params, cur)) }
-            }
-            FilterExpression::Or(list) => {
-                let mut parts: Vec<String> = Vec::new();
-                let mut params: Vec<String> = Vec::new();
-                let mut cur = idx;
-                for e in list {
-                    if let Some((sql, vals, next)) = build_sql(e, cur) {
-                        parts.push(sql);
-                        params.extend(vals);
-                        cur = next;
-                    }
-                }
-                if parts.is_empty() { None } else { Some((format!("({})", parts.join(" OR ")), params, cur)) }
-            }
-            FilterExpression::Not(inner) => {
-                let (sql, vals, next) = build_sql(inner, idx)?;
-                Some((format!("NOT ({})", sql), vals, next))
-            }
-        }
-    }
+    use golem_vector::exports::golem::vector::types::{
+        CompareCondition, EqualsCondition, FilterKind, InListCondition,
+    };
 
     let expr = expr?;
-    let (sql, params, _) = build_sql(&expr, start_param_index)?;
-    if sql.trim().is_empty() { None } else { Some((sql, params)) }
+    match expr.kind {
+        FilterKind::Equals(EqualsCondition { key, value }) => {
+            let sql = format!("metadata->>'{}' = ${}::text", key, start_param_index);
+            Some((sql, vec![value]))
+        }
+        FilterKind::NotEquals(EqualsCondition { key, value }) => {
+            let sql = format!("metadata->>'{}' <> ${}::text", key, start_param_index);
+            Some((sql, vec![value]))
+        }
+        FilterKind::GreaterThan(CompareCondition { key, number }) => {
+            let sql = format!("(metadata->>'{}')::numeric > ${}::numeric", key, start_param_index);
+            Some((sql, vec![number.to_string()]))
+        }
+        FilterKind::LessThan(CompareCondition { key, number }) => {
+            let sql = format!("(metadata->>'{}')::numeric < ${}::numeric", key, start_param_index);
+            Some((sql, vec![number.to_string()]))
+        }
+        FilterKind::InList(InListCondition { key, values }) => {
+            if values.is_empty() { return None; }
+            let mut placeholders = Vec::with_capacity(values.len());
+            let mut params = Vec::with_capacity(values.len());
+            let mut cur = start_param_index;
+            for v in values.into_iter() {
+                placeholders.push(format!("${}::text", cur));
+                params.push(v);
+                cur += 1;
+            }
+            let sql = format!("metadata->>'{}' IN ({})", key, placeholders.join(", "));
+            Some((sql, params))
+        }
+        // Logical operators reference other filter IDs; without a resolver context
+        // we cannot translate them here.
+        FilterKind::And(_) | FilterKind::Or(_) | FilterKind::Not(_) => None,
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -201,22 +131,21 @@ pub fn filter_expression_to_sql(
 
 pub fn json_to_metadata_value(v: &Value) -> MetadataValue {
     match v {
-        Value::String(s) => MetadataValue::StringVal(s.clone()),
+        Value::String(s) => MetadataValue { id: 0, kind: MetadataKind::StringVal(s.clone()) },
         Value::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                MetadataValue::IntegerVal(i)
+            if let Some(i) = n.as_u64() {
+                MetadataValue { id: 0, kind: MetadataKind::IntVal(i) }
             } else if let Some(f) = n.as_f64() {
-                MetadataValue::NumberVal(f)
+                MetadataValue { id: 0, kind: MetadataKind::FloatVal(f) }
             } else {
-                MetadataValue::StringVal(n.to_string())
+                MetadataValue { id: 0, kind: MetadataKind::StringVal(n.to_string()) }
             }
         }
-        Value::Bool(b) => MetadataValue::BooleanVal(*b),
-        Value::Null => MetadataValue::NullVal,
-        Value::Array(arr) => MetadataValue::ArrayVal(arr.iter().map(json_to_metadata_value).collect()),
-        Value::Object(map) => MetadataValue::ObjectVal(
-            map.iter().map(|(k, v)| (k.clone(), json_to_metadata_value(v))).collect(),
-        ),
+        Value::Bool(b) => MetadataValue { id: 0, kind: MetadataKind::BoolVal(*b) },
+        Value::Null => MetadataValue { id: 0, kind: MetadataKind::StringVal("null".to_string()) },
+        // Without an arena to allocate referenced values, emit placeholders
+        Value::Array(_arr) => MetadataValue { id: 0, kind: MetadataKind::ArrayVal(Vec::new()) },
+        Value::Object(_map) => MetadataValue { id: 0, kind: MetadataKind::ObjectVal(Vec::new()) },
     }
 }
 

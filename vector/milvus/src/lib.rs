@@ -24,8 +24,10 @@ use log::{debug, error, info, warn};
 
 use crate::client::MilvusClient;
 use crate::conversion::*;
-use golem_vector::durability::{DurableVector, ExtendedGuest};
-use golem_vector::error::{unsupported_feature, VectorError};
+use golem_vector::durability::ExtendedGuest;
+use golem_vector::durability::DurableVector;
+use golem_vector::error::unsupported_feature;
+use golem_vector::exports::golem::vector::types::VectorError;
 use golem_vector::exports::golem::vector::analytics::{CollectionStats, FieldStats, Guest as AnalyticsGuest};
 use golem_vector::exports::golem::vector::collections::{
     CollectionInfo, Guest as CollectionsGuest, IndexConfig,
@@ -45,10 +47,10 @@ use golem_vector::exports::golem::vector::types::*;
 use golem_vector::exports::golem::vector::vectors::{
     BatchResult, Guest as VectorsGuest, ListResponse, VectorRecord,
 };
-use golem_vector::init_logging;
+use golem_vector::init_logging as golem_init_logging;
 
-// Export the durability wrapper as the component
-pub use golem_vector::durability::DurableVector as Component;
+// Export the durability wrapper as the concrete component type
+pub type Component = DurableVector<MilvusComponent>;
 
 /// Milvus provider implementation
 pub struct MilvusComponent;
@@ -60,7 +62,7 @@ fn unsupported_feature_with_context(feature: &str) -> VectorError {
 
 /// Initialize logging once per component lifecycle
 fn init_logging() {
-    golem_vector::init_logging();
+    golem_init_logging();
 }
 
 impl MilvusComponent {
@@ -83,7 +85,7 @@ impl MilvusComponent {
         // Only API key validation if provided
         if let Ok(key) = std::env::var(Self::API_KEY_ENV) {
             if key.trim().is_empty() {
-                return Err(VectorError::ConfigError(
+                return Err(VectorError::InvalidParams(
                     "MILVUS_API_KEY is set but empty".to_string()
                 ));
             }
@@ -485,7 +487,7 @@ impl SearchGuest for MilvusComponent {
         
         let results = client.query_vectors(&collection, vector, metric, limit, expr)?;
         
-        let search_results = results
+        let search_results: Vec<SearchResult> = results
             .into_iter()
             .map(|(id, distance, vector_data)| SearchResult {
                 id,
@@ -723,10 +725,14 @@ impl ConnectionGuest for MilvusComponent {
 
     fn get_connection_status() -> Result<ConnectionStatus, VectorError> {
         init_logging();
-        match Self::validate_config() {
-            Ok(()) => Ok(ConnectionStatus::Connected),
-            Err(_) => Ok(ConnectionStatus::Disconnected),
-        }
+        let connected = Self::validate_config().is_ok();
+        Ok(ConnectionStatus {
+            connected,
+            provider: Some("Milvus".to_string()),
+            endpoint: std::env::var(Self::ENDPOINT_ENV).ok(),
+            last_activity: None,
+            connection_id: None,
+        })
     }
 
     fn test_connection(
@@ -756,4 +762,4 @@ impl ConnectionGuest for MilvusComponent {
 impl ExtendedGuest for MilvusComponent {}
 
 // Export bindings for the component
-golem_vector::export_bindings!(Component);
+golem_vector::export_vector!(Component with_types_in golem_vector);

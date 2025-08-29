@@ -28,32 +28,6 @@ pub struct DurableVector<Impl> {
     _phantom: PhantomData<Impl>,
 }
 
-/// When the durability feature flag is off, wrapping with `DurableVector` is just a passthrough
-#[cfg(not(feature = "durability"))]
-mod passthrough_impl {
-    use crate::durability::{DurableVector, ExtendedGuest};
-    use crate::exports::golem::vector::analytics::Guest as AnalyticsGuest;
-    use crate::exports::golem::vector::collections::Guest as CollectionsGuest;
-    use crate::exports::golem::vector::connection::Guest as ConnectionGuest;
-    use crate::exports::golem::vector::namespaces::Guest as NamespacesGuest;
-    use crate::exports::golem::vector::search::Guest as SearchGuest;
-    use crate::exports::golem::vector::types::{
-        CollectionInfo, FilterExpression, SearchResult, VectorError, VectorIndex, VectorQuery,
-        VectorRecord,
-    };
-    use crate::exports::golem::vector::vectors::Guest as VectorsGuest;
-
-    impl<Impl: ExtendedGuest> VectorsGuest for DurableVector<Impl> {
-        fn upsert_vectors(
-            collection: String,
-            vectors: Vec<VectorRecord>,
-            namespace: Option<String>,
-        ) -> Result<Vec<String>, VectorError> {
-            crate::init_logging();
-            Impl::upsert_vectors(collection, vectors, namespace)
-        }
-    }
-}
 
 /// Providers must implement _all_ individual `Guest` traits plus `'static` to be wrapped.
 pub trait ExtendedGuest:

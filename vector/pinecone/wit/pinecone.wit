@@ -1,8 +1,0 @@
-package golem:vector-pinecone@1.0.0;
-
-// Provider wrapper for Pinecone. This simply re-exports the shared vector-library
-// world so that the component can be referenced as its own WIT package.
-
-world vector-library {
-  include golem:vector/vector-library@1.0.0;
-}

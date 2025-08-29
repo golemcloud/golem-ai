@@ -1,6 +1,6 @@
 //! Enhanced error types for vector conversion operations.
 
-use golem_vector::exports::golem::vector::types::VectorError;
+use crate::exports::golem::vector::types::VectorError;
 
 /// Specialized conversion errors with better context
 #[derive(Debug, thiserror::Error)]
@@ -29,28 +29,23 @@ pub enum ConversionError {
     #[error("Filter nesting depth {depth} exceeds maximum {max} for provider {provider}")]
     FilterNestingTooDeep { depth: usize, max: usize, provider: String },
     
-    #[error("Validation failed: {reason}")]
+    #[error("Validation failed: {0}")]
     ValidationFailed(String),
 }
 
 impl From<ConversionError> for VectorError {
     fn from(e: ConversionError) -> Self {
         match e {
-            ConversionError::InvalidVector(_) | 
-            ConversionError::DimensionMismatch { .. } | 
-            ConversionError::InvalidMetadataValue { .. } |
-            ConversionError::ValidationFailed(_) => {
-                VectorError::InvalidInput(e.to_string())
+            ConversionError::InvalidVector(_) => VectorError::InvalidVector(e.to_string()),
+            ConversionError::DimensionMismatch { .. } => VectorError::DimensionMismatch(e.to_string()),
+            ConversionError::InvalidMetadataValue { .. } | ConversionError::ValidationFailed(_) => {
+                VectorError::InvalidParams(e.to_string())
             }
             ConversionError::UnsupportedMetadata(_) |
             ConversionError::UnsupportedFilterOperator { .. } |
             ConversionError::UnsupportedMetric { .. } |
-            ConversionError::FilterNestingTooDeep { .. } => {
-                VectorError::UnsupportedFeature(e.to_string())
-            }
-            ConversionError::FilterTranslation(_) => {
-                VectorError::ProviderError(e.to_string())
-            }
+            ConversionError::FilterNestingTooDeep { .. } => VectorError::UnsupportedFeature(e.to_string()),
+            ConversionError::FilterTranslation(_) => VectorError::ProviderError(e.to_string()),
         }
     }
 }

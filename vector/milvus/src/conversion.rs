@@ -1,7 +1,7 @@
 //! Conversion helpers for Milvus provider.
 
 use golem_vector::exports::golem::vector::types::{
-    DistanceMetric, FilterExpression, Metadata, MetadataValue, VectorData, VectorError,
+    DistanceMetric, FilterExpression, Metadata, MetadataValue, MetadataKind, FilterKind, VectorData, VectorError,
 };
 use golem_vector::conversion_errors::{validate_vector_dimension, ConversionError};
 use serde_json::Value;
@@ -14,8 +14,9 @@ pub fn vector_data_to_dense(data: VectorData) -> Result<Vec<f32>, VectorError> {
             validate_vector_dimension(&values, None)?;
             Ok(values)
         },
-        VectorData::Sparse { .. } => Err(ConversionError::UnsupportedMetric {
-            metric: "sparse vectors".to_string(),
+        // Only dense vectors are supported by this client path currently
+        _ => Err(ConversionError::UnsupportedMetric {
+            metric: "non-dense vectors".to_string(),
             provider: "Milvus".to_string(),
         }.into()),
     }
@@ -31,23 +32,13 @@ pub fn metadata_to_json_map(metadata: Option<Metadata>) -> Option<HashMap<String
 }
 
 fn metadata_value_to_json(v: MetadataValue) -> Value {
-    match v {
-        MetadataValue::StringVal(s) => Value::String(s),
-        MetadataValue::NumberVal(n) => Value::from(n),
-        MetadataValue::IntegerVal(i) => Value::from(i),
-        MetadataValue::BooleanVal(b) => Value::from(b),
-        MetadataValue::NullVal => Value::Null,
-        MetadataValue::ArrayVal(arr) => {
-            Value::Array(arr.into_iter().map(metadata_value_to_json).collect())
-        }
-        MetadataValue::ObjectVal(obj) => Value::Object(
-            obj.into_iter()
-                .map(|(k, v)| (k, metadata_value_to_json(v)))
-                .collect(),
-        ),
-        MetadataValue::GeoVal(_) | MetadataValue::DatetimeVal(_) | MetadataValue::BlobVal(_) => {
-            Value::Null // unsupported types for now
-        }
+    match v.kind {
+        MetadataKind::StringVal(s) => Value::String(s),
+        MetadataKind::IntVal(i) => Value::from(i),
+        MetadataKind::FloatVal(f) => Value::from(f),
+        MetadataKind::BoolVal(b) => Value::from(b),
+        // Complex kinds are not serialized into Milvus payload for now
+        MetadataKind::ArrayVal(_) | MetadataKind::ObjectVal(_) => Value::Null,
     }
 }
 
@@ -58,85 +49,29 @@ pub fn metric_to_milvus(metric: DistanceMetric) -> &'static str {
         DistanceMetric::Euclidean => "L2",
         DistanceMetric::DotProduct => "IP",
         DistanceMetric::Manhattan => "L1",
+        DistanceMetric::Hamming => "HAMMING",
+        DistanceMetric::Jaccard => "JACCARD",
     }
 }
 
-/// Translate a `FilterExpression` into a Milvus boolean expression string.
-///
-/// Supported:
-/// - Comparisons: `eq`, `gt`, `gte`, `lt`, `lte`
-/// - Membership: `in`
-/// - Boolean: `and`, `or`, `not` (nested combinations are handled with parentheses)
-///
-/// Unsupported constructs are skipped; if nothing remains, returns `None`.
+/// Translate a `FilterExpression` (new WIT shape) into a Milvus boolean expression string.
+/// Only simple forms are supported; complex logical references (and/or/not) are skipped.
 pub fn filter_expression_to_milvus(expr: Option<FilterExpression>) -> Option<String> {
     let expr = expr?;
-    build_expr(&expr)
-}
-
-fn build_expr(expr: &FilterExpression) -> Option<String> {
-    use golem_vector::exports::golem::vector::types::{FilterCondition, FilterOperator};
-    match expr {
-        FilterExpression::Condition(FilterCondition { field, operator, value }) => {
-            match operator {
-                FilterOperator::Eq => literal(value).map(|v| format!("{} == {}", field, v)),
-                FilterOperator::Gt => literal(value).map(|v| format!("{} > {}", field, v)),
-                FilterOperator::Gte => literal(value).map(|v| format!("{} >= {}", field, v)),
-                FilterOperator::Lt => literal(value).map(|v| format!("{} < {}", field, v)),
-                FilterOperator::Lte => literal(value).map(|v| format!("{} <= {}", field, v)),
-                FilterOperator::In => list_literal(value).map(|v| format!("{} in {}", field, v)),
-                FilterOperator::Nin | FilterOperator::NotIn => list_literal(value).map(|v| format!("!({} in {})", field, v)),
-                _ => None,
-            }
+    match &expr.kind {
+        FilterKind::Equals(cond) => Some(format!("{} == {}", cond.key, quote_str(&cond.value))),
+        FilterKind::NotEquals(cond) => Some(format!("{} != {}", cond.key, quote_str(&cond.value))),
+        FilterKind::GreaterThan(cond) => Some(format!("{} > {}", cond.key, cond.number)),
+        FilterKind::LessThan(cond) => Some(format!("{} < {}", cond.key, cond.number)),
+        FilterKind::InList(cond) => {
+            if cond.values.is_empty() { return None; }
+            let vals = cond.values.iter().map(|s| quote_str(s)).collect::<Vec<_>>().join(", ");
+            Some(format!("{} in [{}]", cond.key, vals))
         }
-        FilterExpression::And(list) => {
-            if list.is_empty() { return None; }
-            let mut parts: Vec<String> = Vec::new();
-            for e in list {
-                if let Some(part) = build_expr(e) {
-                    let formatted = if part.contains(" || ") { format!("({})", part) } else { part };
-                    parts.push(formatted);
-                }
-            }
-            if parts.is_empty() { None } else { Some(parts.join(" && ")) }
-        }
-        FilterExpression::Or(list) => {
-            if list.is_empty() { return None; }
-            let mut parts: Vec<String> = Vec::new();
-            for e in list {
-                if let Some(part) = build_expr(e) {
-                    let formatted = if part.contains(" && ") { format!("({})", part) } else { part };
-                    parts.push(formatted);
-                }
-            }
-            if parts.is_empty() { None } else { Some(parts.join(" || ")) }
-        }
-        FilterExpression::Not(inner) => build_expr(inner).map(|s| format!("!({})", s)),
+        FilterKind::And(_) | FilterKind::Or(_) | FilterKind::Not(_) => None,
     }
 }
 
-fn literal(v: &MetadataValue) -> Option<String> {
-    match v {
-        MetadataValue::StringVal(s) => Some(format!("\"{}\"", s.replace('"', "\\\""))),
-        MetadataValue::NumberVal(n) => Some(n.to_string()),
-        MetadataValue::IntegerVal(i) => Some(i.to_string()),
-        MetadataValue::BooleanVal(b) => Some(b.to_string()),
-        _ => None,
-    }
-}
-
-fn list_literal(v: &MetadataValue) -> Option<String> {
-    match v {
-        MetadataValue::ArrayVal(arr) => {
-            if arr.is_empty() {
-                return None;
-            }
-            let mut items = Vec::new();
-            for item in arr {
-                if let Some(s) = literal(item) { items.push(s); }
-            }
-            if items.is_empty() { None } else { Some(format!("[{}]", items.join(", "))) }
-        }
-        _ => None,
-    }
+fn quote_str(s: &str) -> String {
+    format!("\"{}\"", s.replace('"', "\\\""))
 }

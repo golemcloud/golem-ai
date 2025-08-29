@@ -30,8 +30,6 @@ members = [
     "video/veo",
     "video/stability",
     "vector/vector",
-    "vector/qdrant",
-    "vector/pinecone",
     "vector/pgvector",
     "vector/milvus",
     "exec/exec",

@@ -11,6 +11,7 @@
 //!
 //! Runtime selection happens via `cfg(target_family = "wasm")`.
 
+#[cfg(target_family = "wasm")]
 use golem_vector::error::unsupported_feature;
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric, Metadata, VectorData, VectorError, VectorRecord,
@@ -60,7 +61,7 @@ impl PgvectorClient {
         _metric: DistanceMetric,
         _limit: u32,
         _filter_sql: Option<(String, Vec<String>)>,
-    ) -> Result<Vec<(String, f32, Option<Vec<f32>>)>, VectorError> {
+    ) -> Result<Vec<(String, f32, Option<Vec<f32>>, Option<Metadata>)>, VectorError> {
         Self::err()
     }
 
@@ -130,7 +131,7 @@ impl PgvectorClient {
 #[cfg(not(target_family = "wasm"))]
 mod native {
     use super::*;
-    use postgres::{Client, NoTls, Row};
+    use postgres::NoTls;
     use serde_json::Value;
     use std::time::Duration;
     use r2d2_postgres::{PostgresConnectionManager, r2d2::Pool};
@@ -153,7 +154,7 @@ mod native {
             max_retries: u32,
         ) -> Result<Self, VectorError> {
             let manager = PostgresConnectionManager::new(
-                database_url.parse().map_err(|e| VectorError::ConfigurationError(
+                database_url.parse().map_err(|e| VectorError::InvalidParams(
                     format!("Invalid database URL: {}", e)
                 ))?,
                 NoTls,
@@ -256,10 +257,10 @@ mod native {
             metric: DistanceMetric,
             limit: u32,
             filter_sql: Option<(String, Vec<String>)>,
-        ) -> Result<Vec<(String, f32, Option<Vec<f32>>)>, VectorError> {
+        ) -> Result<Vec<(String, f32, Option<Vec<f32>>, Option<Metadata>)>, VectorError> {
             let op = metric_to_pgvector(metric);
             let mut sql = format!(
-                "SELECT id, embedding {} $1::vector AS distance, embedding::text FROM {}",
+                "SELECT id, embedding {} $1::vector AS distance, embedding::text, metadata FROM {}",
                 op, table
             );
             // Hold filter values so parameter references remain valid during query execution
@@ -279,13 +280,18 @@ mod native {
             sql.push_str(&limit.to_string());
             let mut conn = self.get_connection()?;
             let rows = conn.query(sql.as_str(), &params).map_err(to_err)?;
-            let mut out: Vec<(String, f32, Option<Vec<f32>>)> = Vec::with_capacity(rows.len());
+            let mut out: Vec<(String, f32, Option<Vec<f32>>, Option<Metadata>)> = Vec::with_capacity(rows.len());
             for row in rows.into_iter() {
                 let id: String = row.get(0);
                 let dist: f32 = row.get(1);
                 let embedding_text: Option<String> = row.get(2);
+                let metadata_json: Option<serde_json::Value> = row.get(3);
                 let maybe_vec = parse_vector_text_opt(embedding_text);
-                out.push((id, dist, maybe_vec));
+                let maybe_meta = metadata_json.and_then(|v| match v {
+                    serde_json::Value::Object(map) => Some(json_object_to_metadata(map)),
+                    _ => None,
+                });
+                out.push((id, dist, maybe_vec, maybe_meta));
             }
             Ok(out)
         }
@@ -378,7 +384,7 @@ mod native {
             _namespace: Option<String>,
         ) -> Result<u32, VectorError> {
             let (where_sql, values) = filter_sql;
-            let mut sql = format!("DELETE FROM {} WHERE {}", table, where_sql);
+            let sql = format!("DELETE FROM {} WHERE {}", table, where_sql);
             // Build params vec
             let mut params: Vec<&(dyn postgres::types::ToSql + Sync)> = Vec::new();
             for v in &values {
