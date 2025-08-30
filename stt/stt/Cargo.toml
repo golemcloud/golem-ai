@@ -1,0 +1,31 @@
+[package]
+name = "golem-stt"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-llm"
+description = "WebAssembly components for working with STT APIs, with special support for Golem Cloud"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["rlib"]
+
+[dependencies]
+golem-rust = { workspace = true }
+log = { workspace = true }
+wit-bindgen = { version = "0.40.0" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wstd = { workspace = true }
+http = "=1.3.1"
+url = "2.5.4"
+wasi-logger = "0.1.2"
+uuid = { version = "1.17.0", features = ["v4"] }
+bytes = "1.10.1"
+
+derive_more = { version = "2.0.1", features = ["from"] }
+
+[features]
+default = ["durability"]
+durability = ["golem-rust/durability"]

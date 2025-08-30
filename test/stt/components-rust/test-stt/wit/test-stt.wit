@@ -1,0 +1,16 @@
+package test:stt;
+
+// See https://component-model.bytecodealliance.org/design/wit.html for more details about the WIT syntax
+
+interface test-stt-api {
+  test-transcribe: func() -> result<string, string>;
+  test-transcribe-many: func() -> result<string, string>;
+  test-list-supported-languages: func() -> result<string, string>;
+}
+
+world test-stt {
+  import golem:stt/types@1.0.0;
+  import golem:stt/languages@1.0.0;
+  import golem:stt/transcription@1.0.0;
+  export test-stt-api;
+}
