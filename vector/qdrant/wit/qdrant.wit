@@ -1,0 +1,7 @@
+package golem:vector-qdrant@1.0.0;
+
+// Wrapper world re-exporting the shared vector-library so that the Qdrant
+// component can be referenced independently.
+world vector-library {
+  include golem:vector/vector-library@1.0.0;
+}

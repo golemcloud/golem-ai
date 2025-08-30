@@ -1,0 +1,8 @@
+package golem:vector-pgvector@1.0.0;
+
+// Provider wrapper for pgvector. Re-exports the shared vector-library world so
+// that the component is referenceable as a standalone WIT package.
+
+world vector-library {
+  include golem:vector/vector-library@1.0.0;
+}

@@ -1,0 +1,8 @@
+package golem:vector-milvus@1.0.0;
+
+// Wrapper re-exporting the shared vector-library world so that the Milvus
+// component can be referenced independently.
+
+world vector-library {
+  include golem:vector/vector-library@1.0.0;
+}

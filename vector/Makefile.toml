@@ -1,0 +1,136 @@
+[config]
+default_to_workspace = false
+skip_core_tasks = true
+
+[tasks.build]
+run_task = { name = [
+    "build-qdrant",
+    "build-pinecone",
+    "build-milvus",
+    "build-pgvector",
+] }
+
+[tasks.build-portable]
+run_task = { name = [
+    "build-qdrant-portable",
+    "build-pinecone-portable",
+    "build-milvus-portable",
+    "build-pgvector-portable",
+] }
+
+[tasks.release-build]
+run_task = { name = [
+    "release-build-qdrant",
+    "release-build-pinecone",
+    "release-build-milvus",
+    "release-build-pgvector",
+] }
+
+[tasks.release-build-portable]
+run_task = { name = [
+    "release-build-qdrant-portable",
+    "release-build-pinecone-portable",
+    "release-build-milvus-portable",
+    "release-build-pgvector-portable",
+] }
+
+# Provider-specific build tasks
+[tasks.build-qdrant]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-qdrant"]
+
+[tasks.build-qdrant-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-qdrant", "--no-default-features"]
+
+[tasks.build-pinecone]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pinecone"]
+
+[tasks.build-pinecone-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pinecone", "--no-default-features"]
+
+[tasks.build-milvus]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-milvus"]
+
+[tasks.build-milvus-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-milvus", "--no-default-features"]
+
+[tasks.build-pgvector]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pgvector"]
+
+[tasks.build-pgvector-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pgvector", "--no-default-features"]
+
+# Release tasks
+[tasks.release-build-qdrant]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-qdrant", "--release"]
+
+[tasks.release-build-qdrant-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-qdrant", "--release", "--no-default-features"]
+
+[tasks.release-build-pinecone]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pinecone", "--release"]
+
+[tasks.release-build-pinecone-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pinecone", "--release", "--no-default-features"]
+
+[tasks.release-build-milvus]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-milvus", "--release"]
+
+[tasks.release-build-milvus-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-milvus", "--release", "--no-default-features"]
+
+[tasks.release-build-pgvector]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pgvector", "--release"]
+
+[tasks.release-build-pgvector-portable]
+install_crate = { crate_name = "cargo-component", version = "0.20.0" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pgvector", "--release", "--no-default-features"]
+
+# WIT helper: copy shared spec into provider crates and tests
+[tasks.wit]
+script_runner = "@duckscript"
+script = """
+modules = array qdrant pinecone milvus pgvector
+
+for module in ${modules}
+    rm -r ${module}/wit/deps
+    mkdir ${module}/wit/deps/golem-vector
+    cp wit/golem-vector.wit ${module}/wit/deps/golem-vector/golem-vector.wit
+    echo "Copied WIT for module vector::${module}"
+end
+
+# Copy WIT into integration tests (if present)
+rm -r ../test/vector/wit
+mkdir ../test/vector/wit/deps/golem-vector
+cp wit/golem-vector.wit ../test/vector/wit/deps/golem-vector/golem-vector.wit
+"""
