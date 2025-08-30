@@ -94,15 +94,11 @@ pub fn filter_expression_to_sql(
             Some((sql, vec![value]))
         }
         FilterKind::GreaterThan(CompareCondition { key, number }) => {
-            let sql = format!(
-                "(metadata->>'{key}')::numeric > ${start_param_index}::numeric"
-            );
+            let sql = format!("(metadata->>'{key}')::numeric > ${start_param_index}::numeric");
             Some((sql, vec![number.to_string()]))
         }
         FilterKind::LessThan(CompareCondition { key, number }) => {
-            let sql = format!(
-                "(metadata->>'{key}')::numeric < ${start_param_index}::numeric"
-            );
+            let sql = format!("(metadata->>'{key}')::numeric < ${start_param_index}::numeric");
             Some((sql, vec![number.to_string()]))
         }
         FilterKind::InList(InListCondition { key, values }) => {

@@ -1,12 +1,4 @@
-//! Pinecone REST client (Data Plane).
-//!
-//! The native build uses reqwest to interact with Pinecone. In wasm builds, we
-//! return an `unsupported_feature` error because outbound HTTP is disallowed in
-//! the sandboxed runtime.
-
-use crate::conversion::{
-    metadata_to_json_map, vector_data_to_dense,
-};
+use crate::conversion::{metadata_to_json_map, vector_data_to_dense};
 use golem_vector::exports::golem::vector::types::{
     Metadata, VectorData, VectorError, VectorRecord,
 };
@@ -259,7 +251,9 @@ mod native {
                 vectors: HashMap<String, V>,
             }
             let r: Resp = self.handle(resp, "fetch_vectors")?;
-            Ok(r.vectors.into_values().map(|v| VectorRecord {
+            Ok(r.vectors
+                .into_values()
+                .map(|v| VectorRecord {
                     id: v.id,
                     vector: VectorData::Dense(v.values.unwrap_or_default()),
                     metadata: v.metadata.map(|map| {

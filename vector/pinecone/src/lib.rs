@@ -1,13 +1,3 @@
-//! Pinecone vector database provider for Golem.
-//!
-//! Supported capabilities:
-//! * Vector upsert / get / delete
-//! * Similarity search with optional metadata filtering
-//! * Namespace scoping per API call (Pinecone concept)
-//!
-//! Collection and advanced analytics functionality are currently unsupported by
-//! Pinecone's public API and therefore surface `UnsupportedFeature` errors.
-
 mod bindings;
 mod client;
 mod conversion;

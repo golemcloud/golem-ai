@@ -1,9 +1,3 @@
-//! Conversion helpers for the Qdrant provider.
-//!
-//! * Dense `Vec<f32>` vectors
-//! * Metadata (payload) as JSON object
-//! * Filter expression translation to Qdrant filter JSON
-
 use golem_vector::conversion_errors::{validate_vector_dimension, ConversionError};
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric, FilterExpression, FilterKind, Metadata, MetadataKind, MetadataValue,

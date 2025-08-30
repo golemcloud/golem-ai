@@ -1,11 +1,3 @@
-//! Conversion helpers for the Pinecone provider.
-//!
-//! Pinecone expects:
-//! * Dense `Vec<f32>` vectors
-//! * Metadata represented as arbitrary JSON object
-//! * Distance metrics as string literals `"cosine"`, `"dotproduct"`, `"euclidean"`
-//! * Filter expressions encoded as Mongo-like JSON objects
-
 use golem_vector::conversion_errors::{validate_vector_dimension, ConversionError};
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric, FilterExpression, FilterKind, Metadata, MetadataKind, MetadataValue,

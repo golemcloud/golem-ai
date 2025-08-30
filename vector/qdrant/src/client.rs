@@ -1,9 +1,5 @@
-//! For native builds we use `reqwest` HTTP client. WASM builds return
-//! `unsupported_feature` as outbound network is disallowed.
-
 use crate::conversion::{
-    json_to_metadata_value, metadata_to_json_map, metric_to_qdrant,
-    vector_data_to_dense,
+    json_to_metadata_value, metadata_to_json_map, metric_to_qdrant, vector_data_to_dense,
 };
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric, Metadata, VectorData, VectorError, VectorRecord,
@@ -403,11 +399,10 @@ mod native {
                 .points
                 .into_iter()
                 .map(|p| {
-                    let id_str = p
-                        .id
-                        .as_str()
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|| p.id.to_string());
+                    let id_str =
+                        p.id.as_str()
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| p.id.to_string());
                     VectorRecord {
                         id: id_str,
                         vector: VectorData::Dense(p.vector.unwrap_or_default()),

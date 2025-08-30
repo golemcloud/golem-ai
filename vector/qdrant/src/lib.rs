@@ -1,12 +1,3 @@
-//! Production-ready Qdrant vector database provider for Golem.
-//!
-//! Supported capabilities:
-//! * Collection management (create, list, delete)
-//! * Vector upsert / get / delete
-//! * Similarity search with optional metadata filtering
-//!
-//! Namespaces are not a Qdrant concept – methods surface `UnsupportedFeature`.
-
 mod bindings;
 mod client;
 mod conversion;

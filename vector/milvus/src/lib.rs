@@ -1,21 +1,3 @@
-//! Milvus vector database provider for Golem.
-//!
-//! This provider implements the full `golem:vector` WIT interface for Milvus,
-//! supporting:
-//! - Collection management (create, list, delete, exists)
-//! - Vector operations (upsert, get, with limited update/delete)
-//! - Similarity search with filtering
-//! - Comprehensive error handling and logging
-//!
-//! ## Configuration
-//!
-//! Environment variables:
-//! - `MILVUS_ENDPOINT`: Milvus API endpoint (defaults to http://localhost:19530)
-//! - `MILVUS_API_KEY`: Optional API key for authentication
-//!
-//! Optional:
-//! - `GOLEM_VECTOR_LOG=trace`: Enable detailed logging
-
 mod bindings;
 mod client;
 mod conversion;
@@ -109,9 +91,7 @@ impl CollectionsGuest for MilvusComponent {
         init_logging();
         Self::validate_config()?;
 
-        info!(
-            "Creating Milvus collection: {name} with dimension: {dimension}"
-        );
+        info!("Creating Milvus collection: {name} with dimension: {dimension}");
         let client = Self::create_client()?;
         client.create_collection(&name, dimension, metric)?;
 
@@ -211,9 +191,7 @@ impl CollectionsGuest for MilvusComponent {
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
         init_logging();
-        warn!(
-            "Milvus does not support collection updates - returning current info for: {name}"
-        );
+        warn!("Milvus does not support collection updates - returning current info for: {name}");
         Self::get_collection(name)
     }
 
@@ -289,9 +267,7 @@ impl VectorsGuest for MilvusComponent {
         init_logging();
         Self::validate_config()?;
 
-        debug!(
-            "Upserting single vector '{id}' to Milvus collection: {collection}"
-        );
+        debug!("Upserting single vector '{id}' to Milvus collection: {collection}");
 
         let record = VectorRecord {
             id,
@@ -362,9 +338,7 @@ impl VectorsGuest for MilvusComponent {
         init_logging();
         Self::validate_config()?;
 
-        debug!(
-            "Fetching single vector '{id}' from Milvus collection: {collection}"
-        );
+        debug!("Fetching single vector '{id}' from Milvus collection: {collection}");
 
         let results = Self::get_vectors(collection, vec![id], namespace, Some(true), Some(true))?;
 
@@ -384,9 +358,7 @@ impl VectorsGuest for MilvusComponent {
         init_logging();
 
         // In Milvus, update is the same as upsert
-        debug!(
-            "Updating vector '{id}' in Milvus collection: {collection} (treated as upsert)"
-        );
+        debug!("Updating vector '{id}' in Milvus collection: {collection} (treated as upsert)");
 
         if let Some(vector_data) = vector {
             Self::upsert_vector(collection, id, vector_data, metadata, namespace)
@@ -543,9 +515,7 @@ impl SearchGuest for MilvusComponent {
         init_logging();
         Self::validate_config()?;
 
-        debug!(
-            "Searching {limit} vectors in Milvus collection: {collection}"
-        );
+        debug!("Searching {limit} vectors in Milvus collection: {collection}");
 
         let client = Self::create_client()?;
 

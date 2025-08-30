@@ -1,5 +1,3 @@
-//! Enhanced error types for vector conversion operations.
-
 use crate::exports::golem::vector::types::VectorError;
 
 /// Specialized conversion errors with better context

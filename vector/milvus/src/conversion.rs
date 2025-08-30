@@ -1,5 +1,3 @@
-//! Conversion helpers for Milvus provider.
-
 use golem_vector::conversion_errors::{validate_vector_dimension, ConversionError};
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric, FilterExpression, FilterKind, Metadata, MetadataKind, MetadataValue,

@@ -1,1 +1,2 @@
-// Empty bindings module so that the component may reuse shared WIT types.
+//! Left this empty so that the provider re-uses the shared `golem_vector` WIT interfaces.
+#![allow(dead_code)]

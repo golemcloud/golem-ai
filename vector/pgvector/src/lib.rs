@@ -128,9 +128,7 @@ impl CollectionsGuest for PgvectorComponent {
         init_logging();
         Self::validate_config()?;
 
-        info!(
-            "Creating/updating pgvector collection '{name}' with dimension {dimension}"
-        );
+        info!("Creating/updating pgvector collection '{name}' with dimension {dimension}");
 
         if dimension == 0 {
             return Err(VectorError::InvalidParams(
@@ -332,9 +330,7 @@ impl VectorsGuest for PgvectorComponent {
         init_logging();
         Self::validate_config()?;
 
-        debug!(
-            "Upserting single vector '{id}' to pgvector collection: {collection}"
-        );
+        debug!("Upserting single vector '{id}' to pgvector collection: {collection}");
 
         let record = VectorRecord {
             id,
@@ -405,9 +401,7 @@ impl VectorsGuest for PgvectorComponent {
         init_logging();
         Self::validate_config()?;
 
-        debug!(
-            "Fetching single vector '{id}' from pgvector collection: {collection}"
-        );
+        debug!("Fetching single vector '{id}' from pgvector collection: {collection}");
 
         let results = Self::get_vectors(collection, vec![id], namespace, Some(true), Some(true))?;
 
@@ -427,9 +421,7 @@ impl VectorsGuest for PgvectorComponent {
         init_logging();
         Self::validate_config()?;
 
-        debug!(
-            "Updating vector '{id}' in pgvector collection: {collection}"
-        );
+        debug!("Updating vector '{id}' in pgvector collection: {collection}");
 
         let client = Self::create_client()?;
         match client.update_vector(
@@ -490,9 +482,7 @@ impl VectorsGuest for PgvectorComponent {
         init_logging();
         Self::validate_config()?;
 
-        debug!(
-            "Deleting vectors by filter from pgvector collection: {collection}"
-        );
+        debug!("Deleting vectors by filter from pgvector collection: {collection}");
 
         let client = Self::create_client()?;
         let filter_sql = filter_expression_to_sql(Some(filter), 1).ok_or_else(|| {
@@ -525,9 +515,7 @@ impl VectorsGuest for PgvectorComponent {
         init_logging();
         Self::validate_config()?;
 
-        debug!(
-            "Listing vectors from pgvector collection: {collection} (limit: {limit:?})"
-        );
+        debug!("Listing vectors from pgvector collection: {collection} (limit: {limit:?})");
 
         let client = Self::create_client()?;
         let filter_sql = filter_expression_to_sql(filter, 1);
@@ -604,9 +592,7 @@ impl SearchGuest for PgvectorComponent {
         init_logging();
         Self::validate_config()?;
 
-        debug!(
-            "Searching {limit} vectors in pgvector collection: {collection}"
-        );
+        debug!("Searching {limit} vectors in pgvector collection: {collection}");
 
         let client = Self::create_client()?;
 

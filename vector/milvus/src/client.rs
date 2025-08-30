@@ -1,9 +1,3 @@
-//! Minimal synchronous Milvus REST client (v1 API).
-//!
-//! For native builds a blocking `reqwest` client is used. WebAssembly builds
-//! return an `unsupported_feature` error because outbound HTTP is unavailable in
-//! the sandboxed runtime.
-
 use golem_vector::exports::golem::vector::types::{
     DistanceMetric, Metadata, MetadataKind, MetadataValue, VectorData, VectorError, VectorRecord,
 };
@@ -147,7 +141,10 @@ mod native {
 
         // -------------------- collections ---------------------------
         /// Describe a collection and return (dimension, metric, vector_count)
-        pub fn describe_collection(&self, name: &str) -> Result<(u32, DistanceMetric, u64), VectorError> {
+        pub fn describe_collection(
+            &self,
+            name: &str,
+        ) -> Result<(u32, DistanceMetric, u64), VectorError> {
             #[derive(Deserialize)]
             struct RespData {
                 fields: Vec<Field>,
@@ -189,7 +186,10 @@ mod native {
                 }
             }
 
-            let url = format!("{}/v1/vector/collections/describe?collectionName={}", self.base_url, name);
+            let url = format!(
+                "{}/v1/vector/collections/describe?collectionName={}",
+                self.base_url, name
+            );
             let resp = self.http.get(url).send().map_err(to_err)?;
             let body: DescribeResp = self.handle_response(resp, "describe_collection")?;
 
@@ -269,11 +269,7 @@ mod native {
 
         // -------------------- vectors ------------------------------
         /// Delete vectors by IDs via Milvus REST `/v1/vector/delete` endpoint.
-        pub fn delete_vectors(
-            &self,
-            name: &str,
-            ids: Vec<String>,
-        ) -> Result<u32, VectorError> {
+        pub fn delete_vectors(&self, name: &str, ids: Vec<String>) -> Result<u32, VectorError> {
             if ids.is_empty() {
                 return Ok(0);
             }
@@ -319,7 +315,11 @@ mod native {
                 "offset": offset
             });
             let json = self.query_raw(&body)?;
-            let arr = json.get("data").and_then(|d| d.as_array()).cloned().unwrap_or_default();
+            let arr = json
+                .get("data")
+                .and_then(|d| d.as_array())
+                .cloned()
+                .unwrap_or_default();
             Ok(arr
                 .into_iter()
                 .filter_map(|v| v.get("id").and_then(|i| i.as_str()).map(|s| s.to_string()))
@@ -327,11 +327,7 @@ mod native {
         }
 
         /// Count vectors matching optional filter by requesting `count(*)`.
-        pub fn count_vectors(
-            &self,
-            name: &str,
-            expr: Option<String>,
-        ) -> Result<u64, VectorError> {
+        pub fn count_vectors(&self, name: &str, expr: Option<String>) -> Result<u64, VectorError> {
             use serde_json::json;
             let body = json!({
                 "collectionName": name,
@@ -348,7 +344,7 @@ mod native {
                 .ok_or_else(|| VectorError::ProviderError("Milvus count parse error".into()))
         }
 
-// -------------------- vectors ------------------------------
+        // -------------------- vectors ------------------------------
         pub fn upsert_vectors(
             &self,
             name: &str,

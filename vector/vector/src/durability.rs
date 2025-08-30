@@ -10,7 +10,6 @@ use crate::exports::golem::vector::vectors::Guest as VectorsGuest;
 use crate::init_logging;
 use std::marker::PhantomData;
 
-/// Wraps a provider implementation with (future) durability support.
 pub struct DurableVector<Impl> {
     _phantom: PhantomData<Impl>,
 }

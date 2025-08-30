@@ -310,9 +310,8 @@ mod native {
                 return Ok(Vec::new());
             }
             // Select id, embedding, metadata for provided IDs
-            let sql = format!(
-                "SELECT id, embedding::text, metadata FROM {table} WHERE id = ANY($1)"
-            );
+            let sql =
+                format!("SELECT id, embedding::text, metadata FROM {table} WHERE id = ANY($1)");
             let mut conn = self.get_connection()?;
             let rows = conn.query(sql.as_str(), &[&ids]).map_err(to_err)?;
             let mut out = Vec::with_capacity(rows.len());
