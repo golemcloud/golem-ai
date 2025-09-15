@@ -6,3 +6,4 @@ target
 tmp
 components
 .DS_Store
+bindings.rs
