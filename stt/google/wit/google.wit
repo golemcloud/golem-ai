@@ -1,0 +1,5 @@
+package golem:stt-google@1.0.0;
+
+world stt-library {
+  include golem:stt/stt-library@1.0.0;
+}

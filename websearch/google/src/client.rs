@@ -36,7 +36,7 @@ impl GoogleSearchApi {
             let mut query_pairs = url.query_pairs_mut();
             query_pairs.append_pair("key", &self.api_key);
             query_pairs.append_pair("cx", &self.search_engine_id);
-            query_pairs.append_pair("q", &urlencoding::encode(&request.query));
+            query_pairs.append_pair("q", &request.query);
             if let Some(num) = request.max_results {
                 query_pairs.append_pair("num", &num.to_string());
             }
@@ -56,7 +56,7 @@ impl GoogleSearchApi {
                 query_pairs.append_pair("dateRestrict", date_restrict);
             }
             if let Some(site_search) = &request.site_search {
-                query_pairs.append_pair("siteSearch", &urlencoding::encode(site_search));
+                query_pairs.append_pair("siteSearch", site_search);
             }
             if let Some(site_search_filter) = &request.site_search_filter {
                 query_pairs.append_pair("siteSearchFilter", site_search_filter);
