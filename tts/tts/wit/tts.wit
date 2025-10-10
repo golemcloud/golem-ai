@@ -1,0 +1,5 @@
+package golem:tts-library@1.0.0;
+
+world tts-library {
+    export golem:tts/tts@1.0.0;
+}
