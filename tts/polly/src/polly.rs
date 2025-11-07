@@ -1,35 +1,29 @@
+use crate::aws_signer::PollySigner;
+use bytes::Bytes;
 use golem_tts::{
     client::{ApiClient, TtsClient},
     config::get_env,
     golem::tts::{
-        advanced::{
-            AudioSample, LanguageCode, PronunciationEntry, PronunciationLexicon, Voice,
-            VoiceDesignParams,
-        },
+        advanced::{AudioSample, LanguageCode, PronunciationEntry, Voice, VoiceDesignParams},
         synthesis::{SynthesisOptions, TextInput, TimingInfo, ValidationResult},
         types::{SynthesisMetadata, SynthesisResult, TextType, TtsError},
         voices::{LanguageInfo, VoiceFilter},
     },
 };
-use log::trace;
-use reqwest::{header::HeaderMap, Method};
-use serde::Serialize;
-use serde_json;
-use chrono::Utc;
 use http::Request;
-use bytes::Bytes;
+use log::trace;
 use reqwest::header::{HeaderName, HeaderValue};
-use crate::aws_signer::PollySigner;
+use reqwest::{header::HeaderMap, Method};
+use serde_json;
 
 use crate::{
     error::{from_http_error, unsupported},
     resources::{AwsLongFormOperation, AwsPronunciationLexicon},
     types::{
-        GetLexiconResponse, GetSpeechSynthesisTaskResponse, ListVoiceParam, ListVoiceResponse,
-        PutLexiconRequest, StartSpeechSynthesisTaskRequest, StartSpeechSynthesisTaskResponse,
-        SynthesizeSpeechParams, SynthesizeSpeechResponse, SynthesisTask,
+        GetLexiconResponse, ListVoiceParam, ListVoiceResponse, PutLexiconRequest,
+        StartSpeechSynthesisTaskRequest, StartSpeechSynthesisTaskResponse, SynthesizeSpeechParams,
     },
-    utils::{create_pls_content, estimate_text_duration, parse_s3_location},
+    utils::{create_pls_content, estimate_text_duration},
 };
 
 #[derive(Clone)]
@@ -40,17 +34,22 @@ pub struct Polly {
     pub region: String,
     pub base_url: String,
     pub signer: PollySigner,
+    pub bucket: String,
 }
 
 impl TtsClient for Polly {
-
-
     type ClientLongFormOperation = AwsLongFormOperation;
 
     type ClientPronunciationLexicon = AwsPronunciationLexicon;
 
     fn new() -> Result<Self, TtsError> {
         let access_key_id = get_env("AWS_ACCESS_KEY_ID")?;
+        let bucket = get_env("AWS_S3_BUCKET").map_err(|_| {
+            TtsError::InvalidConfiguration(
+                "AWS_S3_BUCKET environment variable is required for long-form synthesis"
+                    .to_string(),
+            )
+        })?;
         let secret_access_key = get_env("AWS_SECRET_ACCESS_KEY")?;
         let region = get_env("AWS_REGION")
             .ok()
@@ -63,7 +62,11 @@ impl TtsClient for Polly {
 
         let client = ApiClient::new(base_url.clone(), HeaderMap::new())?;
 
-        let signer = PollySigner::new(access_key_id.clone(), secret_access_key.clone(), region.clone());
+        let signer = PollySigner::new(
+            access_key_id.clone(),
+            secret_access_key.clone(),
+            region.clone(),
+        );
 
         Ok(Self {
             client,
@@ -72,9 +75,10 @@ impl TtsClient for Polly {
             region,
             base_url,
             signer,
+            bucket: bucket,
         })
     }
-    
+
     fn synthesize(
         &self,
         input: TextInput,
@@ -106,7 +110,11 @@ impl TtsClient for Polly {
 
         let output_format = options
             .as_ref()
-            .and_then(|opts| opts.audio_config.as_ref().map(|config| config.format.clone()))
+            .and_then(|opts| {
+                opts.audio_config
+                    .as_ref()
+                    .map(|config| config.format.clone())
+            })
             .unwrap_or_else(|| "mp3".to_string());
 
         let sample_rate = options
@@ -135,7 +143,7 @@ impl TtsClient for Polly {
 
         let body_json =
             serde_json::to_string(&body).map_err(|e| TtsError::InternalError(e.to_string()))?;
-        
+
         let full_uri = format!("{}/v1/speech", self.base_url);
         let request = Request::builder()
             .method("POST")
@@ -144,11 +152,16 @@ impl TtsClient for Polly {
             .header("x-amz-target", "Polly_2016-06-10.SynthesizeSpeech")
             .body(body_json.as_bytes().to_vec().into())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self.signer.sign_request(request).map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self
+            .signer
+            .sign_request(request)
+            .map_err(|e| TtsError::InternalError(e.to_string()))?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
-            let key = HeaderName::from_bytes(key.as_str().as_bytes()).map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
-            let value = HeaderValue::from_bytes(value.as_bytes()).map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
+            let key = HeaderName::from_bytes(key.as_str().as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
+            let value = HeaderValue::from_bytes(value.as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
             headers.insert(key, value);
         }
         let response = self
@@ -248,19 +261,25 @@ impl TtsClient for Polly {
             next_token: None,
         };
 
-        let query = serde_urlencoded::to_string(&params).map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let query = serde_urlencoded::to_string(&params)
+            .map_err(|e| TtsError::InternalError(e.to_string()))?;
         let full_uri = format!("{}/v1/voices?{}", self.base_url, query);
-        
+
         let request = Request::builder()
             .method("GET")
             .uri(full_uri)
             .body(Bytes::new())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self.signer.sign_request(request).map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self
+            .signer
+            .sign_request(request)
+            .map_err(|e| TtsError::InternalError(e.to_string()))?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
-            let key = HeaderName::from_bytes(key.as_str().as_bytes()).map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
-            let value = HeaderValue::from_bytes(value.as_bytes()).map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
+            let key = HeaderName::from_bytes(key.as_str().as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
+            let value = HeaderValue::from_bytes(value.as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
             headers.insert(key, value);
         }
         let response = self
@@ -279,18 +298,22 @@ impl TtsClient for Polly {
     }
 
     fn get_voice(&self, voice_id: String) -> Result<Voice, TtsError> {
-       
         let full_uri = format!("{}/v1/voices", self.base_url);
         let request = Request::builder()
             .method("GET")
             .uri(full_uri)
             .body(Bytes::new())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self.signer.sign_request(request).map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self
+            .signer
+            .sign_request(request)
+            .map_err(|e| TtsError::InternalError(e.to_string()))?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
-            let key = HeaderName::from_bytes(key.as_str().as_bytes()).map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
-            let value = HeaderValue::from_bytes(value.as_bytes()).map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
+            let key = HeaderName::from_bytes(key.as_str().as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
+            let value = HeaderValue::from_bytes(value.as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
             headers.insert(key, value);
         }
         let result = self.client.make_request::<ListVoiceResponse, (), (), _>(
@@ -548,7 +571,7 @@ impl TtsClient for Polly {
 
         let body_json =
             serde_json::to_string(&body).map_err(|e| TtsError::InternalError(e.to_string()))?;
-        
+
         let full_uri = format!("{}{}", self.base_url, put_path);
         let request = Request::builder()
             .method("PUT")
@@ -556,36 +579,47 @@ impl TtsClient for Polly {
             .header("content-type", "application/json")
             .body(body_json.as_bytes().to_vec().into())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self.signer.sign_request(request).map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self
+            .signer
+            .sign_request(request)
+            .map_err(|e| TtsError::InternalError(e.to_string()))?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
-            let key = HeaderName::from_bytes(key.as_str().as_bytes()).map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
-            let value = HeaderValue::from_bytes(value.as_bytes()).map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
+            let key = HeaderName::from_bytes(key.as_str().as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
+            let value = HeaderValue::from_bytes(value.as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
             headers.insert(key, value);
         }
-        let _response = self.client.make_request::<serde_json::Value, PutLexiconRequest, (), _>(
-            Method::PUT,
-            &put_path,
-            body,
-            None,
-            Some(&headers),
-            from_http_error,
-        )?;
+        let _response = self
+            .client
+            .make_request::<serde_json::Value, PutLexiconRequest, (), _>(
+                Method::PUT,
+                &put_path,
+                body,
+                None,
+                Some(&headers),
+                from_http_error,
+            )?;
 
         let get_path = format!("/v1/lexicons/{}", name);
 
-        
         let full_uri = format!("{}{}", self.base_url, get_path);
         let request = Request::builder()
             .method("GET")
             .uri(full_uri)
             .body(Bytes::new())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self.signer.sign_request(request).map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self
+            .signer
+            .sign_request(request)
+            .map_err(|e| TtsError::InternalError(e.to_string()))?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
-            let key = HeaderName::from_bytes(key.as_str().as_bytes()).map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
-            let value = HeaderValue::from_bytes(value.as_bytes()).map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
+            let key = HeaderName::from_bytes(key.as_str().as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
+            let value = HeaderValue::from_bytes(value.as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
             headers.insert(key, value);
         }
         let response = self.client.make_request::<GetLexiconResponse, (), (), _>(
@@ -608,17 +642,18 @@ impl TtsClient for Polly {
         &self,
         content: String,
         voice: String,
-        output_location: String,
         _chapter_breaks: Option<Vec<u32>>,
     ) -> Result<Self::ClientLongFormOperation, TtsError> {
-        let (bucket, key_prefix) = parse_s3_location(&output_location)?;
+        let key_prefix = "test-audio-files/test8-long-form".to_string();
+        let output_location = format!("s3://{}/{}", self.bucket.clone(), key_prefix);
+
         let body = StartSpeechSynthesisTaskRequest {
             text: content,
             engine: Some("long-form".to_string()),
             language_code: None,
             lexicon_names: None,
             output_format: "mp3".to_string(),
-            output_s3_bucket_name: bucket,
+            output_s3_bucket_name: self.bucket.clone(),
             output_s3_key_prefix: Some(key_prefix),
             sample_rate: None,
             sns_topic_arn: None,
@@ -629,7 +664,7 @@ impl TtsClient for Polly {
         let path = "/v1/synthesisTasks".to_string();
         let body_json =
             serde_json::to_string(&body).map_err(|e| TtsError::InternalError(e.to_string()))?;
-        
+
         let full_uri = format!("{}{}", self.base_url, path);
         let request = Request::builder()
             .method("POST")
@@ -637,11 +672,16 @@ impl TtsClient for Polly {
             .header("content-type", "application/x-amz-json-1.0")
             .body(body_json.as_bytes().to_vec().into())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self.signer.sign_request(request).map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self
+            .signer
+            .sign_request(request)
+            .map_err(|e| TtsError::InternalError(e.to_string()))?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
-            let key = HeaderName::from_bytes(key.as_str().as_bytes()).map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
-            let value = HeaderValue::from_bytes(value.as_bytes()).map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
+            let key = HeaderName::from_bytes(key.as_str().as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header name".to_string()))?;
+            let value = HeaderValue::from_bytes(value.as_bytes())
+                .map_err(|_| TtsError::InternalError("Invalid header value".to_string()))?;
             headers.insert(key, value);
         }
         let response = self.client.make_request::<StartSpeechSynthesisTaskResponse, StartSpeechSynthesisTaskRequest, (), _>(Method::POST, &path, body, None, Some(&headers), from_http_error)?;

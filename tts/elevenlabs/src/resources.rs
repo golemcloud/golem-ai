@@ -5,7 +5,9 @@ use golem_tts::{
     client::TtsClient,
     config::get_env,
     golem::tts::{
-        advanced::{GuestLongFormOperation, GuestPronunciationLexicon, LongFormResult, OperationStatus},
+        advanced::{
+            GuestLongFormOperation, GuestPronunciationLexicon, LongFormResult, OperationStatus,
+        },
         types::{LanguageCode, TtsError},
     },
 };
@@ -16,7 +18,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     elevenlabs::Elevenlabs,
     error::{from_http_error, unsupported},
-    types::{AddRulesRequest, ElVoiceSettings, PronunciationRule, RemoveRulesRequest, UpdateLexiconRuleResponse, VerifiedLanguage},
+    types::{
+        AddRulesRequest, ElVoiceSettings, PronunciationRule, RemoveRulesRequest,
+        UpdateLexiconRuleResponse, VerifiedLanguage,
+    },
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug, IntoValue, FromValueAndType)]
@@ -55,7 +60,6 @@ pub struct VoiceLabels {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_case: Option<String>,
 }
-
 
 pub struct ElPronunciationLexicon {
     pub id: String,

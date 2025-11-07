@@ -2,10 +2,7 @@ use golem_tts::{
     client::{ApiClient, TtsClient},
     config::get_env,
     golem::tts::{
-        advanced::{
-            AudioSample, LanguageCode, PronunciationEntry, PronunciationLexicon, Voice,
-            VoiceDesignParams,
-        },
+        advanced::{AudioSample, LanguageCode, PronunciationEntry, Voice, VoiceDesignParams},
         synthesis::{SynthesisOptions, TextInput, TimingInfo, ValidationResult},
         types::{SynthesisMetadata, SynthesisResult, TextType, TtsError, VoiceGender},
         voices::{LanguageInfo, VoiceFilter},
@@ -17,10 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{from_http_error, unsupported},
-    resources::{
-        DeepgramLongFormOperation, DeepgramPronunciationLexicon,
-        VoiceResponse,
-    },
+    resources::{DeepgramLongFormOperation, DeepgramPronunciationLexicon, VoiceResponse},
     utils::estimate_duration,
 };
 
@@ -62,7 +56,7 @@ impl TtsClient for Deepgram {
             .map(|ac| ac.format.clone());
 
         // Deepgram doesn't allow sample_rate with MP3 encoding
-        let sample_rate = if encoding.as_ref().map(|e| e.as_str()) == Some("mp3") {
+        let sample_rate = if encoding.as_deref() == Some("mp3") {
             None
         } else {
             options
@@ -359,7 +353,6 @@ impl TtsClient for Deepgram {
         &self,
         _content: String,
         _voice: String,
-        _output_location: String,
         _chapter_breaks: Option<Vec<u32>>,
     ) -> Result<Self::ClientLongFormOperation, TtsError> {
         unsupported("Deepgram does not  supported Async synthesis.")

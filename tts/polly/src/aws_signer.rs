@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use derive_more::From;
 use hmac::digest::InvalidLength;
 use hmac::{Hmac, Mac};

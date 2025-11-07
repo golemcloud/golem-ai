@@ -1,4 +1,4 @@
-use golem_tts::golem::tts::{types::VoiceGender, voices::Voice, };
+use golem_tts::golem::tts::{types::VoiceGender, voices::Voice};
 
 use crate::resources::VoiceResponse;
 
@@ -26,7 +26,7 @@ impl From<&VoiceResponse> for Voice {
         }
 
         Voice {
-            id: v.uuid.clone(), // Keep UUID for get_voice API
+            id: v.uuid.clone(),             // Keep UUID for get_voice API
             name: v.canonical_name.clone(), // Use canonical_name for synthesis
             language: v.languages[0].clone(),
             additional_languages: v.languages.clone(),

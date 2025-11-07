@@ -115,7 +115,7 @@ impl AdvancedGuest for ElevenLabsTtsComponent {
         entries: Option<Vec<PronunciationEntry>>,
     ) -> Result<PronunciationLexicon, TtsError> {
         let client = Elevenlabs::new()?;
-      let  lexicon =  client.create_lexicon(name, language, entries)?;
+        let lexicon = client.create_lexicon(name, language, entries)?;
         Ok(PronunciationLexicon::new(lexicon))
     }
 
@@ -123,13 +123,11 @@ impl AdvancedGuest for ElevenLabsTtsComponent {
     fn synthesize_long_form(
         _content: String,
         _voice: Voice,
-        _output_location: String,
         _chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
         unsupported("Long-form content synthesis is not supported by Elvenlabs")
     }
 }
-
 
 impl VoicesGuest for ElevenLabsTtsComponent {
     #[doc = " List available voices with filtering and pagination"]
@@ -155,20 +153,19 @@ impl ExtendedAdvancedTrait for ElevenLabsTtsComponent {
         name: String,
         language: LanguageCode,
         entries: Option<Vec<PronunciationEntry>>,
-    ) -> Result<Self::PronunciationLexicon,TtsError> {
-        let client  = Elevenlabs::new()?;
+    ) -> Result<Self::PronunciationLexicon, TtsError> {
+        let client = Elevenlabs::new()?;
         client.create_lexicon(name, language, entries)
     }
 
     fn unwrappered_synthesize_long_form(
         content: String,
         voice: Voice,
-        output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<Self::LongFormOperation, TtsError> {
         let client = Elevenlabs::new()?;
         let voice_id = voice.id.clone();
-        client.synthesize_long_form(content, voice_id, output_location, chapter_breaks)
+        client.synthesize_long_form(content, voice_id, chapter_breaks)
     }
 }
 

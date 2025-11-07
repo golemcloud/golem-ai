@@ -4,8 +4,7 @@ use golem_tts::{
     golem::tts::{
         advanced::{
             AudioSample, Guest as AdvancedGuest, LanguageCode, LongFormOperation,
-            PronunciationEntry, PronunciationLexicon, TtsError, Voice,
-            VoiceDesignParams,
+            PronunciationEntry, PronunciationLexicon, TtsError, Voice, VoiceDesignParams,
         },
         synthesis::{
             Guest as SynthesisGuest, SynthesisOptions, SynthesisResult, TextInput, TimingInfo,
@@ -30,7 +29,6 @@ pub mod utils;
 pub struct AwsPollyComponent;
 
 impl VoicesGuest for AwsPollyComponent {
-
     #[doc = " List available voices with filtering and pagination"]
     fn list_voices(filter: Option<VoiceFilter>) -> Result<Vec<Voice>, TtsError> {
         let polly = Polly::new()?;
@@ -75,26 +73,19 @@ impl SynthesisGuest for AwsPollyComponent {
     }
 
     #[doc = " Get timing information without audio synthesis"]
-    fn get_timing_marks(
-        input: TextInput,
-        voice: Voice,
-    ) -> Result<Vec<TimingInfo>, TtsError> {
+    fn get_timing_marks(input: TextInput, voice: Voice) -> Result<Vec<TimingInfo>, TtsError> {
         let polly = Polly::new()?;
         let voice_name = voice.id.clone();
         polly.get_timing_marks(input, voice_name)
     }
 
     #[doc = " Validate text before synthesis"]
-    fn validate_input(
-        input: TextInput,
-        voice: Voice,
-    ) -> Result<ValidationResult, TtsError> {
+    fn validate_input(input: TextInput, voice: Voice) -> Result<ValidationResult, TtsError> {
         let polly = Polly::new()?;
         let voice_name = voice.id.clone();
         polly.validate_input(input, voice_name)
     }
 }
-
 
 impl AdvancedGuest for AwsPollyComponent {
     type PronunciationLexicon = AwsPronunciationLexicon;
@@ -155,18 +146,15 @@ impl AdvancedGuest for AwsPollyComponent {
     fn synthesize_long_form(
         content: String,
         voice: Voice,
-        output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
         let polly = Polly::new()?;
         let voice_name = voice.id.clone();
         let operation =
-            polly.synthesize_long_form(content, voice_name, output_location, chapter_breaks)?;
+            polly.synthesize_long_form(content, voice_name, chapter_breaks)?;
         Ok(LongFormOperation::new(operation))
     }
 }
-
-
 
 impl ExtendedAdvancedTrait for AwsPollyComponent {
     fn unwrappered_created_lexicon(
@@ -174,19 +162,18 @@ impl ExtendedAdvancedTrait for AwsPollyComponent {
         language: LanguageCode,
         entries: Option<Vec<PronunciationEntry>>,
     ) -> Result<Self::PronunciationLexicon, TtsError> {
-        let client  = Polly::new()?;
+        let client = Polly::new()?;
         client.create_lexicon(name, language, entries)
     }
 
     fn unwrappered_synthesize_long_form(
         content: String,
         voice: Voice,
-        output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<Self::LongFormOperation, TtsError> {
         let client = Polly::new()?;
         let voice_id = voice.id.clone();
-        client.synthesize_long_form(content, voice_id, output_location, chapter_breaks)
+        client.synthesize_long_form(content, voice_id, chapter_breaks)
     }
 }
 

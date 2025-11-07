@@ -7,9 +7,11 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::config::get_parsed_env;
 use crate::golem::tts::advanced::{
-    AudioSample, LanguageCode, PronunciationEntry, PronunciationLexicon, VoiceDesignParams,
+    AudioSample, LanguageCode, PronunciationEntry, VoiceDesignParams,
 };
-use crate::golem::tts::synthesis::{SynthesisOptions, SynthesisResult, TextInput, TimingInfo, ValidationResult};
+use crate::golem::tts::synthesis::{
+    SynthesisOptions, SynthesisResult, TextInput, TimingInfo, ValidationResult,
+};
 use crate::golem::tts::types::TtsError;
 use crate::golem::tts::voices::{LanguageInfo, Voice, VoiceFilter};
 
@@ -91,8 +93,7 @@ impl ApiClient {
 
             trace!("Sending request: {}", string_body.clone());
 
-            request = request
-                .body(string_body);
+            request = request.body(string_body);
         }
 
         match request.send() {
@@ -129,7 +130,6 @@ impl ApiClient {
 
         let url = format!("{}{}", self.base_url, path);
         let mut request = self.client.request(method, &url);
-
 
         if let Some(headers) = headers {
             for (key, value) in headers {
@@ -343,7 +343,6 @@ pub trait TtsClient: 'static {
         &self,
         content: String,
         voice: String,
-        output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<Self::ClientLongFormOperation, TtsError>;
 }

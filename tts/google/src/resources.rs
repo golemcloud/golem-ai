@@ -2,9 +2,9 @@ use golem_rust::{FromValueAndType, IntoValue};
 use golem_tts::golem::tts::{
     advanced::{
         GuestLongFormOperation, GuestPronunciationLexicon, LanguageCode, LongFormResult,
-        OperationStatus, Voice,
+        OperationStatus,
     },
-    types::{TextType, TtsError, VoiceGender},
+    types::TtsError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,11 +22,15 @@ impl GuestLongFormOperation for GoogleLongFormOperation {
     }
 
     fn cancel(&self) -> Result<(), TtsError> {
-        unsupported("Google TTS long-form synthesis is currently in beta (v1beta1) and not yet supported")
+        unsupported(
+            "Google TTS long-form synthesis is currently in beta (v1beta1) and not yet supported",
+        )
     }
 
     fn get_result(&self) -> Result<LongFormResult, TtsError> {
-        unsupported("Google TTS long-form synthesis is currently in beta (v1beta1) and not yet supported")
+        unsupported(
+            "Google TTS long-form synthesis is currently in beta (v1beta1) and not yet supported",
+        )
     }
 }
 

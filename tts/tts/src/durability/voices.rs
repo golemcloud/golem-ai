@@ -32,16 +32,12 @@ mod durability_impl {
     use std::fmt::Debug;
 
     use golem_rust::{
-        bindings::golem::durability::durability::DurableFunctionType,
-        durability::Durability,
-        value_and_type::{FromValueAndType, IntoValue},
+        bindings::golem::durability::durability::DurableFunctionType, durability::Durability,
         with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel,
     };
     use log::trace;
-    use serde::{de::DeserializeOwned, Serialize};
 
     use crate::{
-        client::TtsClient,
         durability::DurableTTS,
         golem::tts::voices::{Guest, LanguageInfo, TtsError, Voice, VoiceFilter},
         init_logging,
@@ -60,8 +56,7 @@ mod durability_impl {
 
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                   
-                   Impl::list_voices(filter.clone())
+                    Impl::list_voices(filter.clone())
                 });
                 let _ = durability.persist(ListVoicesInput { filter }, result.clone());
                 result
@@ -82,7 +77,7 @@ mod durability_impl {
             if durability.is_live() {
                 trace!("[LIVE] get_voice");
                 let voice = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                   Impl::get_voice(voice_id.clone())
+                    Impl::get_voice(voice_id.clone())
                 });
                 let _ = durability.persist(GetVoiceInput { voice_id }, Clone::clone(&voice));
 

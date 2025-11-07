@@ -5,8 +5,7 @@ use golem_tts::{
     config::get_env,
     golem::tts::{
         advanced::{
-            AgeCategory, AudioSample, LanguageCode, PronunciationEntry, PronunciationLexicon,
-            Voice, VoiceDesignParams,
+            AgeCategory, AudioSample, LanguageCode, PronunciationEntry, Voice, VoiceDesignParams,
         },
         synthesis::{SynthesisOptions, SynthesisResult, TextInput, TimingInfo, ValidationResult},
         types::{SynthesisMetadata, TextType, TtsError, VoiceGender},
@@ -35,10 +34,7 @@ pub struct Elevenlabs {
     base_url: String,
 }
 
-
-
 impl TtsClient for Elevenlabs {
-  
     type ClientLongFormOperation = ElLongFormSynthesis;
     type ClientPronunciationLexicon = ElPronunciationLexicon;
 
@@ -847,7 +843,6 @@ impl TtsClient for Elevenlabs {
         &self,
         _content: String,
         _voice: String,
-        _output_location: String,
         _chapter_breaks: Option<Vec<u32>>,
     ) -> Result<ElLongFormSynthesis, TtsError> {
         unsupported("Long-form synthesis not yet implemented for ElevenLabs TTS")

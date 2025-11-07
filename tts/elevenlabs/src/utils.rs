@@ -6,7 +6,7 @@ use crate::resources::VoiceResponse;
 
 impl From<VoiceResponse> for Voice {
     fn from(voice: VoiceResponse) -> Self {
-        let  languages: Vec<String> = voice
+        let languages: Vec<String> = voice
             .verified_languages
             .as_ref()
             .map(|l| l.iter().map(|l| l.language.clone()).collect())

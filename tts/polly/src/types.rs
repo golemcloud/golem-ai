@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::resources::{ VoiceResponse};
+use crate::resources::VoiceResponse;
 
 #[derive(Serialize, Clone)]
 pub struct SynthesizeSpeechParams {
@@ -133,7 +133,7 @@ pub struct SynthesisTask {
     #[serde(rename = "OutputUri", skip_serializing_if = "Option::is_none")]
     pub output_uri: Option<String>,
     #[serde(rename = "CreationTime")]
-    pub creation_time: f64,  // Unix timestamp as floating-point number
+    pub creation_time: f64, // Unix timestamp as floating-point number
     #[serde(rename = "RequestCharacters")]
     pub request_characters: u32,
     #[serde(rename = "VoiceId")]

@@ -1,5 +1,3 @@
-use golem_rust::with_persistence_level;
-
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::{
@@ -72,12 +70,11 @@ mod passthrough_impl {
         fn synthesize_long_form(
             content: String,
             voice: Voice,
-            output_location: String,
             chapter_breaks: Option<Vec<u32>>,
         ) -> Result<LongFormOperation, TtsError> {
             let client = Impl::new()?;
             let voice_id = voice.id.clone();
-            client.synthesize_long_form(content, voice_id, output_location, chapter_breaks)
+            client.synthesize_long_form(content, voice_id, chapter_breaks)
         }
     }
 }
@@ -87,8 +84,7 @@ mod durability_impl {
     use std::cell::RefCell;
 
     use golem_rust::{
-        bindings::golem::durability::{self, durability::DurableFunctionType},
-        durability::Durability,
+        bindings::golem::durability::durability::DurableFunctionType, durability::Durability,
         with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel,
     };
 
@@ -191,14 +187,14 @@ mod durability_impl {
                 DurableFunctionType::ReadLocal,
             );
             if durability.is_live() {
-                let mut state = self.state.borrow_mut();
+                let state = self.state.borrow_mut();
                 match &*state {
                     Some(DurablePronunciationLexiconState::Live { lexicon }) => {
                         let result =
                             with_persistence_level(PersistenceLevel::PersistNothing, || {
                                 lexicon.get_entry_count()
                             });
-                        let _ = durability.persist_infallible(NoInput, result.clone());
+                        let _ = durability.persist_infallible(NoInput, result);
 
                         result
                     }
@@ -223,12 +219,11 @@ mod durability_impl {
                 let state = self.state.borrow_mut();
                 match &*state {
                     Some(DurablePronunciationLexiconState::Live { lexicon }) => {
-                        let result =
-                            with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                lexicon.add_entry(word, pronunciation)
-                            })?;
+                        with_persistence_level(PersistenceLevel::PersistNothing, || {
+                            lexicon.add_entry(word, pronunciation)
+                        })?;
                         let _ = durability.persist_infallible(NoInput, NoOutput);
-                        Ok(result)
+                        Ok(())
                     }
 
                     _ => {
@@ -252,12 +247,11 @@ mod durability_impl {
                 let state = self.state.borrow_mut();
                 match &*state {
                     Some(DurablePronunciationLexiconState::Live { lexicon }) => {
-                        let result =
-                            with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                lexicon.remove_entry(word.clone())
-                            })?;
+                        with_persistence_level(PersistenceLevel::PersistNothing, || {
+                            lexicon.remove_entry(word.clone())
+                        })?;
                         let _ = durability.persist_infallible(NoInput, NoOutput);
-                        Ok(result)
+                        Ok(())
                     }
 
                     _ => {
@@ -334,7 +328,7 @@ mod durability_impl {
                             with_persistence_level(PersistenceLevel::PersistNothing, || {
                                 operation.get_status()
                             });
-                        let _ = durability.persist_infallible(NoInput, result.clone());
+                        let _ = durability.persist_infallible(NoInput, result);
                         result
                     }
 
@@ -361,7 +355,7 @@ mod durability_impl {
                             with_persistence_level(PersistenceLevel::PersistNothing, || {
                                 operation.get_progress()
                             });
-                        let _ = durability.persist_infallible(NoInput, result.clone());
+                        let _ = durability.persist_infallible(NoInput, result);
                         result
                     }
 
@@ -384,12 +378,11 @@ mod durability_impl {
                 let state = self.state.borrow_mut();
                 match &*state {
                     Some(DurableLongFormOperationState::Live { operation }) => {
-                        let result =
-                            with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                operation.cancel()
-                            })?;
+                        with_persistence_level(PersistenceLevel::PersistNothing, || {
+                            operation.cancel()
+                        })?;
                         let _ = durability.persist_infallible(NoInput, NoOutput);
-                        Ok(result)
+                        Ok(())
                     }
 
                     _ => {
@@ -553,7 +546,6 @@ mod durability_impl {
         fn synthesize_long_form(
             content: String,
             voice: Voice,
-            output_location: String,
             chapter_breaks: Option<Vec<u32>>,
         ) -> Result<LongFormOperation, TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
@@ -566,7 +558,6 @@ mod durability_impl {
                     let longform_operation = Impl::unwrappered_synthesize_long_form(
                         content,
                         voice,
-                        output_location,
                         chapter_breaks,
                     )?;
                     Ok(LongFormOperation::new(

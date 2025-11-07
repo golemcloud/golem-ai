@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::golem::tts::{advanced::{Guest as AdvancedTrait, LanguageCode, PronunciationEntry, Voice}, types::TtsError};
+use crate::golem::tts::{
+    advanced::{Guest as AdvancedTrait, LanguageCode, PronunciationEntry, Voice},
+    types::TtsError,
+};
 
 pub struct DurableTTS<Impl> {
     pub(crate) phantom: PhantomData<Impl>,
@@ -29,7 +32,6 @@ pub trait ExtendedAdvancedTrait: AdvancedTrait + 'static {
     fn unwrappered_synthesize_long_form(
         content: String,
         voice: Voice,
-        output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<Self::LongFormOperation, TtsError>;
 }

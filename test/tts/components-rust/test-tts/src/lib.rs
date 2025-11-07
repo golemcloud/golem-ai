@@ -171,7 +171,7 @@ impl Guest for Component {
             Ok(result) => {
                 trace!("Recived result: {:?}", result.metadata);
                 let dir = "/test-audio-files";
-                let name = "test4-without-options.mp3";
+                let name = "test3-without-options.mp3";
                 let storage_msg = save_audio(&result.audio_data, dir, name);
                 push_result(&mut test_result, result, test_name, format!("{dir}/{name}"));
                 test_result.push_str(&format!("\n{}\n", storage_msg));
@@ -232,7 +232,7 @@ impl Guest for Component {
             Ok(result) => {
                 trace!("Recived result: {:?}", result.metadata);
                 let dir = "/test-audio-files";
-                let name = "test5-ssml.mp3";
+                let name = "test4-ssml.mp3";
                 let storage_msg = save_audio(&result.audio_data, dir, name);
                 push_result(&mut test_result, result, test_name, format!("{dir}/{name}"));
                 test_result.push_str(&format!("\n{}\n", storage_msg));
@@ -303,7 +303,7 @@ impl Guest for Component {
                 for result in batch {
                     trace!("#{index} Recived result: {:?}  ", result.metadata);
                     let dir = "/test-audio-files";
-                    let name = format!("test6-batch-{}.mp3", index);
+                    let name = format!("test5-batch-{}.mp3", index);
                     let storage_msg = save_audio(&result.audio_data, dir, &name);
                     test_result.push_str(&format!("Batch Item #{index}:  "));
                     push_result(&mut test_result, result, test_name, format!("{dir}/{name}"));
@@ -498,7 +498,7 @@ impl Guest for Component {
                 ));
 
                 let dir = "/test-audio-files";
-                let name = "test10-voice-conversion.mp3";
+                let name = "test7-voice-conversion.mp3";
                 let storage_msg = save_audio(&converted_audio, dir, name);
                 test_result.push_str(&format!("💾 Audio saved at {dir}/{name}  "));
                 test_result.push_str(&format!("\n{}\n", storage_msg));
@@ -528,7 +528,7 @@ impl Guest for Component {
                 ));
 
                 let dir = "/test-audio-files";
-                let name = "test10-sound-effect.mp3";
+                let name = "test7-sound-effect.mp3";
                 let storage_msg = save_audio(&sound_effect, dir, name);
                 test_result.push_str(&format!("💾 Audio saved at {dir}/{name}\n"));
                 test_result.push_str(&format!("{}\n", storage_msg));
@@ -560,37 +560,21 @@ impl Guest for Component {
 
         let long_content = format!("{}\n\n{}\n\n{}", TEXT, TEXT, TEXT);
 
-        // For AWS Polly, output_location must be an S3 location (s3://bucket/key)
-        // For other providers, it can be a local path
-        #[cfg(feature = "polly")]
-        let output_location = {
-            match std::env::var("AWS_S3_BUCKET") {
-                Ok(bucket) => format!("s3://{}/test-audio-files/test11-long-form", bucket),
-                Err(_) => {
-                    test_result.push_str(&format!("{test_name} ❌\n"));
-                    test_result.push_str("ERROR : Missing required environment variable AWS_S3_BUCKET for AWS Polly long-form synthesis\n");
-                    return test_result;
-                }
-            }
-        };
-
-        #[cfg(not(feature = "polly"))]
-        let output_location = "/test-audio-files/test11-long-form.mp3";
-
         let chapter_breaks = [0, TEXT.len() as u32, (TEXT.len() * 2) as u32];
 
-        match synthesize_long_form(
-            &long_content,
-            &voice,
-            &output_location,
-            Some(&chapter_breaks),
-        ) {
+        match synthesize_long_form(&long_content, &voice, Some(&chapter_breaks)) {
             Ok(operation) => {
                 // Monitor the operation progress
                 let mut attempts = 0;
                 let max_attempts = 30;
 
                 while attempts < max_attempts {
+                    if attempts == 3 {
+                        // Simulate crash
+                        let agent_name = std::env::var("GOLEM_WORKER_NAME").unwrap();
+                        mimic_crash(&agent_name);
+                    }
+
                     let status = operation.get_status();
                     let progress: f32 = operation.get_progress();
                     trace!(
@@ -740,13 +724,6 @@ impl Guest for Component {
 
     // Test pronunciation lexicons
     fn test9() -> String {
-        let voice = match get_voice(VOICE_UUID) {
-            Ok(voices) => voices,
-            Err(err) => {
-                return format!("❌ ERROR : {:?}", err);
-            }
-        };
-
         let mut test_result = String::new();
         test_result.push_str("Test pronunciation lexicons summary:\n");
 
@@ -804,6 +781,10 @@ impl Guest for Component {
 
         trace!("Exporting lexicon content...");
         let test3_name = "3. Test export lexicon";
+
+        // Simulate crash
+        let agent_name = std::env::var("GOLEM_WORKER_NAME").unwrap();
+        mimic_crash(&agent_name);
 
         match lexicon.export_content() {
             Ok(content) => {

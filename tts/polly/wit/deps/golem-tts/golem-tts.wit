@@ -364,7 +364,6 @@ interface advanced {
     synthesize-long-form: func(
         content: string,
         voice: voice,
-        output-location: string,
         chapter-breaks: option<list<u32>>
     ) -> result<long-form-operation, tts-error>;
 

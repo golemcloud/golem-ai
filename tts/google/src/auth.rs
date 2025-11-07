@@ -1,9 +1,9 @@
 use base64::{engine::general_purpose, Engine};
 use golem_tts::{config::get_env, golem::tts::types::TtsError};
 use reqwest::Client;
+use rsa::sha2::{Digest, Sha256};
 use rsa::Pkcs1v15Sign;
 use rsa::{pkcs8::DecodePrivateKey, RsaPrivateKey};
-use rsa::sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::UNIX_EPOCH;
@@ -84,13 +84,16 @@ impl Google {
     }
 
     /// Parse service account credentials from JSON string
-    fn parse_service_account_credentials(json_content: &str) -> Result<ServiceAccountCredentials, TtsError> {
-        let credentials: ServiceAccountCredentials = serde_json::from_str(json_content).map_err(|e| {
-            TtsError::InvalidConfiguration(format!(
-                "Failed to parse service account credentials JSON: {}",
-                e
-            ))
-        })?;
+    fn parse_service_account_credentials(
+        json_content: &str,
+    ) -> Result<ServiceAccountCredentials, TtsError> {
+        let credentials: ServiceAccountCredentials =
+            serde_json::from_str(json_content).map_err(|e| {
+                TtsError::InvalidConfiguration(format!(
+                    "Failed to parse service account credentials JSON: {}",
+                    e
+                ))
+            })?;
 
         // Validate that it's a service account
         if credentials.credential_type != "service_account" {
@@ -198,11 +201,12 @@ impl Google {
 
         let status = response.status();
         if !status.is_success() {
-            let error_body = response.text().unwrap_or_else(|_| "Unable to read error body".to_string());
+            let error_body = response
+                .text()
+                .unwrap_or_else(|_| "Unable to read error body".to_string());
             return Err(TtsError::Unauthorized(format!(
                 "Token exchange failed: {} - {}",
-                status,
-                error_body
+                status, error_body
             )));
         }
 

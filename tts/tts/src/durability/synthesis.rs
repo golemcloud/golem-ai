@@ -49,7 +49,6 @@ mod durability_impl {
     use log::trace;
 
     use crate::{
-        client::TtsClient,
         durability::DurableTTS,
         golem::tts::{
             synthesis::{Guest, SynthesisOptions, TextInput, TimingInfo, ValidationResult},
@@ -132,13 +131,12 @@ mod durability_impl {
             if durability.is_live() {
                 trace!("[LIVE] get_timing_marks");
 
-                let result = with_persistence_level(PersistenceLevel::PersistNothing,||{
+                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::get_timing_marks(input.clone(), voice)
                 });
 
                 durability.persist(NoInput, result)
             } else {
-
                 trace!("[REPLAY] get_timing_marks");
 
                 durability.replay()
@@ -161,7 +159,6 @@ mod durability_impl {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::validate_input(input.clone(), voice)
                 });
-
 
                 durability.persist(NoInput, result)
             } else {

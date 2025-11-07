@@ -3,14 +3,10 @@ use golem_tts::{
     client::{ApiClient, TtsClient},
     config::get_env,
     golem::tts::{
-        advanced::{
-            AudioSample, LanguageCode, PronunciationEntry, PronunciationLexicon, Voice,
-            VoiceDesignParams,
-        },
+        advanced::{AudioSample, LanguageCode, PronunciationEntry, Voice, VoiceDesignParams},
         synthesis::{SynthesisOptions, TextInput, ValidationResult},
         types::{
             SynthesisMetadata, SynthesisResult, TextType, TimingInfo, TimingMarkType, TtsError,
-            VoiceGender,
         },
         voices::{LanguageInfo, VoiceFilter},
     },
@@ -56,7 +52,6 @@ impl Google {
 }
 
 impl TtsClient for Google {
- 
     type ClientLongFormOperation = GoogleLongFormOperation;
     type ClientPronunciationLexicon = GooglePronunciationLexicon;
 
@@ -381,10 +376,7 @@ impl TtsClient for Google {
         })
     }
 
-    fn list_voices(
-        &self,
-        filter: Option<VoiceFilter>,
-    ) -> Result<Vec<Voice>, TtsError> {
+    fn list_voices(&self, filter: Option<VoiceFilter>) -> Result<Vec<Voice>, TtsError> {
         let client = self.get_client()?;
         let result = client.retry_request::<ListVoicesResponse, (), (), _>(
             Method::GET,
@@ -394,11 +386,7 @@ impl TtsClient for Google {
             from_http_error,
         )?;
 
-        let mut voices: Vec<Voice> = result
-            .voices
-            .into_iter()
-            .map(|voice| Voice::from(voice))
-            .collect();
+        let mut voices: Vec<Voice> = result.voices.into_iter().map(Voice::from).collect();
 
         // Apply filters if provided
         if let Some(filter) = filter {
@@ -871,9 +859,10 @@ impl TtsClient for Google {
         &self,
         _content: String,
         _voice: String,
-        _output_location: String,
         _chapter_breaks: Option<Vec<u32>>,
     ) -> Result<Self::ClientLongFormOperation, TtsError> {
-        unsupported("Google TTS long-form synthesis is currently in beta (v1beta1) and not yet supported")
+        unsupported(
+            "Google TTS long-form synthesis is currently in beta (v1beta1) and not yet supported",
+        )
     }
 }

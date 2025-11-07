@@ -1,8 +1,8 @@
-use golem_tts::golem::tts::advanced::{
-    GuestLongFormOperation, GuestPronunciationLexicon, LanguageCode, LongFormResult, OperationStatus,
-    TtsError, Voice,
-};
 use golem_rust::{FromValueAndType, IntoValue};
+use golem_tts::golem::tts::advanced::{
+    GuestLongFormOperation, GuestPronunciationLexicon, LanguageCode, LongFormResult,
+    OperationStatus, TtsError,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::error::unsupported;
@@ -30,8 +30,6 @@ pub struct DeepgramVoiceMetadata {
     pub tags: Vec<String>,
     pub use_cases: Vec<String>,
 }
-
-
 
 pub struct DeepgramPronunciationLexicon;
 

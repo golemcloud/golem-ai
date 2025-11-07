@@ -1,10 +1,10 @@
 use golem_tts::golem::tts::{
     advanced::{PronunciationEntry, TtsError},
-    types::VoiceGender, voices::Voice,
+    types::VoiceGender,
+    voices::Voice,
 };
 
 use crate::resources::VoiceResponse;
-
 
 impl From<VoiceResponse> for Voice {
     fn from(voice: VoiceResponse) -> Self {
@@ -18,12 +18,15 @@ impl From<VoiceResponse> for Voice {
             VoiceGender::Neutral
         };
 
-        let quality = voice.supported_engines.as_ref().unwrap_or(&vec![]).join(",");
+        let quality = voice
+            .supported_engines
+            .as_ref()
+            .unwrap_or(&vec![])
+            .join(",");
 
-
-        Voice{
-          id: voice.id,
-                     name: voice.name,
+        Voice {
+            id: voice.id,
+            name: voice.name,
             language: voice.language_code,
             additional_languages: voice.additional_language_codes.unwrap_or_default(),
             gender,
@@ -36,10 +39,12 @@ impl From<VoiceResponse> for Voice {
             is_cloned: false,
             preview_url: None,
             use_cases: vec!["general".to_string()],
-            supported_formats: vec!["mp3".to_string(), "ogg_vorbis".to_string(), "pcm".to_string()],
+            supported_formats: vec![
+                "mp3".to_string(),
+                "ogg_vorbis".to_string(),
+                "pcm".to_string(),
+            ],
         }
-
-
     }
 }
 

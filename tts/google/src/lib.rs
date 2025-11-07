@@ -139,13 +139,12 @@ impl AdvancedGuest for GoogleTtsComponent {
     fn synthesize_long_form(
         content: String,
         voice: Voice,
-        output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
         let google = Google::new()?;
         let voice_name = voice.id.clone();
         let operation =
-            google.synthesize_long_form(content, voice_name, output_location, chapter_breaks)?;
+            google.synthesize_long_form(content, voice_name, chapter_breaks)?;
         Ok(LongFormOperation::new(operation))
     }
 }
@@ -156,19 +155,18 @@ impl ExtendedAdvancedTrait for GoogleTtsComponent {
         language: LanguageCode,
         entries: Option<Vec<PronunciationEntry>>,
     ) -> Result<Self::PronunciationLexicon, TtsError> {
-        let client  = Google::new()?;
+        let client = Google::new()?;
         client.create_lexicon(name, language, entries)
     }
 
     fn unwrappered_synthesize_long_form(
         content: String,
         voice: Voice,
-        output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<Self::LongFormOperation, TtsError> {
         let client = Google::new()?;
         let voice_id = voice.id.clone();
-        client.synthesize_long_form(content, voice_id, output_location, chapter_breaks)
+        client.synthesize_long_form(content, voice_id, chapter_breaks)
     }
 }
 

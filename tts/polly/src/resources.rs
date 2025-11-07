@@ -8,7 +8,10 @@ use golem_tts::golem::tts::advanced::{
 };
 use golem_tts::golem::tts::types::LanguageCode;
 use http::Request;
-use reqwest::{header::{HeaderMap, HeaderName, HeaderValue}, Method};
+use reqwest::{
+    header::{HeaderMap, HeaderName, HeaderValue},
+    Method,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -34,8 +37,6 @@ pub struct VoiceResponse {
     #[serde(rename = "SupportedEngines")]
     pub supported_engines: Option<Vec<String>>,
 }
-
-
 
 pub struct AwsPronunciationLexicon {
     lexicon: RefCell<AwsLexicon>,
@@ -144,14 +145,16 @@ impl GuestLongFormOperation for AwsLongFormOperation {
                             }
                         }
 
-                        let response = polly.client.make_request::<GetSpeechSynthesisTaskResponse, (), (), _>(
-                            Method::GET,
-                            &path,
-                            (),
-                            None::<&()>,
-                            Some(&headers),
-                            from_http_error,
-                        );
+                        let response = polly
+                            .client
+                            .make_request::<GetSpeechSynthesisTaskResponse, (), (), _>(
+                                Method::GET,
+                                &path,
+                                (),
+                                None::<&()>,
+                                Some(&headers),
+                                from_http_error,
+                            );
 
                         if let Ok(resp) = response {
                             *self.task.borrow_mut() = resp.synthesis_task.clone();
@@ -160,7 +163,7 @@ impl GuestLongFormOperation for AwsLongFormOperation {
                     }
                 }
             }
-            Err(_) =>return OperationStatus::Failed,
+            Err(_) => return OperationStatus::Failed,
         }
 
         // If we can't fetch status, return current status
@@ -203,7 +206,7 @@ impl GuestLongFormOperation for AwsLongFormOperation {
                 duration_seconds,
                 character_count: task.request_characters,
                 word_count: task.request_characters / 5, // Rough estimate
-                audio_size_bytes: 0, // Not available from Polly API
+                audio_size_bytes: 0,                     // Not available from Polly API
                 request_id: task.task_id.clone(),
                 provider_info: Some(format!("AWS Polly - Engine: {}", task.engine)),
             },

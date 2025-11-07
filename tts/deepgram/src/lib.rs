@@ -6,7 +6,10 @@ use golem_tts::{
             AudioSample, Guest as AdvancedGuest, LanguageCode, LongFormOperation,
             PronunciationEntry, PronunciationLexicon, TtsError, Voice, VoiceDesignParams,
         },
-        synthesis::{Guest as SynthesisGuest, SynthesisOptions, SynthesisResult, TextInput, TimingInfo, ValidationResult},
+        synthesis::{
+            Guest as SynthesisGuest, SynthesisOptions, SynthesisResult, TextInput, TimingInfo,
+            ValidationResult,
+        },
         voices::{Guest as VoicesGuest, LanguageInfo, VoiceFilter},
     },
 };
@@ -120,13 +123,15 @@ impl AdvancedGuest for DeepgramComponent {
     fn synthesize_long_form(
         content: String,
         voice: Voice,
-        output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
         let deepgram = Deepgram::new()?;
         let voice_canonical_name = voice.name.clone(); // Use canonical name
-        let operation =
-            deepgram.synthesize_long_form(content, voice_canonical_name, output_location, chapter_breaks)?;
+        let operation = deepgram.synthesize_long_form(
+            content,
+            voice_canonical_name,
+            chapter_breaks,
+        )?;
         Ok(LongFormOperation::new(operation))
     }
 }
@@ -157,24 +162,24 @@ impl ExtendedAdvancedTrait for DeepgramComponent {
         language: LanguageCode,
         entries: Option<Vec<PronunciationEntry>>,
     ) -> Result<Self::PronunciationLexicon, golem_tts::golem::tts::types::TtsError> {
-        let client  = Deepgram::new()?;
+        let client = Deepgram::new()?;
         client.create_lexicon(name, language, entries)
     }
 
     fn unwrappered_synthesize_long_form(
         content: String,
         voice: Voice,
-        output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<Self::LongFormOperation, golem_tts::golem::tts::types::TtsError> {
         let client = Deepgram::new()?;
         let voice_canonical_name = voice.name.clone(); // Use canonical name
-        client.synthesize_long_form(content, voice_canonical_name, output_location, chapter_breaks)
+        client.synthesize_long_form(
+            content,
+            voice_canonical_name,
+            chapter_breaks,
+        )
     }
 }
-
-
-
 
 type DurableDeepgramComponent = DurableTTS<DeepgramComponent>;
 
