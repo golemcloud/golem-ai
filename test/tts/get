@@ -2,8 +2,16 @@
 
 # Find the latest test-audio-files directory in /tmp and copy all files to the destination
 
+provider="$1"
+
+if [ -z "$provider" ]; then
+  echo "Usage: $0 <provider>"
+  exit 1
+fi
+
+
 # Destination directory
-DEST_DIR="/workspace/golem-ai/test/tts/test-audio-files/polly"
+DEST_DIR="/workspace/golem-ai/test/tts/test-audio-files/${provider}"
 
 # Create destination directory if it doesn't exist
 mkdir -p "$DEST_DIR"

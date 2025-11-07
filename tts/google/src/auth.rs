@@ -11,19 +11,13 @@ use std::time::UNIX_EPOCH;
 use crate::google::Google;
 
 /// Google Cloud service account credentials JSON structure
+/// Only includes fields actually used for authentication
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceAccountCredentials {
     #[serde(rename = "type")]
     pub credential_type: String,
-    pub project_id: Option<String>,
-    pub private_key_id: Option<String>,
     pub private_key: String,
     pub client_email: String,
-    pub client_id: Option<String>,
-    pub auth_uri: Option<String>,
-    pub token_uri: Option<String>,
-    pub auth_provider_x509_cert_url: Option<String>,
-    pub client_x509_cert_url: Option<String>,
 }
 
 impl Google {
@@ -111,14 +105,36 @@ impl Google {
 
     /// Load service account credentials from a JSON file
     fn load_service_account_credentials(path: &str) -> Result<ServiceAccountCredentials, TtsError> {
-        let json_content = std::fs::read_to_string(path).map_err(|e| {
+        let bytes = Self::read_file_to_bytes(path).map_err(|e| {
             TtsError::InvalidConfiguration(format!(
                 "Failed to read service account credentials file at '{}': {}",
                 path, e
             ))
         })?;
 
+        let json_content = String::from_utf8(bytes).map_err(|e| {
+            TtsError::InvalidConfiguration(format!(
+                "Failed to parse service account credentials file as UTF-8: {}",
+                e
+            ))
+        })?;
+
         Self::parse_service_account_credentials(&json_content)
+    }
+
+    /// Read file to bytes using the same approach as stt/google
+    fn read_file_to_bytes(path: &str) -> std::io::Result<Vec<u8>> {
+        use std::fs;
+        use std::io::Read;
+
+        let mut file = fs::File::open(path)?;
+        let metadata = file.metadata()?;
+        let file_size = metadata.len() as usize;
+
+        let mut buffer = Vec::with_capacity(file_size);
+        file.read_to_end(&mut buffer)?;
+
+        Ok(buffer)
     }
 
     fn create_jwt(

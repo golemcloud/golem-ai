@@ -10,10 +10,6 @@ components:
     profiles:
       # DEBUG PROFILES
       deepgram-debug:
-        files:
-          - sourcePath: ../../test-audio-files/
-            targetPath: /test-audio-files/
-            permissions: read-write
         build:
           - command: cargo component build --no-default-features --features deepgram
             sources:
@@ -37,10 +33,6 @@ components:
 
       # RELEASE PROFILES
       deepgram-release:
-        files:
-          - sourcePath: ../../test-audio-files/
-            targetPath: /test-audio-files/
-            permissions: read-write
         build:
           - command: cargo component build --release --no-default-features --features deepgram
             sources:
@@ -64,10 +56,6 @@ components:
 
       # POLLY PROFILES
       polly-debug:
-        files:
-          - sourcePath: ../../test-audio-files/
-            targetPath: /test-audio-files/
-            permissions: read-write
         build:
           - command: cargo component build --no-default-features --features polly
             sources:
@@ -90,10 +78,6 @@ components:
           - src/bindings.rs
 
       polly-release:
-        files:
-          - sourcePath: ../../test-audio-files/
-            targetPath: /test-audio-files/
-            permissions: read-write
         build:
           - command: cargo component build --release --no-default-features --features polly
             sources:
@@ -118,9 +102,9 @@ components:
       # GOOGLE PROFILES
       google-debug:
         files:
-          - sourcePath: ../../test-audio-files/
-            targetPath: /test-audio-files/
-            permissions: read-write
+          - sourcePath: /workspace/golem-ai-test-477218-f86a2a726938.json
+            targetPath: /workspace/golem-ai-test-477218-f86a2a726938.json
+            permissions: read-only
         build:
           - command: cargo component build --no-default-features --features google
             sources:
@@ -144,9 +128,9 @@ components:
 
       google-release:
         files:
-          - sourcePath: ../../test-audio-files/
-            targetPath: /test-audio-files/
-            permissions: read-write
+          - sourcePath: /workspace/golem-ai-test-477218-f86a2a726938.json
+            targetPath: /workspace/golem-ai-test-477218-f86a2a726938.json
+            permissions: read-only
         build:
           - command: cargo component build --release --no-default-features --features google
             sources:
@@ -170,10 +154,6 @@ components:
 
       # ELEVENLABS PROFILES
       elevenlabs-debug:
-        files:
-          - sourcePath: ../../test-audio-files/
-            targetPath: /test-audio-files/
-            permissions: read-write
         build:
           - command: cargo component build --no-default-features --features elevenlabs
             sources:
@@ -196,10 +176,6 @@ components:
           - src/bindings.rs
 
       elevenlabs-release:
-        files:
-          - sourcePath: ../../test-audio-files/
-            targetPath: /test-audio-files/
-            permissions: read-write
         build:
           - command: cargo component build --release --no-default-features --features elevenlabs
             sources:

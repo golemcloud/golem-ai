@@ -193,9 +193,6 @@ impl TtsClient for Elevenlabs {
                     provider_info: Some("ElevenLabs".to_string()),
                 },
             });
-
-            let result = self.synthesize(input.clone(), voice.clone(), options.clone())?;
-            results.push(result);
         }
         Ok(results)
     }
