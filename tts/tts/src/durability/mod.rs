@@ -33,7 +33,7 @@ pub trait ExtendedAdvancedTrait: AdvancedTrait + 'static {
         content: String,
         voice: Voice,
         chapter_breaks: Option<Vec<u32>>,
-        task_id:Option<String>,
+        task_id: Option<String>,
     ) -> Result<Self::LongFormOperation, TtsError>;
 }
 

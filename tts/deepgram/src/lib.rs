@@ -127,11 +127,8 @@ impl AdvancedGuest for DeepgramComponent {
     ) -> Result<LongFormOperation, TtsError> {
         let deepgram = Deepgram::new()?;
         let voice_canonical_name = voice.name.clone(); // Use canonical name
-        let operation = deepgram.synthesize_long_form(
-            content,
-            voice_canonical_name,
-            chapter_breaks,
-        )?;
+        let operation =
+            deepgram.synthesize_long_form(content, voice_canonical_name, chapter_breaks)?;
         Ok(LongFormOperation::new(operation))
     }
 }
@@ -174,13 +171,8 @@ impl ExtendedAdvancedTrait for DeepgramComponent {
     ) -> Result<Self::LongFormOperation, golem_tts::golem::tts::types::TtsError> {
         let client = Deepgram::new()?;
         let voice_canonical_name = voice.name.clone(); // Use canonical name
-        client.synthesize_long_form(
-            content,
-            voice_canonical_name,
-            chapter_breaks,
-        )
+        client.synthesize_long_form(content, voice_canonical_name, chapter_breaks)
     }
-  
 }
 
 type DurableDeepgramComponent = DurableTTS<DeepgramComponent>;

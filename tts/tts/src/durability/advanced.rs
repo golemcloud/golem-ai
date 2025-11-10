@@ -90,11 +90,14 @@ mod durability_impl {
 
     use crate::{
         durability::{DurableTTS, ExtendedAdvancedTrait},
-        golem::tts::{advanced::{
-            AudioSample, Guest, GuestLongFormOperation, GuestPronunciationLexicon, LanguageCode,
-            LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
-            PronunciationLexicon, TtsError, Voice, VoiceDesignParams,
-        }, types::SynthesisMetadata},
+        golem::tts::{
+            advanced::{
+                AudioSample, Guest, GuestLongFormOperation, GuestPronunciationLexicon,
+                LanguageCode, LongFormOperation, LongFormResult, OperationStatus,
+                PronunciationEntry, PronunciationLexicon, TtsError, Voice, VoiceDesignParams,
+            },
+            types::SynthesisMetadata,
+        },
         init_logging,
     };
 
@@ -363,6 +366,7 @@ mod durability_impl {
         }
     }
 
+    #[allow(clippy::large_enum_variant)]
     enum DurableLongFormOperationState<Impl: Guest> {
         Live {
             operation: Impl::LongFormOperation,
@@ -491,7 +495,7 @@ mod durability_impl {
                                 Some(task_id.clone()),
                             )?;
 
-                            (status.clone(), Some(new_longform_synthesis))
+                            (*status, Some(new_longform_synthesis))
                         }
                         _ => unreachable!(),
                     }
@@ -505,14 +509,14 @@ mod durability_impl {
                     });
                 }
 
-                let _ = durability.persist_infallible(NoInput, status.clone());
+                let _ = durability.persist_infallible(NoInput, status);
                 Ok(status)
             } else {
                 let replay: OperationStatus = durability.replay_infallible();
                 let mut state = self.state.borrow_mut();
                 match &mut *state {
                     Some(DurableLongFormOperationState::Replay { status, .. }) => {
-                        *status = replay.clone();
+                        *status = replay;
                     }
                     _ => {
                         unreachable!()
@@ -553,7 +557,7 @@ mod durability_impl {
                                 Some(task_id.clone()),
                             )?;
 
-                            (progress.clone(), Some(new_longform_synthesis))
+                            (*progress, Some(new_longform_synthesis))
                         }
                         _ => unreachable!(),
                     }
@@ -837,14 +841,15 @@ mod durability_impl {
             );
             init_logging();
             if durability.is_live() {
-                let longform_operation = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::unwrappered_synthesize_long_form(
-                        content.clone(),
-                        voice.clone(),
-                        chapter_breaks.clone(),
-                        None,
-                    )
-                })?;
+                let longform_operation =
+                    with_persistence_level(PersistenceLevel::PersistNothing, || {
+                        Impl::unwrappered_synthesize_long_form(
+                            content.clone(),
+                            voice.clone(),
+                            chapter_breaks.clone(),
+                            None,
+                        )
+                    })?;
 
                 let task_id = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     longform_operation.get_task_id()
@@ -852,9 +857,9 @@ mod durability_impl {
 
                 let _ = durability.persist_infallible(NoInput, task_id.clone());
 
-                Ok(LongFormOperation::new(DurableLongFormOperation::<Impl>::live(
-                    longform_operation,
-                )))
+                Ok(LongFormOperation::new(
+                    DurableLongFormOperation::<Impl>::live(longform_operation),
+                ))
             } else {
                 let task_id: String = durability.replay_infallible();
 

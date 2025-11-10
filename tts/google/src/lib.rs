@@ -143,8 +143,7 @@ impl AdvancedGuest for GoogleTtsComponent {
     ) -> Result<LongFormOperation, TtsError> {
         let google = Google::new()?;
         let voice_name = voice.id.clone();
-        let operation =
-            google.synthesize_long_form(content, voice_name, chapter_breaks)?;
+        let operation = google.synthesize_long_form(content, voice_name, chapter_breaks)?;
         Ok(LongFormOperation::new(operation))
     }
 }

@@ -75,7 +75,7 @@ impl TtsClient for Polly {
             region,
             base_url,
             signer,
-            bucket: bucket,
+            bucket,
         })
     }
 

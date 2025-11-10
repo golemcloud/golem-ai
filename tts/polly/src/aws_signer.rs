@@ -63,10 +63,11 @@ impl PollySigner {
         let date_stamp = timestamp.format("%Y%m%d").to_string();
         let amz_date = timestamp.format("%Y%m%dT%H%M%SZ").to_string();
 
-        parts
-            .headers
-            .insert("x-amz-date", HeaderValue::from_str(&amz_date)
-                .map_err(|e| TtsError::InternalError(format!("Invalid header value: {}", e)))?);
+        parts.headers.insert(
+            "x-amz-date",
+            HeaderValue::from_str(&amz_date)
+                .map_err(|e| TtsError::InternalError(format!("Invalid header value: {}", e)))?,
+        );
 
         let content_sha256 = self.hash_payload(body.as_ref());
         parts.headers.insert(
@@ -91,8 +92,12 @@ impl PollySigner {
                     host.to_string()
                 };
 
-                headers_for_signing.insert("host", HeaderValue::from_str(&host_header)
-                    .map_err(|e| TtsError::InternalError(format!("Invalid header value: {}", e)))?);
+                headers_for_signing.insert(
+                    "host",
+                    HeaderValue::from_str(&host_header).map_err(|e| {
+                        TtsError::InternalError(format!("Invalid header value: {}", e))
+                    })?,
+                );
             }
         }
 
@@ -116,10 +121,11 @@ impl PollySigner {
             "AWS4-HMAC-SHA256 Credential={credential}, SignedHeaders={signed_headers}, Signature={signature}"
         );
 
-        parts
-            .headers
-            .insert("authorization", HeaderValue::from_str(&authorization)
-                .map_err(|e| TtsError::InternalError(format!("Invalid header value: {}", e)))?);
+        parts.headers.insert(
+            "authorization",
+            HeaderValue::from_str(&authorization)
+                .map_err(|e| TtsError::InternalError(format!("Invalid header value: {}", e)))?,
+        );
 
         Ok(Request::from_parts(parts, body))
     }
@@ -253,7 +259,11 @@ impl PollySigner {
         string_to_sign
     }
 
-    fn calculate_signature(&self, string_to_sign: &str, date_stamp: &str) -> Result<String, TtsError> {
+    fn calculate_signature(
+        &self,
+        string_to_sign: &str,
+        date_stamp: &str,
+    ) -> Result<String, TtsError> {
         let secret = format!("AWS4{}", self.secret_key);
 
         let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
