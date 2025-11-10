@@ -368,8 +368,9 @@ interface advanced {
     ) -> result<long-form-operation, tts-error>;
 
     resource long-form-operation {
-        get-status: func() -> operation-status;
-        get-progress: func() -> f32;
+        get-task-id: func() -> result<string, tts-error>;
+        get-status: func() -> result<operation-status, tts-error>;
+        get-progress: func() -> result<f32, tts-error>;
         cancel: func() -> result<_, tts-error>;
         get-result: func() -> result<long-form-result, tts-error>;
     }

@@ -13,12 +13,16 @@ use crate::error::unsupported;
 pub struct GoogleLongFormOperation;
 
 impl GuestLongFormOperation for GoogleLongFormOperation {
-    fn get_status(&self) -> OperationStatus {
-        OperationStatus::Failed
+    fn get_task_id(&self) -> Result<String, TtsError> {
+        Ok("".to_string())
     }
 
-    fn get_progress(&self) -> f32 {
-        0.0
+    fn get_status(&self) -> Result<OperationStatus, TtsError> {
+        Ok(OperationStatus::Failed)
+    }
+
+    fn get_progress(&self) -> Result<f32, TtsError> {
+        Ok(0.0)
     }
 
     fn cancel(&self) -> Result<(), TtsError> {

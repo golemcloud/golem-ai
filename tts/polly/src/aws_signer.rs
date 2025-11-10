@@ -1,30 +1,10 @@
 use bytes::Bytes;
 use chrono::Utc;
-use derive_more::From;
-use hmac::digest::InvalidLength;
+use golem_tts::golem::tts::types::TtsError;
 use hmac::{Hmac, Mac};
-use http::header::InvalidHeaderValue;
 use http::{HeaderMap, HeaderValue, Request};
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use sha2::{Digest, Sha256};
-use std::fmt;
-
-#[allow(unused)]
-#[derive(Debug, From)]
-pub enum Error {
-    #[from]
-    InvalidHeader(InvalidHeaderValue),
-    #[from]
-    HmacSha256ErrorInvalidLength(InvalidLength),
-}
-
-impl core::fmt::Display for Error {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "{self:?}")
-    }
-}
-
-impl std::error::Error for Error {}
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -76,7 +56,7 @@ impl PollySigner {
         }
     }
 
-    pub fn sign_request(&self, request: Request<Bytes>) -> Result<Request<Bytes>, Error> {
+    pub fn sign_request(&self, request: Request<Bytes>) -> Result<Request<Bytes>, TtsError> {
         let timestamp = Utc::now();
         let (mut parts, body) = request.into_parts();
 
@@ -85,12 +65,14 @@ impl PollySigner {
 
         parts
             .headers
-            .insert("x-amz-date", HeaderValue::from_str(&amz_date)?);
+            .insert("x-amz-date", HeaderValue::from_str(&amz_date)
+                .map_err(|e| TtsError::InternalError(format!("Invalid header value: {}", e)))?);
 
         let content_sha256 = self.hash_payload(body.as_ref());
         parts.headers.insert(
             "x-amz-content-sha256",
-            HeaderValue::from_str(&content_sha256)?,
+            HeaderValue::from_str(&content_sha256)
+                .map_err(|e| TtsError::InternalError(format!("Invalid header value: {}", e)))?,
         );
 
         let mut headers_for_signing = parts.headers.clone();
@@ -109,7 +91,8 @@ impl PollySigner {
                     host.to_string()
                 };
 
-                headers_for_signing.insert("host", HeaderValue::from_str(&host_header)?);
+                headers_for_signing.insert("host", HeaderValue::from_str(&host_header)
+                    .map_err(|e| TtsError::InternalError(format!("Invalid header value: {}", e)))?);
             }
         }
 
@@ -135,7 +118,8 @@ impl PollySigner {
 
         parts
             .headers
-            .insert("authorization", HeaderValue::from_str(&authorization)?);
+            .insert("authorization", HeaderValue::from_str(&authorization)
+                .map_err(|e| TtsError::InternalError(format!("Invalid header value: {}", e)))?);
 
         Ok(Request::from_parts(parts, body))
     }
@@ -269,26 +253,31 @@ impl PollySigner {
         string_to_sign
     }
 
-    fn calculate_signature(&self, string_to_sign: &str, date_stamp: &str) -> Result<String, Error> {
+    fn calculate_signature(&self, string_to_sign: &str, date_stamp: &str) -> Result<String, TtsError> {
         let secret = format!("AWS4{}", self.secret_key);
 
-        let mut mac = HmacSha256::new_from_slice(secret.as_bytes())?;
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+            .map_err(|e| TtsError::InternalError(format!("HMAC error: {}", e)))?;
         mac.update(date_stamp.as_bytes());
         let date_key = mac.finalize().into_bytes();
 
-        let mut mac = HmacSha256::new_from_slice(&date_key)?;
+        let mut mac = HmacSha256::new_from_slice(&date_key)
+            .map_err(|e| TtsError::InternalError(format!("HMAC error: {}", e)))?;
         mac.update(self.region.as_bytes());
         let date_region_key = mac.finalize().into_bytes();
 
-        let mut mac = HmacSha256::new_from_slice(&date_region_key)?;
+        let mut mac = HmacSha256::new_from_slice(&date_region_key)
+            .map_err(|e| TtsError::InternalError(format!("HMAC error: {}", e)))?;
         mac.update(b"polly");
         let date_region_service_key = mac.finalize().into_bytes();
 
-        let mut mac = HmacSha256::new_from_slice(&date_region_service_key)?;
+        let mut mac = HmacSha256::new_from_slice(&date_region_service_key)
+            .map_err(|e| TtsError::InternalError(format!("HMAC error: {}", e)))?;
         mac.update(b"aws4_request");
         let signing_key = mac.finalize().into_bytes();
 
-        let mut mac = HmacSha256::new_from_slice(&signing_key)?;
+        let mut mac = HmacSha256::new_from_slice(&signing_key)
+            .map_err(|e| TtsError::InternalError(format!("HMAC error: {}", e)))?;
         mac.update(string_to_sign.as_bytes());
         let signature = mac.finalize().into_bytes();
 

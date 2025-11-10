@@ -150,8 +150,7 @@ impl AdvancedGuest for AwsPollyComponent {
     ) -> Result<LongFormOperation, TtsError> {
         let polly = Polly::new()?;
         let voice_name = voice.id.clone();
-        let operation =
-            polly.synthesize_long_form(content, voice_name, chapter_breaks)?;
+        let operation = polly.synthesize_long_form(content, voice_name, chapter_breaks)?;
         Ok(LongFormOperation::new(operation))
     }
 }
@@ -170,10 +169,15 @@ impl ExtendedAdvancedTrait for AwsPollyComponent {
         content: String,
         voice: Voice,
         chapter_breaks: Option<Vec<u32>>,
+        task_id: Option<String>,
     ) -> Result<Self::LongFormOperation, TtsError> {
-        let client = Polly::new()?;
-        let voice_id = voice.id.clone();
-        client.synthesize_long_form(content, voice_id, chapter_breaks)
+        if let Some(task_id) = task_id {
+            Ok(AwsLongFormOperation::from(task_id))
+        } else {
+            let client = Polly::new()?;
+            let voice_id = voice.id.clone();
+            client.synthesize_long_form(content, voice_id, chapter_breaks)
+        }
     }
 }
 

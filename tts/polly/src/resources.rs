@@ -4,10 +4,11 @@ use bytes::Bytes;
 use golem_rust::{FromValueAndType, IntoValue};
 use golem_tts::client::TtsClient;
 use golem_tts::golem::tts::advanced::{
-    GuestLongFormOperation, GuestPronunciationLexicon, LongFormResult, OperationStatus, TtsError,
+    GuestLongFormOperation, GuestPronunciationLexicon, LongFormResult, OperationStatus,
 };
-use golem_tts::golem::tts::types::LanguageCode;
+use golem_tts::golem::tts::types::{LanguageCode, TtsError};
 use http::Request;
+use log::trace;
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Method,
@@ -116,76 +117,104 @@ impl AwsLongFormOperation {
             _ => OperationStatus::Failed,
         }
     }
-}
 
-impl GuestLongFormOperation for AwsLongFormOperation {
-    #[doc = " Get operation status"]
-    fn get_status(&self) -> OperationStatus {
-        // Refresh task status from AWS
-        let task_id = self.task.borrow().task_id.clone();
-
+    fn get_task(&self) -> Result<SynthesisTask, TtsError> {
         match Polly::new() {
             Ok(polly) => {
-                let path = format!("/v1/synthesisTasks/{}", task_id);
+                let path = format!("/v1/synthesisTasks/{}", self.task.borrow().task_id);
                 let full_uri = format!("{}{}", polly.base_url, path);
 
                 let request = Request::builder()
                     .method("GET")
                     .uri(full_uri)
-                    .body(Bytes::new());
+                    .body(Bytes::new())
+                    .map_err(|err| TtsError::InternalError(format!("{err}")))?;
 
-                if let Ok(req) = request {
-                    if let Ok(signed_request) = polly.signer.sign_request(req) {
-                        let mut headers = HeaderMap::new();
-                        for (key, value) in signed_request.headers().iter() {
-                            if let Ok(key) = HeaderName::from_bytes(key.as_str().as_bytes()) {
-                                if let Ok(value) = HeaderValue::from_bytes(value.as_bytes()) {
-                                    headers.insert(key, value);
-                                }
-                            }
-                        }
-
-                        let response = polly
-                            .client
-                            .make_request::<GetSpeechSynthesisTaskResponse, (), (), _>(
-                                Method::GET,
-                                &path,
-                                (),
-                                None::<&()>,
-                                Some(&headers),
-                                from_http_error,
-                            );
-
-                        if let Ok(resp) = response {
-                            *self.task.borrow_mut() = resp.synthesis_task.clone();
-                            return Self::map_task_status(&resp.synthesis_task.task_status);
+                let signed_request = polly.signer.sign_request(request)?;
+                let mut headers = HeaderMap::new();
+                for (key, value) in signed_request.headers().iter() {
+                    if let Ok(key) = HeaderName::from_bytes(key.as_str().as_bytes()) {
+                        if let Ok(value) = HeaderValue::from_bytes(value.as_bytes()) {
+                            headers.insert(key, value);
                         }
                     }
                 }
-            }
-            Err(_) => return OperationStatus::Failed,
-        }
 
-        // If we can't fetch status, return current status
-        let task = self.task.borrow();
-        Self::map_task_status(&task.task_status)
+                let response = polly
+                    .client
+                    .make_request::<GetSpeechSynthesisTaskResponse, (), (), _>(
+                        Method::GET,
+                        &path,
+                        (),
+                        None::<&()>,
+                        Some(&headers),
+                        from_http_error,
+                    )?;
+                Ok(response.synthesis_task)
+            }
+            Err(err) => {
+                trace!("Error: {err}");
+                Err(TtsError::InternalError(format!("{err}")))
+            }
+        }
+    }
+}
+
+impl From<String> for AwsLongFormOperation {
+    fn from(value: String) -> Self {
+        Self::new(
+            SynthesisTask {
+                task_id: value,
+                creation_time: 0.0,
+                engine:String::new(),
+                output_format:String::new(),
+                task_status:String::new(),
+                task_status_reason:None,
+                output_uri: None,
+                request_characters:0,
+                voice_id: String::new(),
+            },
+            "".to_string(),
+        )
+    }
+}
+
+impl GuestLongFormOperation for AwsLongFormOperation {
+    fn get_task_id(&self) -> Result<String, TtsError> {
+        Ok(self.task.borrow().task_id.clone())
+    }
+
+    #[doc = " Get operation status"]
+    fn get_status(&self) -> Result<OperationStatus, TtsError> {
+        match self.get_task() {
+            Ok(task) => Ok(Self::map_task_status(&task.task_status)),
+            Err(err) => {
+                trace!("Error: {err}");
+                Ok(OperationStatus::Failed)
+            }
+        }
     }
 
     #[doc = " Get completion percentage (0-100)"]
-    fn get_progress(&self) -> f32 {
-        let task = self.task.borrow();
-        match task.task_status.as_str() {
-            "scheduled" => 0.0,
-            "inProgress" => 50.0,
-            "completed" => 100.0,
-            "failed" => 100.0,
-            _ => 0.0,
+    fn get_progress(&self) -> Result<f32, TtsError> {
+        match self.get_task() {
+            Ok(task) => Ok(match task.task_status.as_str() {
+                "scheduled" => 0.0,
+                "inProgress" => 50.0,
+                "completed" => 100.0,
+                "failed" => 100.0,
+                _ => 0.0,
+            }),
+            Err(err) => {
+                trace!("Error: {err}");
+                Ok(100.0)
+            }
         }
     }
 
     #[doc = " Get result when operation is complete"]
     fn get_result(&self) -> Result<LongFormResult, TtsError> {
-        let task = self.task.borrow();
+        let task = self.get_task()?;
         let output_location = self.output_location.borrow();
 
         if task.task_status != "completed" {

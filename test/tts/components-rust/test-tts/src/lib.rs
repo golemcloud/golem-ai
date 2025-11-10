@@ -564,35 +564,56 @@ impl Guest for Component {
 
         match synthesize_long_form(&long_content, &voice, Some(&chapter_breaks)) {
             Ok(operation) => {
-                // Monitor the operation progress
-                let mut attempts = 0;
-                let max_attempts = 30;
-
-                while attempts < max_attempts {
-                    if attempts == 3 {
-                        // Simulate crash
-                        let agent_name = std::env::var("GOLEM_WORKER_NAME").unwrap();
-                        mimic_crash(&agent_name);
-                    }
-
-                    let status = operation.get_status();
-                    let progress: f32 = operation.get_progress();
+                loop {
+                    let status = match operation.get_status() {
+                        Ok(s) => s,
+                        Err(err) => {
+                            test_result.push_str(&format!("ERROR getting status: {:?}\n", err));
+                            break;
+                        }
+                    };
+                    let progress = match operation.get_progress() {
+                        Ok(p) => p,
+                        Err(err) => {
+                            test_result.push_str(&format!("ERROR getting progress: {:?}\n", err));
+                            break;
+                        }
+                    };
                     trace!(
                         "Operation status: {:?}, progress: {:.2}%",
                         status,
                         progress * 100.0
                     );
 
+                    // Simulate crash
+                    let agent_name = std::env::var("GOLEM_WORKER_NAME").unwrap();
+                    mimic_crash(&agent_name, 1);
+
                     match status {
                         OperationStatus::Completed => {
                             trace!("Long-form synthesis completed successfully");
                             test_result.push_str(&format!("{test_name} ✅\n"));
 
+                            // Test get_task_id after durability recovery
+                            trace!("Getting task ID after durability recovery...");
+                            match operation.get_task_id() {
+                                Ok(task_id) => {
+                                    trace!("Received task ID: {}", task_id);
+                                    test_result.push_str("1. Test get task ID after recovery ✅\n");
+                                    test_result.push_str(&format!("Task ID: {}\n", task_id));
+                                }
+                                Err(err) => {
+                                    trace!("Failed to get task ID");
+                                    test_result.push_str("1. Test get task ID after recovery ❌\n");
+                                    test_result.push_str(&format!("ERROR getting task ID: {:?}\n", err));
+                                }
+                            }
+
                             trace!("Getting long-form synthesis result...");
                             match operation.get_result() {
                                 Ok(result) => {
                                     trace!("Recieved Long-form synthesis result");
-                                    test_result.push_str("1. Test get operation result ✅\n");
+                                    test_result.push_str("2. Test get operation result ✅\n");
                                     test_result.push_str(&format!(
                                         "Output location: {}\n",
                                         result.output_location
@@ -616,7 +637,7 @@ impl Guest for Component {
                                 }
                                 Err(err) => {
                                     trace!("Failed to get long-form synthesis result");
-                                    test_result.push_str("1. Test get operation result ❌\n");
+                                    test_result.push_str("2. Test get operation result ❌\n");
                                     test_result
                                         .push_str(&format!("ERROR getting result: {:?}\n", err));
                                 }
@@ -703,13 +724,6 @@ impl Guest for Component {
                             thread::sleep(Duration::from_millis(500));
                         }
                     }
-
-                    attempts += 1;
-                }
-
-                if attempts >= max_attempts {
-                    test_result.push_str("2. Test long-form synthesis completion ❌\n");
-                    test_result.push_str("ERROR: Operation timed out\n");
                 }
             }
             Err(err) => {
@@ -784,7 +798,7 @@ impl Guest for Component {
 
         // Simulate crash
         let agent_name = std::env::var("GOLEM_WORKER_NAME").unwrap();
-        mimic_crash(&agent_name);
+        mimic_crash(&agent_name, 2);
 
         match lexicon.export_content() {
             Ok(content) => {
@@ -892,11 +906,11 @@ fn push_result(
     test_result.push_str(&format!("💾 Audio saved at {audio_file_location}"));
 }
 
-fn mimic_crash(agent_name: &str) {
+fn mimic_crash(agent_name: &str, count: u64) {
     atomically(|| {
         let client = TestHelperApi::new(&agent_name);
         let answer = client.blocking_inc_and_get();
-        if answer == 1 {
+        if answer == count {
             panic!("Simulating crash during durability test")
         }
     });

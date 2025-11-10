@@ -47,7 +47,6 @@ mod durability_impl {
         #[doc = " List available voices with filtering and pagination"]
         fn list_voices(filter: Option<VoiceFilter>) -> Result<Vec<Voice>, TtsError> {
             init_logging();
-
             let durability = Durability::<Vec<Voice>, TtsError>::new(
                 "golem-tts",
                 "list_voices",
@@ -68,7 +67,6 @@ mod durability_impl {
         #[doc = " Get specific voice by ID"]
         fn get_voice(voice_id: String) -> Result<Voice, TtsError> {
             init_logging();
-
             let durability = Durability::<Voice, TtsError>::new(
                 "golem-tts",
                 "get_voice",
@@ -91,7 +89,6 @@ mod durability_impl {
         #[doc = " Get supported languages"]
         fn list_languages() -> Result<Vec<LanguageInfo>, TtsError> {
             init_logging();
-
             let durability = Durability::<Vec<LanguageInfo>, TtsError>::new(
                 "golem-tts",
                 "list_languages",

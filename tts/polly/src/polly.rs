@@ -152,10 +152,7 @@ impl TtsClient for Polly {
             .header("x-amz-target", "Polly_2016-06-10.SynthesizeSpeech")
             .body(body_json.as_bytes().to_vec().into())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self
-            .signer
-            .sign_request(request)
-            .map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self.signer.sign_request(request)?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
             let key = HeaderName::from_bytes(key.as_str().as_bytes())
@@ -270,10 +267,7 @@ impl TtsClient for Polly {
             .uri(full_uri)
             .body(Bytes::new())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self
-            .signer
-            .sign_request(request)
-            .map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self.signer.sign_request(request)?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
             let key = HeaderName::from_bytes(key.as_str().as_bytes())
@@ -304,10 +298,7 @@ impl TtsClient for Polly {
             .uri(full_uri)
             .body(Bytes::new())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self
-            .signer
-            .sign_request(request)
-            .map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self.signer.sign_request(request)?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
             let key = HeaderName::from_bytes(key.as_str().as_bytes())
@@ -579,10 +570,7 @@ impl TtsClient for Polly {
             .header("content-type", "application/json")
             .body(body_json.as_bytes().to_vec().into())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self
-            .signer
-            .sign_request(request)
-            .map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self.signer.sign_request(request)?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
             let key = HeaderName::from_bytes(key.as_str().as_bytes())
@@ -610,10 +598,7 @@ impl TtsClient for Polly {
             .uri(full_uri)
             .body(Bytes::new())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self
-            .signer
-            .sign_request(request)
-            .map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self.signer.sign_request(request)?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
             let key = HeaderName::from_bytes(key.as_str().as_bytes())
@@ -672,10 +657,7 @@ impl TtsClient for Polly {
             .header("content-type", "application/x-amz-json-1.0")
             .body(body_json.as_bytes().to_vec().into())
             .map_err(|e| TtsError::InternalError(e.to_string()))?;
-        let signed_request = self
-            .signer
-            .sign_request(request)
-            .map_err(|e| TtsError::InternalError(e.to_string()))?;
+        let signed_request = self.signer.sign_request(request)?;
         let mut headers = HeaderMap::new();
         for (key, value) in signed_request.headers().iter() {
             let key = HeaderName::from_bytes(key.as_str().as_bytes())

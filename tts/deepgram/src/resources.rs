@@ -65,12 +65,16 @@ impl GuestPronunciationLexicon for DeepgramPronunciationLexicon {
 pub struct DeepgramLongFormOperation;
 
 impl GuestLongFormOperation for DeepgramLongFormOperation {
-    fn get_status(&self) -> OperationStatus {
-        OperationStatus::Failed
+    fn get_task_id(&self) -> Result<String, TtsError> {
+        Ok("".to_string())
     }
 
-    fn get_progress(&self) -> f32 {
-        100.0
+    fn get_status(&self) -> Result<OperationStatus, TtsError> {
+        Ok(OperationStatus::Failed)
+    }
+
+    fn get_progress(&self) -> Result<f32, TtsError> {
+        Ok(100.0)
     }
 
     fn cancel(&self) -> Result<(), TtsError> {

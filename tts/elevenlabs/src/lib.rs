@@ -162,6 +162,7 @@ impl ExtendedAdvancedTrait for ElevenLabsTtsComponent {
         content: String,
         voice: Voice,
         chapter_breaks: Option<Vec<u32>>,
+        _task_id: Option<String>,
     ) -> Result<Self::LongFormOperation, TtsError> {
         let client = Elevenlabs::new()?;
         let voice_id = voice.id.clone();

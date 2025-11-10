@@ -90,11 +90,12 @@ mod durability_impl {
 
     use crate::{
         durability::{DurableTTS, ExtendedAdvancedTrait},
-        golem::tts::advanced::{
+        golem::tts::{advanced::{
             AudioSample, Guest, GuestLongFormOperation, GuestPronunciationLexicon, LanguageCode,
             LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
             PronunciationLexicon, TtsError, Voice, VoiceDesignParams,
-        },
+        }, types::SynthesisMetadata},
+        init_logging,
     };
 
     #[derive(Debug, IntoValue)]
@@ -104,8 +105,15 @@ mod durability_impl {
     struct NoOutput;
 
     enum DurablePronunciationLexiconState<Impl: Guest> {
-        Live { lexicon: Impl::PronunciationLexicon },
-        Replay,
+        Live {
+            lexicon: Impl::PronunciationLexicon,
+        },
+        Replay {
+            name: String,
+            language: LanguageCode,
+            entry_count: u32,
+            content: Option<String>,
+        },
     }
 
     pub struct DurablePronunciationLexicon<Impl: Guest> {
@@ -118,9 +126,19 @@ mod durability_impl {
                 state: RefCell::new(Some(DurablePronunciationLexiconState::Live { lexicon })),
             }
         }
-        fn replay() -> Self {
+        fn replay(
+            name: String,
+            language: LanguageCode,
+            entry_count: u32,
+            content: Option<String>,
+        ) -> Self {
             Self {
-                state: RefCell::new(Some(DurablePronunciationLexiconState::Replay)),
+                state: RefCell::new(Some(DurablePronunciationLexiconState::Replay {
+                    name,
+                    language,
+                    entry_count,
+                    content,
+                })),
             }
         }
     }
@@ -132,6 +150,7 @@ mod durability_impl {
                 "get_name",
                 DurableFunctionType::ReadLocal,
             );
+            init_logging();
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -143,13 +162,23 @@ mod durability_impl {
                         let _ = durability.persist_infallible(NoInput, result.clone());
                         result
                     }
-
+                    Some(DurablePronunciationLexiconState::Replay { name, .. }) => name.clone(),
                     _ => {
                         unreachable!()
                     }
                 }
             } else {
-                durability.replay_infallible()
+                let replay: String = durability.replay_infallible();
+                let mut state = self.state.borrow_mut();
+                match &mut *state {
+                    Some(DurablePronunciationLexiconState::Replay { name, .. }) => {
+                        *name = replay.clone();
+                    }
+                    _ => {
+                        unreachable!()
+                    }
+                }
+                replay
             }
         }
 
@@ -159,6 +188,7 @@ mod durability_impl {
                 "get_language",
                 DurableFunctionType::ReadLocal,
             );
+            init_logging();
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -170,13 +200,25 @@ mod durability_impl {
                         let _ = durability.persist_infallible(NoInput, result.clone());
                         result
                     }
-
+                    Some(DurablePronunciationLexiconState::Replay { language, .. }) => {
+                        language.clone()
+                    }
                     _ => {
                         unreachable!()
                     }
                 }
             } else {
-                durability.replay_infallible()
+                let replay: LanguageCode = durability.replay_infallible();
+                let mut state = self.state.borrow_mut();
+                match &mut *state {
+                    Some(DurablePronunciationLexiconState::Replay { language, .. }) => {
+                        *language = replay.clone();
+                    }
+                    _ => {
+                        unreachable!()
+                    }
+                }
+                replay
             }
         }
 
@@ -186,6 +228,7 @@ mod durability_impl {
                 "get_entry_count",
                 DurableFunctionType::ReadLocal,
             );
+            init_logging();
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -195,16 +238,27 @@ mod durability_impl {
                                 lexicon.get_entry_count()
                             });
                         let _ = durability.persist_infallible(NoInput, result);
-
                         result
                     }
-
+                    Some(DurablePronunciationLexiconState::Replay { entry_count, .. }) => {
+                        *entry_count
+                    }
                     _ => {
                         unreachable!()
                     }
                 }
             } else {
-                durability.replay_infallible()
+                let replay: u32 = durability.replay_infallible();
+                let mut state = self.state.borrow_mut();
+                match &mut *state {
+                    Some(DurablePronunciationLexiconState::Replay { entry_count, .. }) => {
+                        *entry_count = replay;
+                    }
+                    _ => {
+                        unreachable!()
+                    }
+                }
+                replay
             }
         }
 
@@ -215,6 +269,7 @@ mod durability_impl {
                 "add_entry",
                 DurableFunctionType::WriteRemote,
             );
+            init_logging();
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -225,7 +280,7 @@ mod durability_impl {
                         let _ = durability.persist_infallible(NoInput, NoOutput);
                         Ok(())
                     }
-
+                    Some(DurablePronunciationLexiconState::Replay { .. }) => Ok(()),
                     _ => {
                         unreachable!()
                     }
@@ -243,6 +298,7 @@ mod durability_impl {
                 "remove_entry",
                 DurableFunctionType::WriteRemote,
             );
+            init_logging();
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -253,6 +309,7 @@ mod durability_impl {
                         let _ = durability.persist_infallible(NoInput, NoOutput);
                         Ok(())
                     }
+                    Some(DurablePronunciationLexiconState::Replay { .. }) => Ok(()),
 
                     _ => {
                         unreachable!()
@@ -271,6 +328,7 @@ mod durability_impl {
                 "export_content",
                 DurableFunctionType::ReadLocal,
             );
+            init_logging();
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -279,92 +337,250 @@ mod durability_impl {
                             with_persistence_level(PersistenceLevel::PersistNothing, || {
                                 lexicon.export_content()
                             });
-                        let _ = durability.persist(NoInput, result.clone());
-                        result
+                        durability.persist(NoInput, result.clone())
                     }
-
+                    Some(DurablePronunciationLexiconState::Replay { content, .. }) => {
+                        // In replay we assign the replayed value so it should not panic
+                        Ok(content.clone().unwrap())
+                    }
                     _ => {
                         unreachable!()
                     }
                 }
             } else {
-                durability.replay()
+                let replay: Result<String, TtsError> = durability.replay();
+                let mut state = self.state.borrow_mut();
+                match &mut *state {
+                    Some(DurablePronunciationLexiconState::Replay { content, .. }) => {
+                        *content = replay.clone().ok();
+                    }
+                    _ => {
+                        unreachable!()
+                    }
+                }
+                replay
             }
         }
     }
 
     enum DurableLongFormOperationState<Impl: Guest> {
-        Live { operation: Impl::LongFormOperation },
-        Replay,
+        Live {
+            operation: Impl::LongFormOperation,
+        },
+        Replay {
+            status: OperationStatus,
+            progress: f32,
+            result: LongFormResult,
+            task_id: String,
+            input: LongformInput,
+        },
     }
     pub struct DurableLongFormOperation<Impl: Guest> {
         state: RefCell<Option<DurableLongFormOperationState<Impl>>>,
     }
+
     impl<Impl: Guest> DurableLongFormOperation<Impl> {
         fn live(operation: Impl::LongFormOperation) -> Self {
             Self {
                 state: RefCell::new(Some(DurableLongFormOperationState::Live { operation })),
             }
         }
-        fn replay() -> Self {
+        fn replay(
+            status: OperationStatus,
+            progress: f32,
+            result: LongFormResult,
+            task_id: String,
+            input: LongformInput,
+        ) -> Self {
             Self {
-                state: RefCell::new(Some(DurableLongFormOperationState::Replay)),
+                state: RefCell::new(Some(DurableLongFormOperationState::Replay {
+                    progress,
+                    status,
+                    result,
+                    task_id,
+                    input,
+                })),
             }
         }
     }
 
-    impl<Impl: Guest + 'static> GuestLongFormOperation for DurableLongFormOperation<Impl> {
-        fn get_status(&self) -> OperationStatus {
-            let durability = Durability::<OperationStatus, TtsError>::new(
+    impl<Impl: ExtendedAdvancedTrait> GuestLongFormOperation for DurableLongFormOperation<Impl> {
+        fn get_task_id(&self) -> Result<String, TtsError> {
+            let durability = Durability::<String, TtsError>::new(
                 "golem-tts",
-                "get_status",
-                DurableFunctionType::ReadLocal,
+                "get_task_id",
+                DurableFunctionType::WriteRemote,
             );
+            init_logging();
             if durability.is_live() {
-                let state = self.state.borrow_mut();
-                match &*state {
+                let state = self.state.borrow();
+                let (task_id, new_longform_synthesis) = match &*state {
                     Some(DurableLongFormOperationState::Live { operation }) => {
-                        let result =
+                        let task_id =
                             with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                operation.get_status()
-                            });
-                        let _ = durability.persist_infallible(NoInput, result);
-                        result
+                                operation.get_task_id()
+                            })?;
+                        (task_id, None)
                     }
+                    Some(DurableLongFormOperationState::Replay { task_id, input, .. }) => {
+                        let new_longform_synthesis = Impl::unwrappered_synthesize_long_form(
+                            input.content.clone(),
+                            input.voice.clone(),
+                            input.chapter_breaks.clone(),
+                            Some(task_id.clone()),
+                        )?;
 
-                    _ => {
-                        unreachable!()
+                        (task_id.clone(), Some(new_longform_synthesis))
                     }
+                    _ => unreachable!(),
+                };
+
+                if let Some(new_longform_synthesis) = new_longform_synthesis {
+                    let mut state = self.state.borrow_mut();
+
+                    *state = Some(DurableLongFormOperationState::Live {
+                        operation: new_longform_synthesis,
+                    });
                 }
+
+                let _ = durability.persist_infallible(NoInput, task_id.clone());
+                Ok(task_id)
             } else {
-                durability.replay_infallible()
+                let replay: String = durability.replay_infallible();
+                let mut state = self.state.borrow_mut();
+                match &mut *state {
+                    Some(DurableLongFormOperationState::Replay { task_id, .. }) => {
+                        *task_id = replay.clone();
+                    }
+                    _ => unreachable!(),
+                }
+
+                Ok(replay)
             }
         }
 
-        fn get_progress(&self) -> f32 {
-            let durability = Durability::<f32, TtsError>::new(
+        fn get_status(&self) -> Result<OperationStatus, TtsError> {
+            let durability = Durability::<OperationStatus, TtsError>::new(
                 "golem-tts",
-                "get_progress",
-                DurableFunctionType::ReadLocal,
+                "get_status",
+                DurableFunctionType::WriteRemote,
             );
+            init_logging();
             if durability.is_live() {
-                let state = self.state.borrow_mut();
-                match &*state {
-                    Some(DurableLongFormOperationState::Live { operation }) => {
-                        let result =
-                            with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                operation.get_progress()
-                            });
-                        let _ = durability.persist_infallible(NoInput, result);
-                        result
-                    }
+                let (status, new_longform_synthesis) = {
+                    let state = self.state.borrow();
+                    match &*state {
+                        Some(DurableLongFormOperationState::Live { operation, .. }) => {
+                            let status =
+                                with_persistence_level(PersistenceLevel::PersistNothing, || {
+                                    operation.get_status()
+                                })?;
 
+                            (status, None)
+                        }
+                        Some(DurableLongFormOperationState::Replay {
+                            status,
+                            input,
+                            task_id,
+                            ..
+                        }) => {
+                            let new_longform_synthesis = Impl::unwrappered_synthesize_long_form(
+                                input.content.clone(),
+                                input.voice.clone(),
+                                input.chapter_breaks.clone(),
+                                Some(task_id.clone()),
+                            )?;
+
+                            (status.clone(), Some(new_longform_synthesis))
+                        }
+                        _ => unreachable!(),
+                    }
+                };
+
+                if let Some(new_longform_synthesis) = new_longform_synthesis {
+                    let mut state = self.state.borrow_mut();
+
+                    *state = Some(DurableLongFormOperationState::Live {
+                        operation: new_longform_synthesis,
+                    });
+                }
+
+                let _ = durability.persist_infallible(NoInput, status.clone());
+                Ok(status)
+            } else {
+                let replay: OperationStatus = durability.replay_infallible();
+                let mut state = self.state.borrow_mut();
+                match &mut *state {
+                    Some(DurableLongFormOperationState::Replay { status, .. }) => {
+                        *status = replay.clone();
+                    }
                     _ => {
                         unreachable!()
                     }
                 }
+                Ok(replay)
+            }
+        }
+
+        fn get_progress(&self) -> Result<f32, TtsError> {
+            let durability = Durability::<ProgressOutput, TtsError>::new(
+                "golem-tts",
+                "get_progress",
+                DurableFunctionType::WriteRemote,
+            );
+            init_logging();
+            if durability.is_live() {
+                let (progress, new_longform_synthesis) = {
+                    let state = self.state.borrow();
+                    match &*state {
+                        Some(DurableLongFormOperationState::Live { operation, .. }) => {
+                            let progress =
+                                with_persistence_level(PersistenceLevel::PersistNothing, || {
+                                    operation.get_progress()
+                                })?;
+                            (progress, None)
+                        }
+                        Some(DurableLongFormOperationState::Replay {
+                            progress,
+                            input,
+                            task_id,
+                            ..
+                        }) => {
+                            let new_longform_synthesis = Impl::unwrappered_synthesize_long_form(
+                                input.content.clone(),
+                                input.voice.clone(),
+                                input.chapter_breaks.clone(),
+                                Some(task_id.clone()),
+                            )?;
+
+                            (progress.clone(), Some(new_longform_synthesis))
+                        }
+                        _ => unreachable!(),
+                    }
+                };
+
+                if let Some(new_longform_synthesis) = new_longform_synthesis {
+                    let mut state = self.state.borrow_mut();
+
+                    *state = Some(DurableLongFormOperationState::Live {
+                        operation: new_longform_synthesis,
+                    });
+                }
+
+                let _ = durability.persist_infallible(NoInput, ProgressOutput { progress });
+                Ok(progress)
             } else {
-                durability.replay_infallible()
+                let replay: ProgressOutput = durability.replay_infallible();
+                let mut state = self.state.borrow_mut();
+                match &mut *state {
+                    Some(DurableLongFormOperationState::Replay { progress, .. }) => {
+                        *progress = replay.progress;
+                    }
+                    _ => {
+                        unreachable!()
+                    }
+                }
+                Ok(replay.progress)
             }
         }
 
@@ -374,21 +590,41 @@ mod durability_impl {
                 "cancel",
                 DurableFunctionType::WriteRemote,
             );
+            init_logging();
             if durability.is_live() {
-                let state = self.state.borrow_mut();
-                match &*state {
-                    Some(DurableLongFormOperationState::Live { operation }) => {
-                        with_persistence_level(PersistenceLevel::PersistNothing, || {
-                            operation.cancel()
-                        })?;
-                        let _ = durability.persist_infallible(NoInput, NoOutput);
-                        Ok(())
-                    }
+                let new_longform_synthesis = {
+                    let state = self.state.borrow();
+                    match &*state {
+                        Some(DurableLongFormOperationState::Live { operation, .. }) => {
+                            with_persistence_level(PersistenceLevel::PersistNothing, || {
+                                operation.cancel()
+                            })?;
+                            None
+                        }
+                        Some(DurableLongFormOperationState::Replay { input, task_id, .. }) => {
+                            let new_longform_synthesis = Impl::unwrappered_synthesize_long_form(
+                                input.content.clone(),
+                                input.voice.clone(),
+                                input.chapter_breaks.clone(),
+                                Some(task_id.clone()),
+                            )?;
 
-                    _ => {
-                        unreachable!()
+                            Some(new_longform_synthesis)
+                        }
+                        _ => {
+                            unreachable!()
+                        }
                     }
+                };
+                if let Some(new_longform_synthesis) = new_longform_synthesis {
+                    let mut state = self.state.borrow_mut();
+
+                    *state = Some(DurableLongFormOperationState::Live {
+                        operation: new_longform_synthesis,
+                    });
                 }
+                let _ = durability.persist_infallible(NoInput, NoOutput);
+                Ok(())
             } else {
                 let _: NoOutput = durability.replay_infallible();
                 Ok(())
@@ -399,25 +635,61 @@ mod durability_impl {
             let durability = Durability::<LongFormResult, TtsError>::new(
                 "golem-tts",
                 "get_result",
-                DurableFunctionType::ReadLocal,
+                DurableFunctionType::WriteRemote,
             );
+            init_logging();
             if durability.is_live() {
-                let state = self.state.borrow_mut();
-                match &*state {
-                    Some(DurableLongFormOperationState::Live { operation }) => {
-                        let result =
-                            with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                operation.get_result()
-                            });
-                        durability.persist(NoInput, result.clone())
-                    }
+                let (result, new_longform_synthesis) = {
+                    let state = self.state.borrow();
+                    match &*state {
+                        Some(DurableLongFormOperationState::Live { operation, .. }) => {
+                            let result =
+                                with_persistence_level(PersistenceLevel::PersistNothing, || {
+                                    operation.get_result()
+                                })?;
+                            (result, None)
+                        }
+                        Some(DurableLongFormOperationState::Replay {
+                            result,
+                            input,
+                            task_id,
+                            ..
+                        }) => {
+                            let new_longform_synthesis = Impl::unwrappered_synthesize_long_form(
+                                input.content.clone(),
+                                input.voice.clone(),
+                                input.chapter_breaks.clone(),
+                                Some(task_id.clone()),
+                            )?;
 
+                            (result.clone(), Some(new_longform_synthesis))
+                        }
+                        _ => {
+                            unreachable!()
+                        }
+                    }
+                };
+                if let Some(new_longform_synthesis) = new_longform_synthesis {
+                    let mut state = self.state.borrow_mut();
+
+                    *state = Some(DurableLongFormOperationState::Live {
+                        operation: new_longform_synthesis,
+                    });
+                }
+                let _ = durability.persist_infallible(NoInput, result.clone());
+                Ok(result)
+            } else {
+                let replay: LongFormResult = durability.replay_infallible();
+                let mut state = self.state.borrow_mut();
+                match &mut *state {
+                    Some(DurableLongFormOperationState::Replay { result, .. }) => {
+                        *result = replay.clone();
+                    }
                     _ => {
                         unreachable!()
                     }
                 }
-            } else {
-                durability.replay()
+                Ok(replay)
             }
         }
     }
@@ -433,6 +705,7 @@ mod durability_impl {
             audio_samples: Vec<AudioSample>,
             description: Option<String>,
         ) -> Result<Voice, TtsError> {
+            init_logging();
             let durability = Durability::<Voice, TtsError>::new(
                 "golem-tts",
                 "create_voice_clone",
@@ -457,9 +730,10 @@ mod durability_impl {
             name: String,
             characteristics: VoiceDesignParams,
         ) -> Result<Voice, TtsError> {
+            init_logging();
             let durability = Durability::<Voice, TtsError>::new(
                 "golem-tts",
-                "create_voice_clone",
+                "design_voice",
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
@@ -478,9 +752,10 @@ mod durability_impl {
             target_voice: Voice,
             preserve_timing: Option<bool>,
         ) -> Result<Vec<u8>, TtsError> {
+            init_logging();
             let durability = Durability::<Vec<u8>, TtsError>::new(
                 "golem-tts",
-                "create_voice_clone",
+                "convert_voice",
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
@@ -499,9 +774,10 @@ mod durability_impl {
             duration_seconds: Option<f32>,
             style_influence: Option<f32>,
         ) -> Result<Vec<u8>, TtsError> {
+            init_logging();
             let durability = Durability::<Vec<u8>, TtsError>::new(
                 "golem-tts",
-                "create_voice_clone",
+                "generate_sound_effect",
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
@@ -522,12 +798,17 @@ mod durability_impl {
         ) -> Result<PronunciationLexicon, TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
                 "golem-tts",
-                "create_voice_clone",
+                "create_lexicon",
                 DurableFunctionType::WriteRemote,
             );
+            init_logging();
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let lexicon = Impl::unwrappered_created_lexicon(name, language, entries)?;
+                    let lexicon = Impl::unwrappered_created_lexicon(
+                        name.clone(),
+                        language.clone(),
+                        entries.clone(),
+                    )?;
                     Ok(PronunciationLexicon::new(
                         DurablePronunciationLexicon::<Impl>::live(lexicon),
                     ))
@@ -536,8 +817,9 @@ mod durability_impl {
                 result
             } else {
                 let _: NoOutput = durability.replay_infallible();
+                let entry_count = entries.as_ref().map(|e| e.len() as u32).unwrap_or(0);
                 Ok(PronunciationLexicon::new(
-                    DurablePronunciationLexicon::<Impl>::replay(),
+                    DurablePronunciationLexicon::<Impl>::replay(name, language, entry_count, None),
                 ))
             }
         }
@@ -548,30 +830,72 @@ mod durability_impl {
             voice: Voice,
             chapter_breaks: Option<Vec<u32>>,
         ) -> Result<LongFormOperation, TtsError> {
-            let durability = Durability::<NoOutput, TtsError>::new(
+            let durability = Durability::<String, TtsError>::new(
                 "golem-tts",
-                "create_voice_clone",
-                DurableFunctionType::WriteRemote,
+                "synthesize_long_form",
+                DurableFunctionType::WriteLocal,
             );
+            init_logging();
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let longform_operation = Impl::unwrappered_synthesize_long_form(
-                        content,
-                        voice,
-                        chapter_breaks,
-                    )?;
-                    Ok(LongFormOperation::new(
-                        DurableLongFormOperation::<Impl>::live(longform_operation),
-                    ))
-                });
-                let _ = durability.persist_infallible(NoInput, NoOutput);
-                result
+                let longform_operation = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                    Impl::unwrappered_synthesize_long_form(
+                        content.clone(),
+                        voice.clone(),
+                        chapter_breaks.clone(),
+                        None,
+                    )
+                })?;
+
+                let task_id = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                    longform_operation.get_task_id()
+                })?;
+
+                let _ = durability.persist_infallible(NoInput, task_id.clone());
+
+                Ok(LongFormOperation::new(DurableLongFormOperation::<Impl>::live(
+                    longform_operation,
+                )))
             } else {
-                let _: NoOutput = durability.replay_infallible();
+                let task_id: String = durability.replay_infallible();
+
                 Ok(LongFormOperation::new(
-                    DurableLongFormOperation::<Impl>::replay(),
+                    DurableLongFormOperation::<Impl>::replay(
+                        OperationStatus::Processing,
+                        0.0,
+                        LongFormResult {
+                            output_location: "".to_string(),
+                            total_duration: 0.0,
+                            chapter_durations: None,
+                            metadata: SynthesisMetadata {
+                                duration_seconds: 0.0,
+                                character_count: 0,
+                                word_count: 0,
+                                audio_size_bytes: 0,
+                                request_id: "".to_string(),
+                                provider_info: None,
+                            },
+                        },
+                        task_id,
+                        LongformInput {
+                            content,
+                            voice,
+                            chapter_breaks,
+                        },
+                    ),
                 ))
             }
         }
+    }
+
+    #[derive(Debug, Clone)]
+    struct LongformInput {
+        content: String,
+        voice: Voice,
+        chapter_breaks: Option<Vec<u32>>,
+    }
+
+    #[derive(Debug, Clone, FromValueAndType, IntoValue)]
+    struct ProgressOutput {
+        progress: f32,
     }
 }

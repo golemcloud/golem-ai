@@ -181,12 +181,16 @@ impl GuestPronunciationLexicon for ElPronunciationLexicon {
 pub struct ElLongFormSynthesis;
 
 impl GuestLongFormOperation for ElLongFormSynthesis {
-    fn get_status(&self) -> OperationStatus {
-        OperationStatus::Cancelled
+    fn get_task_id(&self) -> Result<String, TtsError> {
+        Ok("".to_string())
     }
 
-    fn get_progress(&self) -> f32 {
-        100.0
+    fn get_status(&self) -> Result<OperationStatus, TtsError> {
+        Ok(OperationStatus::Cancelled)
+    }
+
+    fn get_progress(&self) -> Result<f32, TtsError> {
+        Ok(100.0)
     }
 
     fn cancel(&self) -> Result<(), TtsError> {

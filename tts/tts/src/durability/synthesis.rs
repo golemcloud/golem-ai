@@ -68,7 +68,6 @@ mod durability_impl {
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisResult, TtsError> {
             init_logging();
-
             let durability = Durability::<SynthesisResult, TtsError>::new(
                 "golem-tts",
                 "synthesize",
@@ -96,7 +95,6 @@ mod durability_impl {
             options: Option<SynthesisOptions>,
         ) -> Result<Vec<SynthesisResult>, TtsError> {
             init_logging();
-
             let durability = Durability::<Vec<SynthesisResult>, TtsError>::new(
                 "golem-tts",
                 "synthesize_batch",
@@ -121,7 +119,6 @@ mod durability_impl {
         #[doc = " Get timing information without audio synthesis"]
         fn get_timing_marks(input: TextInput, voice: Voice) -> Result<Vec<TimingInfo>, TtsError> {
             init_logging();
-
             let durability = Durability::<Vec<TimingInfo>, TtsError>::new(
                 "golem-tts",
                 "get_timing_marks",
@@ -146,7 +143,6 @@ mod durability_impl {
         #[doc = " Validate text before synthesis"]
         fn validate_input(input: TextInput, voice: Voice) -> Result<ValidationResult, TtsError> {
             init_logging();
-
             let durability = Durability::<ValidationResult, TtsError>::new(
                 "golem-tts",
                 "validate_input",

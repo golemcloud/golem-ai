@@ -170,6 +170,7 @@ impl ExtendedAdvancedTrait for DeepgramComponent {
         content: String,
         voice: Voice,
         chapter_breaks: Option<Vec<u32>>,
+        _task_id: Option<String>,
     ) -> Result<Self::LongFormOperation, golem_tts::golem::tts::types::TtsError> {
         let client = Deepgram::new()?;
         let voice_canonical_name = voice.name.clone(); // Use canonical name
@@ -179,6 +180,7 @@ impl ExtendedAdvancedTrait for DeepgramComponent {
             chapter_breaks,
         )
     }
+  
 }
 
 type DurableDeepgramComponent = DurableTTS<DeepgramComponent>;
