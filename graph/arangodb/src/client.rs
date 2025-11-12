@@ -4,8 +4,8 @@ use golem_graph::golem::graph::schema::{
     ContainerInfo, ContainerType, EdgeTypeDefinition, IndexDefinition, IndexType,
 };
 use golem_graph::golem::graph::types::ElementId;
-use log::trace;
 use golem_wasi_http::{Client, Method, Response};
+use log::trace;
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 
@@ -276,7 +276,11 @@ impl ArangoDbApi {
         None
     }
 
-    fn handle_arango_reqwest_error(&self, details: &str, err: golem_wasi_http::Error) -> GraphError {
+    fn handle_arango_reqwest_error(
+        &self,
+        details: &str,
+        err: golem_wasi_http::Error,
+    ) -> GraphError {
         if err.is_timeout() {
             return GraphError::Timeout;
         }

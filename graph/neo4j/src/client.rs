@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use golem_graph::golem::graph::errors::GraphError;
-use log::trace;
 use golem_wasi_http::{Client, Response};
+use log::trace;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;

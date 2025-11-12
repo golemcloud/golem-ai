@@ -1,8 +1,8 @@
+use golem_wasi_http::Method;
+use golem_wasi_http::Response;
 use golem_web_search::error::from_reqwest_error;
 use golem_web_search::golem::web_search::web_search::SearchError;
 use log::trace;
-use golem_wasi_http::Method;
-use golem_wasi_http::Response;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;

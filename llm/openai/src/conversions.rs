@@ -8,8 +8,8 @@ use golem_llm::golem::llm::llm::{
     Config, ContentPart, Error, ErrorCode, Event, ImageDetail, ImageReference, Message, Response,
     ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
 };
-use log::trace;
 use golem_wasi_http::StatusCode;
+use log::trace;
 use std::collections::HashMap;
 use std::str::FromStr;
 

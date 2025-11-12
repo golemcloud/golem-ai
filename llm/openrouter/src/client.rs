@@ -1,9 +1,9 @@
 use golem_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
 use golem_llm::event_source::EventSource;
 use golem_llm::golem::llm::llm::{Error, ErrorCode};
-use log::trace;
 use golem_wasi_http::header::HeaderValue;
 use golem_wasi_http::{Client, Method, Response, StatusCode};
+use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;

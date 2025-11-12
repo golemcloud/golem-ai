@@ -15,8 +15,8 @@ use golem_llm::golem::llm::llm::{
     Response, ResponseMetadata, Role, StreamDelta, StreamEvent, ToolCall,
 };
 use golem_rust::wasm_rpc::Pollable;
-use log::trace;
 use golem_wasi_http::StatusCode;
+use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 

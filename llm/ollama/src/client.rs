@@ -6,11 +6,11 @@ use golem_llm::{
     event_source::EventSource,
     golem::llm::llm::ErrorCode,
 };
-use log::trace;
 use golem_wasi_http::{
     header::{HeaderMap, HeaderValue, CONTENT_TYPE},
     Client, Method, Response, StatusCode,
 };
+use log::trace;
 
 use golem_llm::golem::llm::llm::Error;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};

@@ -1,7 +1,7 @@
 use golem_video::error::{from_reqwest_error, video_error_from_status};
 use golem_video::exports::golem::video_generation::types::VideoError;
-use log::trace;
 use golem_wasi_http::{Client, Method, Response};
+use log::trace;
 use serde::{Deserialize, Serialize};
 
 const BASE_URL: &str = "https://api.stability.ai";

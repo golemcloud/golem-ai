@@ -4,8 +4,8 @@ use golem_embed::{
     error::{error_code_from_status, from_reqwest_error},
     golem::embed::embed::Error,
 };
-use log::trace;
 use golem_wasi_http::{Client, Method, Response};
+use log::trace;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 const BASE_URL: &str = "https://api.voyageai.com";
