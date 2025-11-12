@@ -2,7 +2,7 @@ use crate::authentication::generate_jwt_token;
 use golem_video::error::{from_reqwest_error, video_error_from_status};
 use golem_video::exports::golem::video_generation::types::VideoError;
 use log::trace;
-use reqwest::{Client, Method, Response};
+use golem_wasi_http::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
 
 // For older users, the api endpoint is https://api.klingai.com
@@ -18,7 +18,7 @@ pub struct KlingApi {
 impl KlingApi {
     pub fn new(access_key: String, secret_key: String) -> Self {
         let client = Client::builder()
-            .default_headers(reqwest::header::HeaderMap::new())
+            .default_headers(golem_wasi_http::header::HeaderMap::new())
             .build()
             .expect("Failed to initialize HTTP client");
         Self {

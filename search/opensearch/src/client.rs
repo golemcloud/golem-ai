@@ -2,7 +2,7 @@ use golem_search::config::{get_max_retries_config, get_timeout_config};
 use golem_search::error::{from_reqwest_error, internal_error, search_error_from_status};
 use golem_search::golem::search::types::SearchError;
 use log::trace;
-use reqwest::{Client, Method, RequestBuilder, Response};
+use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -203,7 +203,7 @@ impl OpenSearchApi {
         }
     }
 
-    fn should_retry_error(&self, error: &reqwest::Error) -> bool {
+    fn should_retry_error(&self, error: &golem_wasi_http::Error) -> bool {
         error.is_timeout() || error.is_request()
     }
 
@@ -218,7 +218,7 @@ impl OpenSearchApi {
 
     fn execute_with_retry_sync<F>(&self, operation: F) -> Result<Response, SearchError>
     where
-        F: Fn() -> Result<Response, reqwest::Error> + Send + Sync,
+        F: Fn() -> Result<Response, golem_wasi_http::Error> + Send + Sync,
     {
         let mut last_error = None;
 

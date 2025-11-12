@@ -19,8 +19,8 @@ durability = ["golem-rust/durability", "golem-video/durability"]
 golem-video = { path = "../video", version = "0.0.0", default-features = false }
 
 golem-rust = { workspace = true }
+golem-wasi-http = { workspace = true }
 log = { workspace = true }
-reqwest =  { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 wit-bindgen-rt = { workspace = true }

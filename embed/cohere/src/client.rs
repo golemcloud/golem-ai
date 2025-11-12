@@ -5,7 +5,7 @@ use golem_embed::{
     golem::embed::embed::Error,
 };
 use log::trace;
-use reqwest::{Client, Method, Response};
+use golem_wasi_http::{Client, Method, Response};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 const BASE_URL: &str = "https://api.cohere.ai";

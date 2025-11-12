@@ -105,7 +105,7 @@ fn generate_jwt(
 
 /// Exchange JWT for GCP access token
 fn exchange_jwt_for_token(jwt: &str) -> Result<String, VideoError> {
-    use reqwest::Client;
+    use golem_wasi_http::Client;
 
     let client = Client::builder()
         .build()

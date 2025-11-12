@@ -10,7 +10,7 @@ use golem_embed::{
     },
 };
 use log::trace;
-use reqwest::{Client, Url};
+use golem_wasi_http::{Client, Url};
 
 use crate::client::{
     EmbeddingRequest, EmbeddingResponse, EmbeddingType, InputType, Meta, RerankRequest,

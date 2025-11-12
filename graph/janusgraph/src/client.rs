@@ -1,6 +1,6 @@
 use golem_graph::golem::graph::errors::GraphError;
 use log::trace;
-use reqwest::{Client, Response};
+use golem_wasi_http::{Client, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -255,7 +255,7 @@ impl JanusGraphApi {
         }
     }
 
-    fn handle_janusgraph_reqwest_error(&self, details: &str, err: reqwest::Error) -> GraphError {
+    fn handle_janusgraph_reqwest_error(&self, details: &str, err: golem_wasi_http::Error) -> GraphError {
         if err.is_timeout() {
             return GraphError::Timeout;
         }

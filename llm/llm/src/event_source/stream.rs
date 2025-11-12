@@ -17,7 +17,7 @@ pub enum StreamType {
 }
 
 pub trait LlmStream {
-    fn new(stream: InputStream, body: reqwest::IncomingBody) -> Self;
+    fn new(stream: InputStream, body: golem_wasi_http::IncomingBody) -> Self;
     fn set_last_event_id(&mut self, id: impl Into<String>);
     fn last_event_id(&self) -> &str;
     fn subscribe(&self) -> Pollable;

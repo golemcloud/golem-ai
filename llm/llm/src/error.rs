@@ -1,6 +1,6 @@
 use crate::event_source;
 use crate::golem::llm::llm::{Error, ErrorCode};
-use reqwest::StatusCode;
+use golem_wasi_http::StatusCode;
 
 /// Creates an `Error` value representing that something is unsuported
 pub fn unsupported(what: impl AsRef<str>) -> Error {
@@ -11,7 +11,7 @@ pub fn unsupported(what: impl AsRef<str>) -> Error {
     }
 }
 
-pub fn from_reqwest_error(details: impl AsRef<str>, err: reqwest::Error) -> Error {
+pub fn from_reqwest_error(details: impl AsRef<str>, err: golem_wasi_http::Error) -> Error {
     Error {
         code: ErrorCode::InternalError,
         message: format!("{}: {err}", details.as_ref()),

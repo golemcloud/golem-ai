@@ -7,7 +7,7 @@ use golem_llm::{
     golem::llm::llm::ErrorCode,
 };
 use log::trace;
-use reqwest::{
+use golem_wasi_http::{
     header::{HeaderMap, HeaderValue, CONTENT_TYPE},
     Client, Method, Response, StatusCode,
 };
@@ -326,7 +326,7 @@ pub fn image_to_base64(source: &str) -> Result<String, Box<dyn std::error::Error
     Ok(base64_data)
 }
 
-pub fn from_reqwest_error(context: &str, err: reqwest::Error) -> Error {
+pub fn from_reqwest_error(context: &str, err: golem_wasi_http::Error) -> Error {
     Error {
         code: ErrorCode::InternalError,
         message: format!("{context}: {err}"),

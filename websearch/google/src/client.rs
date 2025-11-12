@@ -1,8 +1,8 @@
 use golem_web_search::error::from_reqwest_error;
 use golem_web_search::golem::web_search::web_search::SearchError;
 use log::trace;
-use reqwest::Url;
-use reqwest::{Client, Method, Response};
+use golem_wasi_http::Url;
+use golem_wasi_http::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
 
 const BASE_URL: &str = "https://www.googleapis.com/customsearch/v1";

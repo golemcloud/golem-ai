@@ -16,7 +16,7 @@ use golem_llm::golem::llm::llm::{
 };
 use golem_rust::wasm_rpc::Pollable;
 use log::trace;
-use reqwest::StatusCode;
+use golem_wasi_http::StatusCode;
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 

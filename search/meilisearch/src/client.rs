@@ -1,7 +1,7 @@
 use golem_search::error::{from_reqwest_error, internal_error, search_error_from_status};
 use golem_search::golem::search::types::SearchError;
 use log::trace;
-use reqwest::{Client, RequestBuilder, Response};
+use golem_wasi_http::{Client, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Value as JsonValue};
@@ -215,7 +215,7 @@ impl MeilisearchApi {
             "PATCH" => self.client.patch(url),
             _ => self
                 .client
-                .request(reqwest::Method::from_bytes(method.as_bytes()).unwrap(), url),
+                .request(golem_wasi_http::Method::from_bytes(method.as_bytes()).unwrap(), url),
         };
 
         if let Some(api_key) = &self.api_key {
