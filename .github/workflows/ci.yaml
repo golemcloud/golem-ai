@@ -86,11 +86,11 @@ jobs:
       - name: Install cargo-component
         run: cargo binstall --force cargo-component@0.21.1
       - name: Install golem-cli
-        run: cargo binstall --force golem-cli@1.3.0-rc9  --locked --no-confirm
-      - name: Install wac-cli
-        run: cargo binstall --force wac-cli --locked --no-confirm
-      - name: Build all test components
-        run: cargo make release-build-test-components
+      #   run: cargo binstall --force golem-cli@1.3.0-rc9  --locked --no-confirm
+      # - name: Install wac-cli
+      #   run: cargo binstall --force wac-cli --locked --no-confirm
+      # - name: Build all test components
+      #   run: cargo make release-build-test-components
   golem-exec-tests:
     runs-on: ubuntu-latest
     steps:
