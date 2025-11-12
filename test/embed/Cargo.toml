@@ -12,7 +12,7 @@ golem-rust = { version = "1.6.0", features = [
     "export_save_snapshot",
     "export_oplog_processor",
 ] }
-reqwest = { git = "https://github.com/zivergetech/reqwest", branch = "update-may-2025", features = [
+reqwest = { git = "https://github.com/zivergetech/reqwest", branch = "update-sep-2025-wstd", features = [
     "json",
 ] }
 serde = { version = "1.0.0", features = ["derive"] }

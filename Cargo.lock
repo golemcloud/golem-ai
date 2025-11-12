@@ -1584,7 +1584,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1599,7 +1599,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1614,7 +1614,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1629,7 +1629,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1648,7 +1648,7 @@ dependencies = [
  "wasi 0.14.1+wasi-0.2.3",
  "wasi-logger",
  "wit-bindgen 0.40.0",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
  "wstd",
 ]
 
@@ -1678,7 +1678,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1694,7 +1694,7 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1709,7 +1709,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1739,7 +1739,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1761,7 +1761,7 @@ dependencies = [
  "serde",
  "serde_json",
  "wasi 0.14.1+wasi-0.2.3",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
  "wstd",
 ]
 
@@ -1776,7 +1776,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1793,7 +1793,7 @@ dependencies = [
  "serde",
  "serde_json",
  "url 2.5.4",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1807,7 +1807,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1821,7 +1821,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1879,7 +1879,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1894,7 +1894,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1909,7 +1909,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1924,7 +1924,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1940,7 +1940,7 @@ dependencies = [
  "serde",
  "serde_json",
  "urlencoding",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -1985,7 +1985,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "url 2.5.4",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
  "wstd",
 ]
 
@@ -2006,7 +2006,7 @@ dependencies = [
  "serde",
  "serde_json",
  "url 2.5.4",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
  "wstd",
 ]
 
@@ -2026,7 +2026,7 @@ dependencies = [
  "serde",
  "serde_json",
  "url 2.5.4",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
  "wstd",
 ]
 
@@ -2054,7 +2054,7 @@ dependencies = [
  "sha2",
  "url 2.5.4",
  "urlencoding",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
  "wstd",
 ]
 
@@ -2075,7 +2075,7 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
  "wstd",
 ]
 
@@ -2106,7 +2106,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -2120,7 +2120,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -2135,7 +2135,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -2154,7 +2154,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "urlencoding",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -2197,7 +2197,7 @@ dependencies = [
  "url 2.5.4",
  "urlencoding",
  "wasm-bindgen",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -2214,7 +2214,7 @@ dependencies = [
  "url 2.5.4",
  "urlencoding",
  "wasm-bindgen",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -2230,7 +2230,7 @@ dependencies = [
  "serde_json",
  "url 2.5.4",
  "wasm-bindgen",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -2247,7 +2247,7 @@ dependencies = [
  "url 2.5.4",
  "urlencoding",
  "wasm-bindgen",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -4089,7 +4089,7 @@ checksum = "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
 [[package]]
 name = "reqwest"
 version = "0.12.15"
-source = "git+https://github.com/golemcloud/reqwest?branch=update-sep-2025#2970f017ebad0a1af4d341c1ac35bfcda7bbd28f"
+source = "git+https://github.com/golemcloud/reqwest?branch=update-sep-2025-wstd#f061e6d3f9b58d6a160250e20bca263b8f4289ef"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4101,7 +4101,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "url 2.5.4",
- "wasi 0.12.1+wasi-0.2.0",
+ "wasi 0.14.1+wasi-0.2.3",
 ]
 
 [[package]]
@@ -5879,15 +5879,6 @@ checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasi"
-version = "0.12.1+wasi-0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af274f03e73b7d85551b3f9e97b8a04d5c9aec703cfc227a3fe0595a7561c67a"
-dependencies = [
- "wit-bindgen 0.19.2",
-]
-
-[[package]]
-name = "wasi"
 version = "0.14.1+wasi-0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad7df608df60a1c33e247881838b0f809512086e3e3bb1c18323b77eeb1f844e"
@@ -6466,15 +6457,6 @@ checksum = "d135d17ab770252ad95e9a872d365cf3090e3be864a34ab46f48555993efc904"
 
 [[package]]
 name = "wit-bindgen"
-version = "0.19.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b37d270da94012e0ac490ac633ad5bdd76a10a3fb15069edb033c1b771ce931f"
-dependencies = [
- "bitflags 2.10.0",
-]
-
-[[package]]
-name = "wit-bindgen"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fb4e7653763780be47e38f479e9aa83c768aa6a3b2ed086dc2826fdbbb7e7f5"
@@ -6547,15 +6529,6 @@ dependencies = [
  "bitflags 2.10.0",
  "futures",
  "once_cell",
-]
-
-[[package]]
-name = "wit-bindgen-rt"
-version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4db52a11d4dfb0a59f194c064055794ee6564eb1ced88c25da2cf76e50c5621"
-dependencies = [
- "bitflags 2.10.0",
 ]
 
 [[package]]
