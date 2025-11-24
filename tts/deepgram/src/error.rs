@@ -1,12 +1,10 @@
 use golem_tts::golem::tts::types::TtsError;
-use log::trace;
 use regex::Regex;
 use reqwest::Response;
 
 pub fn from_http_error(response: Response) -> TtsError {
     let status_code = response.status().as_u16();
     let error_text = response.text().unwrap_or_default();
-    trace!("Received {status_code} response from Deepgram API: {error_text}");
 
     match status_code {
         400 => TtsError::RequestError(format!("ERROR: {error_text}")),

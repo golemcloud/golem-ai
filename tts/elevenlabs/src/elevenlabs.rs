@@ -12,7 +12,6 @@ use golem_tts::{
         voices::{LanguageInfo, VoiceFilter},
     },
 };
-use log::trace;
 use reqwest::{header::HeaderMap, Client, Method};
 use uuid::Uuid;
 
@@ -46,8 +45,6 @@ impl TtsClient for Elevenlabs {
 
         let mut auth_headers = HeaderMap::new();
         auth_headers.insert("xi-api-key", api_key.parse().unwrap());
-
-        trace!("Using base URL: {base_url}");
 
         let client = ApiClient::new(base_url.clone(), auth_headers)?;
 
@@ -129,7 +126,6 @@ impl TtsClient for Elevenlabs {
     ) -> Result<Vec<SynthesisResult>, TtsError> {
         let mut results = Vec::with_capacity(inputs.len());
         for (index, input) in inputs.iter().enumerate() {
-            trace!("Sending input #{index}");
             let voice_settings = SynthesisVoiceSettings {
                 stability: options
                     .as_ref()
@@ -262,7 +258,6 @@ impl TtsClient for Elevenlabs {
         &self,
         filter: Option<VoiceFilter>,
     ) -> Result<Vec<golem_tts::golem::tts::voices::Voice>, TtsError> {
-        trace!("Listing available voices.");
         let body = ListVoicesQuery {
             next_page_token: None,
             page_size: Some(100),

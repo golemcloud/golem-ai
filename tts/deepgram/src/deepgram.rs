@@ -8,7 +8,6 @@ use golem_tts::{
         voices::{LanguageInfo, VoiceFilter},
     },
 };
-use log::trace;
 use reqwest::{header::HeaderMap, Method};
 use serde::{Deserialize, Serialize};
 
@@ -37,7 +36,6 @@ impl TtsClient for Deepgram {
         let base_url = get_env("TTS_PROVIDER_ENDPOINT")
             .ok()
             .unwrap_or("https://api.deepgram.com".to_string());
-        trace!("Using base URL: {base_url}");
         let client = ApiClient::new(base_url, auth_headers)?;
 
         Ok(Self { client })
@@ -75,8 +73,6 @@ impl TtsClient for Deepgram {
                 .and_then(|o| o.audio_config.as_ref())
                 .and_then(|ac| ac.bit_rate),
         };
-
-        trace!("Query: {:#?}", query_params);
 
         let request_body = SpeakRequest {
             text: input.content.clone(),

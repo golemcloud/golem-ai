@@ -1,7 +1,6 @@
 use reqwest::{Client, Method, Response};
 use std::time::Duration;
 
-use log::trace;
 use reqwest::header::HeaderMap;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -91,8 +90,6 @@ impl ApiClient {
                 TtsError::RequestError(format!("Failed to serialize request: {}", e))
             })?;
 
-            trace!("Sending request: {}", string_body.clone());
-
             request = request.body(string_body);
         }
 
@@ -141,8 +138,6 @@ impl ApiClient {
             request = request.query(params);
         }
 
-        trace!("Sending request: {}", string_body.clone());
-
         match request.body(string_body).send() {
             Ok(response) => {
                 if response.status().is_success() {
@@ -175,7 +170,6 @@ impl ApiClient {
         let mut delay = self.rate_limit_config.initial_delay;
 
         for attempt in 0..=self.rate_limit_config.max_retries {
-            trace!("Retrying request. Attempt: #{attempt}");
             match self.make_request::<R, B, Q, &F>(
                 method.clone(),
                 path,
@@ -228,7 +222,6 @@ impl ApiClient {
         let mut delay = self.rate_limit_config.initial_delay;
 
         for attempt in 0..=self.rate_limit_config.max_retries {
-            trace!("Retrying audio request. Attempt: #{attempt}");
             match self.make_audio_request::<B, Q, &F>(
                 method.clone(),
                 path,

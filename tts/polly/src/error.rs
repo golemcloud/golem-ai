@@ -5,7 +5,6 @@ use reqwest::Response;
 pub fn from_http_error(response: Response) -> TtsError {
     let status_code = response.status().as_u16();
     let error_text = response.text().unwrap_or_default();
-    log::trace!("Received {status_code} response from Polly API: {error_text}");
     match status_code {
         401 => TtsError::Unauthorized(format!("ERROR: {error_text}")),
         403 => TtsError::AccessDenied(format!("ERROR: {error_text}")),

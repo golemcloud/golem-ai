@@ -87,6 +87,7 @@ mod durability_impl {
         bindings::golem::durability::durability::DurableFunctionType, durability::Durability,
         with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel,
     };
+    use log::trace;
 
     use crate::{
         durability::{DurableTTS, ExtendedAdvancedTrait},
@@ -154,6 +155,7 @@ mod durability_impl {
                 DurableFunctionType::ReadLocal,
             );
             init_logging();
+            trace!("Getting lexicon name");
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -192,6 +194,7 @@ mod durability_impl {
                 DurableFunctionType::ReadLocal,
             );
             init_logging();
+            trace!("Getting lexicon language");
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -232,6 +235,7 @@ mod durability_impl {
                 DurableFunctionType::ReadLocal,
             );
             init_logging();
+            trace!("Getting lexicon entry count");
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -273,6 +277,7 @@ mod durability_impl {
                 DurableFunctionType::WriteRemote,
             );
             init_logging();
+            trace!("Adding pronunciation entry for word: {}", word);
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -302,6 +307,7 @@ mod durability_impl {
                 DurableFunctionType::WriteRemote,
             );
             init_logging();
+            trace!("Removing pronunciation entry for word: {}", word);
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -332,6 +338,7 @@ mod durability_impl {
                 DurableFunctionType::ReadLocal,
             );
             init_logging();
+            trace!("Exporting lexicon content");
             if durability.is_live() {
                 let state = self.state.borrow_mut();
                 match &*state {
@@ -416,6 +423,7 @@ mod durability_impl {
                 DurableFunctionType::WriteRemote,
             );
             init_logging();
+            trace!("Getting long-form operation task ID");
             if durability.is_live() {
                 let state = self.state.borrow();
                 let (task_id, new_longform_synthesis) = match &*state {
@@ -470,6 +478,7 @@ mod durability_impl {
                 DurableFunctionType::WriteRemote,
             );
             init_logging();
+            trace!("Getting long-form operation status");
             if durability.is_live() {
                 let (status, new_longform_synthesis) = {
                     let state = self.state.borrow();
@@ -533,6 +542,7 @@ mod durability_impl {
                 DurableFunctionType::WriteRemote,
             );
             init_logging();
+            trace!("Getting long-form operation progress");
             if durability.is_live() {
                 let (progress, new_longform_synthesis) = {
                     let state = self.state.borrow();
@@ -595,6 +605,7 @@ mod durability_impl {
                 DurableFunctionType::WriteRemote,
             );
             init_logging();
+            trace!("Cancelling long-form operation");
             if durability.is_live() {
                 let new_longform_synthesis = {
                     let state = self.state.borrow();
@@ -642,6 +653,7 @@ mod durability_impl {
                 DurableFunctionType::WriteRemote,
             );
             init_logging();
+            trace!("Getting long-form operation result");
             if durability.is_live() {
                 let (result, new_longform_synthesis) = {
                     let state = self.state.borrow();
@@ -710,6 +722,7 @@ mod durability_impl {
             description: Option<String>,
         ) -> Result<Voice, TtsError> {
             init_logging();
+            trace!("Creating voice clone: {}", name);
             let durability = Durability::<Voice, TtsError>::new(
                 "golem-tts",
                 "create_voice_clone",
@@ -735,6 +748,7 @@ mod durability_impl {
             characteristics: VoiceDesignParams,
         ) -> Result<Voice, TtsError> {
             init_logging();
+            trace!("Designing synthetic voice: {}", name);
             let durability = Durability::<Voice, TtsError>::new(
                 "golem-tts",
                 "design_voice",
@@ -757,6 +771,7 @@ mod durability_impl {
             preserve_timing: Option<bool>,
         ) -> Result<Vec<u8>, TtsError> {
             init_logging();
+            trace!("Converting voice to target voice: {}", target_voice.id);
             let durability = Durability::<Vec<u8>, TtsError>::new(
                 "golem-tts",
                 "convert_voice",
@@ -779,6 +794,7 @@ mod durability_impl {
             style_influence: Option<f32>,
         ) -> Result<Vec<u8>, TtsError> {
             init_logging();
+            trace!("Generating sound effect: {}", description);
             let durability = Durability::<Vec<u8>, TtsError>::new(
                 "golem-tts",
                 "generate_sound_effect",
@@ -806,6 +822,7 @@ mod durability_impl {
                 DurableFunctionType::WriteRemote,
             );
             init_logging();
+            trace!("Creating pronunciation lexicon: {}", name);
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     let lexicon = Impl::unwrappered_created_lexicon(
@@ -840,6 +857,7 @@ mod durability_impl {
                 DurableFunctionType::WriteLocal,
             );
             init_logging();
+            trace!("Synthesizing long-form content ({} chars)", content.len());
             if durability.is_live() {
                 let longform_operation =
                     with_persistence_level(PersistenceLevel::PersistNothing, || {

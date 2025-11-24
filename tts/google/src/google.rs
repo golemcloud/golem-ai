@@ -11,7 +11,6 @@ use golem_tts::{
         voices::{LanguageInfo, VoiceFilter},
     },
 };
-use log::trace;
 use reqwest::Method;
 use std::sync::{Arc, Mutex};
 use wstd::http::HeaderMap;
@@ -58,7 +57,6 @@ impl TtsClient for Google {
     fn new() -> Result<Self, TtsError> {
         let base_url = get_env("TTS_PROVIDER_ENDPOINT")
             .unwrap_or_else(|_| "https://texttospeech.googleapis.com".to_string());
-        trace!("Using base URL: {base_url}");
         Ok(Self {
             base_url,
             token_data: Arc::new(Mutex::new(TokenData {

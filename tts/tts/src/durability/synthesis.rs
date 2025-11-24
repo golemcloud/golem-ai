@@ -68,6 +68,7 @@ mod durability_impl {
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisResult, TtsError> {
             init_logging();
+            trace!("Synthesizing text to speech");
             let durability = Durability::<SynthesisResult, TtsError>::new(
                 "golem-tts",
                 "synthesize",
@@ -75,15 +76,11 @@ mod durability_impl {
             );
 
             if durability.is_live() {
-                trace!("[LIVE] synthesize");
-
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::synthesize(input.clone(), voice, options.clone())
                 });
                 durability.persist(NoInput, result)
             } else {
-                trace!("[REPLAY] synthesize");
-
                 durability.replay()
             }
         }
@@ -95,6 +92,7 @@ mod durability_impl {
             options: Option<SynthesisOptions>,
         ) -> Result<Vec<SynthesisResult>, TtsError> {
             init_logging();
+            trace!("Batch synthesizing {} inputs", inputs.len());
             let durability = Durability::<Vec<SynthesisResult>, TtsError>::new(
                 "golem-tts",
                 "synthesize_batch",
@@ -102,16 +100,12 @@ mod durability_impl {
             );
 
             if durability.is_live() {
-                trace!("[LIVE] synthesize_batch");
-
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::synthesize_batch(inputs.clone(), voice, options.clone())
                 });
 
                 durability.persist(NoInput, result)
             } else {
-                trace!("[REPLAY] synthesize_batch");
-
                 durability.replay()
             }
         }
@@ -119,6 +113,7 @@ mod durability_impl {
         #[doc = " Get timing information without audio synthesis"]
         fn get_timing_marks(input: TextInput, voice: Voice) -> Result<Vec<TimingInfo>, TtsError> {
             init_logging();
+            trace!("Getting timing marks");
             let durability = Durability::<Vec<TimingInfo>, TtsError>::new(
                 "golem-tts",
                 "get_timing_marks",
@@ -126,16 +121,12 @@ mod durability_impl {
             );
 
             if durability.is_live() {
-                trace!("[LIVE] get_timing_marks");
-
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::get_timing_marks(input.clone(), voice)
                 });
 
                 durability.persist(NoInput, result)
             } else {
-                trace!("[REPLAY] get_timing_marks");
-
                 durability.replay()
             }
         }
@@ -143,6 +134,7 @@ mod durability_impl {
         #[doc = " Validate text before synthesis"]
         fn validate_input(input: TextInput, voice: Voice) -> Result<ValidationResult, TtsError> {
             init_logging();
+            trace!("Validating input");
             let durability = Durability::<ValidationResult, TtsError>::new(
                 "golem-tts",
                 "validate_input",
@@ -150,16 +142,12 @@ mod durability_impl {
             );
 
             if durability.is_live() {
-                trace!("[LIVE] validate_input");
-
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::validate_input(input.clone(), voice)
                 });
 
                 durability.persist(NoInput, result)
             } else {
-                trace!("[REPLAY] validate_input");
-
                 durability.replay()
             }
         }

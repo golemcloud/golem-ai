@@ -11,7 +11,6 @@ use golem_tts::{
         types::{LanguageCode, TtsError},
     },
 };
-use log::trace;
 use reqwest::{Client, Method};
 use serde::{Deserialize, Serialize};
 
@@ -109,7 +108,7 @@ impl GuestPronunciationLexicon for ElPronunciationLexicon {
         let path = format!("/v1/pronunciation-dictionaries/{}/add-rules", self.id);
         let elevenlabs = Elevenlabs::new()?;
 
-        let response = elevenlabs
+        let _response = elevenlabs
             .client
             .make_request::<UpdateLexiconRuleResponse, AddRulesRequest, (), _>(
                 Method::POST,
@@ -120,7 +119,6 @@ impl GuestPronunciationLexicon for ElPronunciationLexicon {
                 from_http_error,
             )?;
         *self.rules_count.borrow_mut() += 1;
-        trace!("Add Entry response : {response:?}");
         Ok(())
     }
 
@@ -132,7 +130,7 @@ impl GuestPronunciationLexicon for ElPronunciationLexicon {
         let path = format!("/v1/pronunciation-dictionaries/{}/remove-rules", self.id);
         let elevenlabs = Elevenlabs::new()?;
 
-        let reuslt = elevenlabs
+        let _result = elevenlabs
             .client
             .make_request::<UpdateLexiconRuleResponse, RemoveRulesRequest, (), _>(
                 Method::POST,
@@ -143,7 +141,6 @@ impl GuestPronunciationLexicon for ElPronunciationLexicon {
                 from_http_error,
             )?;
         *self.rules_count.borrow_mut() -= 1;
-        trace!("Remove Entry response : {reuslt:?}");
         Ok(())
     }
 

@@ -47,6 +47,7 @@ mod durability_impl {
         #[doc = " List available voices with filtering and pagination"]
         fn list_voices(filter: Option<VoiceFilter>) -> Result<Vec<Voice>, TtsError> {
             init_logging();
+            trace!("Listing available voices");
             let durability = Durability::<Vec<Voice>, TtsError>::new(
                 "golem-tts",
                 "list_voices",
@@ -67,13 +68,13 @@ mod durability_impl {
         #[doc = " Get specific voice by ID"]
         fn get_voice(voice_id: String) -> Result<Voice, TtsError> {
             init_logging();
+            trace!("Getting voice by ID: {}", voice_id);
             let durability = Durability::<Voice, TtsError>::new(
                 "golem-tts",
                 "get_voice",
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                trace!("[LIVE] get_voice");
                 let voice = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::get_voice(voice_id.clone())
                 });
@@ -81,7 +82,6 @@ mod durability_impl {
 
                 voice
             } else {
-                trace!("[REPLAY] get_voice");
                 durability.replay()
             }
         }
@@ -89,6 +89,7 @@ mod durability_impl {
         #[doc = " Get supported languages"]
         fn list_languages() -> Result<Vec<LanguageInfo>, TtsError> {
             init_logging();
+            trace!("Listing supported languages");
             let durability = Durability::<Vec<LanguageInfo>, TtsError>::new(
                 "golem-tts",
                 "list_languages",

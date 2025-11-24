@@ -8,7 +8,6 @@ use golem_tts::golem::tts::advanced::{
 };
 use golem_tts::golem::tts::types::{LanguageCode, TtsError};
 use http::Request;
-use log::trace;
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Method,
@@ -153,7 +152,6 @@ impl AwsLongFormOperation {
                 Ok(response.synthesis_task)
             }
             Err(err) => {
-                trace!("Error: {err}");
                 Err(TtsError::InternalError(format!("{err}")))
             }
         }
@@ -188,8 +186,7 @@ impl GuestLongFormOperation for AwsLongFormOperation {
     fn get_status(&self) -> Result<OperationStatus, TtsError> {
         match self.get_task() {
             Ok(task) => Ok(Self::map_task_status(&task.task_status)),
-            Err(err) => {
-                trace!("Error: {err}");
+            Err(_err) => {
                 Ok(OperationStatus::Failed)
             }
         }
@@ -205,8 +202,7 @@ impl GuestLongFormOperation for AwsLongFormOperation {
                 "failed" => 100.0,
                 _ => 0.0,
             }),
-            Err(err) => {
-                trace!("Error: {err}");
+            Err(_err) => {
                 Ok(100.0)
             }
         }

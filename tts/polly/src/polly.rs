@@ -11,7 +11,6 @@ use golem_tts::{
     },
 };
 use http::Request;
-use log::trace;
 use reqwest::header::{HeaderName, HeaderValue};
 use reqwest::{header::HeaderMap, Method};
 use serde_json;
@@ -250,7 +249,6 @@ impl TtsClient for Polly {
     }
 
     fn list_voices(&self, filter: Option<VoiceFilter>) -> Result<Vec<Voice>, TtsError> {
-        trace!("Listing available voices.");
         let params = ListVoiceParam {
             engine: filter.as_ref().and_then(|f| f.quality.clone()),
             include_additional_language_codes: Some(true),
