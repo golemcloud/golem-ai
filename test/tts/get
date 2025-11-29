@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Find the latest test-audio-files directory in /tmp and copy all files to the destination
+
+provider="$1"
+
+if [ -z "$provider" ]; then
+  echo "Usage: $0 <provider>"
+  exit 1
+fi
+
+
+# Destination directory
+DEST_DIR="/workspace/golem-ai/test/tts/test-audio-files/${provider}"
+
+# Create destination directory if it doesn't exist
+mkdir -p "$DEST_DIR"
+
+# Find the latest test-audio-files directory
+latest=$(find /tmp -type d -name "test-audio-files" -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+
+# Check if a directory was found and copy files
+if [ -n "$latest" ]; then
+    echo "Found latest directory: $latest"
+    cp -v "$latest"/* "$DEST_DIR/"
+    echo "Files copied to $DEST_DIR"
+else
+    echo "No test-audio-files directory found in /tmp"
+    exit 1
+fi
+
