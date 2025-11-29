@@ -347,6 +347,142 @@ jobs:
 
           echo "All graph integration tests completed successfully!"
 
+  vector-integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-vector-integration
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: davidB/rust-cargo-make@v1
+      - uses: cargo-bins/cargo-binstall@main
+      - name: Install tools
+        run: |
+          set -e
+          cargo binstall --force cargo-component@0.21.1
+          cargo binstall wac-cli --locked --force --no-confirm
+      - name: Start vector-providers in Docker
+        run: |
+          set -e
+          echo "Setting up vector database providers..."
+
+          # Milvus
+          echo "Starting Milvus..."
+          cd /home/runner
+          mkdir milvus-setup && cd milvus-setup
+          curl -sfL https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh -o standalone_embed.sh
+          sleep 30
+          bash standalone_embed.sh start
+          cd $GITHUB_WORKSPACE
+          echo "Milvus is ready"
+
+          # PGVECTOR
+          echo "Starting PGVECTOR..."
+          docker pull pgvector/pgvector:0.8.1-pg18-trixie
+          sleep 30
+          docker run -d \
+            --name pgvector-db \
+            -p 3000:5432 \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=mysecretpassword \
+            -e POSTGRES_DB=mydatabase \
+            pgvector/pgvector:0.8.1-pg18-trixie
+
+          echo "Waiting for pgvector to be ready..."
+
+          until docker exec pgvector-db pg_isready -U postgres -d mydatabase -q; do
+            echo "Waiting for pgvector database to be ready..."
+            sleep 2
+          done
+
+          echo "Database is ready. Creating extension..."
+          docker exec pgvector-db psql -U postgres -d mydatabase -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          echo "PGVECTOR is ready"
+
+          # Qdrant
+          echo "Starting Qdrant..."
+          docker pull qdrant/qdrant
+
+          docker run -d --name qdrant-db -p 6333:6333 -p 6334:6334 qdrant/qdrant
+
+          echo "Waiting for Qdrant to be ready..."
+          sleep 10
+          echo "Qdrant is ready"
+
+          echo "All Vector database providers are ready!"
+      - name: Install and Run latest Golem Server
+        run: |
+          set -e
+          echo "Installing Golem server"
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.3.0-rc9/golem-x86_64-unknown-linux-gnu -o ./golem
+          sudo chmod +x ./golem
+          sudo mv ./golem /usr/local/bin/golem
+          golem --version
+          golem profile switch local
+          nohup golem server run >golem-server.log 2>&1 &
+          echo "Golem server started."
+      - name: Build and test vector integration
+        run: |
+          set -eo pipefail
+          cargo make --cwd vector release-build-milvus
+          cargo make --cwd vector release-build-pgvector
+          cargo make --cwd vector release-build-qdrant
+          cd test/vector
+
+          echo "Testing milvus integration..."
+          golem app deploy -b milvus-release test:vector test:helper
+          golem agent new -e MILVUS_DATABASE=default test:vector/milvus-1
+          golem agent invoke test:vector/milvus-1 test1 | grep -v "ERROR: "
+          golem agent invoke test:vector/milvus-1 test2 | grep -v "ERROR: "
+          golem agent invoke test:vector/milvus-1 test3 | grep -v "ERROR: "
+          golem agent invoke test:vector/milvus-1 test4 | grep -v "ERROR: "
+          golem agent invoke test:vector/milvus-1 test5 | grep -v "ERROR: "
+          golem agent invoke test:vector/milvus-1 test6 | grep -v "ERROR: "
+          golem agent invoke test:vector/milvus-1 test7 | grep -v "ERROR: "
+          echo "Milvus tests completed successfully"
+          golem app clean -b milvus-release
+
+          echo "Testing pgvector integration..."
+          golem app deploy -b pgvector-release test:vector test:helper
+          sleep 10
+          golem agent new -e PGVECTOR_CONNECTION_STRING=postgresql://postgres:mysecretpassword@localhost:3000/mydatabase test:vector/pgvector-1
+          golem agent invoke test:vector/pgvector-1 test1 | grep -v "ERROR: "
+          golem agent invoke test:vector/pgvector-1 test2 | grep -v "ERROR: "
+          golem agent invoke test:vector/pgvector-1 test3 | grep -v "ERROR: "
+          golem agent invoke test:vector/pgvector-1 test4 | grep -v "ERROR: "
+          golem agent invoke test:vector/pgvector-1 test5 | grep -v "ERROR: "
+          golem agent invoke test:vector/pgvector-1 test6 | grep -v "ERROR: "
+          golem agent invoke test:vector/pgvector-1 test7 | grep -v "ERROR: "
+          echo "pgvector tests completed successfully"
+          golem app clean -b pgvector-release
+
+          echo "Testing qdrant integration..."
+          golem app deploy -b qdrant-release test:vector test:helper
+          sleep 10
+          golem agent new test:vector/qdrant-1
+          golem agent invoke test:vector/qdrant-1 test1 | grep -v "ERROR: "
+          golem agent invoke test:vector/qdrant-1 test2 | grep -v "ERROR: "
+          golem agent invoke test:vector/qdrant-1 test3 | grep -v "ERROR: "
+          golem agent invoke test:vector/qdrant-1 test4 | grep -v "ERROR: "
+          golem agent invoke test:vector/qdrant-1 test5 | grep -v "ERROR: "
+          golem agent invoke test:vector/qdrant-1 test6 | grep -v "ERROR: "
+          golem agent invoke test:vector/qdrant-1 test7 | grep -v "ERROR: "
+          echo "Qdrant tests completed successfully"
+          golem app clean -b qdrant-release
+
+          echo "All vector integration tests completed successfully!"
+
   publish-all:
     needs:
       - tests
@@ -354,6 +490,7 @@ jobs:
       - ollama-integration-tests
       - graph-integration-tests
       - golem-exec-tests
+      - vector-integration-tests
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -1,0 +1,194 @@
+# Schema for IDEA:
+# $schema: https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
+# Schema for vscode-yaml
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
+
+# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
+
+components:
+  test:vector:
+    profiles:
+      # DEBUG PROFILES
+      milvus-debug:
+        build:
+          - command: cargo component build --no-default-features --features milvus
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_vector_milvus.wasm ../../target/wasm32-wasip1/debug/test_vector.wasm -o ../../target/wasm32-wasip1/debug/test_milvus_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_vector_milvus.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_milvus_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_milvus_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_milvus_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      pinecone-debug:
+        build:
+          - command: cargo component build --no-default-features --features pinecone
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_vector_pinecone.wasm ../../target/wasm32-wasip1/debug/test_vector.wasm -o ../../target/wasm32-wasip1/debug/test_pinecone_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_vector_pinecone.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_pinecone_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_pinecone_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_pinecone_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      pgvector-debug:
+        build:
+          - command: cargo component build --no-default-features --features pgvector
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_vector_pgvector.wasm ../../target/wasm32-wasip1/debug/test_vector.wasm -o ../../target/wasm32-wasip1/debug/test_pgvector_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_vector_pgvector.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_pgvector_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_pgvector_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_pgvector_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      qdrant-debug:
+        build:
+          - command: cargo component build --no-default-features --features qdrant
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_vector_qdrant.wasm ../../target/wasm32-wasip1/debug/test_vector.wasm -o ../../target/wasm32-wasip1/debug/test_qdrant_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_vector.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_vector_qdrant.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_qdrant_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_qdrant_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_qdrant_debug.wasm
+        clean:
+          - src/bindings.rs
+     
+      # RELEASE PROFILES
+      milvus-release:
+        build:
+          - command: cargo component build --release --no-default-features --features milvus
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_vector_milvus.wasm ../../target/wasm32-wasip1/release/test_vector.wasm -o ../../target/wasm32-wasip1/release/test_milvus_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_vector_milvus.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_milvus_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_milvus_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_milvus_release.wasm
+        clean:
+          - src/bindings.rs
+
+      pinecone-release:
+        build:
+          - command: cargo component build --release --no-default-features --features pinecone
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_vector_pinecone.wasm ../../target/wasm32-wasip1/release/test_vector.wasm -o ../../target/wasm32-wasip1/release/test_pinecone_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_vector_pinecone.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_pinecone_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_pinecone_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_pinecone_release.wasm
+        clean:
+          - src/bindings.rs
+
+      pgvector-release:
+        build:
+          - command: cargo component build --release --no-default-features --features pgvector
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_vector_pgvector.wasm ../../target/wasm32-wasip1/release/test_vector.wasm -o ../../target/wasm32-wasip1/release/test_pgvector_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_vector_pgvector.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_pgvector_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_pgvector_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_pgvector_release.wasm
+        clean:
+          - src/bindings.rs
+
+      qdrant-release:
+        build:
+          - command: cargo component build --release --no-default-features --features qdrant
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_vector_qdrant.wasm ../../target/wasm32-wasip1/release/test_vector.wasm -o ../../target/wasm32-wasip1/release/test_qdrant_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_vector.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_vector_qdrant.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_qdrant_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_qdrant_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_qdrant_release.wasm
+        clean:
+          - src/bindings.rs
+
+    defaultProfile: milvus-debug
+
+dependencies:
+  test:vector:
+    - target: test:helper
+      type: wasm-rpc

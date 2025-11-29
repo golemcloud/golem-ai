@@ -1,0 +1,194 @@
+[config]
+default_to_workspace = false
+skip_core_tasks = true
+
+[tasks.build]
+run_task = { name = [
+    "build-milvus",
+    "build-pgvector",
+    "build-pinecone",
+    "build-qdrant"
+] }
+
+[tasks.build-portable]
+run_task = { name = [
+    "build-milvus-portable",
+    "build-pgvector-portable",
+    "build-pinecone-portable",
+    "build-qdrant-portable"
+] }
+
+[tasks.release-build]
+run_task = { name = [
+    "release-build-milvus",
+    "release-build-pinecone",
+    "release-build-pgvector",
+    "release-build-qdrant"
+] }
+
+[tasks.release-build-portable]
+run_task = { name = [
+    "release-build-milvus-portable",
+    "release-build-pgvector-portable",
+    "release-build-pinecone-portable",
+    "release-build-qdrant-portable"
+] }
+
+[tasks.build-milvus]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-milvus"]
+
+[tasks.build-milvus-portable]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-milvus", "--no-default-features"]
+
+
+[tasks.build-pgvector]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pgvector"]
+
+[tasks.build-pgvector-portable]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pgvector", "--no-default-features"]
+
+
+[tasks.build-pinecone]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pinecone"]
+
+[tasks.build-pinecone-portable]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pinecone", "--no-default-features"]
+
+[tasks.build-qdrant]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-qdrant"]
+
+[tasks.build-qdrant-portable]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-qdrant", "--no-default-features"]
+
+
+[tasks.release-build-milvus]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-milvus", "--release"]
+
+[tasks.release-build-milvus-portable]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-milvus", "--release", "--no-default-features"]
+
+
+[tasks.release-build-pgvector]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pgvector", "--release"]
+
+[tasks.release-build-pgvector-portable]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = [
+    "build",
+    "-p",
+    "golem-vector-pgvector",
+    "--release",
+    "--no-default-features",
+]
+
+
+[tasks.release-build-pinecone]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pinecone", "--release"]
+
+[tasks.release-build-pinecone-portable]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-pinecone", "--release", "--no-default-features"]
+
+[tasks.release-build-qdrant]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-qdrant", "--release"]
+
+[tasks.release-build-qdrant-portable]
+install_crate = { crate_name = "cargo-component", version = "0.21.1" }
+command = "cargo-component"
+args = ["build", "-p", "golem-vector-qdrant", "--release", "--no-default-features"]
+
+[tasks.wit-update]
+install_crate = { crate_name = "wit-deps-cli" }
+command = "wit-deps"
+args = ["update"]
+
+[tasks.wit]
+dependencies = ["wit-update"]
+
+script_runner = "@duckscript"
+script = """
+modules = array vector milvus pgvector pinecone qdrant
+
+for module in ${modules}
+    rm -r ${module}/wit/deps
+    mkdir ${module}/wit/deps/golem-vector
+    cp wit/golem-vector.wit ${module}/wit/deps/golem-vector/golem-vector.wit
+    cp wit/deps/wasi:io ${module}/wit/deps
+
+    echo "Copied WIT for module vector::${module}"
+end
+
+# Copy WIT files for integration tests for vector
+rm -r ../test/vector/wit
+mkdir ../test/vector/wit/deps/golem-vector
+mkdir ../test/vector/wit/deps/io
+cp wit/golem-vector.wit ../test/vector/wit/deps/golem-vector/golem-vector.wit
+cp wit/deps/wasi:io/error.wit ../test/vector/wit/deps/io/error.wit
+cp wit/deps/wasi:io/poll.wit ../test/vector/wit/deps/io/poll.wit
+cp wit/deps/wasi:io/streams.wit ../test/vector/wit/deps/io/streams.wit
+cp wit/deps/wasi:io/world.wit ../test/vector/wit/deps/io/world.wit
+
+echo "Copied WIT for module test/vector"
+"""
+
+[tasks.build-test-components]
+dependencies = ["build"]
+description = "Builds vector test components with golem-cli"
+script = '''
+cd ../test/vector
+
+golem-cli --version
+golem-cli --dev-mode app clean
+golem-cli --dev-mode app build -b milvus-debug
+golem-cli --dev-mode app clean
+golem-cli --dev-mode app build -b pgvector-debug
+golem-cli --dev-mode app clean
+golem-cli --dev-mode app build -b pinecone-debug
+golem-cli --dev-mode app clean
+golem-cli --dev-mode app build -b qdrant-debug
+'''
+
+[tasks.release-build-test-components]
+dependencies = ["release-build"]
+description = "Builds vector test components with golem-cli"
+script = '''
+cd ../test/vector
+
+golem-cli --version
+golem-cli --dev-mode app clean
+golem-cli --dev-mode app build -b milvus-release
+golem-cli --dev-mode app clean
+golem-cli --dev-mode app build -b pgvector-release
+golem-cli --dev-mode app clean
+golem-cli --dev-mode app build -b pinecone-release
+golem-cli --dev-mode app clean
+golem-cli --dev-mode app build -b qdrant-release
+'''

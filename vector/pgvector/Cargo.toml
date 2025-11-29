@@ -1,0 +1,50 @@
+[package]
+name = "golem-vector-pgvector"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-llm"
+description = "WebAssembly component for working with pgvector APIs, with special support for Golem Cloud"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[features]
+default = ["durability"]
+durability = ["golem-rust/durability", "golem-vector/durability"]
+
+[dependencies]
+golem-vector = { workspace = true }
+
+golem-rust = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+base64 = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+
+[package.metadata.component]
+package = "golem:vector-pgvector"
+
+[package.metadata.component.bindings]
+generate_unused_types = true
+
+[package.metadata.component.bindings.with]
+"golem:vector/types@1.0.0" = "golem_vector::golem::vector::types"
+"golem:vector/collections@1.0.0" = "golem_vector::golem::vector::collections"
+"golem:vector/namespaces@1.0.0" = "golem_vector::golem::vector::namespaces"
+"golem:vector/analytics@1.0.0" = "golem_vector::golem::vector::analytics"
+"golem:vector/connection@1.0.0" = "golem_vector::golem::vector::connection"
+"golem:vector/vectors@1.0.0" = "golem_vector::golem::vector::vectors"
+"golem:vector/search@1.0.0" = "golem_vector::golem::vector::search"
+"golem:vector/search-extended@1.0.0" = "golem_vector::golem::vector::search_extended"
+
+[package.metadata.component.target]
+path = "wit"
+
+[package.metadata.component.target.dependencies]
+"golem:vector" = { path = "wit/deps/golem-vector" }
+"wasi:io" = { path = "wit/deps/wasi:io"} 
