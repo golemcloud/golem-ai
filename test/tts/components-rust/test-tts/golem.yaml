@@ -1,0 +1,195 @@
+# Schema for IDEA:
+# $schema: https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
+# Schema for vscode-yaml
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
+
+# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
+
+components:
+  test:tts:
+    profiles:
+      # DEBUG PROFILES
+      elevenlabs-debug:
+        build:
+          - command: cargo component build --no-default-features --features elevenlabs
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_tts.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_tts_elevenlabs.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_elevenlabs_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_tts.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_tts_elevenlabs.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_elevenlabs_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_elevenlabs_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_elevenlabs_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      deepgram-debug:
+        build:
+          - command: cargo component build --no-default-features --features deepgram
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_tts.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_tts_deepgram.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_deepgram_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_tts.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_tts_deepgram.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_deepgram_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_deepgram_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_deepgram_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      google-debug:
+        build:
+          - command: cargo component build --no-default-features --features google
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_tts.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_tts_google.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_google_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_tts.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_tts_google.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_google_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_google_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_google_debug.wasm
+        clean:
+          - src/bindings.rs
+
+      aws-debug:
+        build:
+          - command: cargo component build --no-default-features --features aws
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_tts.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_tts_aws.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_aws_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/debug/test_tts.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_tts_aws.wasm
+            targets:
+              - ../../target/wasm32-wasip1/debug/test_aws_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/debug/test_aws_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_aws_debug.wasm
+        clean:
+          - src/bindings.rs
+        
+
+      # RELEASE PROFILES
+      elevenlabs-release:
+        build:
+          - command: cargo component build --release --no-default-features --features elevenlabs
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_tts.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_tts_elevenlabs.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_elevenlabs_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_tts.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_tts_elevenlabs.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_elevenlabs_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_elevenlabs_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_elevenlabs_release.wasm
+        clean:
+          - src/bindings.rs
+
+      deepgram-release:
+        build:
+          - command: cargo component build --release --no-default-features --features deepgram
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_tts.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_tts_deepgram.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_deepgram_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_tts.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_tts_deepgram.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_deepgram_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_deepgram_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_deepgram_release.wasm
+        clean:
+          - src/bindings.rs
+
+      google-release:
+        build:
+          - command: cargo component build --release --no-default-features --features google
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_tts.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_tts_google.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_google_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_tts.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_tts_google.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_google_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_google_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_google_release.wasm
+        clean:
+          - src/bindings.rs
+
+      aws-release:
+        build:
+          - command: cargo component build --release --no-default-features --features aws
+            sources:
+              - src
+              - wit-generated
+              - ../../common-rust
+            targets:
+              - ../../target/wasm32-wasip1/release/test_tts.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_tts_aws.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_aws_plugged.wasm
+            sources:
+              - ../../target/wasm32-wasip1/release/test_tts.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_tts_aws.wasm
+            targets:
+              - ../../target/wasm32-wasip1/release/test_aws_plugged.wasm
+        sourceWit: wit
+        generatedWit: wit-generated
+        componentWasm: ../../target/wasm32-wasip1/release/test_aws_plugged.wasm
+        linkedWasm: ../../golem-temp/components/test_aws_release.wasm
+        clean:
+          - src/bindings.rs
+
+    defaultProfile: elevenlabs-debug
+
+dependencies:
+  test:tts:
+    - target: test:helper
+      type: wasm-rpc

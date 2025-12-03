@@ -1,0 +1,5 @@
+package golem:tts-elevenlabs@1.0.0;
+
+world tts-library {
+  include golem:tts/tts-library@1.0.0;
+}
