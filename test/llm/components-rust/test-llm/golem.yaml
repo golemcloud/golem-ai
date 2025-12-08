@@ -7,9 +7,10 @@
 
 components:
   test:llm:
-    profiles:
+    presets:
       # DEBUG PROFILES
       openai-debug:
+        default: true
         files:
           - sourcePath: ../../data/cat.png
             targetPath: /data/cat.png
@@ -321,8 +322,6 @@ components:
         linkedWasm: ../../golem-temp/components/test_ollama_release.wasm
         clean:
           - src/bindings.rs
-
-    defaultProfile: openai-debug
 
 dependencies:
   test:llm:

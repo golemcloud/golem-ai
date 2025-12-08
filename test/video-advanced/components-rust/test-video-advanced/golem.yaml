@@ -8,9 +8,10 @@
 
 components:
   test:video-advanced:
-    profiles:
+    presets:
       # DEBUG PROFILES
       kling-debug:
+        default: true
         files:
           - sourcePath: ../../data/first.png
             targetPath: /data/first.png
@@ -91,7 +92,6 @@ components:
         linkedWasm: ../../golem-temp/components/test_video_kling_release.wasm
         clean:
           - src/bindings.rs
-    defaultProfile: kling-debug
 
 dependencies:
   test:video-advanced:

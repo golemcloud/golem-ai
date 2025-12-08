@@ -7,8 +7,9 @@
 
 templates:
   rust:
-    profiles:
+    presets:
       debug:
+        default: true
         build:
         - command: cargo component build
           sources:
@@ -38,7 +39,6 @@ templates:
         linkedWasm: ../../golem-temp/components/{{ component_name | to_snake_case }}_release.wasm
         clean:
         - src/bindings.rs
-    defaultProfile: debug
 customCommands:
   cargo-clean:
   - command: cargo clean

@@ -1,9 +1,9 @@
 components:
   test:websearch:
-    defaultProfile: google-debug 
-    profiles:
+    presets:
       # DEBUG PROFILES
       google-debug:
+        default: true
         build:
           - command: cargo component build --no-default-features --features google
             sources:

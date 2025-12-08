@@ -8,8 +8,9 @@
 
 components:
   test:exec-js:
-    profiles:
+    presets:
       debug:
+        default: true
         build:
           - command: cargo component build --no-default-features
             sources:
@@ -52,8 +53,6 @@ components:
         linkedWasm: ../../golem-temp/components/test_exec_js_release.wasm
         clean:
           - src/bindings.rs
-
-    defaultProfile: debug
 
 dependencies:
   test:exec-js:

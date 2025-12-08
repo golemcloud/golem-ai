@@ -8,7 +8,7 @@
 
 components:
   test:exec-py:
-    template: rust
+    templates: rust
 
 dependencies:
   test:exec-py:
