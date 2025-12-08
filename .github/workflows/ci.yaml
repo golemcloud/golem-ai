@@ -85,8 +85,14 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-component
         run: cargo binstall --force cargo-component@0.21.1
-      - name: Install golem-cli
-        run: cargo install golem-cli --git https://github.com/golemcloud/golem --tag v1.4.0-dev.7 --force --locked
+      - name: Install Golem CLI
+        run: |
+          set -e
+          echo "Installing Golem CLI"
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.0-dev.7/golem-cli-x86_64-unknown-linux-gnu -o ./golem-cli
+          sudo chmod +x ./golem-cli
+          sudo mv ./golem-cli /usr/local/bin/golem-cli
+          echo "Installed Golem CLI"
       - name: Install wac-cli
         run: cargo binstall --force wac-cli --locked --no-confirm
       - name: Build all test components
