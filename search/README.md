@@ -81,8 +81,8 @@ Then build and deploy the _test application_. The following profiles are availab
 
 ```bash
 cd ../test/search
-golem app build -b algolia-debug
-golem app deploy -b algolia-debug
+golem app build --preset algolia-debug
+golem app deploy --preset algolia-debug
 ```
 
 Depending on the provider selected, environment variables have to be set for the worker to be started, containing the ENVIRONMENT variables (eg. connection details) for the given provider:

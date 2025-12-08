@@ -225,17 +225,17 @@ cd ../test/llm
 
 golem-cli --version
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b anthropic-debug
+golem-cli --dev-mode app build --preset anthropic-debug
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b grok-debug
+golem-cli --dev-mode app build --preset grok-debug
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b openai-debug
+golem-cli --dev-mode app build --preset openai-debug
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b openrouter-debug
+golem-cli --dev-mode app build --preset openrouter-debug
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b ollama-debug
+golem-cli --dev-mode app build --preset ollama-debug
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b bedrock-debug
+golem-cli --dev-mode app build --preset bedrock-debug
 '''
 
 [tasks.release-build-test-components]
@@ -246,15 +246,15 @@ cd ../test/llm
 
 golem-cli --version
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b anthropic-release
+golem-cli --dev-mode app build --preset anthropic-release
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b grok-release
+golem-cli --dev-mode app build --preset grok-release
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b openai-release
+golem-cli --dev-mode app build --preset openai-release
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b openrouter-release
+golem-cli --dev-mode app build --preset openrouter-release
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b ollama-release
+golem-cli --dev-mode app build --preset ollama-release
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b bedrock-release
+golem-cli --dev-mode app build --preset bedrock-release
 '''

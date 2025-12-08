@@ -74,8 +74,8 @@ Then build and deploy the _test application_. The following profiles are availab
 
 ```bash
 cd ../test/websearch
-golem app build -b brave-debug
-golem app deploy -b brave-debug
+golem app build --preset brave-debug
+golem app deploy --preset brave-debug
 ```
 
 Depending on the provider selected, an environment variable has to be set for the worker to be started, containing the ENVIRONMENT variable (eg.API key) for the given provider:

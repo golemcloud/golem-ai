@@ -16,7 +16,7 @@ witDeps:
 environments:
   local:
     server: local
-    componentPresets: debug
+    componentPresets: algolia-debug
   cloud:
     server: cloud
-    componentPresets: release
+    componentPresets: algolia-release

@@ -92,5 +92,5 @@ Then build and deploy the _test application_. The following profiles are availab
 
 ```bash
 cd ../test/stt
-golem app build -b whisper-debug
-golem app deploy -b whisper-debug
+golem app build --preset whisper-debug
+golem app deploy --preset whisper-debug

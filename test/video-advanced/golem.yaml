@@ -17,7 +17,7 @@ witDeps:
 environments:
   local:
     server: local
-    componentPresets: debug
+    componentPresets: kling-debug
   cloud:
     server: cloud
-    componentPresets: release
+    componentPresets: kling-release
