@@ -54,10 +54,9 @@ components:
         clean:
           - src/bindings.rs
 
-dependencies:
-  test:exec-js:
-# NOTE: cannot use wasm dependency here yet because of a bug in golem-cli 1.2.5
-#    - type: wasm
-#      path: ../../target/debug/golem_exec_javascript.wasm
-    - type: wasm-rpc
-      target: test:helper
+    dependencies:
+        # NOTE: cannot use wasm dependency here yet because of a bug in golem-cli 1.2.5
+        #    - type: wasm
+        #      path: ../../target/debug/golem_exec_javascript.wasm
+        - type: wasm-rpc
+          target: test:helper

@@ -231,7 +231,6 @@ components:
         clean:
           - src/bindings.rs
 
-dependencies:
-  test:search:
-    - target: test:helper
-      type: wasm-rpc
+    dependencies:
+      - target: test:helper
+        type: wasm-rpc

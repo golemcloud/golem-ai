@@ -143,7 +143,6 @@ components:
         clean:
           - src/bindings.rs
 
-dependencies:
-  test:graph:
-    - target: test:helper
-      type: wasm-rpc
+    dependencies:
+      - target: test:helper
+        type: wasm-rpc
