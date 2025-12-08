@@ -148,13 +148,13 @@ cd ../test/embed
 
 golem-cli --version
 golem-cli app clean
-golem-cli app build -b openai-debug
+golem-cli appbuild --preset openai-debug
 golem-cli app clean
-golem-cli app build -b cohere-debug
+golem-cli appbuild --preset cohere-debug
 golem-cli app clean
-golem-cli app build -b hugging-face-debug
+golem-cli appbuild --preset hugging-face-debug
 golem-cli app clean
-golem-cli app build -b voyageai-debug
+golem-cli appbuild --preset voyageai-debug
 '''
 
 

@@ -155,5 +155,5 @@ cd ../test/exec
 
 golem-cli --version
 golem-cli --dev-mode app clean
-golem-cli --dev-mode app -b release build
+golem-cli --dev-mode app --preset release build
 '''

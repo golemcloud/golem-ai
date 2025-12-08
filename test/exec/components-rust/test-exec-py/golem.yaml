@@ -8,9 +8,8 @@
 
 components:
   test:exec-py:
-    template: rust
+    templates: rust
 
-dependencies:
-  test:exec-py:
-    - type: wasm
-      path: ../../target/release/golem_exec.wasm
+    dependencies:
+      - type: wasm
+        path: ../../target/release/golem_exec.wasm

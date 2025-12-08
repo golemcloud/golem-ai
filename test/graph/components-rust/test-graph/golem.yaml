@@ -7,9 +7,10 @@
 
 components:
   test:graph:
-    profiles:
+    presets:
       # DEBUG PROFILES
       neo4j-debug:
+        default: true
         build:
           - command: cargo component build --no-default-features --features neo4j
             sources:
@@ -142,9 +143,6 @@ components:
         clean:
           - src/bindings.rs
 
-    defaultProfile: neo4j-debug
-
-dependencies:
-  test:graph:
-    - target: test:helper
-      type: wasm-rpc
+    dependencies:
+      - target: test:helper
+        type: wasm-rpc

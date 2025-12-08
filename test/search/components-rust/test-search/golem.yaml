@@ -7,9 +7,10 @@
 
 components:
   test:search:
-    profiles:
+    presets:
       # DEBUG PROFILES
       algolia-debug:
+        default: true
         build:
           - command: cargo component build --no-default-features --features algolia
             sources:
@@ -230,9 +231,6 @@ components:
         clean:
           - src/bindings.rs
 
-    defaultProfile: algolia-debug
-
-dependencies:
-  test:search:
-    - target: test:helper
-      type: wasm-rpc
+    dependencies:
+      - target: test:helper
+        type: wasm-rpc

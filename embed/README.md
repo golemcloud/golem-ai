@@ -150,8 +150,8 @@ Then build and deploy the _test application_. Select one of the following profil
 
 ```bash
 cd test
-golem app build -b openai-debug
-golem app deploy -b openai-debug
+golem app build --preset openai-debug
+golem app deploy --preset openai-debug
 ```
 
 Depending on the provider selected, an environment variable has to be set for the worker to be started, containing the API key for the given provider:

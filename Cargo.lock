@@ -125,17 +125,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-trait"
-version = "0.1.89"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9035ad2d096bed7955a320ee7e2230574d28fd3c3a0f186cbea1ff3c7eed5dbb"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "atomic"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1826,11 +1815,10 @@ dependencies = [
 
 [[package]]
 name = "golem-rust"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad98dc0099640c6dd204a4b8328c088d9f2330c0af76fe87025ef9b4e7ddc516"
+checksum = "56f92d147b8ec9adfb3760077968c132999e05d7b7ae9a9332c1eefb2afb9bb0"
 dependencies = [
- "async-trait",
  "golem-rust-macro",
  "golem-wasm",
  "serde",
@@ -1843,11 +1831,12 @@ dependencies = [
 
 [[package]]
 name = "golem-rust-macro"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "301a4fa6c1df3cee3d05559aa9360dfb278efd8f43abb9f276b2b68b592247dd"
+checksum = "3d3dfef3eac799c589a3abdbc73465740d3a7432ad0e2bab273dd7e734651aac"
 dependencies = [
  "heck 0.5.0",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn",

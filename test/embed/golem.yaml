@@ -5,8 +5,18 @@
 
 # See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
 
+app: golem-ai-embed-test-app
+
 includes:
   - common-*/golem.yaml
   - components-*/*/golem.yaml
 witDeps:
   - wit/deps
+
+environments:
+  local:
+    server: local
+    componentPresets: openai-debug
+  cloud:
+    server: cloud
+    componentPresets: openai-release

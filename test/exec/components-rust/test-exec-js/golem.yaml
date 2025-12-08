@@ -8,8 +8,9 @@
 
 components:
   test:exec-js:
-    profiles:
+    presets:
       debug:
+        default: true
         build:
           - command: cargo component build --no-default-features
             sources:
@@ -53,12 +54,9 @@ components:
         clean:
           - src/bindings.rs
 
-    defaultProfile: debug
-
-dependencies:
-  test:exec-js:
-# NOTE: cannot use wasm dependency here yet because of a bug in golem-cli 1.2.5
-#    - type: wasm
-#      path: ../../target/debug/golem_exec_javascript.wasm
-    - type: wasm-rpc
-      target: test:helper
+    dependencies:
+        # NOTE: cannot use wasm dependency here yet because of a bug in golem-cli 1.2.5
+        #    - type: wasm
+        #      path: ../../target/debug/golem_exec_javascript.wasm
+        - type: wasm-rpc
+          target: test:helper

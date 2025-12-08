@@ -8,7 +8,7 @@
 
 components:
   test:stt:
-    profiles:
+    presets:
       # DEBUG PROFILES
       aws-debug:
         files:
@@ -119,6 +119,7 @@ components:
         clean:
           - src/bindings.rs
       whisper-debug:
+        default: true
         files:
           - sourcePath: samples/jfk.mp3
             targetPath: /samples/jfk.mp3
@@ -282,8 +283,6 @@ components:
         linkedWasm: ../../golem-temp/components/test_whisper_stt_debug.wasm
         clean:
           - src/bindings.rs
-
-    defaultProfile: whisper-debug
 # Example for adding dependencies for Worker to Worker communication:
 # See https://learn.golem.cloud/docs/app-manifest#fields_dependencies for more information
 #

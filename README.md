@@ -155,8 +155,8 @@ Using example of `openai-debug` profile from LLM test, and respective environmen
 
 ```bash
 cd test/llm
-golem app build -b openai-debug
-golem app deploy -b openai-debug
+golem app build --preset openai-debug
+golem app deploy --preset openai-debug
 ```
 
 Depending on the provider selected, an environment variable has to be set for the worker to be started, containing the ENVIRONMENT variable (eg.API key) for the given provider:
@@ -182,17 +182,17 @@ For detailed information about available profiles and environment variables for 
 This repository uses [cargo-make](https://github.com/sagiegurari/cargo-make) to automate build tasks.
 Some of the important tasks are:
 
-| Command                             | Description                                                                                                    |
-|-------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| `cargo make build`                  | Build all components with Golem bindings in Debug                                                              |
-| `cargo make release-build`          | Build all components with Golem bindings in Release                                                            |
-| `cargo make build-portable`         | Build all components with no Golem bindings in Debug                                                           |
-| `cargo make release-build-portable` | Build all components with no Golem bindings in Release                                                         |
-| `cargo make unit-tests`             | Run all unit tests                                                                                             |
-| `cargo make check`                  | Checks formatting and Clippy rules                                                                             |
-| `cargo make fix`                    | Fixes formatting and Clippy rules                                                                              |
-| `cargo make wit`                    | Used after editing the `<module>/wit/golem-<module>.wit` file - distributes the changes to all wit directories |
-| `cargo make build-test-components`  | Builds all test apps in `/test`, with all provider build-options using `golem-cli app build -b <provider>`     |
+| Command                             | Description                                                                                                      |
+|-------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| `cargo make build`                  | Build all components with Golem bindings in Debug                                                                |
+| `cargo make release-build`          | Build all components with Golem bindings in Release                                                              |
+| `cargo make build-portable`         | Build all components with no Golem bindings in Debug                                                             |
+| `cargo make release-build-portable` | Build all components with no Golem bindings in Release                                                           |
+| `cargo make unit-tests`             | Run all unit tests                                                                                               |
+| `cargo make check`                  | Checks formatting and Clippy rules                                                                               |
+| `cargo make fix`                    | Fixes formatting and Clippy rules                                                                                |
+| `cargo make wit`                    | Used after editing the `<module>/wit/golem-<module>.wit` file - distributes the changes to all wit directories   |
+| `cargo make build-test-components`  | Builds all test apps in `/test`, with all provider build-options using `golem-cli app build --preset <provider>` |
 
 **Note**: `cargo make` command build, release-build, build-portable, release-build-portable, wit, build-test-components, can be used with 
 `cargo make <command> <module>` to target only the selected module. (e.g. `cargo make build llm`, `cargo make wit video`)
