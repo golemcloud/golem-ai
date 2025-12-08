@@ -86,7 +86,7 @@ jobs:
       - name: Install cargo-component
         run: cargo binstall --force cargo-component@0.21.1
       - name: Install golem-cli
-        run: cargo binstall --force golem-cli@1.4.0-dev.7  --locked --no-confirm
+        run: cargo install golem-cli --git https://github.com/golemcloud/golem --tag v1.4.0-dev.7 --force --locked
       - name: Install wac-cli
         run: cargo binstall --force wac-cli --locked --no-confirm
       - name: Build all test components
