@@ -213,7 +213,7 @@ jobs:
           set -eo pipefail
           cargo make --cwd llm build-ollama
           cd test/llm
-          golem app deploy --preset ollama-debug test:llm test:helper
+          golem app deploy --preset ollama-debug
           golem agent new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 test:llm/ollama-1
           golem agent invoke test:llm/ollama-1 test1 | grep -v "ERROR: "
           golem agent invoke test:llm/ollama-1 test2 | grep -v "ERROR: "
@@ -312,7 +312,7 @@ jobs:
           cd test/graph
 
           echo "Testing ArangoDB integration..."
-          golem app deploy --preset arangodb-release test:graph test:helper
+          golem app deploy --preset arangodb-release
           golem agent new -e ARANGODB_HOST=localhost -e ARANGODB_USER="" -e ARANGODB_PASSWORD="" -e ARANGODB_PORT="8529" -e ARANGODB_DATABASE="test" test:graph/arangodb-1
           golem agent invoke test:graph/arangodb-1 test1 | grep -v "ERROR: "
           golem agent invoke test:graph/arangodb-1 test2 | grep -v "ERROR: "
@@ -325,7 +325,7 @@ jobs:
           golem app clean -b arangodb-release
 
           echo "Testing JanusGraph integration..."
-          golem app deploy --preset janusgraph-release test:graph test:helper
+          golem app deploy --preset janusgraph-release
           sleep 10
           golem agent new -e JANUSGRAPH_HOST=localhost -e JANUSGRAPH_USER="" -e JANUSGRAPH_PASSWORD="" -e JANUSGRAPH_PORT="8182" test:graph/janusgraph-1
           golem agent invoke test:graph/janusgraph-1 test1 | grep -v "ERROR: "
@@ -339,7 +339,7 @@ jobs:
           golem app clean -b janusgraph-release
 
           echo "Testing Neo4j integration..."
-          golem app deploy --preset neo4j-release test:graph test:helper
+          golem app deploy --preset neo4j-release
           sleep 10
           golem agent new -e NEO4J_HOST=localhost -e NEO4J_USER=neo4j -e NEO4J_PASSWORD=password -e NEO4J_PORT="7474" -e NEO4J_DATABASE=neo4j test:graph/neo4j-1
           golem agent invoke test:graph/neo4j-1 test1 | grep -v "ERROR: "
