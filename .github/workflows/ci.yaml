@@ -322,7 +322,7 @@ jobs:
           golem agent invoke test:graph/arangodb-1 test6 | grep -v "ERROR: "
           golem agent invoke test:graph/arangodb-1 test7 | grep -v "ERROR: "
           echo "ArangoDB tests completed successfully"
-          golem clean -b arangodb-release
+          golem clean -P arangodb-release
 
           echo "Testing JanusGraph integration..."
           golem deploy --preset janusgraph-release --yes
@@ -336,7 +336,7 @@ jobs:
           golem agent invoke test:graph/janusgraph-1 test6 | grep -v "ERROR: "
           golem agent invoke test:graph/janusgraph-1 test7 | grep -v "ERROR: "
           echo "JanusGraph tests completed successfully"
-          golem clean -b janusgraph-release
+          golem clean -P janusgraph-release
 
           echo "Testing Neo4j integration..."
           golem deploy --preset neo4j-release --yes
@@ -350,7 +350,7 @@ jobs:
           golem agent invoke test:graph/neo4j-1 test6 | grep -v "ERROR: "
           golem agent invoke test:graph/neo4j-1 test7 | grep -v "ERROR: "
           echo "Neo4j tests completed successfully"
-          golem clean -b neo4j-release
+          golem clean -P neo4j-release
 
           echo "All graph integration tests completed successfully!"
 
