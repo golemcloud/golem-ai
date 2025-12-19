@@ -194,12 +194,12 @@ script = '''
 cd ../test/stt
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset aws-debug
-golem-cli --dev-mode app build --preset azure-debug
-golem-cli --dev-mode app build --preset deepgram-debug
-golem-cli --dev-mode app build --preset google-debug
-golem-cli --dev-mode app build --preset whisper-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset aws-debug
+golem-cli --dev-mode build --preset azure-debug
+golem-cli --dev-mode build --preset deepgram-debug
+golem-cli --dev-mode build --preset google-debug
+golem-cli --dev-mode build --preset whisper-debug
 '''
 
 [tasks.release-build-test-components]
@@ -209,10 +209,10 @@ script = '''
 cd ../test/stt
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset aws-release
-golem-cli --dev-mode app build --preset azure-release
-golem-cli --dev-mode app build --preset deepgram-release
-golem-cli --dev-mode app build --preset google-release
-golem-cli --dev-mode app build --preset whisper-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset aws-release
+golem-cli --dev-mode build --preset azure-release
+golem-cli --dev-mode build --preset deepgram-release
+golem-cli --dev-mode build --preset google-release
+golem-cli --dev-mode build --preset whisper-release
 '''

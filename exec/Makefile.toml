@@ -143,8 +143,8 @@ script = '''
 cd ../test/exec
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build
+golem-cli --dev-mode clean
+golem-cli --dev-mode build
 '''
 
 [tasks.release-build-test-components]
@@ -154,6 +154,6 @@ script = '''
 cd ../test/exec
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app --preset release build
+golem-cli --dev-mode clean
+golem-cli --dev-mode --preset release build
 '''

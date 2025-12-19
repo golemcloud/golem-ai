@@ -85,7 +85,7 @@ Example app manifest build section:
 ```yaml
 components:
   my:example:
-    profiles:
+    presets:
       debug:
         build:
           - command: cargo component build

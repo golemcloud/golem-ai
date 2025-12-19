@@ -153,14 +153,14 @@ script = '''
 cd ../test/websearch
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset brave-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset google-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset serper-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset tavily-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset brave-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset google-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset serper-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset tavily-debug
 '''
 
 [tasks.release-build-test-components]
@@ -170,12 +170,12 @@ script = '''
 cd ../test/websearch
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset brave-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset google-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset serper-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset tavily-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset brave-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset google-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset serper-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset tavily-release
 '''

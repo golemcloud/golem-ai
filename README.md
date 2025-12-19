@@ -95,7 +95,7 @@ Example app manifest build section (using OpenAI LLM as example):
 ```yaml
 components:
   my:example:
-    profiles:
+    presets:
       debug:
         build:
           - command: cargo component build

@@ -142,12 +142,12 @@ script = '''
 cd ../test/graph
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset arangodb-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset janusgraph-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset neo4j-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset arangodb-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset janusgraph-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset neo4j-debug
 '''
 
 [tasks.release-build-test-components]
@@ -157,10 +157,10 @@ script = '''
 cd ../test/graph
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset arangodb-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset janusgraph-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build --preset neo4j-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset arangodb-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset janusgraph-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset neo4j-release
 '''
