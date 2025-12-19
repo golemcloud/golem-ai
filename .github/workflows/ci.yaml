@@ -89,7 +89,7 @@ jobs:
         run: |
           set -e
           echo "Installing Golem CLI"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.0-rc3/golem-cli-x86_64-unknown-linux-gnu -o ./golem-cli
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.0-rc7/golem-cli-x86_64-unknown-linux-gnu -o ./golem-cli
           sudo chmod +x ./golem-cli
           sudo mv ./golem-cli /usr/local/bin/golem-cli
           echo "Installed Golem CLI"
@@ -126,7 +126,7 @@ jobs:
         run: |
           set -e
           echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.0-rc3/golem-x86_64-unknown-linux-gnu -o ./golem
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.0-rc7/golem-x86_64-unknown-linux-gnu -o ./golem
           sudo chmod +x ./golem
           sudo mv ./golem /usr/local/bin/golem
           golem --version
@@ -139,7 +139,7 @@ jobs:
           cargo make --cwd exec release-build
           cd test/exec
           golem profile config local set-format json
-          golem app -P release deploy
+          golem -P release deploy
           golem agent invoke test:exec-js/test-1 test01 | jq -e '(.result_wave[0]=="true")'
           golem agent invoke test:exec-js/test-2 test02 | jq -e '(.result_wave[0]=="true")'
           golem agent invoke test:exec-js/test-3 test03 | jq -e '(.result_wave[0]=="true")'
@@ -201,7 +201,7 @@ jobs:
         run: |
           set -e
           echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.0-rc3/golem-x86_64-unknown-linux-gnu -o ./golem
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.0-rc7/golem-x86_64-unknown-linux-gnu -o ./golem
           sudo chmod +x ./golem
           sudo mv ./golem /usr/local/bin/golem
           golem --version
@@ -213,7 +213,7 @@ jobs:
           set -eo pipefail
           cargo make --cwd llm build-ollama
           cd test/llm
-          golem app deploy --preset ollama-debug
+          golem deploy --preset ollama-debug
           golem agent new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 test:llm/ollama-1
           golem agent invoke test:llm/ollama-1 test1 | grep -v "ERROR: "
           golem agent invoke test:llm/ollama-1 test2 | grep -v "ERROR: "
@@ -296,7 +296,7 @@ jobs:
         run: |
           set -e
           echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.0-rc3/golem-x86_64-unknown-linux-gnu -o ./golem
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.0-rc7/golem-x86_64-unknown-linux-gnu -o ./golem
           sudo chmod +x ./golem
           sudo mv ./golem /usr/local/bin/golem
           golem --version
@@ -312,7 +312,7 @@ jobs:
           cd test/graph
 
           echo "Testing ArangoDB integration..."
-          golem app deploy --preset arangodb-release
+          golem deploy --preset arangodb-release
           golem agent new -e ARANGODB_HOST=localhost -e ARANGODB_USER="" -e ARANGODB_PASSWORD="" -e ARANGODB_PORT="8529" -e ARANGODB_DATABASE="test" test:graph/arangodb-1
           golem agent invoke test:graph/arangodb-1 test1 | grep -v "ERROR: "
           golem agent invoke test:graph/arangodb-1 test2 | grep -v "ERROR: "
@@ -322,10 +322,10 @@ jobs:
           golem agent invoke test:graph/arangodb-1 test6 | grep -v "ERROR: "
           golem agent invoke test:graph/arangodb-1 test7 | grep -v "ERROR: "
           echo "ArangoDB tests completed successfully"
-          golem app clean -b arangodb-release
+          golem clean -b arangodb-release
 
           echo "Testing JanusGraph integration..."
-          golem app deploy --preset janusgraph-release
+          golem deploy --preset janusgraph-release
           sleep 10
           golem agent new -e JANUSGRAPH_HOST=localhost -e JANUSGRAPH_USER="" -e JANUSGRAPH_PASSWORD="" -e JANUSGRAPH_PORT="8182" test:graph/janusgraph-1
           golem agent invoke test:graph/janusgraph-1 test1 | grep -v "ERROR: "
@@ -336,10 +336,10 @@ jobs:
           golem agent invoke test:graph/janusgraph-1 test6 | grep -v "ERROR: "
           golem agent invoke test:graph/janusgraph-1 test7 | grep -v "ERROR: "
           echo "JanusGraph tests completed successfully"
-          golem app clean -b janusgraph-release
+          golem clean -b janusgraph-release
 
           echo "Testing Neo4j integration..."
-          golem app deploy --preset neo4j-release
+          golem deploy --preset neo4j-release
           sleep 10
           golem agent new -e NEO4J_HOST=localhost -e NEO4J_USER=neo4j -e NEO4J_PASSWORD=password -e NEO4J_PORT="7474" -e NEO4J_DATABASE=neo4j test:graph/neo4j-1
           golem agent invoke test:graph/neo4j-1 test1 | grep -v "ERROR: "
@@ -350,7 +350,7 @@ jobs:
           golem agent invoke test:graph/neo4j-1 test6 | grep -v "ERROR: "
           golem agent invoke test:graph/neo4j-1 test7 | grep -v "ERROR: "
           echo "Neo4j tests completed successfully"
-          golem app clean -b neo4j-release
+          golem clean -b neo4j-release
 
           echo "All graph integration tests completed successfully!"
 
