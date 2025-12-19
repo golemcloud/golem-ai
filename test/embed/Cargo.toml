@@ -7,7 +7,7 @@ opt-level = "s"
 lto = true
 
 [workspace.dependencies]
-golem-rust = { version = "1.10.2", features = [
+golem-rust = { version = "1.10.3", features = [
     "export_load_snapshot",
     "export_save_snapshot",
     "export_oplog_processor",
