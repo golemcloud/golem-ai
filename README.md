@@ -155,8 +155,8 @@ Using example of `openai-debug` profile from LLM test, and respective environmen
 
 ```bash
 cd test/llm
-golem app build --preset openai-debug
-golem app deploy --preset openai-debug
+golem build --preset openai-debug
+golem deploy --preset openai-debug
 ```
 
 Depending on the provider selected, an environment variable has to be set for the worker to be started, containing the ENVIRONMENT variable (eg.API key) for the given provider:
