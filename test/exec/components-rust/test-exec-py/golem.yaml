@@ -16,6 +16,7 @@ components:
         - type: wasm
           path: ../../target/debug/golem_exec.wasm
       release:
+        dependenciesMergeMode: replace # TODO: atomic: remove this once it is fixed in the next RC / final release
         dependencies:
         - type: wasm
           path: ../../target/release/golem_exec.wasm
