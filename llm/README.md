@@ -87,7 +87,7 @@ Then build and deploy the _test application_. The following profiles are availab
 
 ```bash
 cd ../test/llm
-golem appbuild --presetopenai-debug
+golem build --preset openai-debug
 golem deploy --preset openai-debug
 ```
 
