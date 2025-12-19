@@ -1,6 +1,6 @@
 use crate::event_source::{Event, EventSource, MessageEvent};
 use crate::golem::llm::llm::{Error, ErrorCode, GuestChatStream, StreamEvent};
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use std::cell::{Ref, RefMut};
 use std::task::Poll;
 

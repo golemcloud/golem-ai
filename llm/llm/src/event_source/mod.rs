@@ -11,7 +11,7 @@ mod utf8_stream;
 
 use crate::event_source::error::Error;
 use crate::event_source::event_stream::EventStream;
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use golem_wasi_http::header::HeaderValue;
 use golem_wasi_http::{Response, StatusCode};
 pub use message_event::MessageEvent;

@@ -4,7 +4,7 @@ use crate::conversions::{
     meilisearch_response_to_search_results, meilisearch_settings_to_schema,
     schema_to_meilisearch_settings, search_query_to_meilisearch_request,
 };
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use golem_search::config::with_config_keys;
 use golem_search::durability::{DurableSearch, ExtendedGuest};
 use golem_search::golem::search::core::{

@@ -8,8 +8,8 @@
 componentTemplates:
   rust:
     presets:
-      default: true
       debug:
+        default: true
         build:
         - command: cargo component build
           sources:

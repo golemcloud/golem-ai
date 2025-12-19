@@ -1,6 +1,6 @@
 use crate::client::{CollectionField, CollectionSchema, TypesenseSearchApi};
 use crate::conversions::*;
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use golem_search::config::with_config_keys;
 use golem_search::durability::{DurableSearch, ExtendedGuest};
 use golem_search::golem::search::core::{

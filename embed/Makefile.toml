@@ -139,11 +139,8 @@ end
 
 [tasks.build-test-components]
 dependencies = ["build"]
-install_crate = "cargo-binstall"
 description = "Builds embed test components with golem-cli"
 script = '''
-cargo-binstall golem-cli@1.2.2-dev.11 --locked --no-confirm
-cargo-binstall wac-cli --locked --no-confirm
 cd ../test/embed
 
 golem-cli --version

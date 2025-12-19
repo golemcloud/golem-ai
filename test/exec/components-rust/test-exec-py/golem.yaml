@@ -10,6 +10,12 @@ components:
   test:exec-py:
     templates: rust
 
-    dependencies:
-      - type: wasm
-        path: ../../target/release/golem_exec.wasm
+    presets:
+      debug:
+        dependencies:
+        - type: wasm
+          path: ../../target/debug/golem_exec.wasm
+      release:
+        dependencies:
+        - type: wasm
+          path: ../../target/release/golem_exec.wasm
