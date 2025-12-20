@@ -1,7 +1,7 @@
 use golem_vector::config::{get_max_retries_config, get_timeout_config};
 use golem_vector::golem::vector::types::VectorError;
-use log::trace;
 use golem_wasi_http::{Client, Method, RequestBuilder, Response};
+use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
