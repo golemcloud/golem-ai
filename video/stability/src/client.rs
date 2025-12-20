@@ -1,7 +1,7 @@
 use golem_video::error::{from_reqwest_error, video_error_from_status};
 use golem_video::exports::golem::video_generation::types::VideoError;
+use golem_wasi_http::{Client, Method, Response};
 use log::trace;
-use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
 
 const BASE_URL: &str = "https://api.stability.ai";
@@ -72,13 +72,13 @@ pub struct StabilityApi {
 
 impl StabilityApi {
     pub fn new(api_key: String) -> Self {
-        let mut headers = reqwest::header::HeaderMap::new();
+        let mut headers = golem_wasi_http::header::HeaderMap::new();
         headers.insert(
             "accept",
             ACCEPT_HEADER_VIDEO.parse().expect("Invalid header value"),
         );
 
-        let mut headers_image = reqwest::header::HeaderMap::new();
+        let mut headers_image = golem_wasi_http::header::HeaderMap::new();
         headers_image.insert(
             "accept",
             ACCEPT_HEADER_IMAGE.parse().expect("Invalid header value"),
@@ -149,7 +149,7 @@ impl StabilityApi {
 
         let status = response.status();
 
-        if status == reqwest::StatusCode::ACCEPTED {
+        if status == golem_wasi_http::StatusCode::ACCEPTED {
             // 202 - Still processing
             Ok(PollResponse::Processing)
         } else if status.is_success() {

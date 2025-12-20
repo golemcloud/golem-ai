@@ -1,9 +1,9 @@
 use golem_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
 use golem_llm::event_source::EventSource;
 use golem_llm::golem::llm::llm::{Error, ErrorCode};
+use golem_wasi_http::header::HeaderValue;
+use golem_wasi_http::{Client, Method, Response};
 use log::trace;
-use reqwest::header::HeaderValue;
-use reqwest::{Client, Method, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -57,7 +57,7 @@ impl ResponsesApi {
             .request(Method::POST, format!("{BASE_URL}/v1/responses"))
             .bearer_auth(&self.openai_api_key)
             .header(
-                reqwest::header::ACCEPT,
+                golem_wasi_http::header::ACCEPT,
                 HeaderValue::from_static("text/event-stream"),
             )
             .json(&request)

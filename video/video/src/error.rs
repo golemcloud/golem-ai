@@ -1,5 +1,5 @@
 use crate::exports::golem::video_generation::types::VideoError;
-use reqwest::StatusCode;
+use golem_wasi_http::StatusCode;
 
 /// Creates a `VideoError` value representing invalid input
 pub fn invalid_input(details: impl AsRef<str>) -> VideoError {
@@ -32,7 +32,7 @@ pub fn internal_error(details: impl AsRef<str>) -> VideoError {
 }
 
 /// Creates a `VideoError` from a reqwest error
-pub fn from_reqwest_error(details: impl AsRef<str>, err: reqwest::Error) -> VideoError {
+pub fn from_reqwest_error(details: impl AsRef<str>, err: golem_wasi_http::Error) -> VideoError {
     VideoError::InternalError(format!("{}: {err}", details.as_ref()))
 }
 

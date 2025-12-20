@@ -17,8 +17,8 @@ durability = ["golem-rust/durability"]
 
 [dependencies]
 golem-rust = { workspace = true }
+golem-wasi-http = { workspace = true }
 log = { workspace = true }
-reqwest = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 wasi-logger = "0.1.2"

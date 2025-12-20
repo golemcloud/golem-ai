@@ -8,9 +8,10 @@
 
 components:
   test:video:
-    profiles:
+    presets:
       # DEBUG PROFILES
       stability-debug:
+        default: true
         files:
           - sourcePath: ../../data/old.png
             targetPath: /data/old.png
@@ -211,10 +212,7 @@ components:
         linkedWasm: ../../golem-temp/components/test_video_veo_release.wasm
         clean:
           - src/bindings.rs
-    defaultProfile: stability-debug
 
-
-dependencies:
-  test:video:
-  - target: test:helper
-    type: wasm-rpc
+    dependencies:
+      - target: test:helper
+        type: wasm-rpc

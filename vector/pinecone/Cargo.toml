@@ -16,17 +16,17 @@ default = ["durability"]
 durability = ["golem-rust/durability", "golem-vector/durability"]
 
 [dependencies]
-golem-vector = { workspace = true }
-
 golem-rust = { workspace = true }
+golem-vector = { workspace = true }
+golem-wasi-http = { workspace = true }
+
+base64 = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-wit-bindgen-rt = { workspace = true }
-base64 = { workspace = true }
-reqwest = { workspace = true }
-chrono = { version = "0.4", features = ["serde"] }
 urlencoding = "2.1"
+wit-bindgen-rt = { workspace = true }
 
 [package.metadata.component]
 package = "golem:vector-pinecone"

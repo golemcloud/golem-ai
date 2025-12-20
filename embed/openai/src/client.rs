@@ -7,8 +7,8 @@ use golem_embed::{
 use log::trace;
 
 #[allow(dead_code, unused, unused_imports)]
-use reqwest::Client;
-use reqwest::{Method, Response};
+use golem_wasi_http::Client;
+use golem_wasi_http::{Method, Response};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 const BASE_URL: &str = "https://api.openai.com";
@@ -18,7 +18,7 @@ const BASE_URL: &str = "https://api.openai.com";
 /// Based on https://platform.openai.com/docs/api-reference/embeddings/create
 pub struct EmbeddingsApi {
     openai_api_key: String,
-    client: reqwest::Client,
+    client: golem_wasi_http::Client,
 }
 
 impl EmbeddingsApi {

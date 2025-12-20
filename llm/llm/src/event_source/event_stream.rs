@@ -3,7 +3,7 @@ use crate::event_source::utf8_stream::Utf8Stream;
 use crate::event_source::MessageEvent;
 use core::time::Duration;
 use golem_rust::bindings::wasi::io::streams::{InputStream, StreamError};
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::task::Poll;
 
@@ -126,7 +126,7 @@ impl EventStreamState {
 /// A Stream of events
 pub struct EventStream {
     stream: Utf8Stream,
-    body: reqwest::IncomingBody,
+    body: golem_wasi_http::IncomingBody,
     buffer: String,
     builder: EventBuilder,
     state: EventStreamState,
@@ -135,7 +135,7 @@ pub struct EventStream {
 
 impl LlmStream for EventStream {
     /// Initialize the EventStream with a Stream
-    fn new(stream: InputStream, body: reqwest::IncomingBody) -> Self {
+    fn new(stream: InputStream, body: golem_wasi_http::IncomingBody) -> Self {
         Self {
             stream: Utf8Stream::new(stream),
             body,

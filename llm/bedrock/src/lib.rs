@@ -103,7 +103,7 @@ impl ExtendedGuest for BedrockComponent {
         extended_events
     }
 
-    fn subscribe(_stream: &Self::ChatStream) -> golem_rust::wasm_rpc::Pollable {
+    fn subscribe(_stream: &Self::ChatStream) -> golem_rust::golem_wasm::Pollable {
         // this function will never get called in bedrock implementation because of `golem-llm/nopoll` feature flag
         monotonic_clock::subscribe_duration(0)
     }

@@ -1,6 +1,6 @@
 use crate::golem::search::core::Guest;
 use crate::golem::search::types::{IndexName, SearchHit, SearchQuery};
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use std::marker::PhantomData;
 
 pub struct DurableSearch<Impl> {
@@ -121,7 +121,7 @@ mod durable_impl {
         DurableFunctionType, LazyInitializedPollable,
     };
     use golem_rust::durability::Durability;
-    use golem_rust::wasm_rpc::Pollable;
+    use golem_rust::golem_wasm::Pollable;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};

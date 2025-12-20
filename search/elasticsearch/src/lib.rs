@@ -5,7 +5,7 @@ use crate::conversions::{
     elasticsearch_response_to_search_results, schema_to_elasticsearch_settings,
     search_query_to_elasticsearch_query,
 };
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use golem_search::config::with_config_keys;
 use golem_search::durability::{DurableSearch, ExtendedGuest};
 use golem_search::golem::search::core::{

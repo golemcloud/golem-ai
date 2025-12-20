@@ -1,8 +1,8 @@
+use golem_wasi_http::Method;
+use golem_wasi_http::Response;
 use golem_web_search::error::from_reqwest_error;
 use golem_web_search::golem::web_search::web_search::SearchError;
 use log::trace;
-use reqwest::Method;
-use reqwest::Response;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -11,13 +11,13 @@ const BASE_URL: &str = "https://api.tavily.com/search";
 
 /// The Tavily Search API client for web search with deep document indexing.
 pub struct TavilySearchApi {
-    client: reqwest::Client,
+    client: golem_wasi_http::Client,
     pub api_key: String,
 }
 
 impl TavilySearchApi {
     pub fn new(api_key: String) -> Self {
-        let client = reqwest::Client::new();
+        let client = golem_wasi_http::Client::new();
         Self { client, api_key }
     }
 

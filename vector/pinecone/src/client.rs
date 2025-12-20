@@ -1,7 +1,7 @@
 use golem_vector::config::{get_max_retries_config, get_timeout_config};
 use golem_vector::golem::vector::types::VectorError;
+use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
-use reqwest::{Client, Method, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -64,7 +64,7 @@ impl PineconeClient {
         }
     }
 
-    fn should_retry_error(&self, error: &reqwest::Error) -> bool {
+    fn should_retry_error(&self, error: &golem_wasi_http::Error) -> bool {
         error.is_timeout() || error.is_request()
     }
 
@@ -79,7 +79,7 @@ impl PineconeClient {
 
     fn execute_with_retry_sync<F>(&self, operation: F) -> Result<Response, VectorError>
     where
-        F: Fn() -> Result<Response, reqwest::Error> + Send + Sync,
+        F: Fn() -> Result<Response, golem_wasi_http::Error> + Send + Sync,
     {
         let max_retries = get_max_retries_config();
         let mut last_error = None;

@@ -14,7 +14,7 @@ required-features = []
 
 indoc = "2.0.6"
 golem-rust = { workspace = true }
-reqwest = { workspace = true }
+golem-wasi-http = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 wit-bindgen-rt = { workspace = true }
@@ -31,9 +31,9 @@ path = "wit-generated"
 "wasi:clocks" = { path = "wit-generated/deps/wasi_clocks" }
 "golem:durability" = { path = "wit-generated/deps/golem_durability" }
 "golem:exec" = { path = "wit-generated/deps/golem-exec" }
-"wasi:filesystem" = { path = "wit-generated/deps/wasi_filesystem" }
-"wasi:cli" = { path = "wit-generated/deps/wasi_cli" }
 "wasi:random" = { path = "wit-generated/deps/wasi_random" }
+"wasi:cli" = { path = "wit-generated/deps/wasi_cli" }
+"wasi:filesystem" = { path = "wit-generated/deps/wasi_filesystem" }
 "root:component" = { path = "wit-generated/deps/root_component" }
 "test:exec-py-exports" = { path = "wit-generated/deps/test_exec-py-exports" }
 

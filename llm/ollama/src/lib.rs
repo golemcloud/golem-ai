@@ -12,7 +12,7 @@ use golem_llm::{
         ResponseMetadata, Role, StreamDelta, StreamEvent, ToolCall, Usage,
     },
 };
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use log::trace;
 
 mod client;

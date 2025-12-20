@@ -9,8 +9,8 @@ use golem_embed::{
         VectorData,
     },
 };
+use golem_wasi_http::{Client, Url};
 use log::trace;
-use reqwest::{Client, Url};
 
 use crate::client::{
     EmbeddingRequest, EmbeddingResponse, EmbeddingType, InputType, Meta, RerankRequest,
