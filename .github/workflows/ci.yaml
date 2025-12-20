@@ -139,7 +139,8 @@ jobs:
           cargo make --cwd exec release-build
           cd test/exec
           golem profile config local set-format json
-          golem -P release deploy --yes
+          export GOLEM_PRESET=release
+          golem deploy --yes
           golem agent invoke test:exec-js/test-1 test01 | jq -e '(.result_wave[0]=="true")'
           golem agent invoke test:exec-js/test-2 test02 | jq -e '(.result_wave[0]=="true")'
           golem agent invoke test:exec-js/test-3 test03 | jq -e '(.result_wave[0]=="true")'
