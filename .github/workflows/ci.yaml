@@ -450,7 +450,7 @@ jobs:
 
           echo "Testing milvus integration..."
           export GOLEM_PRESET=milvus-release
-          golem deploy test:vector test:helper
+          golem deploy --yes
           golem agent new -e MILVUS_DATABASE=default test:vector/milvus-1
           golem agent invoke test:vector/milvus-1 test1 | grep -v "ERROR: "
           golem agent invoke test:vector/milvus-1 test2 | grep -v "ERROR: "
@@ -464,7 +464,7 @@ jobs:
 
           echo "Testing pgvector integration..."
           export GOLEM_PRESET=pgvector-release
-          golem deploy test:vector test:helper
+          golem deploy --yes
           sleep 10
           golem agent new -e PGVECTOR_CONNECTION_STRING=postgresql://postgres:mysecretpassword@localhost:3000/mydatabase test:vector/pgvector-1
           golem agent invoke test:vector/pgvector-1 test1 | grep -v "ERROR: "
@@ -479,7 +479,7 @@ jobs:
 
           echo "Testing qdrant integration..."
           export GOLEM_PRESET=qdrant-release
-          golem deploy test:vector test:helper
+          golem deploy --yes
           sleep 10
           golem agent new test:vector/qdrant-1
           golem agent invoke test:vector/qdrant-1 test1 | grep -v "ERROR: "
