@@ -79,8 +79,8 @@ Then build and deploy the _test application_. The following profiles are availab
 
 ```bash
 cd ../test/video
-golem app build -b veo-debug
-golem app deploy -b veo-debug
+golem build --preset veo-debug
+golem deploy --preset veo-debug
 ```
 
 Depending on the provider selected, an environment variable has to be set for the worker to be started, containing the ENVIRONMENT variable (eg.API key) for the given provider:
@@ -132,8 +132,8 @@ The following profiles are available for testing:
 
 ```bash
 cd ../test/video-advanced
-golem app build -b kling-debug
-golem app deploy -b kling-debug
+golem build --preset kling-debug
+golem deploy --preset kling-debug
 ```
 
 Depending on the provider selected, an environment variable has to be set for the worker to be started, containing the ENVIRONMENT variable (eg.API key) for the given provider:

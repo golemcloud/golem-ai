@@ -4,7 +4,7 @@ use crate::conversions::{
     create_retry_query, doc_to_algolia_object, schema_to_algolia_settings,
     search_query_to_algolia_query,
 };
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use golem_search::config::with_config_keys;
 use golem_search::durability::{DurableSearch, ExtendedGuest};
 use golem_search::golem::search::core::{

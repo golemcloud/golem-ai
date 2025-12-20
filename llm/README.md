@@ -87,8 +87,8 @@ Then build and deploy the _test application_. The following profiles are availab
 
 ```bash
 cd ../test/llm
-golem app build -b openai-debug
-golem app deploy -b openai-debug
+golem build --preset openai-debug
+golem deploy --preset openai-debug --yes
 ```
 
 Depending on the provider selected, an environment variable has to be set for the worker to be started, containing the ENVIRONMENT variable (eg.API key) for the given provider:

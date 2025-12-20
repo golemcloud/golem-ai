@@ -153,21 +153,21 @@ script = '''
 cd ../test/video
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b veo-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b stability-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b kling-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b runway-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset veo-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset stability-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset kling-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset runway-debug
 
 cd ../video-advanced
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b kling-debug
-golem-cli --dev-mode app clean
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset kling-debug
+golem-cli --dev-mode clean
 '''
 
 [tasks.release-build-test-components]
@@ -177,19 +177,19 @@ script = '''
 cd ../test/video
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b veo-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b stability-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b kling-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b runway-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset veo-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset stability-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset kling-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset runway-release
 
 cd ../video-advanced
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b kling-release
-golem-cli --dev-mode app clean
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset kling-release
+golem-cli --dev-mode clean
 '''

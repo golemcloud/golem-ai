@@ -3,7 +3,7 @@ use crate::event_source::utf8_stream::Utf8Stream;
 use crate::event_source::MessageEvent;
 use core::time::Duration;
 use golem_rust::bindings::wasi::io::streams::{InputStream, StreamError};
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::task::Poll;
 

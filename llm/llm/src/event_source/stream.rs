@@ -7,7 +7,7 @@ use super::{
 };
 use golem_rust::{
     bindings::wasi::io::streams::{InputStream, StreamError as WasiStreamError},
-    wasm_rpc::Pollable,
+    golem_wasm::Pollable,
 };
 use nom::error::Error as NomError;
 

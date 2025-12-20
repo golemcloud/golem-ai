@@ -7,9 +7,10 @@
 
 components:
   test:llm:
-    profiles:
+    presets:
       # DEBUG PROFILES
       openai-debug:
+        default: true
         files:
           - sourcePath: ../../data/cat.png
             targetPath: /data/cat.png
@@ -322,9 +323,6 @@ components:
         clean:
           - src/bindings.rs
 
-    defaultProfile: openai-debug
-
-dependencies:
-  test:llm:
-    - target: test:helper
-      type: wasm-rpc
+    dependencies:
+      - target: test:helper
+        type: wasm-rpc
