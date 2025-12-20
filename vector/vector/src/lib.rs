@@ -22,7 +22,7 @@ pub use __export_vector_library_impl as export_vector;
 
 use crate::exports::golem::vector::types::{self, GuestFilterFunc, GuestMetadataFunc};
 use golem_rust::value_and_type::{FromValueAndType, IntoValue, TypeNodeBuilder};
-use golem_rust::wasm_rpc::{NodeBuilder, ResourceMode, Uri, WitValueExtractor};
+use golem_rust::golem_wasm::{NodeBuilder, ResourceMode, Uri, WitValueExtractor};
 
 use std::cell::RefCell;
 use std::str::FromStr;

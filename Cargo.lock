@@ -2016,11 +2016,11 @@ name = "golem-vector"
 version = "0.0.0"
 dependencies = [
  "golem-rust",
- "log 0.4.28",
+ "golem-wasi-http",
+ "log 0.4.29",
  "regex",
- "reqwest",
  "serde_json",
- "thiserror 2.0.16",
+ "thiserror 2.0.17",
  "wasi-logger",
  "wit-bindgen 0.40.0",
 ]
@@ -2033,11 +2033,11 @@ dependencies = [
  "chrono",
  "golem-rust",
  "golem-vector",
- "log 0.4.28",
- "reqwest",
+ "golem-wasi-http",
+ "log 0.4.29",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -2048,10 +2048,11 @@ dependencies = [
  "chrono",
  "golem-rust",
  "golem-vector",
- "log 0.4.28",
+ "golem-wasi-http",
+ "log 0.4.29",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -2062,12 +2063,12 @@ dependencies = [
  "chrono",
  "golem-rust",
  "golem-vector",
- "log 0.4.28",
- "reqwest",
+ "golem-wasi-http",
+ "log 0.4.29",
  "serde",
  "serde_json",
  "urlencoding",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]
@@ -2078,11 +2079,11 @@ dependencies = [
  "chrono",
  "golem-rust",
  "golem-vector",
- "log 0.4.28",
- "reqwest",
+ "golem-wasi-http",
+ "log 0.4.29",
  "serde",
  "serde_json",
- "wit-bindgen-rt 0.41.0",
+ "wit-bindgen-rt 0.40.0",
 ]
 
 [[package]]

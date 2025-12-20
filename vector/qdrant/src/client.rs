@@ -1,7 +1,7 @@
 use golem_vector::config::{get_max_retries_config, get_timeout_config};
 use golem_vector::golem::vector::types::VectorError;
 use log::trace;
-use reqwest::{Client, Method, RequestBuilder, Response};
+use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -42,7 +42,7 @@ impl QdrantClient {
         req.header("Content-Type", "application/json")
     }
 
-    fn should_retry_error(&self, error: &reqwest::Error) -> bool {
+    fn should_retry_error(&self, error: &golem_wasi_http::Error) -> bool {
         if let Some(status) = error.status() {
             matches!(status.as_u16(), 429 | 500 | 502 | 503 | 504)
         } else {
@@ -58,7 +58,7 @@ impl QdrantClient {
 
     fn execute_with_retry_sync<F>(&self, operation: F) -> Result<Response, VectorError>
     where
-        F: Fn() -> Result<Response, reqwest::Error> + Send + Sync,
+        F: Fn() -> Result<Response, golem_wasi_http::Error> + Send + Sync,
     {
         let max_retries = get_max_retries_config();
 
