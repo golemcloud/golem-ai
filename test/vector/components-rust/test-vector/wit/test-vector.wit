@@ -1,0 +1,25 @@
+package test:vector;
+
+// See https://component-model.bytecodealliance.org/design/wit.html for more details about the WIT syntax
+
+interface test-vector-api {
+  test1: func() -> string;
+  test2: func() -> string;
+  test3: func() -> string;
+  test4: func() -> string;
+  test5: func() -> string;
+  test6: func() -> string;
+  test7: func() -> string;
+}
+
+world test-vector {
+  import golem:vector/types@1.0.0;
+  import golem:vector/collections@1.0.0;
+  import golem:vector/search-extended@1.0.0;
+  import golem:vector/namespaces@1.0.0;
+  import golem:vector/analytics@1.0.0;
+  import golem:vector/connection@1.0.0;
+  import golem:vector/vectors@1.0.0;
+  import golem:vector/search@1.0.0;
+  export test-vector-api;
+}

@@ -2012,6 +2012,80 @@ dependencies = [
 ]
 
 [[package]]
+name = "golem-vector"
+version = "0.0.0"
+dependencies = [
+ "golem-rust",
+ "log 0.4.28",
+ "regex",
+ "reqwest",
+ "serde_json",
+ "thiserror 2.0.16",
+ "wasi-logger",
+ "wit-bindgen 0.40.0",
+]
+
+[[package]]
+name = "golem-vector-milvus"
+version = "0.0.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "golem-rust",
+ "golem-vector",
+ "log 0.4.28",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.41.0",
+]
+
+[[package]]
+name = "golem-vector-pgvector"
+version = "0.0.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "golem-rust",
+ "golem-vector",
+ "log 0.4.28",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.41.0",
+]
+
+[[package]]
+name = "golem-vector-pinecone"
+version = "0.0.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "golem-rust",
+ "golem-vector",
+ "log 0.4.28",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "urlencoding",
+ "wit-bindgen-rt 0.41.0",
+]
+
+[[package]]
+name = "golem-vector-qdrant"
+version = "0.0.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "golem-rust",
+ "golem-vector",
+ "log 0.4.28",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "wit-bindgen-rt 0.41.0",
+]
+
+[[package]]
 name = "golem-video"
 version = "0.0.0"
 dependencies = [
