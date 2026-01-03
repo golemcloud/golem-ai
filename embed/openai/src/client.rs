@@ -18,16 +18,19 @@ const BASE_URL: &str = "https://api.openai.com";
 /// Based on https://platform.openai.com/docs/api-reference/embeddings/create
 pub struct EmbeddingsApi {
     openai_api_key: String,
+    openai_base_url: String,
     client: golem_wasi_http::Client,
 }
 
 impl EmbeddingsApi {
     pub fn new(openai_api_key: String) -> Self {
+        let openai_base_url = std::env::var("OPENAI_BASE_URL").unwrap_or(BASE_URL.to_string());
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
             openai_api_key,
+            openai_base_url,
             client,
         }
     }
@@ -36,7 +39,10 @@ impl EmbeddingsApi {
         trace!("Sending request to OpenAI API: {request:?}");
         let response = self
             .client
-            .request(Method::POST, format!("{BASE_URL}/v1/embeddings"))
+            .request(
+                Method::POST,
+                format!("{}/v1/embeddings", self.openai_base_url),
+            )
             .bearer_auth(&self.openai_api_key)
             .json(&request)
             .send()
