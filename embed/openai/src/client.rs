@@ -58,7 +58,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
         .map_err(|err| from_reqwest_error("Failed to read response body", err))?;
     match serde_json::from_str::<T>(&response_text) {
         Ok(response_data) => {
-            trace!("Response from Hugging Face API: {response_data:?}");
+            trace!("Response from OpenAI API: {response_data:?}");
             Ok(response_data)
         }
         Err(error) => {
