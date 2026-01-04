@@ -11,23 +11,26 @@ use golem_wasi_http::Client;
 use golem_wasi_http::{Method, Response};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-const BASE_URL: &str = "https://api.openai.com";
+const BASE_URL: &str = "https://api.openai.com/v1";
 
 /// The OpenAI API client for creating embeddings.
 ///
 /// Based on https://platform.openai.com/docs/api-reference/embeddings/create
 pub struct EmbeddingsApi {
     openai_api_key: String,
+    openai_base_url: String,
     client: golem_wasi_http::Client,
 }
 
 impl EmbeddingsApi {
     pub fn new(openai_api_key: String) -> Self {
+        let openai_base_url = std::env::var("OPENAI_BASE_URL").unwrap_or(BASE_URL.to_string());
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
             openai_api_key,
+            openai_base_url,
             client,
         }
     }
@@ -36,7 +39,7 @@ impl EmbeddingsApi {
         trace!("Sending request to OpenAI API: {request:?}");
         let response = self
             .client
-            .request(Method::POST, format!("{BASE_URL}/v1/embeddings"))
+            .request(Method::POST, format!("{}/embeddings", self.openai_base_url))
             .bearer_auth(&self.openai_api_key)
             .json(&request)
             .send()
@@ -52,7 +55,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
         .map_err(|err| from_reqwest_error("Failed to read response body", err))?;
     match serde_json::from_str::<T>(&response_text) {
         Ok(response_data) => {
-            trace!("Response from Hugging Face API: {response_data:?}");
+            trace!("Response from OpenAI API: {response_data:?}");
             Ok(response_data)
         }
         Err(error) => {
