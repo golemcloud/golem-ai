@@ -11,7 +11,7 @@ use golem_wasi_http::Client;
 use golem_wasi_http::{Method, Response};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-const BASE_URL: &str = "https://api.openai.com";
+const BASE_URL: &str = "https://api.openai.com/v1";
 
 /// The OpenAI API client for creating embeddings.
 ///
@@ -39,10 +39,7 @@ impl EmbeddingsApi {
         trace!("Sending request to OpenAI API: {request:?}");
         let response = self
             .client
-            .request(
-                Method::POST,
-                format!("{}/v1/embeddings", self.openai_base_url),
-            )
+            .request(Method::POST, format!("{}/embeddings", self.openai_base_url))
             .bearer_auth(&self.openai_api_key)
             .json(&request)
             .send()

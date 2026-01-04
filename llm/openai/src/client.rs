@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-const BASE_URL: &str = "https://api.openai.com";
+const BASE_URL: &str = "https://api.openai.com/v1";
 
 /// The OpenAI API client for creating model responses.
 ///
@@ -40,10 +40,7 @@ impl ResponsesApi {
 
         let response: Response = self
             .client
-            .request(
-                Method::POST,
-                format!("{}/v1/responses", self.openai_base_url),
-            )
+            .request(Method::POST, format!("{}/responses", self.openai_base_url))
             .bearer_auth(&self.openai_api_key)
             .json(&request)
             .send()
@@ -60,10 +57,7 @@ impl ResponsesApi {
 
         let response: Response = self
             .client
-            .request(
-                Method::POST,
-                format!("{}/v1/responses", self.openai_base_url),
-            )
+            .request(Method::POST, format!("{}/responses", self.openai_base_url))
             .bearer_auth(&self.openai_api_key)
             .header(
                 golem_wasi_http::header::ACCEPT,
