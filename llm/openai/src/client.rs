@@ -8,23 +8,26 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-const BASE_URL: &str = "https://api.openai.com";
+const BASE_URL: &str = "https://api.openai.com/v1";
 
 /// The OpenAI API client for creating model responses.
 ///
 /// Based on https://platform.openai.com/docs/api-reference/responses/create
 pub struct ResponsesApi {
     openai_api_key: String,
+    openai_base_url: String,
     client: Client,
 }
 
 impl ResponsesApi {
     pub fn new(openai_api_key: String) -> Self {
+        let openai_base_url = std::env::var("OPENAI_BASE_URL").unwrap_or(BASE_URL.to_string());
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
             openai_api_key,
+            openai_base_url,
             client,
         }
     }
@@ -37,7 +40,7 @@ impl ResponsesApi {
 
         let response: Response = self
             .client
-            .request(Method::POST, format!("{BASE_URL}/v1/responses"))
+            .request(Method::POST, format!("{}/responses", self.openai_base_url))
             .bearer_auth(&self.openai_api_key)
             .json(&request)
             .send()
@@ -54,7 +57,7 @@ impl ResponsesApi {
 
         let response: Response = self
             .client
-            .request(Method::POST, format!("{BASE_URL}/v1/responses"))
+            .request(Method::POST, format!("{}/responses", self.openai_base_url))
             .bearer_auth(&self.openai_api_key)
             .header(
                 golem_wasi_http::header::ACCEPT,
