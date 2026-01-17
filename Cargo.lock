@@ -2278,6 +2278,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "googletest"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22e38fa267f4db1a2fa51795ea4234eaadc3617a97486a9f158de9256672260e"
+dependencies = [
+ "googletest_macro",
+ "num-traits",
+ "regex",
+ "rustversion",
+]
+
+[[package]]
+name = "googletest_macro"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "171deab504ad43a9ea80324a3686a0cbe9436220d9d0b48ae4d7f7bd303b48a9"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "groupable"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5440,6 +5462,79 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "tts-aws-polly"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "golem-rust",
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha2",
+ "wasi 0.14.1+wasi-0.2.3",
+ "wit-bindgen 0.40.0",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "tts-deepgram"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "golem-rust",
+ "serde",
+ "serde_json",
+ "wasi 0.14.1+wasi-0.2.3",
+ "wit-bindgen 0.40.0",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "tts-elevenlabs"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "golem-rust",
+ "serde",
+ "serde_json",
+ "wasi 0.14.1+wasi-0.2.3",
+ "wit-bindgen 0.40.0",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "tts-google"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "golem-rust",
+ "serde",
+ "serde_json",
+ "wasi 0.14.1+wasi-0.2.3",
+ "wit-bindgen 0.40.0",
+ "wit-bindgen-rt 0.40.0",
+]
+
+[[package]]
+name = "tts-tests"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "chrono",
+ "golem-rust",
+ "googletest",
+ "hex",
+ "serde",
+ "serde_json",
+ "tts-aws-polly",
+ "tts-deepgram",
+ "tts-elevenlabs",
+ "tts-google",
+]
 
 [[package]]
 name = "twoway"

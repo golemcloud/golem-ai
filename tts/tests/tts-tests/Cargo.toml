@@ -1,0 +1,18 @@
+[package]
+name = "tts-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.22"
+tts-aws-polly = { path = "../tts-aws-polly" }
+chrono = { version = "0.4", default-features = false, features = ["alloc"] }
+hex = "0.4"
+golem-rust = "1.11"
+
+[dev-dependencies]
+googletest = "0.12"

@@ -1,0 +1,27 @@
+[package]
+name = "tts-aws-polly"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+golem-rust = { workspace = true }
+wit-bindgen = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+wasi = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+base64 = { workspace = true }
+sha2 = { workspace = true }
+hmac = { workspace = true }
+chrono = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[package.metadata.component]
+package = "golem:tts-aws-polly"
+target = { path = "../wit", world = "tts-provider" }
+
+[profile.release]
+opt-level = "s"
+lto = true
