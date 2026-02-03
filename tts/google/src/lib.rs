@@ -459,11 +459,15 @@ impl GoogleSynthesisRequest {
             .and_then(|opts| opts.audio_config.as_ref())
             .map(|cfg| cfg.format)
             .unwrap_or(AudioFormat::Mp3);
+        let language_code = options
+            .as_ref()
+            .and_then(|opts| opts.language.clone())
+            .unwrap_or_else(|| "en-US".to_string());
         Ok(Self {
             input: GoogleInput { text: input.content },
             voice: GoogleVoiceConfig {
                 name: voice_id,
-                language_code: "en-US".to_string(),
+                language_code,
             },
             audio_config: GoogleAudioConfig {
                 audio_encoding: match audio_format {
