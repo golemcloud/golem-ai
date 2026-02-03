@@ -40,6 +40,8 @@ impl Guest for Component {
                 similarity: None,
                 style: None,
             }),
+            // `audio_effects` is currently unsupported by the TTS providers and
+            // is reserved for future use; it is explicitly set to `None` here.
             audio_effects: None,
             enable_timing: None,
             enable_word_timing: None,
