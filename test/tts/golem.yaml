@@ -1,0 +1,50 @@
+componentName: test-tts
+language: rust
+componentWasm: ../../target/wasm32-wasip1/debug/test_tts.wasm
+generatedWit: wit-generated
+sourceWit: wit
+build:
+  - command: cargo component build
+    sources:
+      - src
+      - wit-generated
+      - ../../common-rust
+    targets:
+      - ../../target/wasm32-wasip1/debug/test_tts.wasm
+presets:
+  elevenlabs-debug:
+    build:
+      - command: wac plug --plug ../../target/wasm32-wasip1/debug/golem_tts_elevenlabs.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_tts_elevenlabs_plugged.wasm
+        sources:
+          - ../../target/wasm32-wasip1/debug/test_tts.wasm
+          - ../../target/wasm32-wasip1/debug/golem_tts_elevenlabs.wasm
+        targets:
+          - ../../target/wasm32-wasip1/debug/test_tts_elevenlabs_plugged.wasm
+    componentWasm: ../../target/wasm32-wasip1/debug/test_tts_elevenlabs_plugged.wasm
+  polly-debug:
+    build:
+      - command: wac plug --plug ../../target/wasm32-wasip1/debug/golem_tts_polly.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_tts_polly_plugged.wasm
+        sources:
+          - ../../target/wasm32-wasip1/debug/test_tts.wasm
+          - ../../target/wasm32-wasip1/debug/golem_tts_polly.wasm
+        targets:
+          - ../../target/wasm32-wasip1/debug/test_tts_polly_plugged.wasm
+    componentWasm: ../../target/wasm32-wasip1/debug/test_tts_polly_plugged.wasm
+  google-debug:
+    build:
+      - command: wac plug --plug ../../target/wasm32-wasip1/debug/golem_tts_google.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_tts_google_plugged.wasm
+        sources:
+          - ../../target/wasm32-wasip1/debug/test_tts.wasm
+          - ../../target/wasm32-wasip1/debug/golem_tts_google.wasm
+        targets:
+          - ../../target/wasm32-wasip1/debug/test_tts_google_plugged.wasm
+    componentWasm: ../../target/wasm32-wasip1/debug/test_tts_google_plugged.wasm
+  deepgram-debug:
+    build:
+      - command: wac plug --plug ../../target/wasm32-wasip1/debug/golem_tts_deepgram.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_tts_deepgram_plugged.wasm
+        sources:
+          - ../../target/wasm32-wasip1/debug/test_tts.wasm
+          - ../../target/wasm32-wasip1/debug/golem_tts_deepgram.wasm
+        targets:
+          - ../../target/wasm32-wasip1/debug/test_tts_deepgram_plugged.wasm
+    componentWasm: ../../target/wasm32-wasip1/debug/test_tts_deepgram_plugged.wasm

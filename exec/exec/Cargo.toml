@@ -28,7 +28,7 @@ indoc = "2.0.6"
 log = { workspace = true }
 rquickjs = { version = "0.9.0", default-features = false, features = ["futures", "bindgen", "loader", "macro"], optional = true }
 rustpython = { git = "https://github.com/RustPython/RustPython", rev = "6ead82154e06a4490c0a87b966db5528eee13070", default-features = false, features = ["stdlib", "stdio", "importlib", "freeze-stdlib"], optional = true }
-wasi = { workspace = true }
+wasi = "0.14.1"
 wasi-logger = "0.1.2"
 wit-bindgen = { version = "0.40.0" }
 wit-bindgen-rt = { workspace = true }

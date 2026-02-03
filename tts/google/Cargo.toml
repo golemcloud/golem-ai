@@ -1,0 +1,59 @@
+[package]
+name = "golem-tts-google"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://golem.cloud"
+repository = "https://github.com/golemcloud/golem-llm"
+description = "WebAssembly component for working with Google Cloud Text-to-Speech API, with special support for Golem Cloud"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[features]
+default = ["durability"]
+durability = ["golem-rust/durability", "golem-tts/durability"]
+
+[dependencies]
+golem-tts = { workspace = true }
+golem-rust = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+base64 = { workspace = true }
+wstd = { workspace = true }
+derive_more = { version = "2.0.1", features = ["from"] }
+http = "=1.3.1"
+url = "2.5.4"
+once_cell = "1.21.3"
+chrono = "0.4.41"
+urlencoding = "2.1.3"
+bytes = "1.10.1"
+rsa = "0.9.8"
+sha2 = { version = "0.10.9", features = ["oid"] }
+rand = "0.8"
+async-lock = "3.4.0"
+
+[dev-dependencies]
+base64 = { workspace = true }
+
+[package.metadata.component]
+package = "golem:tts-google"
+
+[package.metadata.component.bindings]
+generate_unused_types = true
+
+[package.metadata.component.bindings.with]
+"golem:tts/types@1.0.0" = "golem_tts::golem::tts::types"
+"golem:tts/voices@1.0.0" = "golem_tts::golem::tts::voices"
+"golem:tts/synthesis@1.0.0" = "golem_tts::golem::tts::synthesis"
+"golem:tts/streaming@1.0.0" = "golem_tts::golem::tts::streaming"
+"golem:tts/advanced@1.0.0" = "golem_tts::golem::tts::advanced"
+
+[package.metadata.component.target]
+path = "wit"
+
+[package.metadata.component.target.dependencies]
+"golem:tts" = { path = "wit/deps/golem-tts" }

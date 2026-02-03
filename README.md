@@ -4,7 +4,7 @@ WebAssembly Components providing API for modules LLM, WebSearch, Video and Searc
 
 ## Modules
 
-This repository contains four modules, each with multiple provider implementations:
+This repository contains multiple modules, each with provider implementations:
 
 ### LLM Module
 Provides a unified API for various Large Language Model providers:
@@ -37,6 +37,13 @@ Provides a unified API for various Video Generation providers:
 - **Kling** - Kling video generation and lip-sync
 - **Runway** - Runway ML video generation
 
+### TTS Module
+Provides a unified API for various Text-to-Speech providers:
+- **ElevenLabs** - Voice synthesis and cloning
+- **AWS Polly** - Amazon text-to-speech
+- **Google Cloud TTS** - Google neural voices
+- **Deepgram Aura** - Deepgram TTS voices
+
 ## Component Versions
 
 Each provider has two versions available:
@@ -57,12 +64,14 @@ Every component **exports** the same unified interface for its module, defined i
 - WebSearch: [`websearch/wit/golem-web-search.wit`](websearch/wit/golem-web-search.wit)
 - Search: [`search/wit/golem-search.wit`](search/wit/golem-search.wit)
 - Video: [`video/wit/golem-video.wit`](video/wit/golem-video.wit)
+- TTS: [`tts/tts/wit/golem-tts.wit`](tts/tts/wit/golem-tts.wit)
 
 For detailed information about each module and its providers, see the individual README files:
 - [LLM Module](llm/README.md)
 - [WebSearch Module](websearch/README.md)
 - [Search Module](search/README.md)
 - [Video Module](video/README.md)
+- [TTS Module](tts/README.md)
 
 ## Using with Golem
 
@@ -200,4 +209,3 @@ Some of the important tasks are:
 The `test` directory contains a **Golem application** for testing various features of the LLM, WebSearch, Video and Search components.
 Check [the Golem documentation](https://learn.golem.cloud/quickstart) to learn how to install Golem and `golem-cli` to
 run these tests.
-

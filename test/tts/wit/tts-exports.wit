@@ -1,0 +1,12 @@
+package test:tts-exports@0.0.1;
+
+world test-tts {
+  import golem:tts/tts-library@1.0.0;
+
+  export test-tts-api;
+}
+
+interface test-tts-api {
+  test-list-voices: func() -> result<string, string>;
+  test-synthesize: func() -> result<string, string>;
+}
