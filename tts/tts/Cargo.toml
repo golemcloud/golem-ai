@@ -1,0 +1,31 @@
+[package]
+name = "golem-tts"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["rlib"]
+
+[dependencies]
+golem-rust = { workspace = true }
+log = { workspace = true }
+wit-bindgen = { version = "0.40.0" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wstd = { workspace = true }
+http = "1.1"
+url = { workspace = true }
+uuid = { version = "1.10", features = ["v4"] }
+bytes = "1.10.1"
+derive_more = { version = "1.0", features = ["from"] }
+once_cell = "1.19"
+chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+percent-encoding = "2.3"
+
+[features]
+default = ["durability"]
+durability = ["golem-rust/durability"]

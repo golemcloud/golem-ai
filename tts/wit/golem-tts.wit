@@ -1,0 +1,39 @@
+package golem:tts@1.0.0;
+
+interface types {
+    variant error {
+        invalid-request(string),
+        service-unavailable(string),
+        unauthorized(string),
+    }
+
+    record voice {
+        id: string,
+        name: string,
+        provider: string,
+        language: string,
+    }
+}
+
+interface voices {
+    use types.{error, voice};
+    list-voices: func() -> result<list<voice>, error>;
+}
+
+interface synthesis {
+    use types.{error};
+    record request {
+        text: string,
+        voice-id: string,
+    }
+    record response {
+        audio: list<u8>,
+        content-type: string,
+    }
+    synthesize: func(req: request) -> result<response, error>;
+}
+
+world tts-library {
+    export voices;
+    export synthesis;
+}

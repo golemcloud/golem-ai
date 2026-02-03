@@ -1012,11 +1012,31 @@ dependencies = [
 
 [[package]]
 name = "derive_more"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
+dependencies = [
+ "derive_more-impl 1.0.0",
+]
+
+[[package]]
+name = "derive_more"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "093242cf7570c207c83073cf82f79706fe7b8317e98620a47d5be7c3d8497678"
 dependencies = [
- "derive_more-impl",
+ "derive_more-impl 2.0.1",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1880,7 +1900,7 @@ name = "golem-stt"
 version = "0.0.0"
 dependencies = [
  "bytes",
- "derive_more",
+ "derive_more 2.0.1",
  "golem-rust",
  "http 1.3.1",
  "log 0.4.29",
@@ -1902,7 +1922,7 @@ dependencies = [
  "aws-sigv4",
  "bytes",
  "chrono",
- "derive_more",
+ "derive_more 2.0.1",
  "futures-concurrency",
  "golem-rust",
  "golem-stt",
@@ -1926,7 +1946,7 @@ name = "golem-stt-azure"
 version = "0.0.0"
 dependencies = [
  "bytes",
- "derive_more",
+ "derive_more 2.0.1",
  "futures-concurrency",
  "golem-rust",
  "golem-stt",
@@ -1947,7 +1967,7 @@ name = "golem-stt-deepgram"
 version = "0.0.0"
 dependencies = [
  "bytes",
- "derive_more",
+ "derive_more 2.0.1",
  "futures-concurrency",
  "golem-rust",
  "golem-stt",
@@ -1970,7 +1990,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "chrono",
- "derive_more",
+ "derive_more 2.0.1",
  "futures-concurrency",
  "golem-rust",
  "golem-stt",
@@ -1995,7 +2015,7 @@ name = "golem-stt-whisper"
 version = "0.0.0"
 dependencies = [
  "bytes",
- "derive_more",
+ "derive_more 2.0.1",
  "futures-concurrency",
  "golem-rust",
  "golem-stt",
@@ -2008,6 +2028,68 @@ dependencies = [
  "serde_json",
  "uuid",
  "wit-bindgen-rt 0.40.0",
+ "wstd",
+]
+
+[[package]]
+name = "golem-tts"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "chrono",
+ "derive_more 1.0.0",
+ "golem-rust",
+ "hex",
+ "hmac",
+ "http 1.3.1",
+ "log 0.4.29",
+ "once_cell",
+ "percent-encoding 2.3.1",
+ "serde",
+ "serde_json",
+ "sha2",
+ "url 2.5.4",
+ "uuid",
+ "wit-bindgen 0.40.0",
+ "wstd",
+]
+
+[[package]]
+name = "golem-tts-aws"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "chrono",
+ "derive_more 1.0.0",
+ "golem-rust",
+ "golem-tts",
+ "hex",
+ "hmac",
+ "http 1.3.1",
+ "log 0.4.29",
+ "once_cell",
+ "percent-encoding 2.3.1",
+ "serde",
+ "serde_json",
+ "sha2",
+ "url 2.5.4",
+ "wit-bindgen 0.40.0",
+ "wstd",
+]
+
+[[package]]
+name = "golem-tts-elevenlabs"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "golem-rust",
+ "golem-tts",
+ "http 1.3.1",
+ "log 0.4.29",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "wit-bindgen 0.40.0",
  "wstd",
 ]
 
