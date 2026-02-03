@@ -47,7 +47,7 @@ impl Guest for Component {
             model_version: None,
             context: None,
         };
-        let result = synthesize(&input, &voice, &Some(options))
+        let result = synthesize(&input, &first_voice.id, &Some(options))
             .map_err(|err| format!("error: {err:?}"))?;
         Ok(format!("audio_bytes={}", result.audio_data.len()))
     }
