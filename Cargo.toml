@@ -46,6 +46,7 @@ members = [
     "vector/pgvector",
     "vector/pinecone",
     "vector/qdrant",
+    "vector/chroma",
 ]
 
 [profile.release]
