@@ -19,8 +19,8 @@ durability = ["golem-rust/durability", "golem-llm/durability"]
 golem-llm = { workspace = true }
 
 golem-rust = { workspace = true }
+golem-wasi-http = { workspace = true }
 log = { workspace = true }
-reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 wit-bindgen-rt = { workspace = true }

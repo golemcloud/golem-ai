@@ -7,9 +7,14 @@
 
 components:
   test:vector:
-    profiles:
-      # DEBUG PROFILES
+    dependencies:
+    - target: test:helper
+      type: wasm-rpc
+
+    presets:
+      # DEBUG PRESETs
       milvus-debug:
+        default: true
         build:
           - command: cargo component build --no-default-features --features milvus
             sources:
@@ -97,7 +102,7 @@ components:
         clean:
           - src/bindings.rs
      
-      # RELEASE PROFILES
+      # RELEASE PRESETS
       milvus-release:
         build:
           - command: cargo component build --release --no-default-features --features milvus
@@ -185,10 +190,3 @@ components:
         linkedWasm: ../../golem-temp/components/test_qdrant_release.wasm
         clean:
           - src/bindings.rs
-
-    defaultProfile: milvus-debug
-
-dependencies:
-  test:vector:
-    - target: test:helper
-      type: wasm-rpc

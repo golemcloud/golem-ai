@@ -2,7 +2,7 @@ use super::stream::{LlmStream, StreamError as NdJsonStreamError};
 use crate::event_source::utf8_stream::Utf8Stream;
 use crate::event_source::MessageEvent;
 use golem_rust::bindings::wasi::io::streams::{InputStream, StreamError};
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::task::Poll;
 
@@ -22,7 +22,7 @@ impl NdJsonStreamState {
 /// A Stream of NDJSON events (newline-delimited JSON)
 pub struct NdJsonStream {
     stream: Utf8Stream,
-    body: reqwest::IncomingBody,
+    body: golem_wasi_http::IncomingBody,
     buffer: String,
     state: NdJsonStreamState,
     last_event_id: String,
@@ -30,7 +30,7 @@ pub struct NdJsonStream {
 
 impl LlmStream for NdJsonStream {
     /// Initialize the NdJsonStream with a Stream
-    fn new(stream: InputStream, body: reqwest::IncomingBody) -> Self {
+    fn new(stream: InputStream, body: golem_wasi_http::IncomingBody) -> Self {
         Self {
             stream: Utf8Stream::new(stream),
             body,

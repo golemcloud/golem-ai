@@ -1,30 +1,33 @@
 use golem_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
 use golem_llm::event_source::EventSource;
 use golem_llm::golem::llm::llm::{Error, ErrorCode};
+use golem_wasi_http::header::HeaderValue;
+use golem_wasi_http::{Client, Method, Response};
 use log::trace;
-use reqwest::header::HeaderValue;
-use reqwest::{Client, Method, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-const BASE_URL: &str = "https://api.openai.com";
+const BASE_URL: &str = "https://api.openai.com/v1";
 
 /// The OpenAI API client for creating model responses.
 ///
 /// Based on https://platform.openai.com/docs/api-reference/responses/create
 pub struct ResponsesApi {
     openai_api_key: String,
+    openai_base_url: String,
     client: Client,
 }
 
 impl ResponsesApi {
     pub fn new(openai_api_key: String) -> Self {
+        let openai_base_url = std::env::var("OPENAI_BASE_URL").unwrap_or(BASE_URL.to_string());
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
             openai_api_key,
+            openai_base_url,
             client,
         }
     }
@@ -37,7 +40,7 @@ impl ResponsesApi {
 
         let response: Response = self
             .client
-            .request(Method::POST, format!("{BASE_URL}/v1/responses"))
+            .request(Method::POST, format!("{}/responses", self.openai_base_url))
             .bearer_auth(&self.openai_api_key)
             .json(&request)
             .send()
@@ -54,10 +57,10 @@ impl ResponsesApi {
 
         let response: Response = self
             .client
-            .request(Method::POST, format!("{BASE_URL}/v1/responses"))
+            .request(Method::POST, format!("{}/responses", self.openai_base_url))
             .bearer_auth(&self.openai_api_key)
             .header(
-                reqwest::header::ACCEPT,
+                golem_wasi_http::header::ACCEPT,
                 HeaderValue::from_static("text/event-stream"),
             )
             .json(&request)

@@ -4,7 +4,7 @@ use mime_guess::from_path;
 
 /// Downloads an image from a URL and returns the bytes with mime type
 pub fn download_image_from_url(url: &str) -> Result<RawBytes, VideoError> {
-    use reqwest::Client;
+    use golem_wasi_http::Client;
 
     let client = Client::builder()
         .build()
@@ -43,7 +43,7 @@ pub fn download_image_from_url(url: &str) -> Result<RawBytes, VideoError> {
 
 /// Downloads a video from a URL and returns the bytes with mime type
 pub fn download_video_from_url(url: &str) -> Result<RawBytes, VideoError> {
-    use reqwest::Client;
+    use golem_wasi_http::Client;
 
     let client = Client::builder()
         .build()

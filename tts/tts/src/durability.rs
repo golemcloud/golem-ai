@@ -38,12 +38,13 @@ pub trait ExtendedGuest:
         options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream;
 
-    fn subscribe_synthesis_stream(stream: &Self::SynthesisStream)
-        -> golem_rust::wasm_rpc::Pollable;
+    fn subscribe_synthesis_stream(
+        stream: &Self::SynthesisStream,
+    ) -> golem_rust::golem_wasm::Pollable;
 
     fn subscribe_voice_conversion_stream(
         stream: &Self::VoiceConversionStream,
-    ) -> golem_rust::wasm_rpc::Pollable;
+    ) -> golem_rust::golem_wasm::Pollable;
 }
 
 /// When the durability feature flag is off, wrapping with `DurableTts` is just a passthrough
@@ -251,7 +252,7 @@ mod durable_impl {
         DurableFunctionType, LazyInitializedPollable,
     };
     use golem_rust::durability::Durability;
-    use golem_rust::wasm_rpc::Pollable;
+    use golem_rust::golem_wasm::Pollable;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};

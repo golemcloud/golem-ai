@@ -1,8 +1,8 @@
 use golem_tts::config::{get_endpoint_config, get_max_retries_config, get_timeout_config};
 use golem_tts::error::{from_reqwest_error, internal_error, tts_error_from_status};
 use golem_tts::golem::tts::types::TtsError;
+use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
-use reqwest::{Client, Method, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -481,7 +481,7 @@ impl ElevenLabsTtsApi {
         voice_id: &str,
         request: &TextToSpeechRequest,
         params: Option<TextToSpeechParams>,
-    ) -> Result<reqwest::Response, TtsError> {
+    ) -> Result<golem_wasi_http::Response, TtsError> {
         trace!("Streaming text to speech with voice: {voice_id}");
 
         let mut url = format!("{}/v1/text-to-speech/{}/stream", self.base_url, voice_id);

@@ -1,8 +1,8 @@
 use golem_tts::config::{get_endpoint_config, get_max_retries_config, get_timeout_config};
 use golem_tts::error::{from_reqwest_error, tts_error_from_status};
 use golem_tts::golem::tts::types::TtsError;
+use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
-use reqwest::{Client, Method, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -231,7 +231,7 @@ impl DeepgramTtsApi {
         &self,
         request: &TextToSpeechRequest,
         params: Option<&TextToSpeechParams>,
-    ) -> Result<reqwest::Response, TtsError> {
+    ) -> Result<golem_wasi_http::Response, TtsError> {
         let url = if let Some(p) = params {
             format!(
                 "{}/{}/speak?{}",
@@ -297,7 +297,7 @@ pub struct TtsResponseMetadata {
 }
 
 impl TtsResponseMetadata {
-    pub fn from_response_headers(headers: &reqwest::header::HeaderMap) -> Option<Self> {
+    pub fn from_response_headers(headers: &golem_wasi_http::header::HeaderMap) -> Option<Self> {
         Some(Self {
             content_type: headers.get("content-type")?.to_str().ok()?.to_string(),
             dg_request_id: headers.get("dg-request-id")?.to_str().ok()?.to_string(),

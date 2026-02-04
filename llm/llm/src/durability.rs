@@ -1,7 +1,7 @@
 use crate::golem::llm::llm::{
     Config, ContentPart, Error, Event, Guest, Message, Role, StreamDelta,
 };
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use indoc::indoc;
 use std::marker::PhantomData;
 
@@ -117,7 +117,7 @@ mod durable_impl {
     #[cfg(not(feature = "nopoll"))]
     use golem_rust::bindings::golem::durability::durability::LazyInitializedPollable;
     use golem_rust::durability::Durability;
-    use golem_rust::wasm_rpc::Pollable;
+    use golem_rust::golem_wasm::Pollable;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};

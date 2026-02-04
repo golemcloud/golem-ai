@@ -18,8 +18,8 @@ durability = ["golem-rust/durability", "golem-web-search/durability"]
 [dependencies]
 golem-web-search = { path = "../websearch" }
 golem-rust = { workspace = true }
+golem-wasi-http = { workspace = true, features = ["json"] }
 log = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 wit-bindgen-rt = { workspace = true }

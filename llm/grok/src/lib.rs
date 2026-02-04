@@ -14,7 +14,7 @@ use golem_llm::golem::llm::llm::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Guest, Response,
     ResponseMetadata, StreamDelta, StreamEvent,
 };
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
 

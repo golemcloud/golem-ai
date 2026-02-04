@@ -5,7 +5,7 @@ use crate::bindings::exports::test::embed_exports::test_embed_api::*;
 use crate::bindings::golem::embed::embed;
 use crate::bindings::golem::embed::embed::{Config, ContentPart, EmbeddingResponse, Error};
 use base64::{engine::general_purpose, Engine as _};
-use reqwest::{Client, Url};
+use golem_wasi_http::{Client, Url};
 use std::{fs, path::Path};
 
 struct Component;

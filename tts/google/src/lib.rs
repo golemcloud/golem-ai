@@ -5,7 +5,7 @@ use crate::conversions::{
     split_text_intelligently, synthesis_options_to_tts_request, validate_synthesis_input,
     voice_filter_to_language_code,
 };
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use golem_tts::durability::{DurableTts, ExtendedGuest};
 use golem_tts::golem::tts::advanced::{
     AudioSample, Guest as AdvancedGuest, GuestLongFormOperation, GuestPronunciationLexicon,

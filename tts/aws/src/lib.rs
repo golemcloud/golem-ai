@@ -5,7 +5,7 @@ use crate::conversions::{
     synthesis_options_to_polly_params, validate_polly_input, validate_synthesis_input,
     voice_filter_to_describe_params,
 };
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use golem_tts::config::with_config_key;
 use golem_tts::durability::{DurableTts, ExtendedGuest};
 use golem_tts::golem::tts::advanced::{

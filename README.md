@@ -95,7 +95,7 @@ Example app manifest build section (using OpenAI LLM as example):
 ```yaml
 components:
   my:example:
-    profiles:
+    presets:
       debug:
         build:
           - command: cargo component build
@@ -155,8 +155,8 @@ Using example of `openai-debug` profile from LLM test, and respective environmen
 
 ```bash
 cd test/llm
-golem app build -b openai-debug
-golem app deploy -b openai-debug
+golem build --preset openai-debug
+golem deploy --preset openai-debug
 ```
 
 Depending on the provider selected, an environment variable has to be set for the worker to be started, containing the ENVIRONMENT variable (eg.API key) for the given provider:
@@ -192,7 +192,7 @@ Some of the important tasks are:
 | `cargo make check`                  | Checks formatting and Clippy rules                                                                             |
 | `cargo make fix`                    | Fixes formatting and Clippy rules                                                                              |
 | `cargo make wit`                    | Used after editing the `<module>/wit/golem-<module>.wit` file - distributes the changes to all wit directories |
-| `cargo make build-test-components`  | Builds all test apps in `/test`, with all provider build-options using `golem-cli app build -b <provider>`     |
+| `cargo make build-test-components`  | Builds all test apps in `/test`, with all provider build-options using `golem-cli build --preset <provider>`   |
 
 **Note**: `cargo make` command build, release-build, build-portable, release-build-portable, wit, build-test-components, can be used with 
 `cargo make <command> <module>` to target only the selected module. (e.g. `cargo make build llm`, `cargo make wit video`)

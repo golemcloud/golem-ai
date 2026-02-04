@@ -6,10 +6,11 @@
 # See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
 # For creating APIs see https://learn.golem.cloud/invoke/making-custom-apis
 
-templates:
+componentTemplates:
   rust:
-    profiles:
+    presets:
       debug:
+        default: true
         build:
         - command: cargo component build
           sources:
@@ -41,7 +42,6 @@ templates:
         linkedWasm: ../../golem-temp/components/{{ component_name | to_snake_case }}_release.wasm
         clean:
         - src/bindings.rs
-    defaultProfile: debug
 customCommands:
   cargo-clean:
   - command: cargo clean

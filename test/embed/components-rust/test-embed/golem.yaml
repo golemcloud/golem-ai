@@ -7,9 +7,10 @@
 
 components:
   test:embed: 
-    profiles:
+    presets:
       # DEBUG PROFILES
       openai-debug:
+        default: true
         build:
           - command: cargo component build --no-default-features --features openai
             sources:
@@ -186,9 +187,6 @@ components:
         clean:
           - src/bindings.rs
 
-    defaultProfile: openai-debug
-
-dependencies:
-  test:embed:
-    - target: test:helper
-      type: wasm-rpc
+    dependencies:
+      - target: test:helper
+        type: wasm-rpc

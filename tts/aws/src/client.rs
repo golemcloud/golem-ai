@@ -2,9 +2,9 @@ use chrono::Utc;
 use golem_tts::config::{get_endpoint_config, get_max_retries_config, get_timeout_config};
 use golem_tts::error::{from_reqwest_error, internal_error, tts_error_from_status};
 use golem_tts::golem::tts::types::TtsError;
+use golem_wasi_http::{Client, Method, Response};
 use hmac::{Hmac, Mac};
 use log::{error, trace};
-use reqwest::{Client, Method, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -165,7 +165,7 @@ impl AwsPollyTtsApi {
         path: &str,
         body: Option<&T>,
         query_params: Option<&[(&str, &str)]>,
-    ) -> Result<Response, reqwest::Error> {
+    ) -> Result<Response, golem_wasi_http::Error> {
         let mut url = format!("{}{}", self.base_url, path);
 
         if let Some(params) = query_params {

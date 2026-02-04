@@ -11,11 +11,11 @@ mod utf8_stream;
 
 use crate::event_source::error::Error;
 use crate::event_source::event_stream::EventStream;
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
+use golem_wasi_http::header::HeaderValue;
+use golem_wasi_http::{Response, StatusCode};
 pub use message_event::MessageEvent;
 use ndjson_stream::NdJsonStream;
-use reqwest::header::HeaderValue;
-use reqwest::{Response, StatusCode};
 use std::task::Poll;
 use stream::{LlmStream, StreamType};
 
@@ -46,14 +46,14 @@ impl EventSource {
                 let (handle, body) = response.get_raw_input_stream();
                 let handle = unsafe {
                     std::mem::transmute::<
-                        reqwest::InputStream,
+                        golem_wasi_http::InputStream,
                         golem_rust::bindings::wasi::io::streams::InputStream,
                     >(handle)
                 };
 
                 let stream = if response
                     .headers()
-                    .get(&reqwest::header::CONTENT_TYPE)
+                    .get(&golem_wasi_http::header::CONTENT_TYPE)
                     .unwrap()
                     .to_str()
                     .unwrap()
@@ -124,15 +124,17 @@ fn check_response(response: Response) -> Result<Response, Error> {
             return Err(Error::InvalidStatusCode(status, response));
         }
     }
-    let content_type =
-        if let Some(content_type) = response.headers().get(&reqwest::header::CONTENT_TYPE) {
-            content_type
-        } else {
-            return Err(Error::InvalidContentType(
-                HeaderValue::from_static(""),
-                response,
-            ));
-        };
+    let content_type = if let Some(content_type) = response
+        .headers()
+        .get(&golem_wasi_http::header::CONTENT_TYPE)
+    {
+        content_type
+    } else {
+        return Err(Error::InvalidContentType(
+            HeaderValue::from_static(""),
+            response,
+        ));
+    };
     if content_type
         .to_str()
         .map_err(|_| ())

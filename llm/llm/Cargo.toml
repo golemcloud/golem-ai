@@ -14,11 +14,11 @@ crate-type = ["rlib"]
 [dependencies]
 golem-rust = { workspace = true }
 
+golem-wasi-http = { workspace = true }
 indoc = "2.0.6"
 log = { workspace = true }
 mime = "0.3.17"
 nom = { version = "7.1", default-features = false }
-reqwest = { workspace = true }
 thiserror = "2.0.12"
 wasi-logger = "0.1.2"
 wit-bindgen = { version = "0.40.0" }

@@ -4,7 +4,7 @@ use crate::conversions::{
     get_max_chars_for_model, models_to_language_info, split_text_intelligently,
     synthesis_options_to_tts_request, validate_synthesis_request, validate_text_input,
 };
-use golem_rust::wasm_rpc::Pollable;
+use golem_rust::golem_wasm::Pollable;
 use golem_tts::config::with_config_key;
 use golem_tts::durability::{DurableTts, ExtendedGuest};
 use golem_tts::golem::tts::advanced::{
@@ -175,7 +175,7 @@ struct DeepgramSynthesisStream {
     client: DeepgramTtsApi,
     current_request: RefCell<Option<crate::client::TextToSpeechRequest>>,
     params: RefCell<Option<crate::client::TextToSpeechParams>>,
-    response_stream: RefCell<Option<reqwest::Response>>,
+    response_stream: RefCell<Option<golem_wasi_http::Response>>,
     chunk_buffer: RefCell<Vec<u8>>,
     bytes_streamed: Cell<usize>,
     total_chunks_received: Cell<u32>,

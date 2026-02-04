@@ -186,16 +186,16 @@ script = '''
 cd ../test/search
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b algolia-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b elasticsearch-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b meilisearch-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b opensearch-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b typesense-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset algolia-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset elasticsearch-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset meilisearch-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset opensearch-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset typesense-debug
 '''
 
 [tasks.release-build-test-components]
@@ -205,14 +205,14 @@ script = '''
 cd ../test/search
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b algolia-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b elasticsearch-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b meilisearch-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b opensearch-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b typesense-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset algolia-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset elasticsearch-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset meilisearch-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset opensearch-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset typesense-release
 '''

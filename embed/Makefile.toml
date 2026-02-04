@@ -139,22 +139,19 @@ end
 
 [tasks.build-test-components]
 dependencies = ["build"]
-install_crate = "cargo-binstall"
 description = "Builds embed test components with golem-cli"
 script = '''
-cargo-binstall golem-cli@1.2.2-dev.11 --locked --no-confirm
-cargo-binstall wac-cli --locked --no-confirm
 cd ../test/embed
 
 golem-cli --version
-golem-cli app clean
-golem-cli app build -b openai-debug
-golem-cli app clean
-golem-cli app build -b cohere-debug
-golem-cli app clean
-golem-cli app build -b hugging-face-debug
-golem-cli app clean
-golem-cli app build -b voyageai-debug
+golem-cli clean
+golem-cli build --preset openai-debug
+golem-cli clean
+golem-cli build --preset cohere-debug
+golem-cli clean
+golem-cli build --preset hugging-face-debug
+golem-cli clean
+golem-cli build --preset voyageai-debug
 '''
 
 

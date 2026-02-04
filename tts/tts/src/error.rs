@@ -1,5 +1,5 @@
 use crate::exports::golem::tts::types::{QuotaInfo, QuotaUnit, TtsError};
-use reqwest::StatusCode;
+use golem_wasi_http::StatusCode;
 
 pub fn unsupported(_what: impl AsRef<str>) -> TtsError {
     TtsError::UnsupportedOperation(_what.as_ref().to_string())
@@ -46,7 +46,7 @@ pub fn unauthorized(message: impl AsRef<str>) -> TtsError {
     TtsError::Unauthorized(message.as_ref().to_string())
 }
 
-pub fn from_reqwest_error(details: impl AsRef<str>, err: reqwest::Error) -> TtsError {
+pub fn from_reqwest_error(details: impl AsRef<str>, err: golem_wasi_http::Error) -> TtsError {
     if err.is_timeout() {
         TtsError::NetworkError(format!("{}: timeout", details.as_ref()))
     } else if err.is_request() {

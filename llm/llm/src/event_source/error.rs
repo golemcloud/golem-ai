@@ -1,10 +1,10 @@
 use core::fmt;
 use golem_rust::bindings::wasi::io::streams::StreamError as WasiStreamError;
+use golem_wasi_http::header::HeaderValue;
+use golem_wasi_http::Error as ReqwestError;
+use golem_wasi_http::Response;
+use golem_wasi_http::StatusCode;
 use nom::error::Error as NomError;
-use reqwest::header::HeaderValue;
-use reqwest::Error as ReqwestError;
-use reqwest::Response;
-use reqwest::StatusCode;
 use std::string::FromUtf8Error;
 use thiserror::Error;
 

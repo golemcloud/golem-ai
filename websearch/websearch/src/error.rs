@@ -1,12 +1,12 @@
 use crate::golem::web_search::web_search::SearchError;
-use reqwest::StatusCode;
+use golem_wasi_http::StatusCode;
 use std::error::Error;
 
 pub fn unsupported(what: impl AsRef<str>) -> SearchError {
     SearchError::UnsupportedFeature(format!("Unsupported: {}", what.as_ref()))
 }
 
-pub fn from_reqwest_error(context: impl AsRef<str>, err: reqwest::Error) -> SearchError {
+pub fn from_reqwest_error(context: impl AsRef<str>, err: golem_wasi_http::Error) -> SearchError {
     SearchError::BackendError(format!("{}: {}", context.as_ref(), err))
 }
 
