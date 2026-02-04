@@ -41,6 +41,11 @@ members = [
     "stt/aws",
     "stt/azure",
     "stt/google",
+    "tts/tts",
+    "tts/aws",
+    "tts/deepgram",
+    "tts/elevenlabs",
+    "tts/google",
     "vector/vector",
     "vector/milvus",
     "vector/pgvector",
@@ -59,6 +64,7 @@ golem-search = { path = "search/search", version = "0.0.0", default-features = f
 golem-graph = { path = "graph/graph", version = "0.0.0", default-features = false }
 golem-video = { path = "video/video", version = "0.0.0", default-features = false }
 golem-stt = { path = "stt/stt", version = "0.0.0", default-features = false }
+golem-tts = { path = "tts/tts" , version = "0.0.0" , default-features= false}
 golem-vector = { path = "vector/vector", version = "0.0.0", default-features = false}
 golem-embed = { path = "embed/embed", version = "0.0.0", default-features = false}
 futures = "0.3.31"
