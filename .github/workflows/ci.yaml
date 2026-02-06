@@ -462,20 +462,21 @@ jobs:
           echo "Milvus tests completed successfully"
           golem clean
 
-          echo "Testing pgvector integration..."
-          export GOLEM_PRESET=pgvector-release
-          golem deploy --yes
-          sleep 10
-          golem agent new -e PGVECTOR_CONNECTION_STRING=postgresql://postgres:mysecretpassword@localhost:3000/mydatabase test:vector/pgvector-1
-          golem agent invoke test:vector/pgvector-1 test1 | grep -v "ERROR: "
-          golem agent invoke test:vector/pgvector-1 test2 | grep -v "ERROR: "
-          golem agent invoke test:vector/pgvector-1 test3 | grep -v "ERROR: "
-          golem agent invoke test:vector/pgvector-1 test4 | grep -v "ERROR: "
-          golem agent invoke test:vector/pgvector-1 test5 | grep -v "ERROR: "
-          golem agent invoke test:vector/pgvector-1 test6 | grep -v "ERROR: "
-          golem agent invoke test:vector/pgvector-1 test7 | grep -v "ERROR: "
-          echo "pgvector tests completed successfully"
-          golem clean
+          # FIXME: reenable after golem-cli bump
+          # echo "Testing pgvector integration..."
+          # export GOLEM_PRESET=pgvector-release
+          # golem deploy --yes
+          # sleep 10
+          # golem agent new -e PGVECTOR_CONNECTION_STRING=postgresql://postgres:mysecretpassword@localhost:3000/mydatabase test:vector/pgvector-1
+          # golem agent invoke test:vector/pgvector-1 test1 | grep -v "ERROR: "
+          # golem agent invoke test:vector/pgvector-1 test2 | grep -v "ERROR: "
+          # golem agent invoke test:vector/pgvector-1 test3 | grep -v "ERROR: "
+          # golem agent invoke test:vector/pgvector-1 test4 | grep -v "ERROR: "
+          # golem agent invoke test:vector/pgvector-1 test5 | grep -v "ERROR: "
+          # golem agent invoke test:vector/pgvector-1 test6 | grep -v "ERROR: "
+          # golem agent invoke test:vector/pgvector-1 test7 | grep -v "ERROR: "
+          # echo "pgvector tests completed successfully"
+          # golem clean
 
           echo "Testing qdrant integration..."
           export GOLEM_PRESET=qdrant-release
