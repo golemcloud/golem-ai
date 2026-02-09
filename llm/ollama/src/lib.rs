@@ -186,9 +186,9 @@ impl LlmChatStreamState for OllamaChatStream {
     }
 }
 
-pub struct OllamaComponent;
+pub struct Ollama;
 
-impl OllamaComponent {
+impl Ollama {
     fn request(client: &OllamaApi, request: CompletionsRequest) -> Result<Response, Error> {
         let response = client.send_chat(request)?;
         process_response(response)
@@ -206,7 +206,7 @@ impl OllamaComponent {
     }
 }
 
-impl LlmProvider for OllamaComponent {
+impl LlmProvider for Ollama {
     type ChatStream = LlmChatStream<OllamaChatStream>;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -220,7 +220,7 @@ impl LlmProvider for OllamaComponent {
     }
 }
 
-impl ExtendedLlmProvider for OllamaComponent {
+impl ExtendedLlmProvider for Ollama {
     fn unwrapped_stream(events: Vec<Event>, config: Config) -> LlmChatStream<OllamaChatStream> {
         let client = OllamaApi::new(config.model.clone());
         match events_to_request(events, config) {
@@ -290,4 +290,4 @@ impl ExtendedLlmProvider for OllamaComponent {
     }
 }
 
-pub type DurableOllamaComponent = DurableLLM<OllamaComponent>;
+pub type DurableOllama = DurableLLM<Ollama>;

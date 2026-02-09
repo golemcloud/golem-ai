@@ -43,9 +43,9 @@ impl TypesenseSearchStream {
     }
 }
 
-pub struct TypesenseComponent;
+pub struct Typesense;
 
-impl TypesenseComponent {
+impl Typesense {
     const API_KEY_ENV_VAR: &'static str = "TYPESENSE_API_KEY";
     const BASE_URL_ENV_VAR: &'static str = "TYPESENSE_BASE_URL";
 
@@ -119,7 +119,7 @@ impl SearchStreamInterface for TypesenseSearchStream {
     }
 }
 
-impl SearchProvider for TypesenseComponent {
+impl SearchProvider for Typesense {
     type SearchStream = TypesenseSearchStream;
 
     fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -299,7 +299,7 @@ impl SearchProvider for TypesenseComponent {
     }
 }
 
-impl ExtendedSearchProvider for TypesenseComponent {
+impl ExtendedSearchProvider for Typesense {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
         let client = Self::create_client().unwrap_or_else(|_e| {
             TypesenseSearchApi::new("dummy".to_string(), "http://localhost:8108".to_string())
@@ -342,4 +342,4 @@ impl ExtendedSearchProvider for TypesenseComponent {
     }
 }
 
-pub type DurableTypesenseComponent = DurableSearch<TypesenseComponent>;
+pub type DurableTypesense = DurableSearch<Typesense>;

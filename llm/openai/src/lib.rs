@@ -179,9 +179,9 @@ impl LlmChatStreamState for OpenAIChatStream {
     }
 }
 
-pub struct OpenAIComponent;
+pub struct OpenAI;
 
-impl OpenAIComponent {
+impl OpenAI {
     const ENV_VAR_NAME: &'static str = "OPENAI_API_KEY";
 
     fn request(
@@ -214,7 +214,7 @@ impl OpenAIComponent {
     }
 }
 
-impl LlmProvider for OpenAIComponent {
+impl LlmProvider for OpenAI {
     type ChatStream = LlmChatStream<OpenAIChatStream>;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -229,7 +229,7 @@ impl LlmProvider for OpenAIComponent {
     }
 }
 
-impl ExtendedLlmProvider for OpenAIComponent {
+impl ExtendedLlmProvider for OpenAI {
     fn unwrapped_stream(events: Vec<Event>, config: Config) -> Self::ChatStream {
         with_config_key(
             Self::ENV_VAR_NAME,
@@ -247,4 +247,4 @@ impl ExtendedLlmProvider for OpenAIComponent {
     }
 }
 
-pub type DurableOpenAIComponent = DurableLLM<OpenAIComponent>;
+pub type DurableOpenAI = DurableLLM<OpenAI>;

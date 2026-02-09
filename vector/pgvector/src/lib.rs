@@ -31,9 +31,9 @@ use std::collections::HashMap;
 mod client;
 mod conversions;
 
-pub struct PgVectorComponent;
+pub struct PgVector;
 
-impl PgVectorComponent {
+impl PgVector {
     const CONNECTION_STRING_ENV_VAR: &'static str = "PGVECTOR_CONNECTION_STRING";
 
     fn create_client() -> Result<PgVectorClient, VectorError> {
@@ -62,7 +62,7 @@ impl PgVectorComponent {
     }
 }
 
-impl ExtendedVectorProvider for PgVectorComponent {
+impl ExtendedVectorProvider for PgVector {
     fn connect_internal(
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -75,7 +75,7 @@ impl ExtendedVectorProvider for PgVectorComponent {
     }
 }
 
-impl ConnectionProvider for PgVectorComponent {
+impl ConnectionProvider for PgVector {
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -135,7 +135,7 @@ impl ConnectionProvider for PgVectorComponent {
     }
 }
 
-impl CollectionProvider for PgVectorComponent {
+impl CollectionProvider for PgVector {
     fn upsert_collection(
         name: String,
         _description: Option<String>,
@@ -215,7 +215,7 @@ impl CollectionProvider for PgVectorComponent {
     }
 }
 
-impl VectorsProvider for PgVectorComponent {
+impl VectorsProvider for PgVector {
     fn upsert_vectors(
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -437,7 +437,7 @@ impl VectorsProvider for PgVectorComponent {
     }
 }
 
-impl SearchProvider for PgVectorComponent {
+impl SearchProvider for PgVector {
     fn search_vectors(
         collection: String,
         query: SearchQuery,
@@ -543,7 +543,7 @@ impl SearchProvider for PgVectorComponent {
     }
 }
 
-impl SearchExtendedProvider for PgVectorComponent {
+impl SearchExtendedProvider for PgVector {
     fn recommend_vectors(
         _collection: String,
         _positive: Vec<RecommendationExample>,
@@ -680,7 +680,7 @@ impl SearchExtendedProvider for PgVectorComponent {
     }
 }
 
-impl AnalyticsProvider for PgVectorComponent {
+impl AnalyticsProvider for PgVector {
     fn get_collection_stats(
         collection: String,
         _namespace: Option<String>,
@@ -773,7 +773,7 @@ impl AnalyticsProvider for PgVectorComponent {
     }
 }
 
-impl NamespacesProvider for PgVectorComponent {
+impl NamespacesProvider for PgVector {
     fn upsert_namespace(
         _collection: String,
         _namespace: String,
@@ -812,4 +812,4 @@ impl NamespacesProvider for PgVectorComponent {
     }
 }
 
-pub type DurablePgVectorComponent = DurableVector<PgVectorComponent>;
+pub type DurablePgVector = DurableVector<PgVector>;

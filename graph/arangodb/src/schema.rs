@@ -1,4 +1,4 @@
-use crate::{helpers, GraphArangoDbComponent, SchemaManager};
+use crate::{helpers, ArangoDb, SchemaManager};
 use golem_graph::{
     durability::ExtendedGuest,
     model::{
@@ -13,7 +13,7 @@ use golem_graph::{
 };
 use std::sync::Arc;
 
-impl SchemaManagerProvider for GraphArangoDbComponent {
+impl SchemaManagerProvider for ArangoDb {
     type SchemaManager = SchemaManager;
 
     fn get_schema_manager(
@@ -24,7 +24,7 @@ impl SchemaManagerProvider for GraphArangoDbComponent {
             None => helpers::config_from_env()?,
         };
 
-        let graph = GraphArangoDbComponent::connect_internal(&final_config)?;
+        let graph = ArangoDb::connect_internal(&final_config)?;
 
         let manager = SchemaManager {
             graph: Arc::new(graph),

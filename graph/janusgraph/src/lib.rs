@@ -15,7 +15,7 @@ use golem_graph::model::{
 use std::sync::Arc;
 use golem_graph::TransactionProvider;
 
-pub struct GraphJanusGraphComponent;
+pub struct JanusGraph;
 
 pub struct Graph {
     pub api: Arc<JanusGraphApi>,
@@ -37,7 +37,7 @@ pub struct SchemaManager {
     pub graph: Arc<Graph>,
 }
 
-impl ExtendedGuest for GraphJanusGraphComponent {
+impl ExtendedGuest for JanusGraph {
     type Graph = Graph;
     fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
         let host = with_config_key(config, "JANUSGRAPH_HOST")
@@ -66,7 +66,7 @@ impl ExtendedGuest for GraphJanusGraphComponent {
     }
 }
 
-impl TransactionProvider for GraphJanusGraphComponent {
+impl TransactionProvider for JanusGraph {
     type Transaction = Transaction;
 }
 
@@ -85,4 +85,4 @@ impl Transaction {
     }
 }
 
-pub type DurableGraphJanusGraphComponent = DurableGraph<GraphJanusGraphComponent>;
+pub type DurableJanusGraph = DurableGraph<JanusGraph>;

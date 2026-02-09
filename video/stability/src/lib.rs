@@ -18,13 +18,13 @@ use golem_video::model::types::{
 };
 use golem_video::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 
-pub struct StabilityComponent;
+pub struct Stability;
 
-impl StabilityComponent {
+impl Stability {
     const ENV_VAR_NAME: &'static str = "STABILITY_API_KEY";
 }
 
-impl VideoGenerationProvider for StabilityComponent {
+impl VideoGenerationProvider for Stability {
     fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = StabilityApi::new(api_key);
@@ -44,7 +44,7 @@ impl VideoGenerationProvider for StabilityComponent {
     }
 }
 
-impl LipSyncProvider for StabilityComponent {
+impl LipSyncProvider for Stability {
     fn generate_lip_sync(video: LipSyncVideo, audio: AudioSource) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = StabilityApi::new(api_key);
@@ -60,7 +60,7 @@ impl LipSyncProvider for StabilityComponent {
     }
 }
 
-impl AdvancedVideoGenerationProvider for StabilityComponent {
+impl AdvancedVideoGenerationProvider for Stability {
     fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = StabilityApi::new(api_key);
@@ -109,6 +109,6 @@ impl AdvancedVideoGenerationProvider for StabilityComponent {
     }
 }
 
-impl ExtendedVideoGenerationProvider for StabilityComponent {}
+impl ExtendedVideoGenerationProvider for Stability {}
 
-pub type DurableStabilityComponent = DurableVideo<StabilityComponent>;
+pub type DurableStability = DurableVideo<Stability>;

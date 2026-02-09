@@ -4,9 +4,9 @@ use crate::model::{Error, ExecResult, File, Language, RunOptions};
 use crate::{get_contents, io_error, stage_result_failure, ExecutionProvider, ExecutionSession};
 use std::path::PathBuf;
 
-pub struct Component;
+pub struct Execution;
 
-impl ExecutionProvider for Component {
+impl ExecutionProvider for Execution {
     type Session = Session;
 
     fn run(
@@ -164,7 +164,7 @@ impl ExecutionSession for Session {
     }
 }
 
-impl SessionSnapshot<Session> for Component {
+impl SessionSnapshot<Session> for Execution {
     type Snapshot = EmptySnapshot;
 
     fn supports_snapshot(session: &Session) -> bool {
@@ -206,4 +206,4 @@ impl SessionSnapshot<Session> for Component {
     }
 }
 
-pub type DurableComponent = DurableExec<Component>;
+pub type DurableExecution = DurableExec<Execution>;

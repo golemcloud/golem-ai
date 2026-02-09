@@ -12,7 +12,7 @@ use golem_graph::model::{connection::ConnectionConfig, errors::GraphError};
 use golem_graph::TransactionProvider;
 use std::sync::Arc;
 
-pub struct GraphArangoDbComponent;
+pub struct ArangoDb;
 
 pub struct Graph {
     api: Arc<ArangoDbApi>,
@@ -27,7 +27,7 @@ pub struct SchemaManager {
     graph: Arc<Graph>,
 }
 
-impl ExtendedGuest for GraphArangoDbComponent {
+impl ExtendedGuest for ArangoDb {
     type Graph = Graph;
     fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
         let host = with_config_key(config, "ARANGO_HOST")
@@ -67,7 +67,7 @@ impl ExtendedGuest for GraphArangoDbComponent {
     }
 }
 
-impl TransactionProvider for GraphArangoDbComponent {
+impl TransactionProvider for ArangoDb {
     type Transaction = Transaction;
 }
 
@@ -86,4 +86,4 @@ impl Transaction {
     }
 }
 
-pub type DurableGraphArangoDbComponent = DurableGraph<GraphArangoDbComponent>;
+pub type DurableArangoDb = DurableGraph<ArangoDb>;

@@ -644,9 +644,9 @@ impl LongFormOperationInterface for ElevenLabsLongFormOperation {
     }
 }
 
-pub struct ElevenLabsComponent;
+pub struct ElevenLabsTts;
 
-impl ElevenLabsComponent {
+impl ElevenLabsTts {
     const ENV_VAR_NAME: &'static str = "ELEVENLABS_API_KEY";
     const MODEL_VERSION_ENV_VAR: &'static str = "ELEVENLABS_MODEL_VERSION";
 
@@ -659,7 +659,7 @@ impl ElevenLabsComponent {
     }
 }
 
-impl VoiceProvider for ElevenLabsComponent {
+impl VoiceProvider for ElevenLabsTts {
     type Voice = ElevenLabsVoiceImpl;
     type VoiceResults = ElevenLabsVoiceResults;
 
@@ -733,7 +733,7 @@ impl VoiceProvider for ElevenLabsComponent {
     }
 }
 
-impl SynthesizeProvider for ElevenLabsComponent {
+impl SynthesizeProvider for ElevenLabsTts {
     fn synthesize(
         input: TextInput,
         voice: golem_tts::model::voices::VoiceBorrow<'_>,
@@ -905,7 +905,7 @@ impl SynthesizeProvider for ElevenLabsComponent {
     }
 }
 
-impl StreamingVoiceProvider for ElevenLabsComponent {
+impl StreamingVoiceProvider for ElevenLabsTts {
     type SynthesisStream = ElevenLabsSynthesisStream;
     type VoiceConversionStream = ElevenLabsVoiceConversionStream;
 
@@ -932,7 +932,7 @@ impl StreamingVoiceProvider for ElevenLabsComponent {
     }
 }
 
-impl AdvancedTtsProvider for ElevenLabsComponent {
+impl AdvancedTtsProvider for ElevenLabsTts {
     type PronunciationLexicon = ElevenLabsPronunciationLexicon;
     type LongFormOperation = ElevenLabsLongFormOperation;
 
@@ -1039,7 +1039,7 @@ impl AdvancedTtsProvider for ElevenLabsComponent {
     }
 }
 
-impl ExtendedTtsProvider for ElevenLabsComponent {
+impl ExtendedTtsProvider for ElevenLabsTts {
     fn unwrapped_synthesis_stream(
         voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
@@ -1073,4 +1073,4 @@ impl ExtendedTtsProvider for ElevenLabsComponent {
     }
 }
 
-pub type DurableElevenLabsComponent = DurableTts<ElevenLabsComponent>;
+pub type DurableElevenLabsTts = DurableTts<ElevenLabsTts>;

@@ -1,4 +1,4 @@
-use crate::{helpers, GraphJanusGraphComponent, SchemaManager};
+use crate::{helpers, JanusGraph, SchemaManager};
 use golem_graph::durability::ExtendedGuest;
 use golem_graph::model::{
     connection::ConnectionConfig,
@@ -12,7 +12,7 @@ use golem_graph::{SchemaManagerInterface, SchemaManagerProvider};
 use serde_json::Value;
 use std::sync::Arc;
 
-impl SchemaManagerProvider for GraphJanusGraphComponent {
+impl SchemaManagerProvider for JanusGraph {
     type SchemaManager = SchemaManager;
 
     fn get_schema_manager(
@@ -22,7 +22,7 @@ impl SchemaManagerProvider for GraphJanusGraphComponent {
             Some(provided_config) => provided_config,
             None => helpers::config_from_env()?,
         };
-        let graph = GraphJanusGraphComponent::connect_internal(&final_config)?;
+        let graph = JanusGraph::connect_internal(&final_config)?;
         let manager = SchemaManager {
             graph: Arc::new(graph),
         };

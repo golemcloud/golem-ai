@@ -235,9 +235,9 @@ impl LlmChatStreamState for OpenRouterChatStream {
     }
 }
 
-pub struct OpenRouterComponent;
+pub struct OpenRouter;
 
-impl OpenRouterComponent {
+impl OpenRouter {
     const ENV_VAR_NAME: &'static str = "OPENROUTER_API_KEY";
 
     fn request(client: CompletionsApi, request: CompletionsRequest) -> Result<Response, Error> {
@@ -257,7 +257,7 @@ impl OpenRouterComponent {
     }
 }
 
-impl LlmProvider for OpenRouterComponent {
+impl LlmProvider for OpenRouter {
     type ChatStream = LlmChatStream<OpenRouterChatStream>;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -272,7 +272,7 @@ impl LlmProvider for OpenRouterComponent {
     }
 }
 
-impl ExtendedLlmProvider for OpenRouterComponent {
+impl ExtendedLlmProvider for OpenRouter {
     fn unwrapped_stream(events: Vec<Event>, config: Config) -> LlmChatStream<OpenRouterChatStream> {
         with_config_key(
             Self::ENV_VAR_NAME,
@@ -349,4 +349,4 @@ impl ExtendedLlmProvider for OpenRouterComponent {
     }
 }
 
-pub type DurableOpenRouterComponent = DurableLLM<OpenRouterComponent>;
+pub type DurableOpenRouter = DurableLLM<OpenRouter>;

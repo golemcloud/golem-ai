@@ -36,9 +36,9 @@ use transcription::{
 
 static API_CLIENT: OnceCell<FastTranscriptionApi<WstdHttpClient>> = OnceCell::new();
 
-pub struct SttComponent;
+pub struct AzureStt;
 
-impl SttComponent {
+impl AzureStt {
     fn create_or_get_client() -> Result<&'static FastTranscriptionApi<WstdHttpClient>, SttError> {
         API_CLIENT.get_or_try_init(|| {
             let region = std::env::var("AZURE_REGION").map_err(|err| {
@@ -62,7 +62,7 @@ impl SttComponent {
     }
 }
 
-impl LanguageProvider for SttComponent {
+impl LanguageProvider for AzureStt {
     fn list_languages() -> Result<Vec<LanguageInfo>, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -78,7 +78,7 @@ impl LanguageProvider for SttComponent {
     }
 }
 
-impl SttTranscriptionProvider for SttComponent {
+impl SttTranscriptionProvider for AzureStt {
     fn transcribe(req: SttTranscriptionRequest) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -291,6 +291,6 @@ impl From<TranscriptionResponse> for WitTranscriptionResult {
     }
 }
 
-impl ExtendedSttProvider for SttComponent {}
+impl ExtendedSttProvider for AzureStt {}
 
-pub type DurableDeepgramComponent = DurableStt<SttComponent>;
+pub type DurableAzureStt = DurableStt<AzureStt>;

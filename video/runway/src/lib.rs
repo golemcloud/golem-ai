@@ -18,13 +18,13 @@ use golem_video::model::types::{
 };
 use golem_video::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 
-pub struct RunwayComponent;
+pub struct Runway;
 
-impl RunwayComponent {
+impl Runway {
     const ENV_VAR_NAME: &'static str = "RUNWAY_API_KEY";
 }
 
-impl VideoGenerationProvider for RunwayComponent {
+impl VideoGenerationProvider for Runway {
     fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = RunwayApi::new(api_key);
@@ -47,7 +47,7 @@ impl VideoGenerationProvider for RunwayComponent {
     }
 }
 
-impl LipSyncProvider for RunwayComponent {
+impl LipSyncProvider for Runway {
     fn generate_lip_sync(video: LipSyncVideo, audio: AudioSource) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = RunwayApi::new(api_key);
@@ -63,7 +63,7 @@ impl LipSyncProvider for RunwayComponent {
     }
 }
 
-impl AdvancedVideoGenerationProvider for RunwayComponent {
+impl AdvancedVideoGenerationProvider for Runway {
     fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = RunwayApi::new(api_key);
@@ -112,6 +112,6 @@ impl AdvancedVideoGenerationProvider for RunwayComponent {
     }
 }
 
-impl ExtendedVideoGenerationProvider for RunwayComponent {}
+impl ExtendedVideoGenerationProvider for Runway {}
 
-pub type DurableRunwayComponent = DurableVideo<RunwayComponent>;
+pub type DurableRunway = DurableVideo<Runway>;

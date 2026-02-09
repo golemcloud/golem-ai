@@ -39,9 +39,9 @@ static API_CLIENT: OnceCell<
     TranscribeApi<S3Client<WstdHttpClient>, TranscribeClient<WstdHttpClient, WasiAsyncRuntime>>,
 > = OnceCell::new();
 
-pub struct SttComponent;
+pub struct AwsStt;
 
-impl SttComponent {
+impl AwsStt {
     fn create_or_get_client() -> Result<
         &'static TranscribeApi<
             S3Client<WstdHttpClient>,
@@ -73,7 +73,7 @@ impl SttComponent {
     }
 }
 
-impl LanguageProvider for SttComponent {
+impl LanguageProvider for AwsStt {
     fn list_languages() -> Result<Vec<LanguageInfo>, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -89,7 +89,7 @@ impl LanguageProvider for SttComponent {
     }
 }
 
-impl SttTranscriptionProvider for SttComponent {
+impl SttTranscriptionProvider for AwsStt {
     fn transcribe(req: SttTranscriptionRequest) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -381,6 +381,6 @@ impl From<TranscriptionResponse> for WitTranscriptionResult {
     }
 }
 
-impl ExtendedSttProvider for SttComponent {}
+impl ExtendedSttProvider for AwsStt {}
 
-pub type DurableDeepgramComponent = DurableStt<SttComponent>;
+pub type DurableAwsStt = DurableStt<AwsStt>;

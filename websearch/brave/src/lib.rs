@@ -21,7 +21,7 @@ pub struct BraveReplayState {
     pub finished: bool,
 }
 
-struct BraveSearch {
+struct BraveSearchSessionImpl {
     client: BraveSearchApi,
     params: SearchParams,
     metadata: Option<SearchMetadata>,
@@ -29,7 +29,7 @@ struct BraveSearch {
     finished: bool,
 }
 
-impl BraveSearch {
+impl BraveSearchSessionImpl {
     fn new(client: BraveSearchApi, params: SearchParams) -> Self {
         Self {
             client,
@@ -64,10 +64,10 @@ impl BraveSearch {
 }
 
 // Create a wrapper that implements GuestSearchSession properly
-pub struct BraveSearchSession(RefCell<BraveSearch>);
+pub struct BraveSearchSession(RefCell<BraveSearchSessionImpl>);
 
 impl BraveSearchSession {
-    fn new(search: BraveSearch) -> Self {
+    fn new(search: BraveSearchSessionImpl) -> Self {
         Self(RefCell::new(search))
     }
 }
@@ -92,9 +92,9 @@ impl SearchSessionInterface for BraveSearchSession {
     }
 }
 
-pub struct BraveSearchComponent;
+pub struct BraveSearch;
 
-impl BraveSearchComponent {
+impl BraveSearch {
     const API_KEY_VAR: &'static str = "BRAVE_API_KEY";
 
     fn create_client() -> Result<BraveSearchApi, SearchError> {
@@ -126,12 +126,12 @@ impl BraveSearchComponent {
         validate_search_params(&params)?;
 
         let client = Self::create_client()?;
-        let search = BraveSearch::new(client, params);
+        let search = BraveSearchSessionImpl::new(client, params);
         Ok(BraveSearchSession::new(search))
     }
 }
 
-impl WebSearchProvider for BraveSearchComponent {
+impl WebSearchProvider for BraveSearch {
     type SearchSession = BraveSearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
@@ -147,13 +147,13 @@ impl WebSearchProvider for BraveSearchComponent {
 }
 
 // ExtendedwebsearchGuest implementation
-impl ExtendedWebSearchProvider for BraveSearchComponent {
+impl ExtendedWebSearchProvider for BraveSearch {
     type ReplayState = BraveReplayState;
 
     fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
         let api_key = Self::get_api_key()?;
         let client = BraveSearchApi::new(api_key.clone());
-        let search = BraveSearch::new(client, params);
+        let search = BraveSearchSessionImpl::new(client, params);
         Ok(BraveSearchSession::new(search))
     }
 
@@ -172,7 +172,7 @@ impl ExtendedWebSearchProvider for BraveSearchComponent {
         params: SearchParams,
     ) -> Result<Self::SearchSession, SearchError> {
         let client = BraveSearchApi::new(state.api_key.clone());
-        let mut search = BraveSearch::new(client, params);
+        let mut search = BraveSearchSessionImpl::new(client, params);
         search.current_offset = state.current_offset;
         search.metadata = state.metadata.clone();
         search.finished = state.finished;
@@ -180,4 +180,4 @@ impl ExtendedWebSearchProvider for BraveSearchComponent {
     }
 }
 
-pub type DurableBraveComponent = DurableWebSearch<BraveSearchComponent>;
+pub type DurableBraveSearch = DurableWebSearch<BraveSearch>;

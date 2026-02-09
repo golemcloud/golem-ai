@@ -31,9 +31,9 @@ use golem_vector::{
 mod client;
 mod conversions;
 
-pub struct QdrantComponent;
+pub struct Qdrant;
 
-impl QdrantComponent {
+impl Qdrant {
     const URL_ENV_VAR: &'static str = "QDRANT_URL";
     const API_KEY_ENV_VAR: &'static str = "QDRANT_API_KEY";
 
@@ -102,7 +102,7 @@ impl QdrantComponent {
     }
 }
 
-impl ExtendedVectorProvider for QdrantComponent {
+impl ExtendedVectorProvider for Qdrant {
     fn connect_internal(
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -114,7 +114,7 @@ impl ExtendedVectorProvider for QdrantComponent {
     }
 }
 
-impl ConnectionProvider for QdrantComponent {
+impl ConnectionProvider for Qdrant {
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -173,7 +173,7 @@ impl ConnectionProvider for QdrantComponent {
     }
 }
 
-impl CollectionProvider for QdrantComponent {
+impl CollectionProvider for Qdrant {
     fn upsert_collection(
         name: String,
         _description: Option<String>,
@@ -259,7 +259,7 @@ impl CollectionProvider for QdrantComponent {
     }
 }
 
-impl VectorsProvider for QdrantComponent {
+impl VectorsProvider for Qdrant {
     fn upsert_vectors(
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -505,7 +505,7 @@ impl VectorsProvider for QdrantComponent {
     }
 }
 
-impl SearchProvider for QdrantComponent {
+impl SearchProvider for Qdrant {
     fn search_vectors(
         collection: String,
         query: SearchQuery,
@@ -597,7 +597,7 @@ impl SearchProvider for QdrantComponent {
     }
 }
 
-impl SearchExtendedProvider for QdrantComponent {
+impl SearchExtendedProvider for Qdrant {
     fn recommend_vectors(
         collection: String,
         positive: Vec<RecommendationExample>,
@@ -774,7 +774,7 @@ impl SearchExtendedProvider for QdrantComponent {
     }
 }
 
-impl AnalyticsProvider for QdrantComponent {
+impl AnalyticsProvider for Qdrant {
     fn get_collection_stats(
         collection: String,
         _namespace: Option<String>,
@@ -840,7 +840,7 @@ impl AnalyticsProvider for QdrantComponent {
     }
 }
 
-impl NamespacesProvider for QdrantComponent {
+impl NamespacesProvider for Qdrant {
     fn upsert_namespace(
         _collection: String,
         _name: String,
@@ -877,4 +877,4 @@ impl NamespacesProvider for QdrantComponent {
     }
 }
 
-pub type DurableQdrantComponent = DurableVector<QdrantComponent>;
+pub type DurableQdrant = DurableVector<Qdrant>;

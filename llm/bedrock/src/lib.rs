@@ -1,5 +1,5 @@
 use async_utils::get_async_runtime;
-use client::Bedrock;
+use client::{Bedrock as BedrockClient};
 use golem_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_llm::model::{
     ChatStream, Config, ContentPart, Error, Event, Message, Response, Role, StreamDelta,
@@ -15,9 +15,9 @@ mod conversions;
 mod stream;
 mod wasi_client;
 
-pub struct BedrockComponent;
+pub struct Bedrock;
 
-impl LlmProvider for BedrockComponent {
+impl LlmProvider for Bedrock {
     type ChatStream = BedrockChatStream;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -34,7 +34,7 @@ impl LlmProvider for BedrockComponent {
     }
 }
 
-impl ExtendedLlmProvider for BedrockComponent {
+impl ExtendedLlmProvider for Bedrock {
     fn unwrapped_stream(messages: Vec<Event>, config: Config) -> Self::ChatStream {
         let runtime = get_async_runtime();
 
@@ -110,8 +110,8 @@ impl ExtendedLlmProvider for BedrockComponent {
     }
 }
 
-async fn get_bedrock_client() -> Result<Bedrock, Error> {
-    Bedrock::new().await
+async fn get_bedrock_client() -> Result<BedrockClient, Error> {
+    BedrockClient::new().await
 }
 
-pub type DurableBedrockComponent = DurableLLM<BedrockComponent>;
+pub type DurableBedrock = DurableLLM<Bedrock>;

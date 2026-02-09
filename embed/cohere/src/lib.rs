@@ -16,9 +16,9 @@ use crate::conversions::{
 mod client;
 mod conversions;
 
-pub struct CohereComponent;
+pub struct Cohere;
 
-impl CohereComponent {
+impl Cohere {
     const ENV_VAR_NAME: &'static str = "COHERE_API_KEY";
 
     fn embeddings(
@@ -53,7 +53,7 @@ impl CohereComponent {
     }
 }
 
-impl EmbeddingProvider for CohereComponent {
+impl EmbeddingProvider for Cohere {
     fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<GolemEmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         with_config_key(Self::ENV_VAR_NAME, Err, |cohere_api_key| {
@@ -75,6 +75,6 @@ impl EmbeddingProvider for CohereComponent {
     }
 }
 
-impl ExtendedEmbeddingProvider for CohereComponent {}
+impl ExtendedEmbeddingProvider for Cohere {}
 
-pub type DurableCohereComponent = DurableEmbed<CohereComponent>;
+pub type DurableCohere = DurableEmbed<Cohere>;

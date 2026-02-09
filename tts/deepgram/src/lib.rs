@@ -643,9 +643,9 @@ impl LongFormOperationInterface for DeepgramLongFormOperation {
     }
 }
 
-pub struct DeepgramComponent;
+pub struct DeepgramTts;
 
-impl DeepgramComponent {
+impl DeepgramTts {
     const ENV_VAR_NAME: &'static str = "DEEPGRAM_API_KEY";
     const API_VERSION_ENV_VAR: &'static str = "DEEPGRAM_API_VERSION";
 
@@ -689,7 +689,7 @@ impl DeepgramComponent {
     }
 }
 
-impl VoiceProvider for DeepgramComponent {
+impl VoiceProvider for DeepgramTts {
     type Voice = DeepgramVoiceImpl;
     type VoiceResults = DeepgramVoiceResults;
 
@@ -855,7 +855,7 @@ impl VoiceProvider for DeepgramComponent {
     }
 }
 
-impl SynthesizeProvider for DeepgramComponent {
+impl SynthesizeProvider for DeepgramTts {
     fn synthesize(
         input: TextInput,
         voice: golem_tts::model::voices::VoiceBorrow<'_>,
@@ -1077,7 +1077,7 @@ impl SynthesizeProvider for DeepgramComponent {
     }
 }
 
-impl StreamingVoiceProvider for DeepgramComponent {
+impl StreamingVoiceProvider for DeepgramTts {
     type SynthesisStream = DeepgramSynthesisStream;
     type VoiceConversionStream = DeepgramVoiceConversionStream;
 
@@ -1104,7 +1104,7 @@ impl StreamingVoiceProvider for DeepgramComponent {
     }
 }
 
-impl AdvancedTtsProvider for DeepgramComponent {
+impl AdvancedTtsProvider for DeepgramTts {
     type PronunciationLexicon = DeepgramPronunciationLexicon;
     type LongFormOperation = DeepgramLongFormOperation;
 
@@ -1176,7 +1176,7 @@ impl AdvancedTtsProvider for DeepgramComponent {
     }
 }
 
-impl ExtendedTtsProvider for DeepgramComponent {
+impl ExtendedTtsProvider for DeepgramTts {
     fn unwrapped_synthesis_stream(
         voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
@@ -1208,4 +1208,4 @@ impl ExtendedTtsProvider for DeepgramComponent {
     }
 }
 
-pub type DurableDeepgramComponent = DurableTts<DeepgramComponent>;
+pub type DurableDeepgramTts = DurableTts<DeepgramTts>;

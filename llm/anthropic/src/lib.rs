@@ -253,9 +253,9 @@ impl LlmChatStreamState for AnthropicChatStream {
     }
 }
 
-pub struct AnthropicComponent;
+pub struct Anthropic;
 
-impl AnthropicComponent {
+impl Anthropic {
     const ENV_VAR_NAME: &'static str = "ANTHROPIC_API_KEY";
 
     fn request(client: MessagesApi, request: MessagesRequest) -> Result<Response, Error> {
@@ -275,7 +275,7 @@ impl AnthropicComponent {
     }
 }
 
-impl LlmProvider for AnthropicComponent {
+impl LlmProvider for Anthropic {
     type ChatStream = LlmChatStream<AnthropicChatStream>;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -290,7 +290,7 @@ impl LlmProvider for AnthropicComponent {
     }
 }
 
-impl ExtendedLlmProvider for AnthropicComponent {
+impl ExtendedLlmProvider for Anthropic {
     fn unwrapped_stream(events: Vec<Event>, config: Config) -> LlmChatStream<AnthropicChatStream> {
         with_config_key(
             Self::ENV_VAR_NAME,
@@ -365,4 +365,4 @@ impl ExtendedLlmProvider for AnthropicComponent {
     }
 }
 
-pub type DurableAnthropicComponent = DurableLLM<AnthropicComponent>;
+pub type DurableAnthropic = DurableLLM<Anthropic>;

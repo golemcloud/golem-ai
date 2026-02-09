@@ -10,9 +10,9 @@ use golem_embed::{
     EmbeddingProvider, LOGGING_STATE,
 };
 
-pub struct OpenAIComponent;
+pub struct OpenAI;
 
-impl OpenAIComponent {
+impl OpenAI {
     const ENV_VAR_NAME: &'static str = "OPENAI_API_KEY";
 
     fn embeddings(
@@ -31,7 +31,7 @@ impl OpenAIComponent {
     }
 }
 
-impl EmbeddingProvider for OpenAIComponent {
+impl EmbeddingProvider for OpenAI {
     fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         with_config_key(Self::ENV_VAR_NAME, Err, |openai_api_key| {
@@ -53,6 +53,6 @@ impl EmbeddingProvider for OpenAIComponent {
     }
 }
 
-impl ExtendedEmbeddingProvider for OpenAIComponent {}
+impl ExtendedEmbeddingProvider for OpenAI {}
 
-pub type DurableOpenAIComponent = DurableEmbed<OpenAIComponent>;
+pub type DurableOpenAI = DurableEmbed<OpenAI>;

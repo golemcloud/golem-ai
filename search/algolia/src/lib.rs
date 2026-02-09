@@ -98,9 +98,9 @@ impl SearchStreamInterface for AlgoliaSearchStream {
     }
 }
 
-pub struct AlgoliaComponent;
+pub struct Algolia;
 
-impl AlgoliaComponent {
+impl Algolia {
     const APPLICATION_ID_ENV_VAR: &'static str = "ALGOLIA_APPLICATION_ID";
     const API_KEY_ENV_VAR: &'static str = "ALGOLIA_API_KEY";
 
@@ -123,7 +123,7 @@ impl AlgoliaComponent {
     }
 }
 
-impl SearchProvider for AlgoliaComponent {
+impl SearchProvider for Algolia {
     type SearchStream = AlgoliaSearchStream;
 
     fn create_index(_options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -254,7 +254,7 @@ impl SearchProvider for AlgoliaComponent {
     }
 }
 
-impl ExtendedSearchProvider for AlgoliaComponent {
+impl ExtendedSearchProvider for Algolia {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
         let client = Self::create_client()
             .unwrap_or_else(|_| AlgoliaSearchApi::new("dummy".to_string(), "dummy".to_string()));
@@ -271,4 +271,4 @@ impl ExtendedSearchProvider for AlgoliaComponent {
     }
 }
 
-pub type DurableAlgoliaComponent = DurableSearch<AlgoliaComponent>;
+pub type DurableAlgolia = DurableSearch<Algolia>;

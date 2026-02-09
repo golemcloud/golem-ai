@@ -20,7 +20,7 @@ pub struct SerperReplayState {
     pub finished: bool,
 }
 
-struct SerperSearch {
+struct SerperSearchSessionImpl {
     client: SerperSearchApi,
     params: SearchParams,
     metadata: Option<SearchMetadata>,
@@ -28,7 +28,7 @@ struct SerperSearch {
     finished: bool,
 }
 
-impl SerperSearch {
+impl SerperSearchSessionImpl {
     fn new(client: SerperSearchApi, params: SearchParams) -> Self {
         Self {
             client,
@@ -44,8 +44,7 @@ impl SerperSearch {
             return Ok(Vec::new());
         }
 
-        let request =
-            params_to_request(self.params.clone(), self.current_page)?;
+        let request = params_to_request(self.params.clone(), self.current_page)?;
         let num_results = request.num.unwrap_or(10);
         let response = self.client.search(request)?;
         let (results, metadata) = response_to_results(response, &self.params, self.current_page);
@@ -63,10 +62,10 @@ impl SerperSearch {
 }
 
 // Create a wrapper that implements GuestSearchSession properly
-pub struct SerperSearchSession(RefCell<SerperSearch>);
+pub struct SerperSearchSession(RefCell<SerperSearchSessionImpl>);
 
 impl SerperSearchSession {
-    fn new(search: SerperSearch) -> Self {
+    fn new(search: SerperSearchSessionImpl) -> Self {
         Self(RefCell::new(search))
     }
 }
@@ -91,9 +90,9 @@ impl SearchSessionInterface for SerperSearchSession {
     }
 }
 
-pub struct SerperSearchComponent;
+pub struct SerperSearch;
 
-impl SerperSearchComponent {
+impl SerperSearch {
     const API_KEY_VAR: &'static str = "SERPER_API_KEY";
 
     fn get_api_key() -> Result<String, SearchError> {
@@ -125,12 +124,12 @@ impl SerperSearchComponent {
         validate_search_params(&params)?;
 
         let client = Self::create_client()?;
-        let search = SerperSearch::new(client, params);
+        let search = SerperSearchSessionImpl::new(client, params);
         Ok(SerperSearchSession::new(search))
     }
 }
 
-impl WebSearchProvider for SerperSearchComponent {
+impl WebSearchProvider for SerperSearch {
     type SearchSession = SerperSearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
@@ -148,12 +147,12 @@ impl WebSearchProvider for SerperSearchComponent {
     }
 }
 
-impl ExtendedWebSearchProvider for SerperSearchComponent {
+impl ExtendedWebSearchProvider for SerperSearch {
     type ReplayState = SerperReplayState;
 
     fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
         let client = Self::create_client()?;
-        let search = SerperSearch::new(client, params);
+        let search = SerperSearchSessionImpl::new(client, params);
         Ok(SerperSearchSession::new(search))
     }
 
@@ -172,7 +171,7 @@ impl ExtendedWebSearchProvider for SerperSearchComponent {
         params: SearchParams,
     ) -> Result<Self::SearchSession, SearchError> {
         let client = SerperSearchApi::new(state.api_key.clone());
-        let mut search = SerperSearch::new(client, params);
+        let mut search = SerperSearchSessionImpl::new(client, params);
         search.current_page = state.current_page;
         search.metadata = state.metadata.clone();
         search.finished = state.finished;
@@ -180,4 +179,4 @@ impl ExtendedWebSearchProvider for SerperSearchComponent {
     }
 }
 
-pub type DurableSerperComponent = DurableWebSearch<SerperSearchComponent>;
+pub type DurableSerperSearch = DurableWebSearch<SerperSearch>;

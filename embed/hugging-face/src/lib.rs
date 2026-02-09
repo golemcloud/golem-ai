@@ -5,9 +5,9 @@ use client::EmbeddingsApi;
 use conversions::{create_embedding_request, process_embedding_response};
 use golem_embed::{config::with_config_key, durability::{DurableEmbed, ExtendedEmbeddingProvider}, model::{Config, ContentPart, EmbeddingResponse, Error, ErrorCode, RerankResponse}, EmbeddingProvider, LOGGING_STATE};
 
-pub struct HuggingFaceComponent;
+pub struct HuggingFace;
 
-impl HuggingFaceComponent {
+impl HuggingFace {
     const ENV_VAR_NAME: &'static str = "HUGGINGFACE_API_KEY";
 
     fn embeddings(
@@ -23,7 +23,7 @@ impl HuggingFaceComponent {
     }
 }
 
-impl EmbeddingProvider for HuggingFaceComponent {
+impl EmbeddingProvider for HuggingFace {
     fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         with_config_key(Self::ENV_VAR_NAME, Err, |huggingface_api_key| {
@@ -45,6 +45,6 @@ impl EmbeddingProvider for HuggingFaceComponent {
     }
 }
 
-impl ExtendedEmbeddingProvider for HuggingFaceComponent {}
+impl ExtendedEmbeddingProvider for HuggingFace {}
 
-pub type DurableHuggingFaceComponent = DurableEmbed<HuggingFaceComponent>;
+pub type DurableHuggingFace = DurableEmbed<HuggingFace>;

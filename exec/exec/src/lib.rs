@@ -4,12 +4,14 @@ pub mod javascript;
 #[cfg(feature = "python")]
 pub mod python;
 
-pub mod component;
 pub mod durability;
+mod executor;
 pub mod model;
 
 use crate::model::{Encoding, Error, ExecResult, File, Language, RunOptions, StageResult};
 use base64::Engine;
+
+pub use executor::DurableExecution;
 
 pub trait ExecutionProvider {
     type Session: ExecutionSession;

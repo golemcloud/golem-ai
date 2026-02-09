@@ -16,9 +16,9 @@ use crate::{
 mod client;
 mod conversations;
 
-pub struct VoyageAIApiComponent;
+pub struct VoyageAI;
 
-impl VoyageAIApiComponent {
+impl VoyageAI {
     const ENV_VAR_NAME: &'static str = "VOYAGEAI_API_KEY";
 
     fn embeddings(
@@ -53,7 +53,7 @@ impl VoyageAIApiComponent {
     }
 }
 
-impl EmbeddingProvider for VoyageAIApiComponent {
+impl EmbeddingProvider for VoyageAI {
     fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -77,6 +77,6 @@ impl EmbeddingProvider for VoyageAIApiComponent {
     }
 }
 
-impl ExtendedEmbeddingProvider for VoyageAIApiComponent {}
+impl ExtendedEmbeddingProvider for VoyageAI {}
 
-pub type DurableVoyageAIApiComponent = DurableEmbed<VoyageAIApiComponent>;
+pub type DurableVoyageAI = DurableEmbed<VoyageAI>;

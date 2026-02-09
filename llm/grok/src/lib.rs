@@ -128,9 +128,9 @@ impl LlmChatStreamState for GrokChatStream {
     }
 }
 
-pub struct GrokComponent;
+pub struct Grok;
 
-impl GrokComponent {
+impl Grok {
     const ENV_VAR_NAME: &'static str = "XAI_API_KEY";
 
     fn request(client: CompletionsApi, request: CompletionsRequest) -> Result<Response, Error> {
@@ -153,7 +153,7 @@ impl GrokComponent {
     }
 }
 
-impl LlmProvider for GrokComponent {
+impl LlmProvider for Grok {
     type ChatStream = LlmChatStream<GrokChatStream>;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -168,7 +168,7 @@ impl LlmProvider for GrokComponent {
     }
 }
 
-impl ExtendedLlmProvider for GrokComponent {
+impl ExtendedLlmProvider for Grok {
     fn unwrapped_stream(messages: Vec<Event>, config: Config) -> LlmChatStream<GrokChatStream> {
         with_config_key(Self::ENV_VAR_NAME, GrokChatStream::failed, |xai_api_key| {
             let client = CompletionsApi::new(xai_api_key);
@@ -185,4 +185,4 @@ impl ExtendedLlmProvider for GrokComponent {
     }
 }
 
-pub type DurableGrokComponent = DurableLLM<GrokComponent>;
+pub type DurableGrok = DurableLLM<Grok>;

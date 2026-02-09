@@ -189,9 +189,9 @@ impl ElasticsearchSearchStream {
     }
 }
 
-pub struct ElasticsearchComponent;
+pub struct Elasticsearch;
 
-impl ElasticsearchComponent {
+impl Elasticsearch {
     const URL_ENV_VAR: &'static str = "ELASTICSEARCH_URL";
     const USERNAME_ENV_VAR: &'static str = "ELASTICSEARCH_USERNAME";
     const PASSWORD_ENV_VAR: &'static str = "ELASTICSEARCH_PASSWORD";
@@ -235,7 +235,7 @@ impl ElasticsearchComponent {
     }
 }
 
-impl SearchProvider for ElasticsearchComponent {
+impl SearchProvider for Elasticsearch {
     type SearchStream = ElasticsearchSearchStream;
 
     fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -357,7 +357,7 @@ impl SearchProvider for ElasticsearchComponent {
     }
 }
 
-impl ExtendedSearchProvider for ElasticsearchComponent {
+impl ExtendedSearchProvider for Elasticsearch {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
         let client = Self::create_client().unwrap_or_else(|_| {
             ElasticsearchApi::new("http://localhost:9200".to_string(), None, None, None)
@@ -384,4 +384,4 @@ impl Drop for ElasticsearchSearchStream {
     }
 }
 
-pub type DurableElasticsearchComponent = DurableSearch<ElasticsearchComponent>;
+pub type DurableElasticsarch = DurableSearch<Elasticsearch>;

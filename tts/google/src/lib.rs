@@ -626,9 +626,9 @@ impl LongFormOperationInterface for GoogleLongFormOperation {
     }
 }
 
-pub struct GoogleComponent;
+pub struct GoogleTts;
 
-impl GoogleComponent {
+impl GoogleTts {
     const CREDENTIALS_ENV_VAR: &'static str = "GOOGLE_APPLICATION_CREDENTIALS";
     const PROJECT_ENV_VAR: &'static str = "GOOGLE_CLOUD_PROJECT";
 
@@ -640,7 +640,7 @@ impl GoogleComponent {
     }
 }
 
-impl VoiceProvider for GoogleComponent {
+impl VoiceProvider for GoogleTts {
     type Voice = GoogleVoiceImpl;
     type VoiceResults = GoogleVoiceResults;
 
@@ -715,7 +715,7 @@ impl VoiceProvider for GoogleComponent {
     }
 }
 
-impl SynthesizeProvider for GoogleComponent {
+impl SynthesizeProvider for GoogleTts {
     fn synthesize(
         input: TextInput,
         voice: golem_tts::model::voices::VoiceBorrow<'_>,
@@ -908,7 +908,7 @@ impl SynthesizeProvider for GoogleComponent {
     }
 }
 
-impl StreamingVoiceProvider for GoogleComponent {
+impl StreamingVoiceProvider for GoogleTts {
     type SynthesisStream = GoogleSynthesisStream;
     type VoiceConversionStream = GoogleVoiceConversionStream;
 
@@ -930,7 +930,7 @@ impl StreamingVoiceProvider for GoogleComponent {
     }
 }
 
-impl AdvancedTtsProvider for GoogleComponent {
+impl AdvancedTtsProvider for GoogleTts {
     type PronunciationLexicon = GooglePronunciationLexicon;
     type LongFormOperation = GoogleLongFormOperation;
 
@@ -994,7 +994,7 @@ impl AdvancedTtsProvider for GoogleComponent {
     }
 }
 
-impl ExtendedTtsProvider for GoogleComponent {
+impl ExtendedTtsProvider for GoogleTts {
     fn unwrapped_synthesis_stream(
         _voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
@@ -1019,4 +1019,4 @@ impl ExtendedTtsProvider for GoogleComponent {
     }
 }
 
-pub type DurableGoogleComponent = DurableTts<GoogleComponent>;
+pub type DurableGoogleTts = DurableTts<GoogleTts>;

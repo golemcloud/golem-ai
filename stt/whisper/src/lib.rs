@@ -36,9 +36,9 @@ mod transcription;
 
 static API_CLIENT: OnceCell<TranscriptionsApi<WstdHttpClient>> = OnceCell::new();
 
-pub struct SttComponent;
+pub struct WhisperStt;
 
-impl SttComponent {
+impl WhisperStt {
     fn create_or_get_client() -> Result<&'static TranscriptionsApi<WstdHttpClient>, SttError> {
         API_CLIENT.get_or_try_init(|| {
             let api_key = std::env::var("OPENAI_API_KEY").map_err(|err| {
@@ -55,7 +55,7 @@ impl SttComponent {
     }
 }
 
-impl LanguageProvider for SttComponent {
+impl LanguageProvider for WhisperStt {
     fn list_languages() -> Result<Vec<LanguageInfo>, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -71,7 +71,7 @@ impl LanguageProvider for SttComponent {
     }
 }
 
-impl SttTranscriptionProvider for SttComponent {
+impl SttTranscriptionProvider for WhisperStt {
     fn transcribe(req: SttTranscriptionRequest) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -243,6 +243,6 @@ impl From<TranscriptionResponse> for WitTranscriptionResult {
     }
 }
 
-impl ExtendedSttProvider for SttComponent {}
+impl ExtendedSttProvider for WhisperStt {}
 
-pub type DurableDeepgramComponent = DurableStt<SttComponent>;
+pub type DurableWhisperStt = DurableStt<WhisperStt>;

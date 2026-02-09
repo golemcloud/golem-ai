@@ -36,9 +36,9 @@ mod transcription;
 
 static API_CLIENT: OnceCell<PreRecordedAudioApi<WstdHttpClient>> = OnceCell::new();
 
-pub struct SttComponent;
+pub struct DeepgramStt;
 
-impl SttComponent {
+impl DeepgramStt {
     fn create_or_get_client() -> Result<&'static PreRecordedAudioApi<WstdHttpClient>, SttError> {
         API_CLIENT.get_or_try_init(|| {
             let api_key = std::env::var("DEEPGRAM_API_TOKEN").map_err(|err| {
@@ -60,7 +60,7 @@ impl SttComponent {
     }
 }
 
-impl LanguageProvider for SttComponent {
+impl LanguageProvider for DeepgramStt {
     fn list_languages() -> Result<Vec<LanguageInfo>, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -76,7 +76,7 @@ impl LanguageProvider for SttComponent {
     }
 }
 
-impl SttTranscriptionProvider for SttComponent {
+impl SttTranscriptionProvider for DeepgramStt {
     fn transcribe(req: SttTranscriptionRequest) -> Result<WitTranscriptionResult, WitSttError> {
         block_on(async {
             let api_client = Self::create_or_get_client()?;
@@ -321,6 +321,6 @@ impl From<TranscriptionResponse> for WitTranscriptionResult {
     }
 }
 
-impl ExtendedSttProvider for SttComponent {}
+impl ExtendedSttProvider for DeepgramStt {}
 
-pub type DurableDeepgramComponent = DurableStt<SttComponent>;
+pub type DurableDeepgramStt = DurableStt<DeepgramStt>;

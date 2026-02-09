@@ -30,9 +30,9 @@ use golem_vector::{
 mod client;
 mod conversions;
 
-pub struct PineconeComponent;
+pub struct Pinecone;
 
-impl PineconeComponent {
+impl Pinecone {
     const API_KEY_ENV_VAR: &'static str = "PINECONE_API_KEY";
     const ENVIRONMENT_ENV_VAR: &'static str = "PINECONE_ENVIRONMENT";
 
@@ -53,7 +53,7 @@ impl PineconeComponent {
     }
 }
 
-impl ExtendedVectorProvider for PineconeComponent {
+impl ExtendedVectorProvider for Pinecone {
     fn connect_internal(
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -65,7 +65,7 @@ impl ExtendedVectorProvider for PineconeComponent {
     }
 }
 
-impl ConnectionProvider for PineconeComponent {
+impl ConnectionProvider for Pinecone {
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -115,7 +115,7 @@ impl ConnectionProvider for PineconeComponent {
     }
 }
 
-impl CollectionProvider for PineconeComponent {
+impl CollectionProvider for Pinecone {
     fn upsert_collection(
         name: String,
         _description: Option<String>,
@@ -214,7 +214,7 @@ impl CollectionProvider for PineconeComponent {
     }
 }
 
-impl VectorsProvider for PineconeComponent {
+impl VectorsProvider for Pinecone {
     fn upsert_vectors(
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -505,7 +505,7 @@ impl VectorsProvider for PineconeComponent {
     }
 }
 
-impl SearchProvider for PineconeComponent {
+impl SearchProvider for Pinecone {
     fn search_vectors(
         collection: String,
         query: SearchQuery,
@@ -624,7 +624,7 @@ impl SearchProvider for PineconeComponent {
     }
 }
 
-impl SearchExtendedProvider for PineconeComponent {
+impl SearchExtendedProvider for Pinecone {
     fn recommend_vectors(
         _collection: String,
         _positive: Vec<RecommendationExample>,
@@ -701,7 +701,7 @@ impl SearchExtendedProvider for PineconeComponent {
     }
 }
 
-impl AnalyticsProvider for PineconeComponent {
+impl AnalyticsProvider for Pinecone {
     fn get_collection_stats(
         collection: String,
         namespace: Option<String>,
@@ -769,7 +769,7 @@ impl AnalyticsProvider for PineconeComponent {
     }
 }
 
-impl NamespacesProvider for PineconeComponent {
+impl NamespacesProvider for Pinecone {
     fn upsert_namespace(
         collection: String,
         namespace: String,
@@ -848,4 +848,4 @@ impl NamespacesProvider for PineconeComponent {
     }
 }
 
-pub type DurablePineconeComponent = DurableVector<PineconeComponent>;
+pub type DurablePinecone = DurableVector<Pinecone>;

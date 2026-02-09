@@ -108,9 +108,9 @@ impl SearchStreamInterface for MeilisearchSearchStream {
     }
 }
 
-pub struct MeilisearchComponent;
+pub struct Meilisearch;
 
-impl MeilisearchComponent {
+impl Meilisearch {
     const BASE_URL_ENV_VAR: &'static str = "MEILISEARCH_BASE_URL";
     const API_KEY_ENV_VAR: &'static str = "MEILISEARCH_API_KEY";
 
@@ -131,7 +131,7 @@ impl MeilisearchComponent {
     }
 }
 
-impl SearchProvider for MeilisearchComponent {
+impl SearchProvider for Meilisearch {
     type SearchStream = MeilisearchSearchStream;
 
     fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -260,7 +260,7 @@ impl SearchProvider for MeilisearchComponent {
     }
 }
 
-impl ExtendedSearchProvider for MeilisearchComponent {
+impl ExtendedSearchProvider for Meilisearch {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
         let client = Self::create_client()
             .unwrap_or_else(|_| MeilisearchApi::new("http://localhost:7700".to_string(), None));
@@ -277,4 +277,4 @@ impl ExtendedSearchProvider for MeilisearchComponent {
     }
 }
 
-pub type DurableMeilisearchComponent = DurableSearch<MeilisearchComponent>;
+pub type DurableMeilisearch = DurableSearch<Meilisearch>;

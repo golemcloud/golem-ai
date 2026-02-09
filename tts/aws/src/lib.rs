@@ -664,9 +664,9 @@ impl LongFormOperationInterface for PollyLongFormOperation {
     }
 }
 
-pub struct AwsPollyComponent;
+pub struct AwsPolly;
 
-impl AwsPollyComponent {
+impl AwsPolly {
     const ACCESS_KEY_ENV_VAR: &'static str = "AWS_ACCESS_KEY_ID";
     const SECRET_KEY_ENV_VAR: &'static str = "AWS_SECRET_ACCESS_KEY";
     const REGION_ENV_VAR: &'static str = "AWS_REGION";
@@ -690,7 +690,7 @@ impl AwsPollyComponent {
     }
 }
 
-impl VoiceProvider for AwsPollyComponent {
+impl VoiceProvider for AwsPolly {
     type Voice = PollyVoiceImpl;
     type VoiceResults = PollyVoiceResults;
 
@@ -769,7 +769,7 @@ impl VoiceProvider for AwsPollyComponent {
     }
 }
 
-impl SynthesizeProvider for AwsPollyComponent {
+impl SynthesizeProvider for AwsPolly {
     fn synthesize(
         input: TextInput,
         voice: golem_tts::model::voices::VoiceBorrow<'_>,
@@ -996,7 +996,7 @@ impl SynthesizeProvider for AwsPollyComponent {
     }
 }
 
-impl StreamingVoiceProvider for AwsPollyComponent {
+impl StreamingVoiceProvider for AwsPolly {
     type SynthesisStream = PollySynthesisStream;
     type VoiceConversionStream = PollyVoiceConversionStream;
 
@@ -1025,7 +1025,7 @@ impl StreamingVoiceProvider for AwsPollyComponent {
     }
 }
 
-impl AdvancedTtsProvider for AwsPollyComponent {
+impl AdvancedTtsProvider for AwsPolly {
     type PronunciationLexicon = PollyPronunciationLexicon;
     type LongFormOperation = PollyLongFormOperation;
 
@@ -1135,7 +1135,7 @@ impl AdvancedTtsProvider for AwsPollyComponent {
     }
 }
 
-impl ExtendedTtsProvider for AwsPollyComponent {
+impl ExtendedTtsProvider for AwsPolly {
     fn unwrapped_synthesis_stream(
         voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
@@ -1181,4 +1181,4 @@ impl ExtendedTtsProvider for AwsPollyComponent {
     }
 }
 
-pub type DurableAwsPollyComponent = DurableTts<AwsPollyComponent>;
+pub type DurableAwsPolly = DurableTts<AwsPolly>;

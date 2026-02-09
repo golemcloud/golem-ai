@@ -12,7 +12,7 @@ use golem_graph::model::{connection::ConnectionConfig, errors::GraphError};
 use golem_graph::TransactionProvider;
 use std::sync::Arc;
 
-pub struct GraphNeo4jComponent;
+pub struct Neo4j;
 
 pub struct Graph {
     api: Arc<Neo4jApi>,
@@ -35,7 +35,7 @@ pub struct SchemaManager {
     graph: Arc<Graph>,
 }
 
-impl ExtendedGuest for GraphNeo4jComponent {
+impl ExtendedGuest for Neo4j {
     type Graph = Graph;
     fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
         let host = with_config_key(config, "NEO4J_HOST")
@@ -66,7 +66,7 @@ impl ExtendedGuest for GraphNeo4jComponent {
     }
 }
 
-impl TransactionProvider for GraphNeo4jComponent {
+impl TransactionProvider for Neo4j {
     type Transaction = Transaction;
 }
 
@@ -91,4 +91,4 @@ impl Transaction {
     }
 }
 
-pub type DurableGraphNeo4jComponent = DurableGraph<GraphNeo4jComponent>;
+pub type DurableNeo4j = DurableGraph<Neo4j>;

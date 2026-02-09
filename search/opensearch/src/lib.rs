@@ -166,9 +166,9 @@ impl SearchStreamInterface for OpenSearchSearchStream {
     }
 }
 
-pub struct OpenSearchComponent;
+pub struct OpenSearch;
 
-impl OpenSearchComponent {
+impl OpenSearch {
     const BASE_URL_ENV_VAR: &'static str = "OPENSEARCH_BASE_URL";
     const USERNAME_ENV_VAR: &'static str = "OPENSEARCH_USERNAME";
     const PASSWORD_ENV_VAR: &'static str = "OPENSEARCH_PASSWORD";
@@ -194,7 +194,7 @@ impl OpenSearchComponent {
     }
 }
 
-impl SearchProvider for OpenSearchComponent {
+impl SearchProvider for OpenSearch {
     type SearchStream = OpenSearchSearchStream;
 
     fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -345,7 +345,7 @@ impl SearchProvider for OpenSearchComponent {
     }
 }
 
-impl ExtendedSearchProvider for OpenSearchComponent {
+impl ExtendedSearchProvider for OpenSearch {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
         let client = Self::create_client().unwrap_or_else(|_| {
             OpenSearchApi::new("http://localhost:9200".to_string(), None, None, None)
@@ -372,4 +372,4 @@ impl Drop for OpenSearchSearchStream {
     }
 }
 
-pub type DurableOpenSearchComponent = DurableSearch<OpenSearchComponent>;
+pub type DurableOpenSearch = DurableSearch<OpenSearch>;

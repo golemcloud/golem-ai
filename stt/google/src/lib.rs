@@ -43,9 +43,9 @@ static API_CLIENT: OnceCell<
     >,
 > = OnceCell::new();
 
-pub struct SttComponent;
+pub struct GoogleStt;
 
-impl SttComponent {
+impl GoogleStt {
     fn create_or_get_client() -> Result<
         &'static SpeechToTextApi<
             CloudStorageClient<WstdHttpClient>,
@@ -100,7 +100,7 @@ impl SttComponent {
     }
 }
 
-impl LanguageProvider for SttComponent {
+impl LanguageProvider for GoogleStt {
     fn list_languages() -> Result<Vec<LanguageInfo>, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -116,7 +116,7 @@ impl LanguageProvider for SttComponent {
     }
 }
 
-impl SttTranscriptionProvider for SttComponent {
+impl SttTranscriptionProvider for GoogleStt {
     fn transcribe(req: SttTranscriptionRequest) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -449,6 +449,6 @@ impl TryFrom<TranscriptionResponse> for WitTranscriptionResult {
     }
 }
 
-impl ExtendedSttProvider for SttComponent {}
+impl ExtendedSttProvider for GoogleStt {}
 
-pub type DurableDeepgramComponent = DurableStt<SttComponent>;
+pub type DurableGoogleStt = DurableStt<GoogleStt>;

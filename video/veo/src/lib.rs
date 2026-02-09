@@ -19,15 +19,15 @@ use golem_video::model::types::{
 };
 use golem_video::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 
-pub struct VeoComponent;
+pub struct Veo;
 
-impl VeoComponent {
+impl Veo {
     const PROJECT_ID_ENV_VAR: &'static str = "VEO_PROJECT_ID";
     const CLIENT_EMAIL_ENV_VAR: &'static str = "VEO_CLIENT_EMAIL";
     const PRIVATE_KEY_ENV_VAR: &'static str = "VEO_PRIVATE_KEY";
 }
 
-impl VideoGenerationProvider for VeoComponent {
+impl VideoGenerationProvider for Veo {
     fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
         with_config_key(Self::PROJECT_ID_ENV_VAR, Err, |project_id| {
             with_config_key(Self::CLIENT_EMAIL_ENV_VAR, Err, |client_email| {
@@ -62,7 +62,7 @@ impl VideoGenerationProvider for VeoComponent {
     }
 }
 
-impl LipSyncProvider for VeoComponent {
+impl LipSyncProvider for Veo {
     fn generate_lip_sync(video: LipSyncVideo, audio: AudioSource) -> Result<String, VideoError> {
         with_config_key(Self::PROJECT_ID_ENV_VAR, Err, |project_id| {
             with_config_key(Self::CLIENT_EMAIL_ENV_VAR, Err, |client_email| {
@@ -86,7 +86,7 @@ impl LipSyncProvider for VeoComponent {
     }
 }
 
-impl AdvancedVideoGenerationProvider for VeoComponent {
+impl AdvancedVideoGenerationProvider for Veo {
     fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
         with_config_key(Self::PROJECT_ID_ENV_VAR, Err, |project_id| {
             with_config_key(Self::CLIENT_EMAIL_ENV_VAR, Err, |client_email| {
@@ -151,6 +151,6 @@ impl AdvancedVideoGenerationProvider for VeoComponent {
     }
 }
 
-impl ExtendedVideoGenerationProvider for VeoComponent {}
+impl ExtendedVideoGenerationProvider for Veo {}
 
-pub type DurableVeoComponent = DurableVideo<VeoComponent>;
+pub type DurableVeo = DurableVideo<Veo>;

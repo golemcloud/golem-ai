@@ -18,14 +18,14 @@ pub struct TavilyReplayState {
     pub finished: bool,
 }
 
-struct TavilySearch {
+struct TavilySearchSessionImpl {
     client: TavilySearchApi,
     params: SearchParams,
     metadata: Option<SearchMetadata>,
     finished: bool,
 }
 
-impl TavilySearch {
+impl TavilySearchSessionImpl {
     fn new(client: TavilySearchApi, params: SearchParams) -> Self {
         Self {
             client,
@@ -55,10 +55,10 @@ impl TavilySearch {
 }
 
 // Create a wrapper that implements GuestSearchSession properly
-pub struct TavilySearchSession(RefCell<TavilySearch>);
+pub struct TavilySearchSession(RefCell<TavilySearchSessionImpl>);
 
 impl TavilySearchSession {
-    fn new(search: TavilySearch) -> Self {
+    fn new(search: TavilySearchSessionImpl) -> Self {
         Self(RefCell::new(search))
     }
 }
@@ -82,9 +82,9 @@ impl SearchSessionInterface for TavilySearchSession {
     }
 }
 
-pub struct TavilySearchComponent;
+pub struct TavilySearch;
 
-impl TavilySearchComponent {
+impl TavilySearch {
     const API_KEY_VAR: &'static str = "TAVILY_API_KEY";
 
     fn create_client() -> Result<TavilySearchApi, SearchError> {
@@ -117,12 +117,12 @@ impl TavilySearchComponent {
         validate_search_params(&params)?;
 
         let client = Self::create_client()?;
-        let search = TavilySearch::new(client, params);
+        let search = TavilySearchSessionImpl::new(client, params);
         Ok(TavilySearchSession::new(search))
     }
 }
 
-impl WebSearchProvider for TavilySearchComponent {
+impl WebSearchProvider for TavilySearch {
     type SearchSession = TavilySearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
@@ -140,12 +140,12 @@ impl WebSearchProvider for TavilySearchComponent {
     }
 }
 
-impl ExtendedWebSearchProvider for TavilySearchComponent {
+impl ExtendedWebSearchProvider for TavilySearch {
     type ReplayState = TavilyReplayState;
 
     fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
         let client = Self::create_client()?;
-        let search = TavilySearch::new(client, params);
+        let search = TavilySearchSessionImpl::new(client, params);
         Ok(TavilySearchSession::new(search))
     }
 
@@ -162,11 +162,11 @@ impl ExtendedWebSearchProvider for TavilySearchComponent {
         params: SearchParams,
     ) -> Result<Self::SearchSession, SearchError> {
         let client = TavilySearchApi::new(state.api_key.clone());
-        let mut search = TavilySearch::new(client, params);
+        let mut search = TavilySearchSessionImpl::new(client, params);
         search.metadata = state.metadata.clone();
         search.finished = state.finished;
         Ok(TavilySearchSession::new(search))
     }
 }
 
-pub type DurableTavilyComponent = DurableWebSearch<TavilySearchComponent>;
+pub type DurableTavilySearch = DurableWebSearch<TavilySearch>;

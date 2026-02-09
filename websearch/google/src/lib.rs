@@ -97,9 +97,9 @@ impl SearchSessionInterface for GoogleSearchSession {
     }
 }
 
-pub struct GoogleCustomSearchComponent;
+pub struct GoogleCustomSearch;
 
-impl GoogleCustomSearchComponent {
+impl GoogleCustomSearch {
     const API_KEY_VAR: &'static str = "GOOGLE_API_KEY";
     const SEARCH_ENGINE_ID_VAR: &'static str = "GOOGLE_SEARCH_ENGINE_ID";
 
@@ -140,7 +140,7 @@ impl GoogleCustomSearchComponent {
     }
 }
 
-impl WebSearchProvider for GoogleCustomSearchComponent {
+impl WebSearchProvider for GoogleCustomSearch {
     type SearchSession = GoogleSearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
@@ -157,7 +157,7 @@ impl WebSearchProvider for GoogleCustomSearchComponent {
     }
 }
 
-impl ExtendedWebSearchProvider for GoogleCustomSearchComponent {
+impl ExtendedWebSearchProvider for GoogleCustomSearch {
     type ReplayState = GoogleReplayState;
 
     fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
@@ -193,4 +193,4 @@ impl ExtendedWebSearchProvider for GoogleCustomSearchComponent {
     }
 }
 
-pub type DurableGoogleComponent = DurableWebSearch<GoogleCustomSearchComponent>;
+pub type DurableGoogleCustomSearch = DurableWebSearch<GoogleCustomSearch>;

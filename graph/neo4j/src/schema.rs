@@ -1,6 +1,6 @@
 use crate::client::{Neo4jStatement, Neo4jStatements};
 use crate::helpers::{config_from_env, map_neo4j_type_to_wit};
-use crate::{GraphNeo4jComponent, SchemaManager};
+use crate::{Neo4j, SchemaManager};
 use golem_graph::durability::ExtendedGuest;
 use golem_graph::model::{
     connection::ConnectionConfig,
@@ -16,7 +16,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-impl SchemaManagerProvider for GraphNeo4jComponent {
+impl SchemaManagerProvider for Neo4j {
     type SchemaManager = SchemaManager;
 
     fn get_schema_manager(
@@ -26,7 +26,7 @@ impl SchemaManagerProvider for GraphNeo4jComponent {
             Some(provided_config) => provided_config,
             None => config_from_env()?,
         };
-        let graph = GraphNeo4jComponent::connect_internal(&final_config)?;
+        let graph = Neo4j::connect_internal(&final_config)?;
         let manager = SchemaManager {
             graph: Arc::new(graph),
         };

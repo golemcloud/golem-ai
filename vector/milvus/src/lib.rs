@@ -31,9 +31,9 @@ use golem_vector::{
 mod client;
 mod conversions;
 
-pub struct MilvusComponent;
+pub struct Milvus;
 
-impl MilvusComponent {
+impl Milvus {
     const URI_ENV_VAR: &'static str = "MILVUS_URI";
     const TOKEN_ENV_VAR: &'static str = "MILVUS_TOKEN";
     const DATABASE_ENV_VAR: &'static str = "MILVUS_DATABASE";
@@ -67,7 +67,7 @@ impl MilvusComponent {
     }
 }
 
-impl ExtendedVectorProvider for MilvusComponent {
+impl ExtendedVectorProvider for Milvus {
     fn connect_internal(
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -79,7 +79,7 @@ impl ExtendedVectorProvider for MilvusComponent {
     }
 }
 
-impl ConnectionProvider for MilvusComponent {
+impl ConnectionProvider for Milvus {
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -138,7 +138,7 @@ impl ConnectionProvider for MilvusComponent {
     }
 }
 
-impl CollectionProvider for MilvusComponent {
+impl CollectionProvider for Milvus {
     fn upsert_collection(
         name: String,
         description: Option<String>,
@@ -222,7 +222,7 @@ impl CollectionProvider for MilvusComponent {
     }
 }
 
-impl VectorsProvider for MilvusComponent {
+impl VectorsProvider for Milvus {
     fn upsert_vectors(
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -453,7 +453,7 @@ impl VectorsProvider for MilvusComponent {
     }
 }
 
-impl SearchProvider for MilvusComponent {
+impl SearchProvider for Milvus {
     fn search_vectors(
         collection: String,
         query: SearchQuery,
@@ -559,7 +559,7 @@ impl SearchProvider for MilvusComponent {
     }
 }
 
-impl SearchExtendedProvider for MilvusComponent {
+impl SearchExtendedProvider for Milvus {
     fn recommend_vectors(
         _collection: String,
         _positive: Vec<RecommendationExample>,
@@ -636,7 +636,7 @@ impl SearchExtendedProvider for MilvusComponent {
     }
 }
 
-impl AnalyticsProvider for MilvusComponent {
+impl AnalyticsProvider for Milvus {
     fn get_collection_stats(
         collection: String,
         _namespace: Option<String>,
@@ -671,7 +671,7 @@ impl AnalyticsProvider for MilvusComponent {
     }
 }
 
-impl NamespacesProvider for MilvusComponent {
+impl NamespacesProvider for Milvus {
     fn upsert_namespace(
         collection: String,
         namespace: String,
@@ -781,4 +781,4 @@ impl NamespacesProvider for MilvusComponent {
     }
 }
 
-pub type DurableMilvusComponent = DurableVector<MilvusComponent>;
+pub type DurableMilvus = DurableVector<Milvus>;
