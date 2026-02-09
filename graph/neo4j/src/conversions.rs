@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{Datelike, Timelike};
-use golem_graph::model::{
+use golem_ai_graph::model::{
     errors::GraphError,
     types::{
         Date, Datetime, ElementId, Linestring, Point, Polygon, PropertyMap, PropertyValue, Time,
@@ -327,7 +327,7 @@ pub(crate) fn from_json_value(value: Value) -> Result<PropertyValue, GraphError>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_graph::model::types::{Date, Datetime, Point, Time};
+    use golem_ai_graph::model::types::{Date, Datetime, Point, Time};
 
     #[test]
     fn test_simple_values_roundtrip() {
@@ -402,7 +402,7 @@ mod tests {
 
     #[test]
     fn test_unsupported_duration_conversion() {
-        let original = PropertyValue::Duration(golem_graph::model::types::Duration {
+        let original = PropertyValue::Duration(golem_ai_graph::model::types::Duration {
             seconds: 10,
             nanoseconds: 0,
         });

@@ -36,76 +36,76 @@ run_task = { name = [
 
 [tasks.build-aws]
 command = "cargo"
-args = ["build", "-p", "golem-tts-aws"]
+args = ["build", "-p", "golem-ai-tts-aws"]
 
 
 [tasks.build-aws-portable]
 command = "cargo"
-args = ["build", "-p", "golem-tts-aws", "--no-default-features"]
+args = ["build", "-p", "golem-ai-tts-aws", "--no-default-features"]
 
 
 [tasks.build-deepgram]
 command = "cargo"
-args = ["build", "-p", "golem-tts-deepgram"]
+args = ["build", "-p", "golem-ai-tts-deepgram"]
 
 [tasks.build-deepgram-portable]
 command = "cargo"
-args = ["build", "-p", "golem-tts-deepgram", "--no-default-features"]
+args = ["build", "-p", "golem-ai-tts-deepgram", "--no-default-features"]
 
 [tasks.build-elevenlabs]
 command = "cargo"
-args = ["build", "-p", "golem-tts-elevenlabs"]
+args = ["build", "-p", "golem-ai-tts-elevenlabs"]
 
 [tasks.build-elevenlabs-portable]
 command = "cargo"
-args = ["build", "-p", "golem-tts-elevenlabs", "--no-default-features"]
+args = ["build", "-p", "golem-ai-tts-elevenlabs", "--no-default-features"]
 
 [tasks.build-google]
 command = "cargo"
-args = ["build", "-p", "golem-tts-google"]
+args = ["build", "-p", "golem-ai-tts-google"]
 
 [tasks.build-google-portable]
 command = "cargo"
-args = ["build", "-p", "golem-tts-google", "--no-default-features"]
+args = ["build", "-p", "golem-ai-tts-google", "--no-default-features"]
 
 [tasks.release-build-aws]
 command = "cargo"
-args = ["build", "-p", "golem-tts-aws", "--release"]
+args = ["build", "-p", "golem-ai-tts-aws", "--release"]
 
 [tasks.release-build-aws-portable]
 command = "cargo"
-args = ["build", "-p", "golem-tts-aws", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-tts-aws", "--release", "--no-default-features"]
 
 
 [tasks.release-build-deepgram]
 command = "cargo"
-args = ["build", "-p", "golem-tts-deepgram", "--release"]
+args = ["build", "-p", "golem-ai-tts-deepgram", "--release"]
 
 [tasks.release-build-deepgram-portable]
 command = "cargo"
 args = [
     "build",
     "-p",
-    "golem-tts-deepgram",
+    "golem-ai-tts-deepgram",
     "--release",
     "--no-default-features",
 ]
 
 [tasks.release-build-elevenlabs]
 command = "cargo"
-args = ["build", "-p", "golem-tts-elevenlabs", "--release"]
+args = ["build", "-p", "golem-ai-tts-elevenlabs", "--release"]
 
 [tasks.release-build-elevenlabs-portable]
 command = "cargo"
-args = ["build", "-p", "golem-tts-elevenlabs", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-tts-elevenlabs", "--release", "--no-default-features"]
 
 [tasks.release-build-google]
 command = "cargo"
-args = ["build", "-p", "golem-tts-google", "--release"]
+args = ["build", "-p", "golem-ai-tts-google", "--release"]
 
 [tasks.release-build-google-portable]
 command = "cargo"
-args = ["build", "-p", "golem-tts-google", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-tts-google", "--release", "--no-default-features"]
 
 [tasks.wit-update]
 install_crate = { crate_name = "wit-deps-cli" }

@@ -25,10 +25,10 @@ components:
               - wit-generated
             targets:
               - ../../target/wasm32-wasip1/debug/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_stt_aws.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_aws_stt_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_stt_aws.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_aws_stt_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_stt_aws.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_stt_aws.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_aws_stt_plugged.wasm
         sourceWit: wit
@@ -52,10 +52,10 @@ components:
               - wit-generated
             targets:
               - ../../target/wasm32-wasip1/debug/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_stt_azure.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_azure_stt_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_stt_azure.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_azure_stt_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_stt_azure.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_stt_azure.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_azure_stt_plugged.wasm
         sourceWit: wit
@@ -79,10 +79,10 @@ components:
               - wit-generated
             targets:
               - ../../target/wasm32-wasip1/debug/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_stt_deepgram.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_deepgram_stt_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_stt_deepgram.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_deepgram_stt_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_stt_deepgram.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_stt_deepgram.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_deepgram_stt_plugged.wasm
         sourceWit: wit
@@ -106,10 +106,10 @@ components:
               - wit-generated
             targets:
               - ../../target/wasm32-wasip1/debug/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_stt_google.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_google_stt_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_stt_google.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_google_stt_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_stt_google.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_stt_google.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_google_stt_plugged.wasm
         sourceWit: wit
@@ -134,10 +134,10 @@ components:
               - wit-generated
             targets:
               - ../../target/wasm32-wasip1/debug/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_stt_whisper.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_whisper_stt_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_stt_whisper.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_whisper_stt_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_stt_whisper.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_stt_whisper.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_whisper_stt_plugged.wasm
         sourceWit: wit
@@ -163,10 +163,10 @@ components:
               - wit-generated
             targets:
               - ../../target/wasm32-wasip1/release/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_stt_aws.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_aws_stt_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_stt_aws.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_aws_stt_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_stt_aws.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_stt_aws.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_aws_stt_plugged.wasm
         sourceWit: wit
@@ -190,10 +190,10 @@ components:
               - wit-generated
             targets:
               - ../../target/wasm32-wasip1/release/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_stt_azure.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_azure_stt_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_stt_azure.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_azure_stt_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_stt_azure.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_stt_azure.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_azure_stt_plugged.wasm
         sourceWit: wit
@@ -217,10 +217,10 @@ components:
               - wit-generated
             targets:
               - ../../target/wasm32-wasip1/release/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_stt_deepgram.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_deepgram_stt_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_stt_deepgram.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_deepgram_stt_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_stt_deepgram.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_stt_deepgram.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_deepgram_stt_plugged.wasm
         sourceWit: wit
@@ -244,10 +244,10 @@ components:
               - wit-generated
             targets:
               - ../../target/wasm32-wasip1/release/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_stt_google.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_google_stt_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_stt_google.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_google_stt_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_stt_google.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_stt_google.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_google_stt_plugged.wasm
         sourceWit: wit
@@ -271,10 +271,10 @@ components:
               - wit-generated
             targets:
               - ../../target/wasm32-wasip1/release/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_stt_whisper.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_whisper_stt_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_stt_whisper.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_whisper_stt_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_stt_whisper.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_stt_whisper.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_whisper_stt_plugged.wasm
         sourceWit: wit
@@ -289,4 +289,4 @@ components:
 # dependencies:
 #   test:stt:
 #     - type: wasm
-#       path: /Users/kmatas/Repos/Rust/golem/golem-llm/target/wasm32-wasip1/debug/golem_stt_whisper.wasm
+#       path: /Users/kmatas/Repos/Rust/golem/golem-llm/target/wasm32-wasip1/debug/golem_ai_stt_whisper.wasm

@@ -14,8 +14,8 @@ components:
       debug:
         dependencies:
         - type: wasm
-          path: ../../target/debug/golem_exec.wasm
+          path: ../../target/debug/golem_ai_exec.wasm
       release:
         dependencies:
         - type: wasm
-          path: ../../target/release/golem_exec.wasm
+          path: ../../target/release/golem_ai_exec.wasm

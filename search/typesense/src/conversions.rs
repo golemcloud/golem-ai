@@ -2,7 +2,7 @@ use crate::client::{
     CollectionField, CollectionSchema, SearchHit as TypesenseSearchHit,
     SearchQuery as TypesenseSearchQuery, SearchResponse, TypesenseDocument,
 };
-use golem_search::model::{
+use golem_ai_search::model::{
     Doc, FieldType, Schema, SchemaField, SearchHit, SearchQuery, SearchResults,
 };
 use serde_json::{Map, Value};
@@ -403,7 +403,7 @@ pub fn collection_field_to_schema_field(field: CollectionField) -> SchemaField {
 mod tests {
     use super::*;
     use crate::client::{FacetCount, FacetValue, RequestParams, SearchHit as TypesenseSearchHit};
-    use golem_search::model::{HighlightConfig, SearchConfig};
+    use golem_ai_search::model::{HighlightConfig, SearchConfig};
 
     #[test]
     fn test_doc_to_typesense_document() {

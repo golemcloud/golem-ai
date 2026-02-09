@@ -1,5 +1,5 @@
 [package]
-name = "golem-web-search-google"
+name = "golem-ai-web-search-google"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -12,10 +12,10 @@ path = "src/lib.rs"
 
 [features]
 default = ["durability"]
-durability = ["golem-rust/durability", "golem-web-search/durability"]
+durability = ["golem-rust/durability", "golem-ai-web-search/durability"]
 
 [dependencies]
-golem-web-search = { path = "../websearch", version = "0.0.0", default-features = false }
+golem-ai-web-search = { path = "../websearch", version = "0.0.0", default-features = false }
 golem-rust = { workspace = true }
 golem-wasi-http = { workspace = true, features = ["json"] }
 log = { workspace = true }

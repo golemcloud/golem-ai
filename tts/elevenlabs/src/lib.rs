@@ -6,20 +6,20 @@ use crate::conversions::{
     validate_synthesis_input, voice_design_params_to_create_request, voice_filter_to_list_params,
 };
 use golem_rust::golem_wasm::Pollable;
-use golem_tts::config::with_config_key;
-use golem_tts::durability::{DurableTts, ExtendedTtsProvider};
-use golem_tts::model::advanced::{
+use golem_ai_tts::config::with_config_key;
+use golem_ai_tts::durability::{DurableTts, ExtendedTtsProvider};
+use golem_ai_tts::model::advanced::{
     AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
     PronunciationLexicon, VoiceDesignParams,
 };
-use golem_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
-use golem_tts::model::synthesis::{SynthesisOptions, ValidationResult};
-use golem_tts::model::types::{
+use golem_ai_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
+use golem_ai_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_ai_tts::model::types::{
     AudioChunk, AudioFormat, LanguageCode, SynthesisResult, TextInput, TimingInfo, TtsError,
     VoiceGender, VoiceQuality, VoiceSettings,
 };
-use golem_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
-use golem_tts::{
+use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_ai_tts::{
     AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
     StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
@@ -632,7 +632,7 @@ impl LongFormOperationInterface for ElevenLabsLongFormOperation {
             output_location: self.output_location.clone(),
             total_duration: estimated_duration as f32,
             chapter_durations: None,
-            metadata: golem_tts::model::types::SynthesisMetadata {
+            metadata: golem_ai_tts::model::types::SynthesisMetadata {
                 duration_seconds: estimated_duration as f32,
                 character_count: self.content.len() as u32,
                 word_count: self.content.split_whitespace().count() as u32,
@@ -736,7 +736,7 @@ impl VoiceProvider for ElevenLabsTts {
 impl SynthesizeProvider for ElevenLabsTts {
     fn synthesize(
         input: TextInput,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisResult, TtsError> {
         validate_synthesis_input(&input, options.as_ref())?;
@@ -805,7 +805,7 @@ impl SynthesizeProvider for ElevenLabsTts {
 
     fn synthesize_batch(
         inputs: Vec<TextInput>,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, TtsError> {
         for input in &inputs {
@@ -884,7 +884,7 @@ impl SynthesizeProvider for ElevenLabsTts {
 
     fn get_timing_marks(
         _input: TextInput,
-        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Timing marks not supported by ElevenLabs".to_string(),
@@ -893,7 +893,7 @@ impl SynthesizeProvider for ElevenLabsTts {
 
     fn validate_input(
         input: TextInput,
-        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, TtsError> {
         let client = Self::create_client()?;
         let model_version = client.get_model_version();
@@ -910,7 +910,7 @@ impl StreamingVoiceProvider for ElevenLabsTts {
     type VoiceConversionStream = ElevenLabsVoiceConversionStream;
 
     fn create_stream(
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
         let client = Self::create_client()?;
@@ -921,7 +921,7 @@ impl StreamingVoiceProvider for ElevenLabsTts {
     }
 
     fn create_voice_conversion_stream(
-        target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
         let client = Self::create_client()?;
@@ -968,7 +968,7 @@ impl AdvancedTtsProvider for ElevenLabsTts {
 
     fn convert_voice(
         input_audio: Vec<u8>,
-        target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _preserve_timing: Option<bool>,
     ) -> Result<Vec<u8>, TtsError> {
         let client = Self::create_client()?;
@@ -1021,7 +1021,7 @@ impl AdvancedTtsProvider for ElevenLabsTts {
 
     fn synthesize_long_form(
         content: String,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
@@ -1041,7 +1041,7 @@ impl AdvancedTtsProvider for ElevenLabsTts {
 
 impl ExtendedTtsProvider for ElevenLabsTts {
     fn unwrapped_synthesis_stream(
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream {
         let client = Self::create_client().unwrap_or_else(|_| {
@@ -1053,7 +1053,7 @@ impl ExtendedTtsProvider for ElevenLabsTts {
     }
 
     fn unwrapped_voice_conversion_stream(
-        target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream {
         let client = Self::create_client().unwrap_or_else(|_| {

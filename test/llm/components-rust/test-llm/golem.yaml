@@ -23,10 +23,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_openai.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_llm_openai.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_openai.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_llm_openai.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm
         sourceWit: wit
@@ -49,10 +49,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_bedrock.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_bedrock_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_llm_bedrock.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_bedrock_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_bedrock.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_llm_bedrock.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_bedrock_plugged.wasm
         sourceWit: wit
@@ -75,10 +75,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_anthropic.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_anthropic_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_llm_anthropic.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_anthropic_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_anthropic.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_llm_anthropic.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_anthropic_plugged.wasm
         sourceWit: wit
@@ -101,10 +101,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_grok.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_grok_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_llm_grok.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_grok_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_grok.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_llm_grok.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_grok_plugged.wasm
         sourceWit: wit
@@ -127,10 +127,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_openrouter.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_openrouter_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_llm_openrouter.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_openrouter_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_openrouter.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_llm_openrouter.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_openrouter_plugged.wasm
         sourceWit: wit
@@ -153,10 +153,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_ollama.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_ollama_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_llm_ollama.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_ollama_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_ollama.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_llm_ollama.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_ollama_plugged.wasm
         sourceWit: wit
@@ -180,10 +180,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_openai.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_openai_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_llm_openai.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_openai_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_openai.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_llm_openai.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_openai_plugged.wasm
         sourceWit: wit
@@ -206,10 +206,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_bedrock.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_bedrock_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_llm_bedrock.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_bedrock_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_bedrock.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_llm_bedrock.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_bedrock_plugged.wasm
         sourceWit: wit
@@ -232,10 +232,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_anthropic.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_anthropic_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_llm_anthropic.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_anthropic_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_anthropic.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_llm_anthropic.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_anthropic_plugged.wasm
         sourceWit: wit
@@ -258,10 +258,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_grok.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_grok_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_llm_grok.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_grok_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_grok.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_llm_grok.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_grok_plugged.wasm
         sourceWit: wit
@@ -284,10 +284,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_openrouter.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_openrouter_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_llm_openrouter.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_openrouter_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_openrouter.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_llm_openrouter.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_openrouter_plugged.wasm
         sourceWit: wit
@@ -310,10 +310,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_ollama.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_ollama_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_llm_ollama.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_ollama_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_ollama.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_llm_ollama.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_ollama_plugged.wasm
         sourceWit: wit

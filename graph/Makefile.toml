@@ -32,50 +32,50 @@ run_task = { name = [
 
 [tasks.build-arangodb]
 command = "cargo"
-args = ["build", "-p", "golem-graph-arangodb"]
+args = ["build", "-p", "golem-ai-graph-arangodb"]
 
 [tasks.build-arangodb-portable]
 command = "cargo"
-args = ["build", "-p", "golem-graph-arangodb", "--no-default-features"]
+args = ["build", "-p", "golem-ai-graph-arangodb", "--no-default-features"]
 
 
 [tasks.build-janusgraph]
 command = "cargo"
-args = ["build", "-p", "golem-graph-janusgraph"]
+args = ["build", "-p", "golem-ai-graph-janusgraph"]
 
 [tasks.build-janusgraph-portable]
 command = "cargo"
-args = ["build", "-p", "golem-graph-janusgraph", "--no-default-features"]
+args = ["build", "-p", "golem-ai-graph-janusgraph", "--no-default-features"]
 
 
 [tasks.build-neo4j]
 command = "cargo"
-args = ["build", "-p", "golem-graph-neo4j"]
+args = ["build", "-p", "golem-ai-graph-neo4j"]
 
 [tasks.build-neo4j-portable]
 command = "cargo"
-args = ["build", "-p", "golem-graph-neo4j", "--no-default-features"]
+args = ["build", "-p", "golem-ai-graph-neo4j", "--no-default-features"]
 
 
 [tasks.release-build-arangodb]
 command = "cargo"
-args = ["build", "-p", "golem-graph-arangodb", "--release"]
+args = ["build", "-p", "golem-ai-graph-arangodb", "--release"]
 
 [tasks.release-build-arangodb-portable]
 command = "cargo"
-args = ["build", "-p", "golem-graph-arangodb", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-graph-arangodb", "--release", "--no-default-features"]
 
 
 [tasks.release-build-janusgraph]
 command = "cargo"
-args = ["build", "-p", "golem-graph-janusgraph", "--release"]
+args = ["build", "-p", "golem-ai-graph-janusgraph", "--release"]
 
 [tasks.release-build-janusgraph-portable]
 command = "cargo"
 args = [
     "build",
     "-p",
-    "golem-graph-janusgraph",
+    "golem-ai-graph-janusgraph",
     "--release",
     "--no-default-features",
 ]
@@ -83,11 +83,11 @@ args = [
 
 [tasks.release-build-neo4j]
 command = "cargo"
-args = ["build", "-p", "golem-graph-neo4j", "--release"]
+args = ["build", "-p", "golem-ai-graph-neo4j", "--release"]
 
 [tasks.release-build-neo4j-portable]
 command = "cargo"
-args = ["build", "-p", "golem-graph-neo4j", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-graph-neo4j", "--release", "--no-default-features"]
 
 [tasks.build-test-components]
 dependencies = ["build"]

@@ -1,5 +1,5 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use golem_graph::model::errors::GraphError;
+use golem_ai_graph::model::errors::GraphError;
 use golem_wasi_http::{Client, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -431,7 +431,7 @@ impl Neo4jApi {
             }
             "Neo.ClientError.Statement.EntityNotFound" => {
                 if let Some(element_id) =
-                    golem_graph::error::mapping::extract_element_id_from_message(message)
+                    golem_ai_graph::error::mapping::extract_element_id_from_message(message)
                 {
                     GraphError::ElementNotFound(element_id)
                 } else {

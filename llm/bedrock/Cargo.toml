@@ -1,5 +1,5 @@
 [package]
-name = "golem-llm-bedrock"
+name = "golem-ai-llm-bedrock"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -22,7 +22,7 @@ wasi = { workspace = true }
 # To infer mime types of downloaded images before passing to bedrock
 infer = { version = "0.19.0", default-features = false }
 
-golem-llm = { workspace = true }
+golem-ai-llm = { workspace = true }
 golem-rust = { workspace = true }
 
 base64 = { workspace = true }
@@ -40,6 +40,6 @@ path = "src/lib.rs"
 default = ["durability"]
 durability = [
     "golem-rust/durability",
-    "golem-llm/durability",
-    "golem-llm/nopoll",
+    "golem-ai-llm/durability",
+    "golem-ai-llm/nopoll",
 ]

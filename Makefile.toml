@@ -176,23 +176,23 @@ end
 echo "Copying artifacts for exec..."
 if ${is_portable}
     if ${is_dev}
-        cp target/debug/golem_exec_portable.wasm components/debug/golem_exec-portable-dev.wasm
-        cp target/debug/golem_exec_python_portable.wasm components/debug/golem_exec_python-portable-dev.wasm
-        cp target/debug/golem_exec_javascript_portable.wasm components/debug/golem_exec_javascript-portable-dev.wasm
+        cp target/debug/golem_exec_portable.wasm components/debug/golem_ai_exec-portable-dev.wasm
+        cp target/debug/golem_exec_python_portable.wasm components/debug/golem_ai_exec_python-portable-dev.wasm
+        cp target/debug/golem_exec_javascript_portable.wasm components/debug/golem_ai_exec_javascript-portable-dev.wasm
     else
-        cp target/debug/golem_exec_portable.wasm components/debug/golem_exec-portable.wasm
-        cp target/debug/golem_exec_python_portable.wasm components/debug/golem_exec_python-portable.wasm
-        cp target/debug/golem_exec_javascript_portable.wasm components/debug/golem_exec_javascript-portable.wasm
+        cp target/debug/golem_exec_portable.wasm components/debug/golem_ai_exec-portable.wasm
+        cp target/debug/golem_exec_python_portable.wasm components/debug/golem_ai_exec_python-portable.wasm
+        cp target/debug/golem_exec_javascript_portable.wasm components/debug/golem_ai_exec_javascript-portable.wasm
     end
 else
     if ${is_dev}
-        cp target/debug/golem_exec.wasm components/debug/golem_exec-dev.wasm
-        cp target/debug/golem_exec_python.wasm components/debug/golem_exec_python-dev.wasm
-        cp target/debug/golem_exec_javascript.wasm components/debug/golem_exec_javascript-dev.wasm
+        cp target/debug/golem_ai_exec.wasm components/debug/golem_ai_exec-dev.wasm
+        cp target/debug/golem_ai_exec_python.wasm components/debug/golem_ai_exec_python-dev.wasm
+        cp target/debug/golem_ai_exec_javascript.wasm components/debug/golem_ai_exec_javascript-dev.wasm
     else
-        cp target/debug/golem_exec.wasm components/debug/golem_exec.wasm
-        cp target/debug/golem_exec_python.wasm components/debug/golem_exec_python.wasm
-        cp target/debug/golem_exec_javascript.wasm components/debug/golem_exec_javascript.wasm
+        cp target/debug/golem_ai_exec.wasm components/debug/golem_ai_exec.wasm
+        cp target/debug/golem_ai_exec_python.wasm components/debug/golem_ai_exec_python.wasm
+        cp target/debug/golem_ai_exec_javascript.wasm components/debug/golem_ai_exec_javascript.wasm
     end
 end
 
@@ -249,23 +249,23 @@ end
 echo "Copying artifacts for exec..."
 if ${is_portable}
     if ${is_dev}
-        cp target/release/golem_exec_portable.wasm components/release/golem_exec-portable-dev.wasm
-        cp target/release/golem_exec_python_portable.wasm components/release/golem_exec_python-portable-dev.wasm
-        cp target/release/golem_exec_javascript_portable.wasm components/release/golem_exec_javascript-portable-dev.wasm
+        cp target/release/golem_exec_portable.wasm components/release/golem_ai_exec-portable-dev.wasm
+        cp target/release/golem_exec_python_portable.wasm components/release/golem_ai_exec_python-portable-dev.wasm
+        cp target/release/golem_exec_javascript_portable.wasm components/release/golem_ai_exec_javascript-portable-dev.wasm
     else
-        cp target/release/golem_exec_portable.wasm components/release/golem_exec-portable.wasm
-        cp target/release/golem_exec_python_portable.wasm components/release/golem_exec_python-portable.wasm
-        cp target/release/golem_exec_javascript_portable.wasm components/release/golem_exec_javascript-portable.wasm
+        cp target/release/golem_exec_portable.wasm components/release/golem_ai_exec-portable.wasm
+        cp target/release/golem_exec_python_portable.wasm components/release/golem_ai_exec_python-portable.wasm
+        cp target/release/golem_exec_javascript_portable.wasm components/release/golem_ai_exec_javascript-portable.wasm
     end
 else
     if ${is_dev}
-        cp target/release/golem_exec.wasm components/release/golem_exec-dev.wasm
-        cp target/release/golem_exec_python.wasm components/release/golem_exec_python-dev.wasm
-        cp target/release/golem_exec_javascript.wasm components/release/golem_exec_javascript-dev.wasm
+        cp target/release/golem_ai_exec.wasm components/release/golem_ai_exec-dev.wasm
+        cp target/release/golem_ai_exec_python.wasm components/release/golem_ai_exec_python-dev.wasm
+        cp target/release/golem_ai_exec_javascript.wasm components/release/golem_ai_exec_javascript-dev.wasm
     else
-        cp target/release/golem_exec.wasm components/release/golem_exec.wasm
-        cp target/release/golem_exec_python.wasm components/release/golem_exec_python.wasm
-        cp target/release/golem_exec_javascript.wasm components/release/golem_exec_javascript.wasm
+        cp target/release/golem_ai_exec.wasm components/release/golem_ai_exec.wasm
+        cp target/release/golem_ai_exec_python.wasm components/release/golem_ai_exec_python.wasm
+        cp target/release/golem_ai_exec_javascript.wasm components/release/golem_ai_exec_javascript.wasm
     end
 end
 

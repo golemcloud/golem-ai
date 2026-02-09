@@ -3,20 +3,20 @@ use crate::helpers;
 use crate::helpers::{element_id_to_key, parse_path_from_gremlin, parse_vertex_from_gremlin};
 use crate::query_utils;
 use crate::Transaction;
-use golem_graph::model::transactions::{
+use golem_ai_graph::model::transactions::{
     CreateVertexOptions, ExecuteQueryOptions, FindAllPathsOptions, FindEdgesOptions,
     FindShortestPathOptions, FindVerticesOptions, GetAdjacentVerticesOptions,
     GetConnectedEdgesOptions, GetNeighborhoodOptions, GetVerticesAtDistanceOptions, Path,
     PathExistsOptions, PropertyValue, QueryExecutionResult, Subgraph,
 };
-use golem_graph::model::types::{
+use golem_ai_graph::model::types::{
     CreateEdgeOptions, QueryParameters, QueryResult, UpdateEdgeOptions, UpdateVertexOptions,
 };
-use golem_graph::model::{
+use golem_ai_graph::model::{
     errors::GraphError,
     types::{Direction, Edge, ElementId, Vertex},
 };
-use golem_graph::TransactionInterface;
+use golem_ai_graph::TransactionInterface;
 use log::trace;
 use serde::Deserialize;
 use serde_json::{json, Value};

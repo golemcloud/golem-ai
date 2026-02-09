@@ -65,7 +65,7 @@ mod durable_impl {
             options: RunOptions,
         ) -> Result<ExecResult, Error> {
             let durability = Durability::<ExecResult, Error>::new(
-                "golem_exec",
+                "golem_ai_exec",
                 "run",
                 DurableFunctionType::WriteLocal,
             );
@@ -117,7 +117,7 @@ mod durable_impl {
 
         fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
             let durability = Durability::<SessionRunResult<Impl::Snapshot>, UnusedError>::new(
-                "golem_exec",
+                "golem_ai_exec",
                 "session_run",
                 DurableFunctionType::WriteLocal,
             );

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bytes::Bytes;
-use golem_stt::{error::Error as SttError, languages::Language, transcription::SttProviderClient};
+use golem_ai_stt::{error::Error as SttError, languages::Language, transcription::SttProviderClient};
 
 use super::{
     gcp_cloud_storage::CloudStorageService,
@@ -305,7 +305,7 @@ impl<GC: CloudStorageService, ST: SpeechToTextService>
             let mut transcription_response =
                 gcp_transcription
                     .response
-                    .ok_or_else(|| golem_stt::error::Error::APIUnknown {
+                    .ok_or_else(|| golem_ai_stt::error::Error::APIUnknown {
                         request_id: request_id.to_string(),
                         provider_error: "Transcription completed but no transcript found"
                             .to_string(),
@@ -315,7 +315,7 @@ impl<GC: CloudStorageService, ST: SpeechToTextService>
                 transcription_response
                     .results
                     .remove(&gcs_uri)
-                    .ok_or_else(|| golem_stt::error::Error::APIUnknown {
+                    .ok_or_else(|| golem_ai_stt::error::Error::APIUnknown {
                         request_id: request_id.to_string(),
                         provider_error: format!(
                         "Transcription completed but no transcript found for expected file path {gcs_uri}",
@@ -325,7 +325,7 @@ impl<GC: CloudStorageService, ST: SpeechToTextService>
             let inline_result =
                 transcription
                     .inline_result
-                    .ok_or_else(|| golem_stt::error::Error::APIUnknown {
+                    .ok_or_else(|| golem_ai_stt::error::Error::APIUnknown {
                         request_id: request_id.to_string(),
                         provider_error: "Transcription completed but no InlineResult found"
                             .to_string(),
@@ -333,7 +333,7 @@ impl<GC: CloudStorageService, ST: SpeechToTextService>
 
             inline_result
                 .transcript
-                .ok_or_else(|| golem_stt::error::Error::APIUnknown {
+                .ok_or_else(|| golem_ai_stt::error::Error::APIUnknown {
                     request_id: request_id.to_string(),
                     provider_error:
                         "Transcription completed but transcript is empty (no recognition results)"
@@ -703,7 +703,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     request_id.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -727,7 +727,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     request_id.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -822,7 +822,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     request_id.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -848,7 +848,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     request_id.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -860,7 +860,7 @@ mod tests {
         ) -> Result<BatchRecognizeOperationResponse, SttError> {
             Err((
                 request_id.to_string(),
-                golem_stt::http::Error::Generic("should not be called by mock".to_string()),
+                golem_ai_stt::http::Error::Generic("should not be called by mock".to_string()),
             )
                 .into())
         }
@@ -884,7 +884,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     request_id.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }

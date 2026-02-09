@@ -5,9 +5,9 @@ use crate::conversions::{
     pg_vector_results_to_vector_records, table_info_to_export_collection_info,
     vector_records_to_pgvector_data,
 };
-use golem_vector::config::{with_config_key, with_connection_config_key};
-use golem_vector::durability::{DurableVector, ExtendedVectorProvider};
-use golem_vector::model::{
+use golem_ai_vector::config::{with_config_key, with_connection_config_key};
+use golem_ai_vector::durability::{DurableVector, ExtendedVectorProvider};
+use golem_ai_vector::model::{
     analytics::{CollectionStats, FieldStats},
     collections::{CollectionInfo, IndexConfig},
     connection::{ConnectionStatus, Credentials},
@@ -22,7 +22,7 @@ use golem_vector::model::{
     },
     vectors::{BatchResult, ListResponse},
 };
-use golem_vector::{
+use golem_ai_vector::{
     AnalyticsProvider, CollectionProvider, ConnectionProvider, NamespacesProvider,
     SearchExtendedProvider, SearchProvider, VectorsProvider,
 };

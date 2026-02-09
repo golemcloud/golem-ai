@@ -1,10 +1,10 @@
 use crate::client::{Model, TextToSpeechParams, TextToSpeechRequest};
-use golem_tts::model::synthesis::{SynthesisOptions, ValidationResult};
-use golem_tts::model::types::{
+use golem_ai_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_ai_tts::model::types::{
     AudioFormat, SynthesisMetadata, SynthesisResult, TextType, TtsError, VoiceGender, VoiceQuality,
     VoiceSettings,
 };
-use golem_tts::model::voices::{LanguageInfo, VoiceInfo};
+use golem_ai_tts::model::voices::{LanguageInfo, VoiceInfo};
 
 pub fn estimate_audio_duration(audio_data: &[u8], sample_rate: u32) -> f32 {
     if audio_data.is_empty() {

@@ -1,4 +1,4 @@
-use golem_stt::{http::WstdHttpClient, runtime::WasiAsyncRuntime};
+use golem_ai_stt::{http::WstdHttpClient, runtime::WasiAsyncRuntime};
 
 use super::{api::TranscribeApi, aws_s3::S3Client, aws_transcribe::TranscribeClient};
 

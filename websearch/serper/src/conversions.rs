@@ -1,5 +1,5 @@
 use crate::client::{SearchRequest, SearchResponse, SearchResult as SerperSearchResult};
-use golem_web_search::model::web_search::{
+use golem_ai_web_search::model::web_search::{
     SearchError, SearchMetadata, SearchParams, SearchResult,
 };
 

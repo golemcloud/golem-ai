@@ -125,7 +125,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<Response, Error>::new(
-                "golem_llm",
+                "golem_ai_llm",
                 "send",
                 DurableFunctionType::WriteRemote,
             );
@@ -144,7 +144,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, UnusedError>::new(
-                "golem_llm",
+                "golem_ai_llm",
                 "stream",
                 DurableFunctionType::WriteRemote,
             );
@@ -279,7 +279,7 @@ mod durable_impl {
         fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>> {
             let durability =
                 Durability::<Option<Vec<Result<StreamEvent, Error>>>, UnusedError>::new(
-                    "golem_llm",
+                    "golem_ai_llm",
                     "poll_next",
                     DurableFunctionType::ReadRemote,
                 );

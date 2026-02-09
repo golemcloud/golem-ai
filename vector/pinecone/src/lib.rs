@@ -5,9 +5,9 @@ use crate::conversions::{
     pinecone_query_response_to_search_results, pinecone_vector_to_vector_record,
     vector_records_to_upsert_request,
 };
-use golem_vector::config::with_config_key;
-use golem_vector::durability::{DurableVector, ExtendedVectorProvider};
-use golem_vector::model::{
+use golem_ai_vector::config::with_config_key;
+use golem_ai_vector::durability::{DurableVector, ExtendedVectorProvider};
+use golem_ai_vector::model::{
     analytics::{CollectionStats, FieldStats, NamespaceStats},
     collections::{CollectionInfo, IndexConfig},
     connection::{ConnectionStatus, Credentials},
@@ -22,7 +22,7 @@ use golem_vector::model::{
     },
     vectors::{BatchResult, ListResponse},
 };
-use golem_vector::{
+use golem_ai_vector::{
     AnalyticsProvider, CollectionProvider, ConnectionProvider, NamespacesProvider,
     SearchExtendedProvider, SearchProvider, VectorsProvider,
 };
@@ -47,7 +47,7 @@ impl Pinecone {
             Ok,
         )?;
 
-        let environment = golem_vector::config::get_optional_config(Self::ENVIRONMENT_ENV_VAR);
+        let environment = golem_ai_vector::config::get_optional_config(Self::ENVIRONMENT_ENV_VAR);
 
         Ok(PineconeClient::new(api_key, environment))
     }
@@ -792,7 +792,7 @@ impl NamespacesProvider for Pinecone {
             Ok(namespaces) => {
                 let mut namespace_infos = Vec::new();
                 for ns in namespaces.namespaces {
-                    namespace_infos.push(golem_vector::model::namespaces::NamespaceInfo {
+                    namespace_infos.push(golem_ai_vector::model::namespaces::NamespaceInfo {
                         name: ns.name,
                         collection: collection.clone(),
                         vector_count: ns.record_count,

@@ -36,67 +36,67 @@ run_task = { name = [
 
 [tasks.build-veo]
 command = "cargo"
-args = ["build", "-p", "golem-video-veo"]
+args = ["build", "-p", "golem-ai-video-veo"]
 
 [tasks.build-veo-portable]
 command = "cargo"
-args = ["build", "-p", "golem-video-veo", "--no-default-features"]
+args = ["build", "-p", "golem-ai-video-veo", "--no-default-features"]
 
 [tasks.build-stability]
 command = "cargo"
-args = ["build", "-p", "golem-video-stability"]
+args = ["build", "-p", "golem-ai-video-stability"]
 
 [tasks.build-stability-portable]
 command = "cargo"
-args = ["build", "-p", "golem-video-stability", "--no-default-features"]
+args = ["build", "-p", "golem-ai-video-stability", "--no-default-features"]
 
 [tasks.build-kling]
 command = "cargo"
-args = ["build", "-p", "golem-video-kling"]
+args = ["build", "-p", "golem-ai-video-kling"]
 
 [tasks.build-kling-portable]
 command = "cargo"
-args = ["build", "-p", "golem-video-kling", "--no-default-features"]
+args = ["build", "-p", "golem-ai-video-kling", "--no-default-features"]
 
 [tasks.build-runway]
 command = "cargo"
-args = ["build", "-p", "golem-video-runway"]
+args = ["build", "-p", "golem-ai-video-runway"]
 
 [tasks.build-runway-portable]
 command = "cargo"
-args = ["build", "-p", "golem-video-runway", "--no-default-features"]
+args = ["build", "-p", "golem-ai-video-runway", "--no-default-features"]
 
 [tasks.release-build-veo]
 command = "cargo"
-args = ["build", "-p", "golem-video-veo", "--release"]
+args = ["build", "-p", "golem-ai-video-veo", "--release"]
 
 [tasks.release-build-veo-portable]
 command = "cargo"
-args = ["build", "-p", "golem-video-veo", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-video-veo", "--release", "--no-default-features"]
 
 [tasks.release-build-stability]
 command = "cargo"
-args = ["build", "-p", "golem-video-stability", "--release"]
+args = ["build", "-p", "golem-ai-video-stability", "--release"]
 
 [tasks.release-build-stability-portable]
 command = "cargo"
-args = ["build", "-p", "golem-video-stability", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-video-stability", "--release", "--no-default-features"]
 
 [tasks.release-build-kling]
 command = "cargo"
-args = ["build", "-p", "golem-video-kling", "--release"]
+args = ["build", "-p", "golem-ai-video-kling", "--release"]
 
 [tasks.release-build-kling-portable]
 command = "cargo"
-args = ["build", "-p", "golem-video-kling", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-video-kling", "--release", "--no-default-features"]
 
 [tasks.release-build-runway]
 command = "cargo"
-args = ["build", "-p", "golem-video-runway", "--release"]
+args = ["build", "-p", "golem-ai-video-runway", "--release"]
 
 [tasks.release-build-runway-portable]
 command = "cargo"
-args = ["build", "-p", "golem-video-runway", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-video-runway", "--release", "--no-default-features"]
 
 [tasks.build-test-components]
 dependencies = ["build"]

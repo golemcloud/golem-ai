@@ -18,7 +18,7 @@ path = "wit-generated"
 "wasi:io" = { path = "wit-generated/deps/io" }
 "wasi:clocks" = { path = "wit-generated/deps/clocks" }
 "golem:rpc" = { path = "wit-generated/deps/golem-rpc" }
-"golem:video-generation" = { path = "wit-generated/deps/golem-video" }
+"golem:video-generation" = { path = "wit-generated/deps/golem-ai-video" }
 "test:helper-client" = { path = "wit-generated/deps/test_helper-client" }
 "test:video-advanced-exports" = { path = "wit-generated/deps/test_video-advanced-exports" }
 

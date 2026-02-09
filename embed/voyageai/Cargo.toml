@@ -1,5 +1,5 @@
 [package]
-name = "golem-embed-voyageai"
+name = "golem-ai-embed-voyageai"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -13,11 +13,11 @@ path = "src/lib.rs"
 
 [features]
 default = ["durability"]
-durability = ["golem-rust/durability", "golem-embed/durability"]
+durability = ["golem-rust/durability", "golem-ai-embed/durability"]
 
 
 [dependencies]
-golem-embed = { path = "../embed", version = "0.0.0", default-features = false }
+golem-ai-embed = { path = "../embed", version = "0.0.0", default-features = false }
 golem-rust = { workspace = true }
 golem-wasi-http = { workspace = true }
 log = { workspace = true }

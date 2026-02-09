@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use golem_embed::{
+use golem_ai_embed::{
     error::unsupported,
     model::{
         Config, ContentPart, Embedding, EmbeddingResponse as GolemEmbeddingResponse, Error,
@@ -87,40 +87,40 @@ pub fn process_embedding_response(
             VoyageEmbedding::Base64(data) => {
                 embeddings.push(Embedding {
                     index: embedding_data.index,
-                    vector: golem_embed::model::VectorData::Base64(data),
+                    vector: golem_ai_embed::model::VectorData::Base64(data),
                 });
             }
             VoyageEmbedding::Float(data) => {
                 embeddings.push(Embedding {
                     index: embedding_data.index,
-                    vector: golem_embed::model::VectorData::Float(data),
+                    vector: golem_ai_embed::model::VectorData::Float(data),
                 });
             }
             VoyageEmbedding::Integer(data) => match output_dtype.unwrap() {
                 GolemOutputDtype::Int8 => {
                     embeddings.push(Embedding {
                         index: embedding_data.index,
-                        vector: golem_embed::model::VectorData::Int8(data),
+                        vector: golem_ai_embed::model::VectorData::Int8(data),
                     });
                 }
                 GolemOutputDtype::Uint8 => {
                     let uint8_data: Vec<u8> = data.into_iter().map(|x| x as u8).collect();
                     embeddings.push(Embedding {
                         index: embedding_data.index,
-                        vector: golem_embed::model::VectorData::Uint8(uint8_data),
+                        vector: golem_ai_embed::model::VectorData::Uint8(uint8_data),
                     });
                 }
                 GolemOutputDtype::Binary => {
                     embeddings.push(Embedding {
                         index: embedding_data.index,
-                        vector: golem_embed::model::VectorData::Binary(data),
+                        vector: golem_ai_embed::model::VectorData::Binary(data),
                     });
                 }
                 GolemOutputDtype::Ubinary => {
                     let ubinary_data: Vec<u8> = data.into_iter().map(|x| x as u8).collect();
                     embeddings.push(Embedding {
                         index: embedding_data.index,
-                        vector: golem_embed::model::VectorData::Ubinary(ubinary_data),
+                        vector: golem_ai_embed::model::VectorData::Ubinary(ubinary_data),
                     });
                 }
 

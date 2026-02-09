@@ -1,5 +1,5 @@
 [package]
-name = "golem-vector-milvus"
+name = "golem-ai-vector-milvus"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -12,11 +12,11 @@ path = "src/lib.rs"
 
 [features]
 default = ["durability"]
-durability = ["golem-rust/durability", "golem-vector/durability"]
+durability = ["golem-rust/durability", "golem-ai-vector/durability"]
 
 [dependencies]
 golem-rust = { workspace = true }
-golem-vector = { workspace = true }
+golem-ai-vector = { workspace = true }
 golem-wasi-http = { workspace = true }
 
 base64 = { workspace = true }

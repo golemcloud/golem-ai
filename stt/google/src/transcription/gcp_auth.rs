@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Duration, Utc};
-use golem_stt::http::HttpClient;
+use golem_ai_stt::http::HttpClient;
 use http::Request;
 use rsa::Pkcs1v15Sign;
 use rsa::{pkcs8::DecodePrivateKey, RsaPrivateKey};
@@ -266,7 +266,7 @@ mod tests {
     };
 
     struct MockHttpClient {
-        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_stt::http::Error>>>,
+        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_ai_stt::http::Error>>>,
         pub captured_requests: RefCell<Vec<Request<Bytes>>>,
     }
 
@@ -296,12 +296,12 @@ mod tests {
         async fn execute(
             &self,
             request: Request<Bytes>,
-        ) -> Result<Response<Vec<u8>>, golem_stt::http::Error> {
+        ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
             self.responses
                 .borrow_mut()
                 .pop_front()
-                .unwrap_or(Err(golem_stt::http::Error::Generic(
+                .unwrap_or(Err(golem_ai_stt::http::Error::Generic(
                     "unexpected error".to_string(),
                 )))
         }

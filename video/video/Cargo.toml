@@ -1,5 +1,5 @@
 [package]
-name = "golem-video"
+name = "golem-ai-video"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"

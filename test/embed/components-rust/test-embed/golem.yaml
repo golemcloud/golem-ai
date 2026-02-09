@@ -19,10 +19,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_embed.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_embed_openai.wasm ../../target/wasm32-wasip1/debug/test_embed.wasm -o ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_embed_openai.wasm ../../target/wasm32-wasip1/debug/test_embed.wasm -o ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_embed.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_embed_openai.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_embed_openai.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm
         sourceWit: wit
@@ -41,10 +41,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_embed.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_embed_cohere.wasm ../../target/wasm32-wasip1/debug/test_embed.wasm -o ../../target/wasm32-wasip1/debug/test_cohere_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_embed_cohere.wasm ../../target/wasm32-wasip1/debug/test_embed.wasm -o ../../target/wasm32-wasip1/debug/test_cohere_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_embed.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_embed_cohere.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_embed_cohere.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_cohere_plugged.wasm
         sourceWit: wit
@@ -63,10 +63,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_embed.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_embed_hugging_face.wasm ../../target/wasm32-wasip1/debug/test_embed.wasm -o ../../target/wasm32-wasip1/debug/test_hugging_face_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_embed_hugging_face.wasm ../../target/wasm32-wasip1/debug/test_embed.wasm -o ../../target/wasm32-wasip1/debug/test_hugging_face_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_embed.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_embed_hugging_face.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_embed_hugging_face.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_hugging_face_plugged.wasm
         sourceWit: wit
@@ -85,10 +85,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_embed.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_embed_voyageai.wasm ../../target/wasm32-wasip1/debug/test_embed.wasm -o ../../target/wasm32-wasip1/debug/test_voyageai_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_embed_voyageai.wasm ../../target/wasm32-wasip1/debug/test_embed.wasm -o ../../target/wasm32-wasip1/debug/test_voyageai_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_embed.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_embed_voyageai.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_embed_voyageai.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_voyageai_plugged.wasm
         sourceWit: wit
@@ -108,10 +108,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_embed.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_embed_openai.wasm ../../target/wasm32-wasip1/release/test_embed.wasm -o ../../target/wasm32-wasip1/release/test_openai_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_embed_openai.wasm ../../target/wasm32-wasip1/release/test_embed.wasm -o ../../target/wasm32-wasip1/release/test_openai_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_embed.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_embed_openai.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_embed_openai.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_openai_plugged.wasm
         sourceWit: wit
@@ -130,10 +130,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_embed.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_embed_cohere.wasm ../../target/wasm32-wasip1/release/test_embed.wasm -o ../../target/wasm32-wasip1/release/test_cohere_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_embed_cohere.wasm ../../target/wasm32-wasip1/release/test_embed.wasm -o ../../target/wasm32-wasip1/release/test_cohere_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_embed.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_embed_cohere.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_embed_cohere.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_cohere_plugged.wasm
         sourceWit: wit
@@ -152,10 +152,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_embed.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_embed_hugging_face.wasm ../../target/wasm32-wasip1/release/test_embed.wasm -o ../../target/wasm32-wasip1/release/test_hugging_face_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_embed_hugging_face.wasm ../../target/wasm32-wasip1/release/test_embed.wasm -o ../../target/wasm32-wasip1/release/test_hugging_face_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_embed.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_embed_hugging_face.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_embed_hugging_face.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_hugging_face_plugged.wasm
         sourceWit: wit
@@ -174,10 +174,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_embed.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_embed_voyageai.wasm ../../target/wasm32-wasip1/release/test_embed.wasm -o ../../target/wasm32-wasip1/release/test_voyageai_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_embed_voyageai.wasm ../../target/wasm32-wasip1/release/test_embed.wasm -o ../../target/wasm32-wasip1/release/test_voyageai_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_embed.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_embed_voyageai.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_embed_voyageai.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_voyageai_plugged.wasm
         sourceWit: wit

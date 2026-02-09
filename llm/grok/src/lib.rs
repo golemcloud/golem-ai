@@ -6,15 +6,15 @@ use crate::conversions::{
     convert_client_tool_call_to_tool_call, convert_finish_reason, convert_usage, events_to_request,
     process_response,
 };
-use golem_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
-use golem_llm::config::{get_config_key, with_config_key};
-use golem_llm::durability::{DurableLLM, ExtendedLlmProvider};
-use golem_llm::event_source::EventSource;
-use golem_llm::model::{
+use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
+use golem_ai_llm::config::{get_config_key, with_config_key};
+use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
+use golem_ai_llm::event_source::EventSource;
+use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Response,
     ResponseMetadata, StreamDelta, StreamEvent,
 };
-use golem_llm::LlmProvider;
+use golem_ai_llm::LlmProvider;
 use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};

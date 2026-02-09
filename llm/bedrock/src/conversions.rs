@@ -7,7 +7,7 @@ use aws_sdk_bedrockruntime::types::{
     SystemContentBlock, Tool, ToolConfiguration, ToolInputSchema, ToolSpecification, ToolUseBlock,
 };
 use aws_smithy_types::{Document, Number};
-use golem_llm::model as llm;
+use golem_ai_llm::model as llm;
 use std::collections::HashMap;
 use wstd::http;
 

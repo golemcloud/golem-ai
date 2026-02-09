@@ -116,7 +116,7 @@ mod durable_impl {
         fn connect(config: ConnectionConfig) -> Result<connection::Graph, GraphError> {
             init_logging();
             let durability = Durability::<Unit, GraphError>::new(
-                "golem_graph",
+                "golem_ai_graph",
                 "connect",
                 WrappedFunctionType::WriteRemote,
             );

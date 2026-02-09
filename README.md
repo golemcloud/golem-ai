@@ -45,12 +45,12 @@ Each provider has two versions available:
 - Include Golem-specific durability features
 - Depend on [Golem's host API](https://learn.golem.cloud/golem-host-functions)
 - Provide advanced features like crash recovery and state persistence
-- Example: `golem-llm-openai.wasm`
+- Example: `golem-ai-llm-openai.wasm`
 
 ### Portable Versions  
 - No Golem-specific dependencies
 - Can be used in any WebAssembly environment
-- Example: `golem-llm-openai-portable.wasm`
+- Example: `golem-ai-llm-openai-portable.wasm`
 
 Every component **exports** the same unified interface for its module, defined in the respective WIT files:
 - LLM: [`llm/wit/golem-llm.wit`](llm/wit/golem-llm.wit)
@@ -105,10 +105,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/my_example.wasm
-          - command: wac plug --plug ../../golem_llm_openai.wasm ../../target/wasm32-wasip1/debug/my_example.wasm -o ../../target/wasm32-wasip1/debug/my_example_plugged.wasm
+          - command: wac plug --plug ../../golem_ai_llm_openai.wasm ../../target/wasm32-wasip1/debug/my_example.wasm -o ../../target/wasm32-wasip1/debug/my_example_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/my_example.wasm
-              - ../../golem_llm_openai.wasm
+              - ../../golem_ai_llm_openai.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/my_example_plugged.wasm
         sourceWit: wit

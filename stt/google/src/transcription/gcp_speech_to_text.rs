@@ -2,9 +2,9 @@ use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;
-use golem_stt::error::Error as SttError;
-use golem_stt::http::HttpClient;
-use golem_stt::runtime::AsyncRuntime;
+use golem_ai_stt::error::Error as SttError;
+use golem_ai_stt::http::HttpClient;
+use golem_ai_stt::runtime::AsyncRuntime;
 use http::{header::CONTENT_TYPE, Method, Request, StatusCode};
 use log::trace;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -457,7 +457,7 @@ impl<HC: HttpClient, RT: AsyncRuntime> SpeechToTextClient<HC, RT> {
 
         let http_request = request_builder
             .body(body.unwrap_or_default())
-            .map_err(|e| (request_id.to_string(), golem_stt::http::Error::HttpError(e)))?;
+            .map_err(|e| (request_id.to_string(), golem_ai_stt::http::Error::HttpError(e)))?;
 
         trace!("Sending request to GCP Speech-to-Text API: {uri}");
 
@@ -475,7 +475,7 @@ impl<HC: HttpClient, RT: AsyncRuntime> SpeechToTextClient<HC, RT> {
             let json_response: T = serde_json::from_slice(response.body()).map_err(|e| {
                 (
                     request_id.to_string(),
-                    golem_stt::http::Error::Generic(
+                    golem_ai_stt::http::Error::Generic(
                         format!("Failed to deserialize response: {e}",),
                     ),
                 )
@@ -556,7 +556,7 @@ impl<HC: HttpClient, RT: AsyncRuntime> SpeechToTextService for SpeechToTextClien
         let body = serde_json::to_vec(&request_body).map_err(|e| {
             (
                 request_id.to_string(),
-                golem_stt::http::Error::Generic(format!("Failed to serialize request: {e}")),
+                golem_ai_stt::http::Error::Generic(format!("Failed to serialize request: {e}")),
             )
         })?;
 
@@ -603,7 +603,7 @@ impl<HC: HttpClient, RT: AsyncRuntime> SpeechToTextService for SpeechToTextClien
         let body = serde_json::to_vec(&request_body).map_err(|e| {
             (
                 request_id.to_string(),
-                golem_stt::http::Error::Generic(format!("Failed to serialize request: {e}")),
+                golem_ai_stt::http::Error::Generic(format!("Failed to serialize request: {e}")),
             )
         })?;
 
@@ -689,7 +689,7 @@ mod tests {
     };
 
     struct MockHttpClient {
-        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_stt::http::Error>>>,
+        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_ai_stt::http::Error>>>,
         pub captured_requests: RefCell<Vec<Request<Bytes>>>,
     }
 
@@ -732,12 +732,12 @@ mod tests {
         async fn execute(
             &self,
             request: Request<Bytes>,
-        ) -> Result<Response<Vec<u8>>, golem_stt::http::Error> {
+        ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
             self.responses
                 .borrow_mut()
                 .pop_front()
-                .unwrap_or(Err(golem_stt::http::Error::Generic(
+                .unwrap_or(Err(golem_ai_stt::http::Error::Generic(
                     "unexpected error".to_string(),
                 )))
         }
@@ -759,7 +759,7 @@ mod tests {
         }
     }
 
-    impl golem_stt::runtime::AsyncRuntime for MockRuntime {
+    impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
         async fn sleep(&self, duration: Duration) {
             self.sleep_calls.borrow_mut().push(duration);
         }
@@ -1846,7 +1846,7 @@ mod tests {
             }
         }
 
-        impl golem_stt::runtime::AsyncRuntime for MockRuntime {
+        impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
             async fn sleep(&self, duration: Duration) {
                 // Simulate time passing
                 let mut elapsed = self.elapsed_time.borrow_mut();

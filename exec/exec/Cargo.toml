@@ -1,5 +1,5 @@
 [package]
-name = "golem-exec"
+name = "golem-ai-exec"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"

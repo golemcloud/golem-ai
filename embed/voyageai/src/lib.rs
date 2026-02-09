@@ -1,4 +1,4 @@
-use golem_embed::{
+use golem_ai_embed::{
     config::with_config_key,
     durability::{DurableEmbed, ExtendedEmbeddingProvider},
     model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse},

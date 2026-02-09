@@ -2,8 +2,8 @@ use crate::client::{
     ContentModeration, ImagePollResponse, ImageToVideoRequest, PollResponse, PromptImage,
     RunwayApi, TextToImageRequest, VideoUpscaleRequest,
 };
-use golem_video::error::{invalid_input, unsupported_feature};
-use golem_video::model::types::{
+use golem_ai_video::error::{invalid_input, unsupported_feature};
+use golem_ai_video::model::types::{
     AspectRatio, GenerationConfig, ImageRole, JobStatus, MediaData, MediaInput, Resolution, Video,
     VideoError, VideoResult,
 };
@@ -233,12 +233,12 @@ fn generate_text_to_video_via_image(
     };
 
     // Step 3: Use the generated image URL for video generation
-    let image_input = MediaInput::Image(golem_video::model::types::Reference {
-        data: golem_video::model::types::InputImage {
+    let image_input = MediaInput::Image(golem_ai_video::model::types::Reference {
+        data: golem_ai_video::model::types::InputImage {
             data: MediaData::Url(image_url),
         },
         prompt: Some(prompt),
-        role: Some(golem_video::model::types::ImageRole::First),
+        role: Some(golem_ai_video::model::types::ImageRole::First),
     });
 
     let request = media_input_to_request(image_input, config)?;
@@ -366,7 +366,7 @@ pub fn poll_text_to_image_generation(
 
 pub fn upscale_video(
     client: &RunwayApi,
-    input: golem_video::model::types::BaseVideo,
+    input: golem_ai_video::model::types::BaseVideo,
 ) -> Result<String, VideoError> {
     let video_uri = match input.data {
         MediaData::Url(url) => Ok(url),
@@ -406,8 +406,8 @@ pub fn upscale_video(
 
 pub fn generate_video_effects(
     _client: &RunwayApi,
-    _input: golem_video::model::types::InputImage,
-    _effect: golem_video::model::types::EffectType,
+    _input: golem_ai_video::model::types::InputImage,
+    _effect: golem_ai_video::model::types::EffectType,
     _model: Option<String>,
     _duration: Option<f32>,
     _mode: Option<String>,
@@ -419,7 +419,7 @@ pub fn generate_video_effects(
 
 pub fn multi_image_generation(
     _client: &RunwayApi,
-    _input_images: Vec<golem_video::model::types::InputImage>,
+    _input_images: Vec<golem_ai_video::model::types::InputImage>,
     _prompt: Option<String>,
     _config: GenerationConfig,
 ) -> Result<String, VideoError> {
@@ -430,8 +430,8 @@ pub fn multi_image_generation(
 
 pub fn generate_lip_sync_video(
     _client: &RunwayApi,
-    _video: golem_video::model::types::LipSyncVideo,
-    _audio: golem_video::model::types::AudioSource,
+    _video: golem_ai_video::model::types::LipSyncVideo,
+    _audio: golem_ai_video::model::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Lip sync is not supported by Runway API".to_string(),
@@ -441,7 +441,7 @@ pub fn generate_lip_sync_video(
 pub fn list_available_voices(
     _client: &RunwayApi,
     _language: Option<String>,
-) -> Result<Vec<golem_video::model::types::VoiceInfo>, VideoError> {
+) -> Result<Vec<golem_ai_video::model::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Runway API".to_string(),
     ))
@@ -453,7 +453,7 @@ pub fn extend_video(
     _prompt: Option<String>,
     _negative_prompt: Option<String>,
     _cfg_scale: Option<f32>,
-    _provider_options: Option<Vec<golem_video::model::types::Kv>>,
+    _provider_options: Option<Vec<golem_ai_video::model::types::Kv>>,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video extension is not supported by Runway API".to_string(),

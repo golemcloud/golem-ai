@@ -111,7 +111,7 @@ mod durable_impl {
         fn transcribe(request: TranscriptionRequest) -> Result<TranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
             let durability = Durability::<TranscriptionResult, SttError>::new(
-                "golem_stt",
+                "golem_ai_stt",
                 "transcribe",
                 DurableFunctionType::WriteRemote,
             );
@@ -157,7 +157,7 @@ mod durable_impl {
         ) -> Result<MultiTranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
             let durability = Durability::<MultiTranscriptionResult, SttError>::new(
-                "golem_stt",
+                "golem_ai_stt",
                 "transcribe_many",
                 DurableFunctionType::WriteRemote,
             );

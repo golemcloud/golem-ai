@@ -6,20 +6,20 @@ use crate::conversions::{
     voice_filter_to_describe_params,
 };
 use golem_rust::golem_wasm::Pollable;
-use golem_tts::config::with_config_key;
-use golem_tts::durability::{DurableTts, ExtendedTtsProvider};
-use golem_tts::model::advanced::{
+use golem_ai_tts::config::with_config_key;
+use golem_ai_tts::durability::{DurableTts, ExtendedTtsProvider};
+use golem_ai_tts::model::advanced::{
     AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
     PronunciationLexicon, VoiceDesignParams,
 };
-use golem_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
-use golem_tts::model::synthesis::{SynthesisOptions, ValidationResult};
-use golem_tts::model::types::{
+use golem_ai_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
+use golem_ai_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_ai_tts::model::types::{
     AudioChunk, AudioFormat, LanguageCode, SynthesisResult, TextInput, TimingInfo, TimingMarkType,
     TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
-use golem_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
-use golem_tts::{
+use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_ai_tts::{
     AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
     StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
@@ -651,7 +651,7 @@ impl LongFormOperationInterface for PollyLongFormOperation {
                 output_location: output_uri,
                 total_duration: estimated_duration,
                 chapter_durations: None,
-                metadata: golem_tts::model::types::SynthesisMetadata {
+                metadata: golem_ai_tts::model::types::SynthesisMetadata {
                     duration_seconds: estimated_duration,
                     character_count,
                     word_count: estimated_word_count,
@@ -776,7 +776,7 @@ impl VoiceProvider for AwsPolly {
 impl SynthesizeProvider for AwsPolly {
     fn synthesize(
         input: TextInput,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisResult, TtsError> {
         validate_synthesis_input(&input, options.as_ref())?;
@@ -845,7 +845,7 @@ impl SynthesizeProvider for AwsPolly {
 
     fn synthesize_batch(
         inputs: Vec<TextInput>,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, TtsError> {
         let client = Self::create_client()?;
@@ -922,7 +922,7 @@ impl SynthesizeProvider for AwsPolly {
 
     fn get_timing_marks(
         input: TextInput,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, TtsError> {
         let client = Self::create_client()?;
         let voice_id = voice.get::<PollyVoiceImpl>().get_id();
@@ -993,7 +993,7 @@ impl SynthesizeProvider for AwsPolly {
 
     fn validate_input(
         input: TextInput,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, TtsError> {
         let voice_id = voice.get::<PollyVoiceImpl>().get_id();
         Ok(validate_polly_input(&input.content, &voice_id))
@@ -1005,7 +1005,7 @@ impl StreamingVoiceProvider for AwsPolly {
     type VoiceConversionStream = PollyVoiceConversionStream;
 
     fn create_stream(
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
         let client = Self::create_client()?;
@@ -1017,7 +1017,7 @@ impl StreamingVoiceProvider for AwsPolly {
     }
 
     fn create_voice_conversion_stream(
-        target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
         let client = Self::create_client()?;
@@ -1037,7 +1037,7 @@ impl AdvancedTtsProvider for AwsPolly {
         _name: String,
         _audio_samples: Vec<AudioSample>,
         _description: Option<String>,
-    ) -> Result<golem_tts::model::voices::Voice, TtsError> {
+    ) -> Result<golem_ai_tts::model::voices::Voice, TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Voice cloning not supported by AWS Polly".to_string(),
         ))
@@ -1046,7 +1046,7 @@ impl AdvancedTtsProvider for AwsPolly {
     fn design_voice(
         _name: String,
         _characteristics: VoiceDesignParams,
-    ) -> Result<golem_tts::model::voices::Voice, TtsError> {
+    ) -> Result<golem_ai_tts::model::voices::Voice, TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Voice design not supported by AWS Polly".to_string(),
         ))
@@ -1054,7 +1054,7 @@ impl AdvancedTtsProvider for AwsPolly {
 
     fn convert_voice(
         _input_audio: Vec<u8>,
-        _target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _preserve_timing: Option<bool>,
     ) -> Result<Vec<u8>, TtsError> {
         Err(TtsError::UnsupportedOperation(
@@ -1087,7 +1087,7 @@ impl AdvancedTtsProvider for AwsPolly {
 
     fn synthesize_long_form(
         content: String,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         _chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
@@ -1141,7 +1141,7 @@ impl AdvancedTtsProvider for AwsPolly {
 
 impl ExtendedTtsProvider for AwsPolly {
     fn unwrapped_synthesis_stream(
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream {
         let client = Self::create_client().unwrap_or_else(|_| {
@@ -1159,7 +1159,7 @@ impl ExtendedTtsProvider for AwsPolly {
     }
 
     fn unwrapped_voice_conversion_stream(
-        target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream {
         let client = Self::create_client().unwrap_or_else(|_| {

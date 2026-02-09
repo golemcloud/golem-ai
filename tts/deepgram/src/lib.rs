@@ -5,20 +5,20 @@ use crate::conversions::{
     synthesis_options_to_tts_request, validate_synthesis_request, validate_text_input,
 };
 use golem_rust::golem_wasm::Pollable;
-use golem_tts::config::with_config_key;
-use golem_tts::durability::{DurableTts, ExtendedTtsProvider};
-use golem_tts::model::advanced::{
+use golem_ai_tts::config::with_config_key;
+use golem_ai_tts::durability::{DurableTts, ExtendedTtsProvider};
+use golem_ai_tts::model::advanced::{
     AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
     PronunciationLexicon, VoiceDesignParams,
 };
-use golem_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
-use golem_tts::model::synthesis::{SynthesisOptions, ValidationResult};
-use golem_tts::model::types::{
+use golem_ai_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
+use golem_ai_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_ai_tts::model::types::{
     AudioChunk, AudioFormat, LanguageCode, SynthesisMetadata, SynthesisResult, TextInput,
     TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
-use golem_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
-use golem_tts::{
+use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_ai_tts::{
     AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
     StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
@@ -858,7 +858,7 @@ impl VoiceProvider for DeepgramTts {
 impl SynthesizeProvider for DeepgramTts {
     fn synthesize(
         input: TextInput,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisResult, TtsError> {
         validate_synthesis_request(
@@ -967,7 +967,7 @@ impl SynthesizeProvider for DeepgramTts {
 
     fn synthesize_batch(
         inputs: Vec<TextInput>,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, TtsError> {
         let mut results = Vec::new();
@@ -1022,7 +1022,7 @@ impl SynthesizeProvider for DeepgramTts {
 
     fn get_timing_marks(
         _input: TextInput,
-        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Timing marks not supported by Deepgram".to_string(),
@@ -1031,7 +1031,7 @@ impl SynthesizeProvider for DeepgramTts {
 
     fn validate_input(
         input: TextInput,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, TtsError> {
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
@@ -1082,7 +1082,7 @@ impl StreamingVoiceProvider for DeepgramTts {
     type VoiceConversionStream = DeepgramVoiceConversionStream;
 
     fn create_stream(
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
         let client = Self::create_streaming_client()?;
@@ -1093,7 +1093,7 @@ impl StreamingVoiceProvider for DeepgramTts {
     }
 
     fn create_voice_conversion_stream(
-        target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
         let client = Self::create_client()?;
@@ -1126,7 +1126,7 @@ impl AdvancedTtsProvider for DeepgramTts {
 
     fn convert_voice(
         _input_audio: Vec<u8>,
-        _target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _preserve_timing: Option<bool>,
     ) -> Result<Vec<u8>, TtsError> {
         Err(TtsError::UnsupportedOperation(
@@ -1155,7 +1155,7 @@ impl AdvancedTtsProvider for DeepgramTts {
 
     fn synthesize_long_form(
         content: String,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
@@ -1178,7 +1178,7 @@ impl AdvancedTtsProvider for DeepgramTts {
 
 impl ExtendedTtsProvider for DeepgramTts {
     fn unwrapped_synthesis_stream(
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream {
         let client = Self::create_streaming_client()
@@ -1189,7 +1189,7 @@ impl ExtendedTtsProvider for DeepgramTts {
     }
 
     fn unwrapped_voice_conversion_stream(
-        target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream {
         let client = Self::create_client()

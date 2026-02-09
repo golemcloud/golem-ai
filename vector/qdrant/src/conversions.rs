@@ -6,12 +6,12 @@ use crate::client::{
     RecommendRequest, Record, ScoredPoint, ScrollRequest, SearchRequest, UpsertRequest,
     VectorConfig, VectorParams, WithPayloadSelector, WithVectorSelector,
 };
-use golem_vector::model::search::SearchQuery;
-use golem_vector::model::types::{
+use golem_ai_vector::model::search::SearchQuery;
+use golem_ai_vector::model::types::{
     DistanceMetric, FilterCondition, FilterExpression, FilterOperator, GeoCoordinates, Id,
     MetadataValue, SearchResult, VectorData, VectorError, VectorRecord,
 };
-use golem_vector::model::{
+use golem_ai_vector::model::{
     collections::CollectionInfo as ExportCollectionInfo,
     search_extended::{ContextPair, RecommendationExample},
 };
@@ -712,7 +712,7 @@ fn json_value_to_metadata_value(value: &Value) -> Result<MetadataValue, VectorEr
         }
         Value::Bool(b) => Ok(MetadataValue::BooleanVal(*b)),
         Value::Array(arr) => {
-            use golem_vector::model::types::MetadataFunc;
+            use golem_ai_vector::model::types::MetadataFunc;
             let metadata_arr: Result<Vec<MetadataFunc>, VectorError> = arr
                 .iter()
                 .map(|v| {
@@ -739,7 +739,7 @@ fn json_value_to_metadata_value(value: &Value) -> Result<MetadataValue, VectorEr
                 }));
             }
 
-            use golem_vector::model::types::MetadataFunc;
+            use golem_ai_vector::model::types::MetadataFunc;
             let mut metadata_obj = Vec::new();
             for (key, val) in obj {
                 let metadata_val = json_value_to_metadata_value(val)?;

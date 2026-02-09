@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{Datelike, Timelike};
-use golem_graph::model::{
+use golem_ai_graph::model::{
     errors::GraphError,
     types::{Date, Datetime, Linestring, Point, Polygon, PropertyMap, PropertyValue, Time},
 };
@@ -282,7 +282,7 @@ mod tests {
     use super::*;
     use base64::engine::general_purpose;
     use chrono::{FixedOffset, TimeZone};
-    use golem_graph::model::{
+    use golem_ai_graph::model::{
         errors::GraphError,
         types::{Date, Datetime, Linestring, Point, Polygon, PropertyValue, Time},
     };

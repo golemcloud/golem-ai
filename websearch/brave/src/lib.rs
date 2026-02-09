@@ -5,12 +5,12 @@ use std::cell::RefCell;
 
 use crate::client::BraveSearchApi;
 use crate::conversions::{params_to_request, response_to_results, validate_search_params};
-use golem_web_search::durability::DurableWebSearch;
-use golem_web_search::durability::ExtendedWebSearchProvider;
-use golem_web_search::model::web_search::{
+use golem_ai_web_search::durability::DurableWebSearch;
+use golem_ai_web_search::durability::ExtendedWebSearchProvider;
+use golem_ai_web_search::model::web_search::{
     SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
-use golem_web_search::{SearchSessionInterface, WebSearchProvider};
+use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
 
 // Define a custom ReplayState struct
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]

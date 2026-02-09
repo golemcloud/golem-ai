@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use golem_stt::{error::Error as SttError, http::HttpClient};
+use golem_ai_stt::{error::Error as SttError, http::HttpClient};
 use http::{Request, StatusCode};
 
 use super::gcp_auth::GcpAuth;
@@ -42,11 +42,11 @@ impl<HC: HttpClient> CloudStorageService for CloudStorageClient<HC> {
         bucket: &str,
         object_name: &str,
         content: Bytes,
-    ) -> Result<(), golem_stt::error::Error> {
+    ) -> Result<(), golem_ai_stt::error::Error> {
         let access_token = self.auth.get_access_token().await.map_err(|e| {
             SttError::Http(
                 request_id.to_string(),
-                golem_stt::http::Error::Generic(format!("Failed to get access token: {e}")),
+                golem_ai_stt::http::Error::Generic(format!("Failed to get access token: {e}")),
             )
         })?;
 
@@ -66,7 +66,7 @@ impl<HC: HttpClient> CloudStorageService for CloudStorageClient<HC> {
             .header("Authorization", format!("Bearer {access_token}"))
             .body(content)
             .map_err(|e| {
-                SttError::Http(request_id.to_string(), golem_stt::http::Error::HttpError(e))
+                SttError::Http(request_id.to_string(), golem_ai_stt::http::Error::HttpError(e))
             })?;
 
         let response = self
@@ -128,11 +128,11 @@ impl<HC: HttpClient> CloudStorageService for CloudStorageClient<HC> {
         request_id: &str,
         bucket: &str,
         object_name: &str,
-    ) -> Result<(), golem_stt::error::Error> {
+    ) -> Result<(), golem_ai_stt::error::Error> {
         let access_token = self.auth.get_access_token().await.map_err(|e| {
             SttError::Http(
                 request_id.to_string(),
-                golem_stt::http::Error::Generic(format!("Failed to get access token: {e}")),
+                golem_ai_stt::http::Error::Generic(format!("Failed to get access token: {e}")),
             )
         })?;
 
@@ -148,7 +148,7 @@ impl<HC: HttpClient> CloudStorageService for CloudStorageClient<HC> {
             .uri(&uri)
             .body(Bytes::new())
             .map_err(|e| {
-                SttError::Http(request_id.to_string(), golem_stt::http::Error::HttpError(e))
+                SttError::Http(request_id.to_string(), golem_ai_stt::http::Error::HttpError(e))
             })?;
 
         let response = self
@@ -220,7 +220,7 @@ mod tests {
     use super::*;
 
     struct MockHttpClient {
-        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_stt::http::Error>>>,
+        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_ai_stt::http::Error>>>,
         pub captured_requests: RefCell<Vec<Request<Bytes>>>,
     }
 
@@ -263,12 +263,12 @@ mod tests {
         async fn execute(
             &self,
             request: Request<Bytes>,
-        ) -> Result<Response<Vec<u8>>, golem_stt::http::Error> {
+        ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
             self.responses
                 .borrow_mut()
                 .pop_front()
-                .unwrap_or(Err(golem_stt::http::Error::Generic(
+                .unwrap_or(Err(golem_ai_stt::http::Error::Generic(
                     "unexpected error".to_string(),
                 )))
         }

@@ -44,117 +44,117 @@ run_task = { name = [
 
 [tasks.build-ollama]
 command = "cargo"
-args = ["build", "-p", "golem-llm-ollama"]
+args = ["build", "-p", "golem-ai-llm-ollama"]
 
 
 [tasks.build-ollama-portable]
 command = "cargo"
-args = ["build", "-p", "golem-llm-ollama", "--no-default-features"]
+args = ["build", "-p", "golem-ai-llm-ollama", "--no-default-features"]
 
 [tasks.build-bedrock]
 command = "cargo"
-args = ["build", "-p", "golem-llm-bedrock"]
+args = ["build", "-p", "golem-ai-llm-bedrock"]
 
 
 [tasks.build-bedrock-portable]
 command = "cargo"
-args = ["build", "-p", "golem-llm-bedrock", "--no-default-features"]
+args = ["build", "-p", "golem-ai-llm-bedrock", "--no-default-features"]
 
 
 [tasks.build-anthropic]
 command = "cargo"
-args = ["build", "-p", "golem-llm-anthropic"]
+args = ["build", "-p", "golem-ai-llm-anthropic"]
 
 [tasks.build-anthropic-portable]
 command = "cargo"
-args = ["build", "-p", "golem-llm-anthropic", "--no-default-features"]
+args = ["build", "-p", "golem-ai-llm-anthropic", "--no-default-features"]
 
 [tasks.build-grok]
 command = "cargo"
-args = ["build", "-p", "golem-llm-grok"]
+args = ["build", "-p", "golem-ai-llm-grok"]
 
 [tasks.build-grok-portable]
 command = "cargo"
-args = ["build", "-p", "golem-llm-grok", "--no-default-features"]
+args = ["build", "-p", "golem-ai-llm-grok", "--no-default-features"]
 
 [tasks.build-openai]
 command = "cargo"
-args = ["build", "-p", "golem-llm-openai"]
+args = ["build", "-p", "golem-ai-llm-openai"]
 
 [tasks.build-openai-portable]
 command = "cargo"
-args = ["build", "-p", "golem-llm-openai", "--no-default-features"]
+args = ["build", "-p", "golem-ai-llm-openai", "--no-default-features"]
 
 [tasks.build-openrouter]
 command = "cargo"
-args = ["build", "-p", "golem-llm-openrouter"]
+args = ["build", "-p", "golem-ai-llm-openrouter"]
 
 [tasks.build-openrouter-portable]
 command = "cargo"
-args = ["build", "-p", "golem-llm-openrouter", "--no-default-features"]
+args = ["build", "-p", "golem-ai-llm-openrouter", "--no-default-features"]
 
 [tasks.release-build-ollama]
 command = "cargo"
-args = ["build", "-p", "golem-llm-ollama", "--release"]
+args = ["build", "-p", "golem-ai-llm-ollama", "--release"]
 
 [tasks.release-build-ollama-portable]
 command = "cargo"
-args = ["build", "-p", "golem-llm-ollama", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-llm-ollama", "--release", "--no-default-features"]
 
 [tasks.release-build-bedrock]
 command = "cargo"
-args = ["build", "-p", "golem-llm-bedrock", "--release"]
+args = ["build", "-p", "golem-ai-llm-bedrock", "--release"]
 
 [tasks.release-build-bedrock-portable]
 command = "cargo"
 args = [
     "build",
     "-p",
-    "golem-llm-bedrock",
+    "golem-ai-llm-bedrock",
     "--release",
     "--no-default-features",
 ]
 
 [tasks.release-build-anthropic]
 command = "cargo"
-args = ["build", "-p", "golem-llm-anthropic", "--release"]
+args = ["build", "-p", "golem-ai-llm-anthropic", "--release"]
 
 [tasks.release-build-anthropic-portable]
 command = "cargo"
 args = [
     "build",
     "-p",
-    "golem-llm-anthropic",
+    "golem-ai-llm-anthropic",
     "--release",
     "--no-default-features",
 ]
 
 [tasks.release-build-grok]
 command = "cargo"
-args = ["build", "-p", "golem-llm-grok", "--release"]
+args = ["build", "-p", "golem-ai-llm-grok", "--release"]
 
 [tasks.release-build-grok-portable]
 command = "cargo"
-args = ["build", "-p", "golem-llm-grok", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-llm-grok", "--release", "--no-default-features"]
 
 [tasks.release-build-openai]
 command = "cargo"
-args = ["build", "-p", "golem-llm-openai", "--release"]
+args = ["build", "-p", "golem-ai-llm-openai", "--release"]
 
 [tasks.release-build-openai-portable]
 command = "cargo"
-args = ["build", "-p", "golem-llm-openai", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-llm-openai", "--release", "--no-default-features"]
 
 [tasks.release-build-openrouter]
 command = "cargo"
-args = ["build", "-p", "golem-llm-openrouter", "--release"]
+args = ["build", "-p", "golem-ai-llm-openrouter", "--release"]
 
 [tasks.release-build-openrouter-portable]
 command = "cargo"
 args = [
     "build",
     "-p",
-    "golem-llm-openrouter",
+    "golem-ai-llm-openrouter",
     "--release",
     "--no-default-features",
 ]

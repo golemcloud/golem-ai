@@ -112,7 +112,7 @@ mod durable_impl {
         fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
-                "golem_video",
+                "golem_ai_video",
                 "generate",
                 DurableFunctionType::WriteRemote,
             );
@@ -129,7 +129,7 @@ mod durable_impl {
         fn poll(job_id: String) -> Result<VideoResult, VideoError> {
             init_logging();
             let durability = Durability::<VideoResult, VideoError>::new(
-                "golem_video",
+                "golem_ai_video",
                 "poll",
                 DurableFunctionType::ReadRemote,
             );
@@ -146,7 +146,7 @@ mod durable_impl {
         fn cancel(job_id: String) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
-                "golem_video",
+                "golem_ai_video",
                 "cancel",
                 DurableFunctionType::WriteRemote,
             );
@@ -168,7 +168,7 @@ mod durable_impl {
         ) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
-                "golem_video",
+                "golem_ai_video",
                 "generate_lip_sync",
                 DurableFunctionType::WriteRemote,
             );
@@ -185,7 +185,7 @@ mod durable_impl {
         fn list_voices(language: Option<String>) -> Result<Vec<VoiceInfo>, VideoError> {
             init_logging();
             let durability = Durability::<Vec<VoiceInfo>, VideoError>::new(
-                "golem_video",
+                "golem_ai_video",
                 "list_voices",
                 DurableFunctionType::ReadRemote,
             );
@@ -204,7 +204,7 @@ mod durable_impl {
         fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
-                "golem_video",
+                "golem_ai_video",
                 "extend_video",
                 DurableFunctionType::WriteRemote,
             );
@@ -221,7 +221,7 @@ mod durable_impl {
         fn upscale_video(input: BaseVideo) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
-                "golem_video",
+                "golem_ai_video",
                 "upscale_video",
                 DurableFunctionType::WriteRemote,
             );
@@ -240,7 +240,7 @@ mod durable_impl {
         ) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
-                "golem_video",
+                "golem_ai_video",
                 "generate_video_effects",
                 DurableFunctionType::WriteRemote,
             );
@@ -259,7 +259,7 @@ mod durable_impl {
         ) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
-                "golem_video",
+                "golem_ai_video",
                 "multi_image_generation",
                 DurableFunctionType::WriteRemote,
             );

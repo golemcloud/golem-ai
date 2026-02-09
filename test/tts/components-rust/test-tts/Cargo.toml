@@ -38,7 +38,7 @@ path = "wit-generated"
 "wasi:io" = { path = "wit-generated/deps/io" }
 "wasi:clocks" = { path = "wit-generated/deps/clocks" }
 "golem:rpc" = { path = "wit-generated/deps/golem-rpc" }
-"golem:tts" = { path = "wit-generated/deps/golem-tts" }
+"golem:tts" = { path = "wit-generated/deps/golem-ai-tts" }
 "test:helper-client" = { path = "wit-generated/deps/test_helper-client" }
 "test:tts-exports" = { path = "wit-generated/deps/test_tts-exports" }
 

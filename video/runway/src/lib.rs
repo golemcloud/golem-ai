@@ -7,16 +7,16 @@ use crate::conversion::{
     generate_video_effects, list_available_voices, multi_image_generation, poll_video_generation,
     upscale_video,
 };
-use golem_video::config::with_config_key;
-use golem_video::durability::{DurableVideo, ExtendedVideoGenerationProvider};
-use golem_video::model::advanced::{
+use golem_ai_video::config::with_config_key;
+use golem_ai_video::durability::{DurableVideo, ExtendedVideoGenerationProvider};
+use golem_ai_video::model::advanced::{
     ExtendVideoOptions, GenerateVideoEffectsOptions, MultImageGenerationOptions,
 };
-use golem_video::model::types::{
+use golem_ai_video::model::types::{
     AudioSource, BaseVideo, GenerationConfig, LipSyncVideo, MediaInput, VideoError, VideoResult,
     VoiceInfo,
 };
-use golem_video::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
+use golem_ai_video::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 
 pub struct Runway;
 

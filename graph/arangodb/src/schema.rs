@@ -1,5 +1,5 @@
 use crate::{helpers, ArangoDb, SchemaManager};
-use golem_graph::{
+use golem_ai_graph::{
     durability::ExtendedGuest,
     model::{
         connection::ConnectionConfig,
@@ -18,7 +18,7 @@ impl SchemaManagerProvider for ArangoDb {
 
     fn get_schema_manager(
         config: Option<ConnectionConfig>,
-    ) -> Result<golem_graph::model::schema::SchemaManager, GraphError> {
+    ) -> Result<golem_ai_graph::model::schema::SchemaManager, GraphError> {
         let final_config = match config {
             Some(provided_config) => provided_config,
             None => helpers::config_from_env()?,

@@ -1,5 +1,5 @@
 [package]
-name = "golem-llm-anthropic"
+name = "golem-ai-llm-anthropic"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -12,10 +12,10 @@ path = "src/lib.rs"
 
 [features]
 default = ["durability"]
-durability = ["golem-rust/durability", "golem-llm/durability"]
+durability = ["golem-rust/durability", "golem-ai-llm/durability"]
 
 [dependencies]
-golem-llm = { workspace = true }
+golem-ai-llm = { workspace = true }
 
 golem-rust = { workspace = true }
 golem-wasi-http = { workspace = true }

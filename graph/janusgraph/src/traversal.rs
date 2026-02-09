@@ -2,7 +2,7 @@ use crate::{
     helpers::{element_id_to_key, parse_path_from_gremlin, parse_vertex_from_gremlin},
     GraphJanusGraphComponent, Transaction,
 };
-use golem_graph::model::{
+use golem_ai_graph::model::{
     errors::GraphError,
     traversal::{
         Direction, Guest as TraversalGuest, NeighborhoodOptions, Path, PathOptions, Subgraph,
@@ -20,7 +20,7 @@ impl Transaction {
 
 impl TraversalGuest for GraphJanusGraphComponent {
     fn find_shortest_path(
-        transaction: golem_graph::model::transactions::TransactionBorrow<'_>,
+        transaction: golem_ai_graph::model::transactions::TransactionBorrow<'_>,
         from_vertex: ElementId,
         to_vertex: ElementId,
         options: Option<PathOptions>,
@@ -30,7 +30,7 @@ impl TraversalGuest for GraphJanusGraphComponent {
     }
 
     fn find_all_paths(
-        transaction: golem_graph::model::transactions::TransactionBorrow<'_>,
+        transaction: golem_ai_graph::model::transactions::TransactionBorrow<'_>,
         from_vertex: ElementId,
         to_vertex: ElementId,
         options: Option<PathOptions>,
@@ -41,7 +41,7 @@ impl TraversalGuest for GraphJanusGraphComponent {
     }
 
     fn get_neighborhood(
-        transaction: golem_graph::model::transactions::TransactionBorrow<'_>,
+        transaction: golem_ai_graph::model::transactions::TransactionBorrow<'_>,
         center: ElementId,
         options: NeighborhoodOptions,
     ) -> Result<Subgraph, GraphError> {
@@ -50,7 +50,7 @@ impl TraversalGuest for GraphJanusGraphComponent {
     }
 
     fn path_exists(
-        transaction: golem_graph::model::transactions::TransactionBorrow<'_>,
+        transaction: golem_ai_graph::model::transactions::TransactionBorrow<'_>,
         from_vertex: ElementId,
         to_vertex: ElementId,
         options: Option<PathOptions>,
@@ -60,7 +60,7 @@ impl TraversalGuest for GraphJanusGraphComponent {
     }
 
     fn get_vertices_at_distance(
-        transaction: golem_graph::model::transactions::TransactionBorrow<'_>,
+        transaction: golem_ai_graph::model::transactions::TransactionBorrow<'_>,
         source: ElementId,
         distance: u32,
         direction: Direction,

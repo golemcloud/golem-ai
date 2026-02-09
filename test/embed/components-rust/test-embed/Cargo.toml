@@ -37,7 +37,7 @@ path = "wit-generated"
 "golem:rpc/types@0.2.2" = "golem_rust::golem_wasm::golem_rpc_0_2_x::types"
 
 [package.metadata.component.target.dependencies]
-"golem:embed" = { path = "wit-generated/deps/golem-embed" }
+"golem:embed" = { path = "wit-generated/deps/golem-ai-embed" }
 "wasi:io" = { path = "wit-generated/deps/io" }
 "wasi:clocks" = { path = "wit-generated/deps/clocks" }
 "golem:rpc" = { path = "wit-generated/deps/golem-rpc" }

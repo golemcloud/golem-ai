@@ -2,7 +2,7 @@ use crate::client::{
     AlgoliaObject, IndexSettings, SearchHit as AlgoliaSearchHit, SearchQuery as AlgoliaSearchQuery,
     SearchResponse,
 };
-use golem_search::model::{
+use golem_ai_search::model::{
     Doc, FieldType, Schema, SchemaField, SearchHit, SearchQuery, SearchResults,
 };
 use serde_json::{Map, Value};
@@ -268,7 +268,7 @@ pub fn create_retry_query(original_query: &SearchQuery, partial_hits: &[SearchHi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_search::model::{HighlightConfig, SearchConfig};
+    use golem_ai_search::model::{HighlightConfig, SearchConfig};
 
     #[test]
     fn test_doc_to_algolia_object() {

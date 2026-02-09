@@ -1,25 +1,25 @@
 use std::time::Duration;
 
-use golem_stt::durability::{DurableStt, ExtendedSttProvider};
-use golem_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
+use golem_ai_stt::durability::{DurableStt, ExtendedSttProvider};
+use golem_ai_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
 use once_cell::sync::OnceCell;
 
-use golem_stt::error::Error as SttError;
-use golem_stt::http::WstdHttpClient;
-use golem_stt::transcription::SttProviderClient;
-use golem_stt::{LanguageProvider, LOGGING_STATE};
+use golem_ai_stt::error::Error as SttError;
+use golem_ai_stt::http::WstdHttpClient;
+use golem_ai_stt::transcription::SttProviderClient;
+use golem_ai_stt::{LanguageProvider, LOGGING_STATE};
 use transcription::{
     AudioConfig, AudioFormat, Keyword, PreRecordedAudioApi, TranscriptionConfig,
     TranscriptionRequest, TranscriptionResponse,
 };
 
-use golem_stt::model::transcription::{
+use golem_ai_stt::model::transcription::{
     FailedTranscription as WitFailedTranscription,
     MultiTranscriptionResult as WitMultiTranscriptionResult, Phrase as WitPhrase,
     TranscribeOptions as WitTranscribeOptions, Vocabulary as WitVocabulary,
 };
 
-use golem_stt::model::types::{
+use golem_ai_stt::model::types::{
     AudioFormat as WitAudioFormat, SttError as WitSttError, TimingInfo as WitTimingInfo,
     TranscriptionChannel as WitTranscriptionChannel,
     TranscriptionMetadata as WitTranscriptionMetadata,
@@ -28,7 +28,7 @@ use golem_stt::model::types::{
 };
 
 use futures_concurrency::future::Join;
-use golem_stt::model::languages::LanguageInfo;
+use golem_ai_stt::model::languages::LanguageInfo;
 use itertools::Itertools;
 use wstd::runtime::block_on;
 

@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Timelike};
-use golem_graph::model::{
+use golem_ai_graph::model::{
     errors::GraphError,
     types::{Date, Datetime, Point, PropertyValue, Time},
 };
@@ -192,7 +192,7 @@ fn parse_iso_datetime(s: &str) -> Result<Datetime, ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_graph::model::types::{Duration, PropertyValue};
+    use golem_ai_graph::model::types::{Duration, PropertyValue};
 
     #[test]
     fn test_unsupported_duration_conversion() {

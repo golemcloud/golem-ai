@@ -1,10 +1,10 @@
 use async_utils::get_async_runtime;
 use client::Bedrock as BedrockClient;
-use golem_llm::durability::{DurableLLM, ExtendedLlmProvider};
-use golem_llm::model::{
+use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
+use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, Event, Message, Response, Role, StreamDelta,
 };
-use golem_llm::LlmProvider;
+use golem_ai_llm::LlmProvider;
 use golem_rust::bindings::wasi::clocks::monotonic_clock;
 use indoc::indoc;
 use stream::BedrockChatStream;

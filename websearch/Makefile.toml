@@ -36,72 +36,72 @@ run_task = { name = [
 
 [tasks.build-tavily]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-tavily"]
+args = ["build", "-p", "golem-ai-web-search-tavily"]
 
 
 [tasks.build-tavily-portable]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-tavily", "--no-default-features"]
+args = ["build", "-p", "golem-ai-web-search-tavily", "--no-default-features"]
 
 
 [tasks.build-brave]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-brave"]
+args = ["build", "-p", "golem-ai-web-search-brave"]
 
 [tasks.build-brave-portable]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-brave", "--no-default-features"]
+args = ["build", "-p", "golem-ai-web-search-brave", "--no-default-features"]
 
 [tasks.build-google]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-google"]
+args = ["build", "-p", "golem-ai-web-search-google"]
 
 [tasks.build-google-portable]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-google", "--no-default-features"]
+args = ["build", "-p", "golem-ai-web-search-google", "--no-default-features"]
 
 [tasks.build-serper]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-serper"]
+args = ["build", "-p", "golem-ai-web-search-serper"]
 
 [tasks.build-serper-portable]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-serper", "--no-default-features"]
+args = ["build", "-p", "golem-ai-web-search-serper", "--no-default-features"]
 
 [tasks.release-build-tavily]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-tavily", "--release"]
+args = ["build", "-p", "golem-ai-web-search-tavily", "--release"]
 
 [tasks.release-build-tavily-portable]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-tavily", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-web-search-tavily", "--release", "--no-default-features"]
 
 [tasks.release-build-brave]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-brave", "--release"]
+args = ["build", "-p", "golem-ai-web-search-brave", "--release"]
 
 [tasks.release-build-brave-portable]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-brave", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-web-search-brave", "--release", "--no-default-features"]
 
 [tasks.release-build-google]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-google", "--release"]
+args = ["build", "-p", "golem-ai-web-search-google", "--release"]
 
 [tasks.release-build-google-portable]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-google", "--release", "--no-default-features"]
+args = ["build", "-p", "golem-ai-web-search-google", "--release", "--no-default-features"]
 
 [tasks.release-build-serper]
 command = "cargo"
-args = ["build", "-p", "golem-web-search-serper", "--release"]
+args = ["build", "-p", "golem-ai-web-search-serper", "--release"]
 
 [tasks.release-build-serper-portable]
 command = "cargo"
 args = [
     "build",
     "-p",
-    "golem-web-search-serper",
+    "golem-ai-web-search-serper",
     "--release",
     "--no-default-features",
 ]

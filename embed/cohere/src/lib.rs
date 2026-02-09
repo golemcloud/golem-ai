@@ -1,6 +1,6 @@
 use client::EmbeddingsApi;
 use conversions::create_embed_request;
-use golem_embed::{
+use golem_ai_embed::{
     config::with_config_key,
     durability::{DurableEmbed, ExtendedEmbeddingProvider},
     model::{

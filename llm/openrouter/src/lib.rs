@@ -5,16 +5,16 @@ use crate::client::{ChatCompletionChunk, CompletionsApi, CompletionsRequest, Fun
 use crate::conversions::{
     convert_finish_reason, convert_usage, events_to_request, process_response,
 };
-use golem_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
-use golem_llm::config::{get_config_key, with_config_key};
-use golem_llm::durability::{DurableLLM, ExtendedLlmProvider};
-use golem_llm::error::error_code_from_status;
-use golem_llm::event_source::EventSource;
-use golem_llm::model::{
+use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
+use golem_ai_llm::config::{get_config_key, with_config_key};
+use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
+use golem_ai_llm::error::error_code_from_status;
+use golem_ai_llm::event_source::EventSource;
+use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Message, Response,
     ResponseMetadata, Role, StreamDelta, StreamEvent, ToolCall,
 };
-use golem_llm::LlmProvider;
+use golem_ai_llm::LlmProvider;
 use golem_rust::golem_wasm::Pollable;
 use golem_wasi_http::StatusCode;
 use log::trace;

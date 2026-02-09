@@ -6,7 +6,7 @@ use aws_sdk_bedrockruntime::{
     self as bedrock, primitives::event_stream::EventReceiver,
     types::error::ConverseStreamOutputError,
 };
-use golem_llm::{model as llm, ChatStreamInterface};
+use golem_ai_llm::{model as llm, ChatStreamInterface};
 use std::cell::{RefCell, RefMut};
 
 type BedrockEventSource =

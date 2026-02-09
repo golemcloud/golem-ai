@@ -1,4 +1,4 @@
-use golem_graph::model::errors::GraphError;
+use golem_ai_graph::model::errors::GraphError;
 use golem_wasi_http::{Client, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -502,7 +502,7 @@ impl JanusGraphApi {
                 Some(GraphError::TransactionFailed(format!("Illegal state: {message}")))
             }
             "java.util.NoSuchElementException" => {
-                if let Some(element_id) = golem_graph::error::mapping::extract_element_id_from_message(message) {
+                if let Some(element_id) = golem_ai_graph::error::mapping::extract_element_id_from_message(message) {
                     Some(GraphError::ElementNotFound(element_id))
                 } else {
                     Some(GraphError::InternalError(format!("Element not found: {message}")))

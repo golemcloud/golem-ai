@@ -1,6 +1,6 @@
 use crate::{helpers, JanusGraph, SchemaManager};
-use golem_graph::durability::ExtendedGuest;
-use golem_graph::model::{
+use golem_ai_graph::durability::ExtendedGuest;
+use golem_ai_graph::model::{
     connection::ConnectionConfig,
     errors::GraphError,
     schema::{
@@ -8,7 +8,7 @@ use golem_graph::model::{
         SchemaManager as SchemaManagerResource, VertexLabelSchema,
     },
 };
-use golem_graph::{SchemaManagerInterface, SchemaManagerProvider};
+use golem_ai_graph::{SchemaManagerInterface, SchemaManagerProvider};
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -259,7 +259,7 @@ impl SchemaManagerInterface for SchemaManager {
     fn create_container(
         &self,
         _name: String,
-        _container_type: golem_graph::model::schema::ContainerType,
+        _container_type: golem_ai_graph::model::schema::ContainerType,
     ) -> Result<(), GraphError> {
         Err(GraphError::UnsupportedOperation(
             "Schema management is not supported in this version.".to_string(),
@@ -443,9 +443,9 @@ impl SchemaManager {
     }
 
     fn map_wit_type_to_janus_class(
-        prop_type: &golem_graph::model::schema::PropertyType,
+        prop_type: &golem_ai_graph::model::schema::PropertyType,
     ) -> &'static str {
-        use golem_graph::model::schema::PropertyType;
+        use golem_ai_graph::model::schema::PropertyType;
         match prop_type {
             PropertyType::StringType => "String.class",
             PropertyType::Int64 => "Long.class",

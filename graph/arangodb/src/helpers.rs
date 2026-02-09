@@ -1,4 +1,4 @@
-use golem_graph::model::{
+use golem_ai_graph::model::{
     connection::ConnectionConfig,
     errors::GraphError,
     types::{Edge, ElementId, Path, Vertex},
@@ -195,8 +195,8 @@ pub(crate) fn config_from_env() -> Result<ConnectionConfig, GraphError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_graph::model::errors::GraphError;
-    use golem_graph::model::types::ElementId;
+    use golem_ai_graph::model::errors::GraphError;
+    use golem_ai_graph::model::types::ElementId;
     use serde_json::{json, Map, Value};
     use std::env;
 

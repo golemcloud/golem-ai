@@ -486,7 +486,7 @@ mod durable_impl {
         ) -> Result<(), VectorError> {
             init_logging();
             let durability = Durability::<Unit, VectorError>::new(
-                "golem_vector",
+                "golem_ai_vector",
                 "connect",
                 WrappedFunctionType::WriteRemote,
             );
@@ -513,7 +513,7 @@ mod durable_impl {
         fn disconnect() -> Result<(), VectorError> {
             init_logging();
             let durability = Durability::<Unit, VectorError>::new(
-                "golem_vector",
+                "golem_ai_vector",
                 "disconnect",
                 WrappedFunctionType::WriteRemote,
             );
@@ -533,7 +533,7 @@ mod durable_impl {
             init_logging();
             let durability: Durability<crate::model::connection::ConnectionStatus, VectorError> =
                 Durability::new(
-                    "golem_vector",
+                    "golem_ai_vector",
                     "get_connection_status",
                     WrappedFunctionType::ReadRemote,
                 );
@@ -555,7 +555,7 @@ mod durable_impl {
         ) -> Result<bool, VectorError> {
             init_logging();
             let durability: Durability<bool, VectorError> = Durability::new(
-                "golem_vector",
+                "golem_ai_vector",
                 "test_connection",
                 WrappedFunctionType::ReadRemote,
             );

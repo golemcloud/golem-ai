@@ -1,6 +1,6 @@
 use crate::authentication::generate_access_token;
-use golem_video::error::{from_reqwest_error, video_error_from_status};
-use golem_video::model::types::VideoError;
+use golem_ai_video::error::{from_reqwest_error, video_error_from_status};
+use golem_ai_video::model::types::VideoError;
 use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};

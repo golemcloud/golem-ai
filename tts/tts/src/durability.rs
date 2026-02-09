@@ -469,7 +469,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<VoiceResultsOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "list_voices",
                 DurableFunctionType::WriteRemote,
             );
@@ -506,7 +506,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<VoiceOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "get_voice",
                 DurableFunctionType::WriteRemote,
             );
@@ -575,7 +575,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<VoiceInfoListOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "search_voices",
                 DurableFunctionType::WriteRemote,
             );
@@ -596,7 +596,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<LanguageInfoListOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "list_languages",
                 DurableFunctionType::WriteRemote,
             );
@@ -623,7 +623,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<SynthesisResultOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "synthesize",
                 DurableFunctionType::WriteRemote,
             );
@@ -648,7 +648,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<SynthesisResultListOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "synthesize_batch",
                 DurableFunctionType::WriteRemote,
             );
@@ -672,7 +672,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<TimingInfoListOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "get_timing_marks",
                 DurableFunctionType::WriteRemote,
             );
@@ -696,7 +696,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<ValidationResultOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "validate_input",
                 DurableFunctionType::WriteRemote,
             );
@@ -789,7 +789,7 @@ mod durable_impl {
 
         fn send_audio(&self, audio_data: Vec<u8>) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_conversion_stream_send_audio",
                 DurableFunctionType::WriteRemote,
             );
@@ -817,7 +817,7 @@ mod durable_impl {
 
         fn receive_converted(&self) -> Result<Option<AudioChunk>, TtsError> {
             let durability = Durability::<Option<AudioChunk>, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_conversion_stream_receive_converted",
                 DurableFunctionType::ReadRemote,
             );
@@ -846,7 +846,7 @@ mod durable_impl {
 
         fn finish(&self) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_conversion_stream_finish",
                 DurableFunctionType::WriteRemote,
             );
@@ -925,7 +925,7 @@ mod durable_impl {
             }
 
             let durability = Durability::<bool, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_results_has_more",
                 DurableFunctionType::WriteRemote,
             );
@@ -949,7 +949,7 @@ mod durable_impl {
             }
 
             let durability = Durability::<VoiceInfoListOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_results_get_next",
                 DurableFunctionType::WriteRemote,
             );
@@ -975,7 +975,7 @@ mod durable_impl {
             }
 
             let durability = Durability::<Option<u32>, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_results_get_total_count",
                 DurableFunctionType::WriteRemote,
             );
@@ -1098,7 +1098,7 @@ mod durable_impl {
 
         fn update_settings(&self, settings: VoiceSettings) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_update_settings",
                 DurableFunctionType::WriteRemote,
             );
@@ -1114,7 +1114,7 @@ mod durable_impl {
 
         fn delete(&self) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_delete",
                 DurableFunctionType::WriteRemote,
             );
@@ -1128,7 +1128,7 @@ mod durable_impl {
 
         fn clone(&self) -> Result<Voice, TtsError> {
             let durability = Durability::<NoOutput, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_clone",
                 DurableFunctionType::ReadRemote,
             );
@@ -1170,7 +1170,7 @@ mod durable_impl {
 
         fn preview(&self, text: String) -> Result<Vec<u8>, TtsError> {
             let durability = Durability::<AudioDataOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_preview",
                 DurableFunctionType::ReadRemote,
             );
@@ -1239,7 +1239,7 @@ mod durable_impl {
 
         fn get_entry_count(&self) -> u32 {
             let durability = Durability::<u32, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "pronunciation_lexicon_get_entry_count",
                 DurableFunctionType::ReadRemote,
             );
@@ -1255,7 +1255,7 @@ mod durable_impl {
 
         fn add_entry(&self, word: String, pronunciation: String) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "pronunciation_lexicon_add_entry",
                 DurableFunctionType::WriteRemote,
             );
@@ -1286,7 +1286,7 @@ mod durable_impl {
 
         fn remove_entry(&self, word: String) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "pronunciation_lexicon_remove_entry",
                 DurableFunctionType::WriteRemote,
             );
@@ -1302,7 +1302,7 @@ mod durable_impl {
 
         fn export_content(&self) -> Result<String, TtsError> {
             let durability = Durability::<String, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "pronunciation_lexicon_export_content",
                 DurableFunctionType::ReadRemote,
             );
@@ -1349,7 +1349,7 @@ mod durable_impl {
 
         fn get_status(&self) -> OperationStatus {
             let durability = Durability::<OperationStatus, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "long_form_operation_get_status",
                 DurableFunctionType::ReadRemote,
             );
@@ -1365,7 +1365,7 @@ mod durable_impl {
 
         fn get_progress(&self) -> f32 {
             let durability = Durability::<f32, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "long_form_operation_get_progress",
                 DurableFunctionType::ReadRemote,
             );
@@ -1379,7 +1379,7 @@ mod durable_impl {
 
         fn cancel(&self) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "long_form_operation_cancel",
                 DurableFunctionType::WriteRemote,
             );
@@ -1393,7 +1393,7 @@ mod durable_impl {
 
         fn get_result(&self) -> Result<LongFormResult, TtsError> {
             let durability = Durability::<LongFormResult, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "long_form_operation_get_result",
                 DurableFunctionType::ReadRemote,
             );
@@ -1430,7 +1430,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<VoiceOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "create_voice_clone",
                 DurableFunctionType::WriteRemote,
             );
@@ -1519,7 +1519,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<VoiceOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "design_voice",
                 DurableFunctionType::WriteRemote,
             );
@@ -1605,7 +1605,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<AudioDataOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "convert_voice",
                 DurableFunctionType::WriteRemote,
             );
@@ -1637,7 +1637,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<AudioDataOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "generate_sound_effect",
                 DurableFunctionType::WriteRemote,
             );
@@ -1673,7 +1673,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<PronunciationLexiconOutput, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "create_lexicon",
                 DurableFunctionType::WriteRemote,
             );
@@ -1721,7 +1721,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<LongFormOperationOutput, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "synthesize_long_form",
                 DurableFunctionType::WriteRemote,
             );

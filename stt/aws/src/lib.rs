@@ -1,25 +1,25 @@
-use golem_stt::durability::{DurableStt, ExtendedSttProvider};
+use golem_ai_stt::durability::{DurableStt, ExtendedSttProvider};
 
-use golem_stt::error::Error as SttError;
+use golem_ai_stt::error::Error as SttError;
 
-use golem_stt::model::transcription::{
+use golem_ai_stt::model::transcription::{
     FailedTranscription as WitFailedTranscription,
     MultiTranscriptionResult as WitMultiTranscriptionResult,
     TranscribeOptions as WitTranscribeOptions,
 };
 
-use golem_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
-use golem_stt::http::WstdHttpClient;
-use golem_stt::model::types::{
+use golem_ai_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
+use golem_ai_stt::http::WstdHttpClient;
+use golem_ai_stt::model::types::{
     AudioFormat as WitAudioFormat, SttError as WitSttError, TimingInfo as WitTimingInfo,
     TranscriptionChannel as WitTranscriptionChannel,
     TranscriptionMetadata as WitTranscriptionMetadata,
     TranscriptionResult as WitTranscriptionResult, TranscriptionSegment as WitTranscriptionSegment,
     WordSegment as WitWordSegment,
 };
-use golem_stt::runtime::WasiAsyncRuntime;
-use golem_stt::transcription::SttProviderClient;
-use golem_stt::{LanguageProvider, LOGGING_STATE};
+use golem_ai_stt::runtime::WasiAsyncRuntime;
+use golem_ai_stt::transcription::SttProviderClient;
+use golem_ai_stt::{LanguageProvider, LOGGING_STATE};
 use log::trace;
 use transcription::api::{TranscribeApi, TranscriptionResponse};
 use transcription::request::{
@@ -28,7 +28,7 @@ use transcription::request::{
 
 use crate::transcription::{S3Client, TranscribeClient};
 use futures_concurrency::future::Join;
-use golem_stt::model::languages::LanguageInfo;
+use golem_ai_stt::model::languages::LanguageInfo;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 use wstd::runtime::block_on;

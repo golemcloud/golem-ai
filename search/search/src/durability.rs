@@ -226,7 +226,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "create_index",
                 DurableFunctionType::WriteRemote,
             );
@@ -244,7 +244,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "delete_index",
                 DurableFunctionType::WriteRemote,
             );
@@ -264,7 +264,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<ListIndexesOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "list_indexes",
                 DurableFunctionType::ReadRemote,
             );
@@ -286,7 +286,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "upsert",
                 DurableFunctionType::WriteRemote,
             );
@@ -306,7 +306,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "upsert_many",
                 DurableFunctionType::WriteRemote,
             );
@@ -326,7 +326,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "delete",
                 DurableFunctionType::WriteRemote,
             );
@@ -346,7 +346,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "delete_many",
                 DurableFunctionType::WriteRemote,
             );
@@ -366,7 +366,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<GetDocOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "get",
                 DurableFunctionType::ReadRemote,
             );
@@ -386,7 +386,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<SearchOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "search",
                 DurableFunctionType::ReadRemote,
             );
@@ -412,7 +412,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, UnusedError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "stream_search",
                 DurableFunctionType::ReadRemote,
             );
@@ -437,7 +437,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<GetSchemaOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "get_schema",
                 DurableFunctionType::ReadRemote,
             );
@@ -459,7 +459,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "update_schema",
                 DurableFunctionType::WriteRemote,
             );
@@ -580,7 +580,7 @@ mod durable_impl {
 
         fn get_next(&self) -> Option<Vec<SearchHit>> {
             let durability = Durability::<Option<Vec<SearchHit>>, UnusedError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "get_next",
                 DurableFunctionType::ReadRemote,
             );

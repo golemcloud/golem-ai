@@ -2,8 +2,8 @@ use std::cell::{Ref, RefCell, RefMut};
 
 use client::{CompletionsRequest, OllamaApi};
 use conversions::{events_to_request, process_response};
-use golem_llm::model::ErrorCode;
-use golem_llm::{
+use golem_ai_llm::model::ErrorCode;
+use golem_ai_llm::{
     chat_stream::{LlmChatStream, LlmChatStreamState},
     durability::{DurableLLM, ExtendedLlmProvider},
     event_source::EventSource,

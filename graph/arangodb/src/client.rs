@@ -1,9 +1,9 @@
 use base64::{engine::general_purpose, Engine as _};
-use golem_graph::model::errors::GraphError;
-use golem_graph::model::schema::{
+use golem_ai_graph::model::errors::GraphError;
+use golem_ai_graph::model::schema::{
     ContainerInfo, ContainerType, EdgeTypeDefinition, IndexDefinition, IndexType,
 };
-use golem_graph::model::types::ElementId;
+use golem_ai_graph::model::types::ElementId;
 use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::de::DeserializeOwned;

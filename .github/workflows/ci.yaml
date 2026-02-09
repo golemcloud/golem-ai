@@ -97,7 +97,7 @@ jobs:
         run: cargo binstall --force wac-cli --locked --no-confirm
       - name: Build all test components
         run: cargo make release-build-test-components
-  golem-exec-tests:
+  golem-ai-exec-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -501,7 +501,7 @@ jobs:
       - build-test-components
       - ollama-integration-tests
       - graph-integration-tests
-      - golem-exec-tests
+      - golem-ai-exec-tests
       - vector-integration-tests
     runs-on: ubuntu-latest
     permissions:

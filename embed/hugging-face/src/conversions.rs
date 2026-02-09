@@ -1,5 +1,5 @@
-use golem_embed::error::unsupported;
-use golem_embed::model::{Config, ContentPart, EmbeddingResponse as GolemEmbeddingResponse, Error};
+use golem_ai_embed::error::unsupported;
+use golem_ai_embed::model::{Config, ContentPart, EmbeddingResponse as GolemEmbeddingResponse, Error};
 
 use crate::client::{EmbeddingRequest, EmbeddingResponse};
 
@@ -48,9 +48,9 @@ pub fn process_embedding_response(
 ) -> Result<GolemEmbeddingResponse, Error> {
     let mut embeddings = Vec::new();
     for (index, embedding_vec) in response.iter().enumerate() {
-        embeddings.push(golem_embed::model::Embedding {
+        embeddings.push(golem_ai_embed::model::Embedding {
             index: index as u32,
-            vector: golem_embed::model::VectorData::Float(embedding_vec.clone()),
+            vector: golem_ai_embed::model::VectorData::Float(embedding_vec.clone()),
         });
     }
 

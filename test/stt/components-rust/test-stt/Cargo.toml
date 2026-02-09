@@ -31,7 +31,7 @@ path = "wit-generated"
 [package.metadata.component.bindings.with]
 
 [package.metadata.component.target.dependencies]
-"golem:stt" = { path = "wit-generated/deps/golem-stt" }
+"golem:stt" = { path = "wit-generated/deps/golem-ai-stt" }
 "test:stt-exports" = { path = "wit-generated/deps/test_stt-exports" }
 
 [package.metadata.component.bindings]

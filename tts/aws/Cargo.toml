@@ -1,5 +1,5 @@
 [package]
-name = "golem-tts-aws"
+name = "golem-ai-tts-aws"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -12,10 +12,10 @@ path = "src/lib.rs"
 
 [features]
 default = ["durability"]
-durability = ["golem-rust/durability", "golem-tts/durability"]
+durability = ["golem-rust/durability", "golem-ai-tts/durability"]
 
 [dependencies]
-golem-tts = { workspace = true }
+golem-ai-tts = { workspace = true }
 
 golem-rust = { workspace = true }
 log = { workspace = true }

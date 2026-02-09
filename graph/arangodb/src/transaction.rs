@@ -3,20 +3,20 @@ use crate::helpers::{
     parse_vertex_from_document,
 };
 use crate::{conversions, helpers, Transaction};
-use golem_graph::model::transactions::{
+use golem_ai_graph::model::transactions::{
     CreateEdgeOptions, CreateVertexOptions, ExecuteQueryOptions, FindAllPathsOptions,
     FindShortestPathOptions, FindVerticesOptions, GetVerticesAtDistanceOptions, Path,
     PathExistsOptions, QueryExecutionResult, Subgraph,
 };
-use golem_graph::model::types::{
+use golem_ai_graph::model::types::{
     FindEdgesOptions, GetAdjacentVerticesOptions, GetConnectedEdgesOptions, GetNeighborhoodOptions,
     QueryResult, UpdateEdgeOptions, UpdateVertexOptions,
 };
-use golem_graph::model::{
+use golem_ai_graph::model::{
     errors::GraphError,
     types::{Direction, Edge, ElementId, Vertex},
 };
-use golem_graph::TransactionInterface;
+use golem_ai_graph::TransactionInterface;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -568,7 +568,7 @@ impl TransactionInterface for Transaction {
                 .filter(|c| {
                     matches!(
                         c.container_type,
-                        golem_graph::model::schema::ContainerType::EdgeContainer
+                        golem_ai_graph::model::schema::ContainerType::EdgeContainer
                     )
                 })
                 .map(|c| c.name.clone())
@@ -610,7 +610,7 @@ impl TransactionInterface for Transaction {
         let mut bind_vars = serde_json::Map::new();
         bind_vars.insert("@collection".to_string(), json!(collection.clone()));
 
-        let where_clause = golem_graph::query_utils::build_where_clause(
+        let where_clause = golem_ai_graph::query_utils::build_where_clause(
             &options.filters,
             "v",
             &mut bind_vars,
@@ -621,7 +621,7 @@ impl TransactionInterface for Transaction {
             query_parts.push(where_clause);
         }
 
-        let sort_clause = golem_graph::query_utils::build_sort_clause(&options.sort, "v");
+        let sort_clause = golem_ai_graph::query_utils::build_sort_clause(&options.sort, "v");
         if !sort_clause.is_empty() {
             query_parts.push(sort_clause);
         }
@@ -832,7 +832,7 @@ impl TransactionInterface for Transaction {
         let mut bind_vars = serde_json::Map::new();
         bind_vars.insert("@collection".to_string(), json!(collection.clone()));
 
-        let where_clause = golem_graph::query_utils::build_where_clause(
+        let where_clause = golem_ai_graph::query_utils::build_where_clause(
             &options.filters,
             "e",
             &mut bind_vars,
@@ -843,7 +843,7 @@ impl TransactionInterface for Transaction {
             query_parts.push(where_clause);
         }
 
-        let sort_clause = golem_graph::query_utils::build_sort_clause(&options.sort, "e");
+        let sort_clause = golem_ai_graph::query_utils::build_sort_clause(&options.sort, "e");
         if !sort_clause.is_empty() {
             query_parts.push(sort_clause);
         }
@@ -975,8 +975,8 @@ impl Transaction {
     }
 }
 
-fn aql_syntax() -> golem_graph::query_utils::QuerySyntax {
-    golem_graph::query_utils::QuerySyntax {
+fn aql_syntax() -> golem_ai_graph::query_utils::QuerySyntax {
+    golem_ai_graph::query_utils::QuerySyntax {
         equal: "==",
         not_equal: "!=",
         less_than: "<",

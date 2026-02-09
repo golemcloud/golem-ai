@@ -18,10 +18,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_tts.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_tts_elevenlabs.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_elevenlabs_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_tts_elevenlabs.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_elevenlabs_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_tts.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_tts_elevenlabs.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_tts_elevenlabs.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_elevenlabs_plugged.wasm
         sourceWit: wit
@@ -40,10 +40,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_tts.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_tts_deepgram.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_deepgram_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_tts_deepgram.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_deepgram_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_tts.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_tts_deepgram.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_tts_deepgram.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_deepgram_plugged.wasm
         sourceWit: wit
@@ -62,10 +62,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_tts.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_tts_google.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_google_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_tts_google.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_google_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_tts.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_tts_google.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_tts_google.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_google_plugged.wasm
         sourceWit: wit
@@ -84,10 +84,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_tts.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_tts_aws.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_aws_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_tts_aws.wasm ../../target/wasm32-wasip1/debug/test_tts.wasm -o ../../target/wasm32-wasip1/debug/test_aws_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_tts.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_tts_aws.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_tts_aws.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_aws_plugged.wasm
         sourceWit: wit
@@ -108,10 +108,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_tts.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_tts_elevenlabs.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_elevenlabs_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_tts_elevenlabs.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_elevenlabs_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_tts.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_tts_elevenlabs.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_tts_elevenlabs.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_elevenlabs_plugged.wasm
         sourceWit: wit
@@ -130,10 +130,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_tts.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_tts_deepgram.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_deepgram_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_tts_deepgram.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_deepgram_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_tts.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_tts_deepgram.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_tts_deepgram.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_deepgram_plugged.wasm
         sourceWit: wit
@@ -152,10 +152,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_tts.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_tts_google.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_google_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_tts_google.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_google_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_tts.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_tts_google.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_tts_google.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_google_plugged.wasm
         sourceWit: wit
@@ -174,10 +174,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_tts.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_tts_aws.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_aws_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_tts_aws.wasm ../../target/wasm32-wasip1/release/test_tts.wasm -o ../../target/wasm32-wasip1/release/test_aws_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_tts.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_tts_aws.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_tts_aws.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_aws_plugged.wasm
         sourceWit: wit

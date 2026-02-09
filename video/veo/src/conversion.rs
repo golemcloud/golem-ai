@@ -2,12 +2,12 @@ use crate::client::{
     ImageData, ImageToVideoInstance, ImageToVideoRequest, PollResponse, TextToVideoInstance,
     TextToVideoRequest, VeoApi, VideoData, VideoParameters,
 };
-use golem_video::error::invalid_input;
-use golem_video::model::types::{
+use golem_ai_video::error::invalid_input;
+use golem_ai_video::model::types::{
     AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
     VideoResult,
 };
-use golem_video::utils::{download_image_from_url, download_video_from_url};
+use golem_ai_video::utils::{download_image_from_url, download_video_from_url};
 use std::collections::HashMap;
 
 type RequestTuple = (
@@ -103,7 +103,7 @@ pub fn media_input_to_request(
             // Check if model supports video input - only veo-2.0-generate-001 supports video
             let model_str = model_id.as_deref().unwrap_or("veo-2.0-generate-001");
             if model_str != "veo-2.0-generate-001" {
-                return Err(golem_video::error::unsupported_feature(
+                return Err(golem_ai_video::error::unsupported_feature(
                     "Video-to-video is only supported by veo-2.0-generate-001 model",
                 ));
             }
@@ -393,8 +393,8 @@ pub fn cancel_video_generation(
 
 pub fn generate_lip_sync_video(
     _client: &VeoApi,
-    _video: golem_video::model::types::LipSyncVideo,
-    _audio: golem_video::model::types::AudioSource,
+    _video: golem_ai_video::model::types::LipSyncVideo,
+    _audio: golem_ai_video::model::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Lip sync is not supported by Veo API".to_string(),
@@ -404,7 +404,7 @@ pub fn generate_lip_sync_video(
 pub fn list_available_voices(
     _client: &VeoApi,
     _language: Option<String>,
-) -> Result<Vec<golem_video::model::types::VoiceInfo>, VideoError> {
+) -> Result<Vec<golem_ai_video::model::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Veo API".to_string(),
     ))
@@ -416,7 +416,7 @@ pub fn extend_video(
     _prompt: Option<String>,
     _negative_prompt: Option<String>,
     _cfg_scale: Option<f32>,
-    _provider_options: Option<Vec<golem_video::model::types::Kv>>,
+    _provider_options: Option<Vec<golem_ai_video::model::types::Kv>>,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video extension is not supported by Veo API".to_string(),
@@ -425,7 +425,7 @@ pub fn extend_video(
 
 pub fn upscale_video(
     _client: &VeoApi,
-    _input: golem_video::model::types::BaseVideo,
+    _input: golem_ai_video::model::types::BaseVideo,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video upscaling is not supported by Veo API".to_string(),
@@ -434,8 +434,8 @@ pub fn upscale_video(
 
 pub fn generate_video_effects(
     _client: &VeoApi,
-    _input: golem_video::model::types::InputImage,
-    _effect: golem_video::model::types::EffectType,
+    _input: golem_ai_video::model::types::InputImage,
+    _effect: golem_ai_video::model::types::EffectType,
     _model: Option<String>,
     _duration: Option<f32>,
     _mode: Option<String>,
@@ -447,7 +447,7 @@ pub fn generate_video_effects(
 
 pub fn multi_image_generation(
     _client: &VeoApi,
-    _input_images: Vec<golem_video::model::types::InputImage>,
+    _input_images: Vec<golem_ai_video::model::types::InputImage>,
     _prompt: Option<String>,
     _config: GenerationConfig,
 ) -> Result<String, VideoError> {

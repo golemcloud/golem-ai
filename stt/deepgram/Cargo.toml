@@ -1,5 +1,5 @@
 [package]
-name = "golem-stt-deepgram"
+name = "golem-ai-stt-deepgram"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -12,10 +12,10 @@ path = "src/lib.rs"
 
 [features]
 default = ["durability"]
-durability = ["golem-rust/durability", "golem-stt/durability"]
+durability = ["golem-rust/durability", "golem-ai-stt/durability"]
 
 [dependencies]
-golem-stt = { workspace = true }
+golem-ai-stt = { workspace = true }
 
 golem-rust = { workspace = true }
 log = { workspace = true }

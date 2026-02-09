@@ -1,5 +1,5 @@
 use crate::{Graph, Transaction};
-use golem_graph::{
+use golem_ai_graph::{
     durability::ProviderGraph,
     model::{
         connection::GraphStatistics, errors::GraphError,

@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
 use base64::{engine::general_purpose, Engine};
-use golem_embed::{
+use golem_ai_embed::{
     error::unsupported,
     model::{
         Config, ContentPart, Embedding, EmbeddingResponse as GolemEmbeddingResponse, Error,

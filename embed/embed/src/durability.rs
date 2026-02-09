@@ -52,7 +52,7 @@ mod durable_impl {
     impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
         fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
             let durability = Durability::<EmbeddingResponse, Error>::new(
-                "golem_embed",
+                "golem_ai_embed",
                 "generate",
                 DurableFunctionType::WriteRemote,
             );
@@ -72,7 +72,7 @@ mod durable_impl {
             config: Config,
         ) -> Result<RerankResponse, Error> {
             let durability = Durability::<RerankResponse, Error>::new(
-                "golem_embed",
+                "golem_ai_embed",
                 "rerank",
                 DurableFunctionType::WriteRemote,
             );

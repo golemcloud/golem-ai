@@ -1,5 +1,5 @@
 [package]
-name = "golem-graph-neo4j"
+name = "golem-ai-graph-neo4j"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -12,10 +12,10 @@ path = "src/lib.rs"
 
 [features]
 default = ["durability"]
-durability = ["golem-rust/durability", "golem-graph/durability"]
+durability = ["golem-rust/durability", "golem-ai-graph/durability"]
 
 [dependencies]
-golem-graph = { workspace = true }
+golem-ai-graph = { workspace = true }
 
 base64 = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }

@@ -1,8 +1,8 @@
 use crate::client::{Neo4jStatement, Neo4jStatements};
 use crate::helpers::{config_from_env, map_neo4j_type_to_wit};
 use crate::{Neo4j, SchemaManager};
-use golem_graph::durability::ExtendedGuest;
-use golem_graph::model::{
+use golem_ai_graph::durability::ExtendedGuest;
+use golem_ai_graph::model::{
     connection::ConnectionConfig,
     errors::GraphError,
     schema::{
@@ -10,7 +10,7 @@ use golem_graph::model::{
         PropertyType, SchemaManager as SchemaManagerResource, VertexLabelSchema,
     },
 };
-use golem_graph::{SchemaManagerInterface, SchemaManagerProvider, TransactionInterface};
+use golem_ai_graph::{SchemaManagerInterface, SchemaManagerProvider, TransactionInterface};
 use log::trace;
 use serde_json::json;
 use std::collections::HashMap;
@@ -429,7 +429,7 @@ impl SchemaManagerInterface for SchemaManager {
     fn create_container(
         &self,
         _name: String,
-        _container_type: golem_graph::model::schema::ContainerType,
+        _container_type: golem_ai_graph::model::schema::ContainerType,
     ) -> Result<(), GraphError> {
         Err(GraphError::UnsupportedOperation(
             "create_container is not supported by the Neo4j provider".to_string(),
@@ -438,7 +438,7 @@ impl SchemaManagerInterface for SchemaManager {
 
     fn list_containers(
         &self,
-    ) -> Result<Vec<golem_graph::model::schema::ContainerInfo>, GraphError> {
+    ) -> Result<Vec<golem_ai_graph::model::schema::ContainerInfo>, GraphError> {
         Ok(vec![])
     }
 }

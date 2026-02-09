@@ -1,5 +1,5 @@
 use crate::conversions::from_gremlin_value;
-use golem_graph::model::{
+use golem_ai_graph::model::{
     connection::ConnectionConfig,
     errors::GraphError,
     types::{Edge, ElementId, Path, PropertyMap, Vertex},
@@ -450,7 +450,7 @@ pub(crate) fn element_id_to_key(id: &ElementId) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_graph::model::types::PropertyValue;
+    use golem_ai_graph::model::types::PropertyValue;
     use serde_json::json;
 
     #[test]

@@ -1,6 +1,6 @@
 use crate::client::{SearchRequest, SearchResponse, SearchResult as TavilySearchResult};
-use golem_web_search::model::types::{ImageResult, TimeRange};
-use golem_web_search::model::web_search::{
+use golem_ai_web_search::model::types::{ImageResult, TimeRange};
+use golem_ai_web_search::model::web_search::{
     SearchError, SearchMetadata, SearchParams, SearchResult,
 };
 

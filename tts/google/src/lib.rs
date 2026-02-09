@@ -6,19 +6,19 @@ use crate::conversions::{
     voice_filter_to_language_code,
 };
 use golem_rust::golem_wasm::Pollable;
-use golem_tts::durability::{DurableTts, ExtendedTtsProvider};
-use golem_tts::model::advanced::{
+use golem_ai_tts::durability::{DurableTts, ExtendedTtsProvider};
+use golem_ai_tts::model::advanced::{
     AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
     PronunciationLexicon, VoiceDesignParams,
 };
-use golem_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
-use golem_tts::model::synthesis::{SynthesisOptions, ValidationResult};
-use golem_tts::model::types::{
+use golem_ai_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
+use golem_ai_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_ai_tts::model::types::{
     AudioChunk, AudioFormat, LanguageCode, SynthesisMetadata, SynthesisResult, TextInput,
     TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
-use golem_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
-use golem_tts::{
+use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_ai_tts::{
     AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
     StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
@@ -134,7 +134,7 @@ impl VoiceInterface for GoogleVoiceImpl {
     fn preview(&self, text: String) -> Result<Vec<u8>, TtsError> {
         let input = TextInput {
             content: text,
-            text_type: golem_tts::model::types::TextType::Plain,
+            text_type: golem_ai_tts::model::types::TextType::Plain,
             language: Some(self.get_language()),
         };
         let voice_name = &self.voice_data.name;
@@ -214,7 +214,7 @@ impl GoogleSynthesisStream {
     fn new(client: GoogleTtsApi, options: Option<SynthesisOptions>) -> Self {
         let default_input = TextInput {
             content: "".to_string(),
-            text_type: golem_tts::model::types::TextType::Plain,
+            text_type: golem_ai_tts::model::types::TextType::Plain,
             language: Some("en-US".to_string()),
         };
         let (request, _) = conversions::synthesis_options_to_tts_request(
@@ -254,11 +254,11 @@ impl SynthesisStreamInterface for GoogleSynthesisStream {
         let mut request_opt = self.current_request.borrow_mut();
         if let Some(request) = request_opt.as_mut() {
             match input.text_type {
-                golem_tts::model::types::TextType::Plain => {
+                golem_ai_tts::model::types::TextType::Plain => {
                     request.input.text = Some(input.content.clone());
                     request.input.ssml = None;
                 }
-                golem_tts::model::types::TextType::Ssml => {
+                golem_ai_tts::model::types::TextType::Ssml => {
                     request.input.ssml = Some(input.content.clone());
                     request.input.text = None;
                 }
@@ -452,7 +452,7 @@ impl GoogleLongFormOperation {
     ) -> Self {
         let default_input = TextInput {
             content: content.clone(),
-            text_type: golem_tts::model::types::TextType::Plain,
+            text_type: golem_ai_tts::model::types::TextType::Plain,
             language: Some("en-US".to_string()),
         };
         let (request, _) = conversions::synthesis_options_to_tts_request(
@@ -718,7 +718,7 @@ impl VoiceProvider for GoogleTts {
 impl SynthesizeProvider for GoogleTts {
     fn synthesize(
         input: TextInput,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisResult, TtsError> {
         validate_synthesis_input(&input, options.as_ref())?;
@@ -794,7 +794,7 @@ impl SynthesizeProvider for GoogleTts {
 
     fn synthesize_batch(
         inputs: Vec<TextInput>,
-        voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, TtsError> {
         for input in &inputs {
@@ -881,7 +881,7 @@ impl SynthesizeProvider for GoogleTts {
 
     fn get_timing_marks(
         _input: TextInput,
-        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Timing marks not supported by Google Cloud TTS".to_string(),
@@ -890,7 +890,7 @@ impl SynthesizeProvider for GoogleTts {
 
     fn validate_input(
         input: TextInput,
-        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, TtsError> {
         match validate_synthesis_input(&input, None) {
             Ok(_) => Ok(create_validation_result(true, None)),
@@ -913,7 +913,7 @@ impl StreamingVoiceProvider for GoogleTts {
     type VoiceConversionStream = GoogleVoiceConversionStream;
 
     fn create_stream(
-        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
         let client = Self::create_client()?;
@@ -922,7 +922,7 @@ impl StreamingVoiceProvider for GoogleTts {
     }
 
     fn create_voice_conversion_stream(
-        _target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
         let stream = GoogleVoiceConversionStream::new();
@@ -952,7 +952,7 @@ impl AdvancedTtsProvider for GoogleTts {
 
     fn convert_voice(
         _input_audio: Vec<u8>,
-        _target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _preserve_timing: Option<bool>,
     ) -> Result<Vec<u8>, TtsError> {
         Err(TtsError::UnsupportedOperation(
@@ -981,7 +981,7 @@ impl AdvancedTtsProvider for GoogleTts {
 
     fn synthesize_long_form(
         content: String,
-        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         _chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
@@ -996,7 +996,7 @@ impl AdvancedTtsProvider for GoogleTts {
 
 impl ExtendedTtsProvider for GoogleTts {
     fn unwrapped_synthesis_stream(
-        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream {
         let client = Self::create_client().expect("Failed to create Google client");
@@ -1004,7 +1004,7 @@ impl ExtendedTtsProvider for GoogleTts {
     }
 
     fn unwrapped_voice_conversion_stream(
-        _target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
+        _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream {
         GoogleVoiceConversionStream::new()

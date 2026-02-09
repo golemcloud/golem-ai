@@ -24,10 +24,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_video.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_video_stability.wasm ../../target/wasm32-wasip1/debug/test_video.wasm -o ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_video_stability.wasm ../../target/wasm32-wasip1/debug/test_video.wasm -o ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_video.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_video_stability.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_video_stability.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
         sourceWit: wit
@@ -49,10 +49,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_video.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_video_runway.wasm ../../target/wasm32-wasip1/debug/test_video.wasm -o ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_video_runway.wasm ../../target/wasm32-wasip1/debug/test_video.wasm -o ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_video.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_video_runway.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_video_runway.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
         sourceWit: wit
@@ -74,10 +74,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_video.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_video_kling.wasm ../../target/wasm32-wasip1/debug/test_video.wasm -o ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_video_kling.wasm ../../target/wasm32-wasip1/debug/test_video.wasm -o ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/debug/test_video.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_video_kling.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_video_kling.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
         sourceWit: wit
@@ -99,10 +99,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/debug/test_video.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_video_veo.wasm ../../target/wasm32-wasip1/debug/test_video.wasm -o ../../target/wasm32-wasip1/debug/test_video_plugged.wasm  
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_video_veo.wasm ../../target/wasm32-wasip1/debug/test_video.wasm -o ../../target/wasm32-wasip1/debug/test_video_plugged.wasm  
             sources:
               - ../../target/wasm32-wasip1/debug/test_video.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_video_veo.wasm
+              - ../../../../target/wasm32-wasip1/debug/golem_ai_video_veo.wasm
             targets:
               - ../../target/wasm32-wasip1/debug/test_video_plugged.wasm
         sourceWit: wit  
@@ -125,10 +125,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_video.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_video_stability.wasm ../../target/wasm32-wasip1/release/test_video.wasm -o ../../target/wasm32-wasip1/release/test_video_plugged.wasm  
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_video_stability.wasm ../../target/wasm32-wasip1/release/test_video.wasm -o ../../target/wasm32-wasip1/release/test_video_plugged.wasm  
             sources:
               - ../../target/wasm32-wasip1/release/test_video.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_video_stability.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_video_stability.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_video_plugged.wasm
         sourceWit: wit
@@ -150,10 +150,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_video.wasm  
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_video_runway.wasm ../../target/wasm32-wasip1/release/test_video.wasm -o ../../target/wasm32-wasip1/release/test_video_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_video_runway.wasm ../../target/wasm32-wasip1/release/test_video.wasm -o ../../target/wasm32-wasip1/release/test_video_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_video.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_video_runway.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_video_runway.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_video_plugged.wasm  
         sourceWit: wit
@@ -175,10 +175,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_video.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_video_kling.wasm ../../target/wasm32-wasip1/release/test_video.wasm -o ../../target/wasm32-wasip1/release/test_video_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_video_kling.wasm ../../target/wasm32-wasip1/release/test_video.wasm -o ../../target/wasm32-wasip1/release/test_video_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_video.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_video_kling.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_video_kling.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_video_plugged.wasm
         sourceWit: wit
@@ -200,10 +200,10 @@ components:
               - ../../common-rust
             targets:
               - ../../target/wasm32-wasip1/release/test_video.wasm    
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_video_veo.wasm ../../target/wasm32-wasip1/release/test_video.wasm -o ../../target/wasm32-wasip1/release/test_video_plugged.wasm
+          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_video_veo.wasm ../../target/wasm32-wasip1/release/test_video.wasm -o ../../target/wasm32-wasip1/release/test_video_plugged.wasm
             sources:
               - ../../target/wasm32-wasip1/release/test_video.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_video_veo.wasm
+              - ../../../../target/wasm32-wasip1/release/golem_ai_video_veo.wasm
             targets:
               - ../../target/wasm32-wasip1/release/test_video_plugged.wasm
         sourceWit: wit

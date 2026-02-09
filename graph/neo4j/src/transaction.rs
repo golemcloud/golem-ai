@@ -5,21 +5,21 @@ use crate::helpers::{
     EdgeProcessor, ElementIdHelper, Neo4jResponseProcessor, VertexListProcessor, VertexProcessor,
 };
 use crate::Transaction;
-use golem_graph::model::transactions::{
+use golem_ai_graph::model::transactions::{
     CreateEdgeOptions, FindEdgesOptions, FindShortestPathOptions, GetAdjacentVerticesOptions,
     GetNeighborhoodOptions, GetVerticesAtDistanceOptions, Path, QueryExecutionResult, Subgraph,
 };
-use golem_graph::model::types::{
+use golem_ai_graph::model::types::{
     CreateVertexOptions, ExecuteQueryOptions, FindAllPathsOptions, FindVerticesOptions,
     GetConnectedEdgesOptions, PathExistsOptions, QueryResult, UpdateEdgeOptions,
     UpdateVertexOptions,
 };
-use golem_graph::model::{
+use golem_ai_graph::model::{
     errors::GraphError,
     types::{Direction, Edge, ElementId, Vertex},
 };
-use golem_graph::query_utils::{build_sort_clause, build_where_clause, QuerySyntax};
-use golem_graph::TransactionInterface;
+use golem_ai_graph::query_utils::{build_sort_clause, build_where_clause, QuerySyntax};
+use golem_ai_graph::TransactionInterface;
 use serde_json::Map;
 use std::collections::HashMap;
 
