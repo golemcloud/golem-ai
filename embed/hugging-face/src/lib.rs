@@ -3,7 +3,12 @@ mod conversions;
 
 use client::EmbeddingsApi;
 use conversions::{create_embedding_request, process_embedding_response};
-use golem_embed::{config::with_config_key, durability::{DurableEmbed, ExtendedEmbeddingProvider}, model::{Config, ContentPart, EmbeddingResponse, Error, ErrorCode, RerankResponse}, EmbeddingProvider, LOGGING_STATE};
+use golem_embed::{
+    config::with_config_key,
+    durability::{DurableEmbed, ExtendedEmbeddingProvider},
+    model::{Config, ContentPart, EmbeddingResponse, Error, ErrorCode, RerankResponse},
+    EmbeddingProvider, LOGGING_STATE,
+};
 
 pub struct HuggingFace;
 

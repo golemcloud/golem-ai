@@ -59,6 +59,7 @@ pub trait CollectionProvider {
     fn collection_exists(name: String) -> Result<bool, VectorError>;
 }
 
+#[allow(clippy::too_many_arguments)]
 pub trait SearchProvider {
     fn search_vectors(
         collection: String,
@@ -129,6 +130,7 @@ macro_rules! impl_resource_traits {
     };
 }
 
+#[allow(clippy::too_many_arguments)]
 pub trait SearchExtendedProvider {
     fn recommend_vectors(
         collection: String,

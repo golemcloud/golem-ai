@@ -1,5 +1,5 @@
 use async_utils::get_async_runtime;
-use client::{Bedrock as BedrockClient};
+use client::Bedrock as BedrockClient;
 use golem_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_llm::model::{
     ChatStream, Config, ContentPart, Error, Event, Message, Response, Role, StreamDelta,

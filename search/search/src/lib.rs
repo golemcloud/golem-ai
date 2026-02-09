@@ -3,7 +3,10 @@ pub mod durability;
 pub mod error;
 pub mod model;
 
-use crate::model::{CreateIndexOptions, Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults, SearchStream};
+use crate::model::{
+    CreateIndexOptions, Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery,
+    SearchResults, SearchStream,
+};
 use std::cell::RefCell;
 use std::str::FromStr;
 

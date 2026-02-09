@@ -334,9 +334,7 @@ fn metadata_to_string_map(
     Ok(map)
 }
 
-fn string_map_to_metadata(
-    map: &HashMap<String, String>,
-) -> golem_vector::model::types::Metadata {
+fn string_map_to_metadata(map: &HashMap<String, String>) -> golem_vector::model::types::Metadata {
     let mut metadata = Vec::new();
 
     for (key, value) in map {

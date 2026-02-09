@@ -1,4 +1,3 @@
-
 pub mod types {
     use crate::{FilterFuncInterface, MetadataFuncInterface};
 

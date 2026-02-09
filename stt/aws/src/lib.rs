@@ -8,6 +8,8 @@ use golem_stt::model::transcription::{
     TranscribeOptions as WitTranscribeOptions,
 };
 
+use golem_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
+use golem_stt::http::WstdHttpClient;
 use golem_stt::model::types::{
     AudioFormat as WitAudioFormat, SttError as WitSttError, TimingInfo as WitTimingInfo,
     TranscriptionChannel as WitTranscriptionChannel,
@@ -15,8 +17,6 @@ use golem_stt::model::types::{
     TranscriptionResult as WitTranscriptionResult, TranscriptionSegment as WitTranscriptionSegment,
     WordSegment as WitWordSegment,
 };
-use golem_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
-use golem_stt::http::WstdHttpClient;
 use golem_stt::runtime::WasiAsyncRuntime;
 use golem_stt::transcription::SttProviderClient;
 use golem_stt::{LanguageProvider, LOGGING_STATE};
@@ -26,12 +26,12 @@ use transcription::request::{
     AudioConfig, AudioFormat, DiarizationConfig, TranscriptionConfig, TranscriptionRequest,
 };
 
+use crate::transcription::{S3Client, TranscribeClient};
 use futures_concurrency::future::Join;
+use golem_stt::model::languages::LanguageInfo;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 use wstd::runtime::block_on;
-use golem_stt::model::languages::LanguageInfo;
-use crate::transcription::{S3Client, TranscribeClient};
 
 mod transcription;
 

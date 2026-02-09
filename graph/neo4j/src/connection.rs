@@ -1,9 +1,13 @@
 use crate::client::{Neo4jStatement, Neo4jStatements};
 use crate::{Graph, Transaction};
-use golem_graph::{durability::ProviderGraph, model::{
-    connection::GraphStatistics, errors::GraphError,
-    transactions::Transaction as TransactionResource,
-}, GraphInterface};
+use golem_graph::{
+    durability::ProviderGraph,
+    model::{
+        connection::GraphStatistics, errors::GraphError,
+        transactions::Transaction as TransactionResource,
+    },
+    GraphInterface,
+};
 use std::collections::HashMap;
 
 impl ProviderGraph for Graph {

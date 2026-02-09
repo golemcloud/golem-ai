@@ -1,4 +1,3 @@
-
 pub mod types {
     #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
     pub enum VideoError {

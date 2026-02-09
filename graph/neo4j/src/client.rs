@@ -211,11 +211,7 @@ impl Neo4jApi {
                     details,
                     err
                 );
-                return Self::map_neo4j_http_status(
-                    status.as_u16(),
-                    &error_msg,
-                    &Value::Null,
-                );
+                return Self::map_neo4j_http_status(status.as_u16(), &error_msg, &Value::Null);
             }
         }
 

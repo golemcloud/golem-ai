@@ -494,19 +494,15 @@ pub fn generate_lip_sync_video(
     // Convert video data to required format
     // Supports both video_id and video_url from Kling API
     let (video_id, video_url) = match &video {
-        golem_video::model::types::LipSyncVideo::VideoId(id) => {
-            (Some(id.clone()), None)
-        }
-        golem_video::model::types::LipSyncVideo::Video(base_video) => {
-            match &base_video.data {
-                MediaData::Url(url) => (None, Some(url.clone())),
-                MediaData::Bytes(_) => {
-                    return Err(invalid_input(
-                        "Lip-sync requires video URL. Base64 video data is not supported.",
-                    ));
-                }
+        golem_video::model::types::LipSyncVideo::VideoId(id) => (Some(id.clone()), None),
+        golem_video::model::types::LipSyncVideo::Video(base_video) => match &base_video.data {
+            MediaData::Url(url) => (None, Some(url.clone())),
+            MediaData::Bytes(_) => {
+                return Err(invalid_input(
+                    "Lip-sync requires video URL. Base64 video data is not supported.",
+                ));
             }
-        }
+        },
     };
 
     // Convert audio source to request format
@@ -696,9 +692,7 @@ pub fn generate_video_effects(
     mode: Option<String>,
 ) -> Result<String, VideoError> {
     use crate::client::{VideoEffectsInput, VideoEffectsRequest};
-    use golem_video::model::types::{
-        DualImageEffects, EffectType, SingleImageEffects,
-    };
+    use golem_video::model::types::{DualImageEffects, EffectType, SingleImageEffects};
 
     trace!("Generating video effects with Kling API");
 

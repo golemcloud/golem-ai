@@ -16,10 +16,10 @@ use golem_graph::model::{
     errors::GraphError,
     types::{Direction, Edge, ElementId, Vertex},
 };
+use golem_graph::TransactionInterface;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use golem_graph::TransactionInterface;
 
 impl TransactionInterface for Transaction {
     fn as_any(&self) -> &dyn std::any::Any {

@@ -9,11 +9,9 @@ mod transaction;
 use client::JanusGraphApi;
 use golem_graph::config::with_config_key;
 use golem_graph::durability::{DurableGraph, ExtendedGuest};
-use golem_graph::model::{
-    connection::ConnectionConfig, errors::GraphError,
-};
-use std::sync::Arc;
+use golem_graph::model::{connection::ConnectionConfig, errors::GraphError};
 use golem_graph::TransactionProvider;
+use std::sync::Arc;
 
 pub struct JanusGraph;
 

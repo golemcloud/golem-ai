@@ -14,10 +14,10 @@ use golem_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Response,
     ResponseMetadata, StreamDelta, StreamEvent,
 };
+use golem_llm::LlmProvider;
 use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
-use golem_llm::LlmProvider;
 
 pub struct GrokChatStream {
     stream: RefCell<Option<EventSource>>,

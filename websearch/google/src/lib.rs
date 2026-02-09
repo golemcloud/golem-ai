@@ -8,8 +8,8 @@ use golem_web_search::durability::ExtendedWebSearchProvider;
 use golem_web_search::model::web_search::{
     SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
-use std::cell::RefCell;
 use golem_web_search::{SearchSessionInterface, WebSearchProvider};
+use std::cell::RefCell;
 
 /// Start index for google search api pagination (which is 1-index based)
 const INITIAL_START_INDEX: u32 = 1;

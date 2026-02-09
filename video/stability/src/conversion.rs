@@ -323,20 +323,16 @@ pub fn generate_video(
             let image_data = generate_image_from_text(client, prompt, &config)?;
 
             // Create a new MediaInput with the generated image
-            let image_input = MediaInput::Image(
-                golem_video::model::types::Reference {
-                    data: golem_video::model::types::InputImage {
-                        data: MediaData::Bytes(
-                            golem_video::model::types::RawBytes {
-                                bytes: image_data,
-                                mime_type: "image/png".to_string(),
-                            },
-                        ),
-                    },
-                    prompt: None,
-                    role: None,
+            let image_input = MediaInput::Image(golem_video::model::types::Reference {
+                data: golem_video::model::types::InputImage {
+                    data: MediaData::Bytes(golem_video::model::types::RawBytes {
+                        bytes: image_data,
+                        mime_type: "image/png".to_string(),
+                    }),
                 },
-            );
+                prompt: None,
+                role: None,
+            });
 
             // Now generate video from the image
             let request = media_input_to_request(image_input, config)?;

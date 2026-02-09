@@ -28,9 +28,9 @@ use golem_stt::model::types::{
 };
 
 use futures_concurrency::future::Join;
+use golem_stt::model::languages::LanguageInfo;
 use itertools::Itertools;
 use wstd::runtime::block_on;
-use golem_stt::model::languages::LanguageInfo;
 
 mod transcription;
 

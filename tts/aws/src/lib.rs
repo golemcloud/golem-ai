@@ -19,9 +19,13 @@ use golem_tts::model::types::{
     TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
 use golem_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_tts::{
+    AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
+    StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
+    VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
+};
 use log::trace;
 use std::cell::{Cell, RefCell};
-use golem_tts::{AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface, StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider, VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface};
 
 mod client;
 mod conversions;

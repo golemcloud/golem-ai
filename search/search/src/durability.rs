@@ -34,12 +34,12 @@ pub trait ExtendedSearchProvider: SearchProvider + 'static {
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::{DurableSearch, ExtendedSearchProvider};
-    use crate::model::{Guest, SearchStream};
     use crate::init_logging;
     use crate::model::{
         CreateIndexOptions, Doc, DocumentId, IndexName, Schema, SearchError, SearchQuery,
         SearchResults,
     };
+    use crate::model::{Guest, SearchStream};
 
     impl<Impl: ExtendedSearchProvider> Guest for DurableSearch<Impl> {
         type SearchStream = Impl::SearchStream;

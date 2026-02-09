@@ -233,15 +233,13 @@ fn generate_text_to_video_via_image(
     };
 
     // Step 3: Use the generated image URL for video generation
-    let image_input = MediaInput::Image(
-        golem_video::model::types::Reference {
-            data: golem_video::model::types::InputImage {
-                data: MediaData::Url(image_url),
-            },
-            prompt: Some(prompt),
-            role: Some(golem_video::model::types::ImageRole::First),
+    let image_input = MediaInput::Image(golem_video::model::types::Reference {
+        data: golem_video::model::types::InputImage {
+            data: MediaData::Url(image_url),
         },
-    );
+        prompt: Some(prompt),
+        role: Some(golem_video::model::types::ImageRole::First),
+    });
 
     let request = media_input_to_request(image_input, config)?;
     let response = client.generate_video(request)?;
