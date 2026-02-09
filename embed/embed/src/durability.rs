@@ -1,4 +1,4 @@
-use crate::golem::embed::embed::Guest;
+use crate::EmbeddingProvider;
 use std::marker::PhantomData;
 
 /// Wraps an embed implementation with custom durability
@@ -6,18 +6,18 @@ pub struct DurableEmbed<Impl> {
     phantom: PhantomData<Impl>,
 }
 
-/// Trait to be implemented in addition to the embed `Guest` trait when wrapping it with `DurableEmbed`.
-pub trait ExtendedGuest: Guest + 'static {}
+/// Trait to be implemented in addition to the embed `EmbeddingProvider` trait when wrapping it with durability.
+pub trait ExtendedEmbeddingProvider: EmbeddingProvider + 'static {}
 
 /// When the durability feature flag is off, wrapping with `DurableEmbed` is just a passthrough
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
-    use crate::durability::{DurableEmbed, ExtendedGuest};
+    use crate::durability::{DurableEmbed, ExtendedEmbeddingProvider};
     use crate::golem::embed::embed::{
-        Config, ContentPart, EmbeddingResponse, Error, Guest, RerankResponse,
+        Config, ContentPart, EmbeddingProvider, EmbeddingResponse, Error, RerankResponse,
     };
 
-    impl<Impl: ExtendedGuest> Guest for DurableEmbed<Impl> {
+    impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
         fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
             Impl::generate(inputs, config)
         }
@@ -42,15 +42,14 @@ mod passthrough_impl {
 /// which is implemented using the type classes and builder in the `golem-rust` library.
 #[cfg(feature = "durability")]
 mod durable_impl {
-    use crate::durability::{DurableEmbed, ExtendedGuest};
-    use crate::golem::embed::embed::{
-        Config, ContentPart, EmbeddingResponse, Error, Guest, RerankResponse,
-    };
+    use crate::durability::{DurableEmbed, ExtendedEmbeddingProvider};
+    use crate::model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse};
+    use crate::EmbeddingProvider;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
 
-    impl<Impl: ExtendedGuest> Guest for DurableEmbed<Impl> {
+    impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
         fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
             let durability = Durability::<EmbeddingResponse, Error>::new(
                 "golem_embed",

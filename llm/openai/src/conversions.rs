@@ -4,7 +4,7 @@ use crate::client::{
 };
 use base64::{engine::general_purpose, Engine as _};
 use golem_llm::error::error_code_from_status;
-use golem_llm::golem::llm::llm::{
+use golem_llm::model::{
     Config, ContentPart, Error, ErrorCode, Event, ImageDetail, ImageReference, Message, Response,
     ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
 };

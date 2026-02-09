@@ -35,85 +35,69 @@ run_task = { name = [
 ] }
 
 [tasks.build-tavily]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-tavily"]
 
 
 [tasks.build-tavily-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-tavily", "--no-default-features"]
 
 
 [tasks.build-brave]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-brave"]
 
 [tasks.build-brave-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-brave", "--no-default-features"]
 
 [tasks.build-google]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-google"]
 
 [tasks.build-google-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-google", "--no-default-features"]
 
 [tasks.build-serper]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-serper"]
 
 [tasks.build-serper-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-serper", "--no-default-features"]
 
 [tasks.release-build-tavily]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-tavily", "--release"]
 
 [tasks.release-build-tavily-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-tavily", "--release", "--no-default-features"]
 
 [tasks.release-build-brave]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-brave", "--release"]
 
 [tasks.release-build-brave-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-brave", "--release", "--no-default-features"]
 
 [tasks.release-build-google]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-google", "--release"]
 
 [tasks.release-build-google-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-google", "--release", "--no-default-features"]
 
 [tasks.release-build-serper]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = ["build", "-p", "golem-web-search-serper", "--release"]
 
 [tasks.release-build-serper-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
+command = "cargo"
 args = [
     "build",
     "-p",

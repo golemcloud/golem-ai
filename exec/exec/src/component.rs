@@ -1,14 +1,12 @@
 use crate::durability::{DurableExec, EmptySnapshot, SessionSnapshot};
-use crate::golem::exec::executor::{
-    Error, ExecResult, File, Guest, GuestSession, Language, RunOptions,
-};
-use crate::golem::exec::types::LanguageKind;
-use crate::{get_contents, io_error, stage_result_failure};
+use crate::model::LanguageKind;
+use crate::model::{Error, ExecResult, File, Language, RunOptions};
+use crate::{get_contents, io_error, stage_result_failure, ExecutionProvider, ExecutionSession};
 use std::path::PathBuf;
 
-struct Component;
+pub struct Component;
 
-impl Guest for Component {
+impl ExecutionProvider for Component {
     type Session = Session;
 
     fn run(
@@ -46,7 +44,7 @@ impl Guest for Component {
 
 #[allow(dead_code)]
 #[allow(clippy::large_enum_variant)]
-enum Session {
+pub enum Session {
     #[cfg(feature = "javascript")]
     Javascript(crate::javascript::JavaScriptSession),
     #[cfg(feature = "python")]
@@ -76,7 +74,7 @@ impl Session {
     }
 }
 
-impl GuestSession for Session {
+impl ExecutionSession for Session {
     fn new(lang: Language, modules: Vec<File>) -> Self {
         match &lang.kind {
             LanguageKind::Javascript => {
@@ -156,6 +154,14 @@ impl GuestSession for Session {
         self.set_cwd(path)?;
         Ok(())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl SessionSnapshot<Session> for Component {
@@ -200,6 +206,4 @@ impl SessionSnapshot<Session> for Component {
     }
 }
 
-type DurableComponent = DurableExec<Component>;
-
-crate::export_exec!(DurableComponent with_types_in crate);
+pub type DurableComponent = DurableExec<Component>;

@@ -1,11 +1,9 @@
-use crate::exports::golem::video_generation::advanced::Guest as AdvancedGuest;
-use crate::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
 #[allow(unused_imports)]
-use crate::exports::golem::video_generation::types::{
+use crate::model::types::{
     AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo, MediaInput,
     VideoError, VideoResult, VoiceInfo,
 };
-use crate::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
+use crate::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 use std::marker::PhantomData;
 
 /// Wraps a Video implementation with custom durability
@@ -14,24 +12,27 @@ pub struct DurableVideo<Impl> {
 }
 
 /// Trait to be implemented in addition to the Video `Guest` traits when wrapping it with `DurableVideo`.
-pub trait ExtendedGuest: VideoGenerationGuest + LipSyncGuest + AdvancedGuest + 'static {}
+pub trait ExtendedVideoGenerationProvider:
+    VideoGenerationProvider + LipSyncProvider + AdvancedVideoGenerationProvider + 'static
+{
+}
 
 /// When the durability feature flag is off, wrapping with `DurableVideo` is just a passthrough
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
-    use crate::durability::{DurableVideo, ExtendedGuest};
-    use crate::exports::golem::video_generation::advanced::{
+    use crate::durability::{DurableVideo, ExtendedVideoGenerationProvider};
+    use crate::model::advanced::{
         ExtendVideoOptions, GenerateVideoEffectsOptions, Guest as AdvancedGuest,
         MultImageGenerationOptions,
     };
-    use crate::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
-    use crate::exports::golem::video_generation::types::{
+    use crate::model::lip_sync::Guest as LipSyncGuest;
+    use crate::model::types::{
         AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo,
         MediaInput, VideoError, VideoResult, VoiceInfo,
     };
-    use crate::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
+    use crate::model::video_generation::Guest as VideoGenerationGuest;
 
-    impl<Impl: ExtendedGuest> VideoGenerationGuest for DurableVideo<Impl> {
+    impl<Impl: ExtendedVideoGenerationProvider> VideoGenerationGuest for DurableVideo<Impl> {
         fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
             Impl::generate(input, config)
         }
@@ -45,7 +46,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> LipSyncGuest for DurableVideo<Impl> {
+    impl<Impl: ExtendedVideoGenerationProvider> LipSyncGuest for DurableVideo<Impl> {
         fn generate_lip_sync(
             video: LipSyncVideo,
             audio: AudioSource,
@@ -58,7 +59,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> AdvancedGuest for DurableVideo<Impl> {
+    impl<Impl: ExtendedVideoGenerationProvider> AdvancedGuest for DurableVideo<Impl> {
         fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
             Impl::extend_video(options)
         }
@@ -91,24 +92,23 @@ mod passthrough_impl {
 /// which is implemented using the type classes and builder in the `golem-rust` library.
 #[cfg(feature = "durability")]
 mod durable_impl {
-    use crate::durability::{DurableVideo, ExtendedGuest};
-    use crate::exports::golem::video_generation::advanced::{
-        ExtendVideoOptions, GenerateVideoEffectsOptions, Guest as AdvancedGuest,
-        MultImageGenerationOptions,
+    use crate::durability::{DurableVideo, ExtendedVideoGenerationProvider};
+    use crate::model::advanced::{
+        ExtendVideoOptions, GenerateVideoEffectsOptions, MultImageGenerationOptions,
     };
-    use crate::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
-    use crate::exports::golem::video_generation::types::{
+    use crate::model::types::{
         AudioSource, BaseVideo, GenerationConfig, LipSyncVideo, MediaInput, VideoError,
         VideoResult, VoiceInfo,
     };
-    use crate::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
-    use crate::init_logging;
+    use crate::{
+        init_logging, AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider,
+    };
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::fmt::{Display, Formatter};
 
-    impl<Impl: ExtendedGuest> VideoGenerationGuest for DurableVideo<Impl> {
+    impl<Impl: ExtendedVideoGenerationProvider> VideoGenerationProvider for DurableVideo<Impl> {
         fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
@@ -161,7 +161,7 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> LipSyncGuest for DurableVideo<Impl> {
+    impl<Impl: ExtendedVideoGenerationProvider> LipSyncProvider for DurableVideo<Impl> {
         fn generate_lip_sync(
             video: LipSyncVideo,
             audio: AudioSource,
@@ -200,7 +200,7 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> AdvancedGuest for DurableVideo<Impl> {
+    impl<Impl: ExtendedVideoGenerationProvider> AdvancedVideoGenerationProvider for DurableVideo<Impl> {
         fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(

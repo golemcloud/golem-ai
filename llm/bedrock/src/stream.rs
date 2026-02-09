@@ -6,7 +6,7 @@ use aws_sdk_bedrockruntime::{
     self as bedrock, primitives::event_stream::EventReceiver,
     types::error::ConverseStreamOutputError,
 };
-use golem_llm::golem::llm::llm;
+use golem_llm::{model as llm, ChatStreamInterface};
 use std::cell::{RefCell, RefMut};
 
 type BedrockEventSource =
@@ -87,7 +87,7 @@ impl BedrockChatStream {
     }
 }
 
-impl llm::GuestChatStream for BedrockChatStream {
+impl ChatStreamInterface for BedrockChatStream {
     fn poll_next(&self) -> Option<Vec<Result<llm::StreamEvent, llm::Error>>> {
         if self.is_finished() {
             return Some(vec![]);
@@ -112,5 +112,13 @@ impl llm::GuestChatStream for BedrockChatStream {
                 return events;
             }
         }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }

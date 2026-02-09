@@ -2,7 +2,7 @@ use crate::client::{
     OpenSearchMappings, OpenSearchQuery, OpenSearchScrollResponse, OpenSearchSearchResponse,
     OpenSearchSettings,
 };
-use golem_search::golem::search::types::{
+use golem_search::model::{
     Doc, FieldType, Schema, SchemaField, SearchHit, SearchQuery, SearchResults,
 };
 use serde_json::{Map, Value};
@@ -396,7 +396,7 @@ pub fn create_retry_query(original_query: &SearchQuery, partial_hits: &[SearchHi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_search::golem::search::types::HighlightConfig;
+    use golem_search::model::HighlightConfig;
 
     #[test]
     fn test_doc_to_opensearch_document() {

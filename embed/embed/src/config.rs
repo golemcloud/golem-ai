@@ -1,4 +1,4 @@
-use crate::golem::embed::embed::{Error, ErrorCode};
+use crate::model::{Error, ErrorCode};
 use std::ffi::OsStr;
 
 pub fn with_config_key<R>(

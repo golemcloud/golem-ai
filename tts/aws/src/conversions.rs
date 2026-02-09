@@ -2,16 +2,16 @@ use crate::client::{
     DescribeVoicesParams, Engine, OutputFormat, SpeechMarkType, SynthesizeSpeechParams, TextType,
     Voice as AwsVoice,
 };
-use golem_tts::golem::tts::synthesis::{SynthesisOptions, ValidationResult};
-use golem_tts::golem::tts::types::{
+use golem_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_tts::model::types::{
     AudioFormat, SynthesisMetadata, SynthesisResult, TextType as TtsTextType, TtsError,
     VoiceGender, VoiceQuality, VoiceSettings,
 };
-use golem_tts::golem::tts::voices::{LanguageInfo, VoiceFilter, VoiceInfo};
+use golem_tts::model::voices::{LanguageInfo, VoiceFilter, VoiceInfo};
 use log::trace;
 
 pub fn validate_synthesis_input(
-    input: &golem_tts::golem::tts::types::TextInput,
+    input: &golem_tts::model::types::TextInput,
     options: Option<&SynthesisOptions>,
 ) -> Result<(), TtsError> {
     if input.content.trim().is_empty() {

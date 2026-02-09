@@ -3,20 +3,20 @@ use crate::helpers;
 use crate::helpers::{element_id_to_key, parse_path_from_gremlin, parse_vertex_from_gremlin};
 use crate::query_utils;
 use crate::Transaction;
-use golem_graph::golem::graph::transactions::{
+use golem_graph::model::transactions::{
     CreateVertexOptions, ExecuteQueryOptions, FindAllPathsOptions, FindEdgesOptions,
     FindShortestPathOptions, FindVerticesOptions, GetAdjacentVerticesOptions,
     GetConnectedEdgesOptions, GetNeighborhoodOptions, GetVerticesAtDistanceOptions, Path,
     PathExistsOptions, PropertyValue, QueryExecutionResult, Subgraph,
 };
-use golem_graph::golem::graph::types::{
+use golem_graph::model::types::{
     CreateEdgeOptions, QueryParameters, QueryResult, UpdateEdgeOptions, UpdateVertexOptions,
 };
-use golem_graph::golem::graph::{
+use golem_graph::model::{
     errors::GraphError,
-    transactions::GuestTransaction,
     types::{Direction, Edge, ElementId, Vertex},
 };
+use golem_graph::TransactionInterface;
 use log::trace;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -55,7 +55,14 @@ fn graphson_map_to_object(data: &Value) -> Result<Value, GraphError> {
     Ok(Value::Object(obj))
 }
 
-impl GuestTransaction for Transaction {
+impl TransactionInterface for Transaction {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn execute_query(
         &self,
         options: ExecuteQueryOptions,
@@ -305,50 +312,128 @@ impl GuestTransaction for Transaction {
         }
     }
 
-    fn commit(&self) -> Result<(), GraphError> {
-        {
-            let state = self.state.read().unwrap();
-            match *state {
-                crate::TransactionState::Committed => return Ok(()),
-                crate::TransactionState::RolledBack => {
-                    return Err(GraphError::TransactionFailed(
-                        "Cannot commit a transaction that has been rolled back".to_string(),
-                    ));
-                }
-                crate::TransactionState::Active => {}
+    fn get_adjacent_vertices(
+        &self,
+        options: GetAdjacentVerticesOptions,
+    ) -> Result<Vec<Vertex>, GraphError> {
+        let mut bindings = serde_json::Map::new();
+        let id_json = match options.vertex_id {
+            ElementId::StringValue(s) => json!(s),
+            ElementId::Int64(i) => json!(i),
+            ElementId::Uuid(u) => json!(u.to_string()),
+        };
+        bindings.insert("vertex_id".to_string(), id_json);
+
+        let direction_step = match options.direction {
+            Direction::Outgoing => "out",
+            Direction::Incoming => "in",
+            Direction::Both => "both",
+        };
+
+        let mut gremlin = if let Some(labels) = options.edge_types {
+            if !labels.is_empty() {
+                let label_bindings: Vec<String> = labels
+                    .iter()
+                    .enumerate()
+                    .map(|(i, label)| {
+                        let binding_key = format!("label_{i}");
+                        bindings.insert(binding_key.clone(), json!(label));
+                        binding_key
+                    })
+                    .collect();
+                let labels_str = label_bindings.join(", ");
+                format!("g.V(vertex_id).{direction_step}({labels_str})")
+            } else {
+                format!("g.V(vertex_id).{direction_step}()")
             }
+        } else {
+            format!("g.V(vertex_id).{direction_step}()")
+        };
+
+        if let Some(lim) = options.limit {
+            gremlin.push_str(&format!(".limit({lim})"));
         }
 
-        let result = self.api.commit();
+        gremlin.push_str(".elementMap()");
 
-        if result.is_ok() {
-            let mut state = self.state.write().unwrap();
-            *state = crate::TransactionState::Committed;
-        }
-        result
+        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+
+        let result_data = if let Some(arr) = response.as_array() {
+            arr.clone()
+        } else if let Some(inner) = response.get("@value").and_then(Value::as_array) {
+            inner.clone()
+        } else {
+            return Err(GraphError::InternalError(
+                "Invalid response from Gremlin for get_adjacent_vertices".to_string(),
+            ));
+        };
+
+        result_data
+            .iter()
+            .map(helpers::parse_vertex_from_gremlin)
+            .collect()
     }
 
-    fn rollback(&self) -> Result<(), GraphError> {
-        {
-            let state = self.state.read().unwrap();
-            match *state {
-                crate::TransactionState::RolledBack => return Ok(()),
-                crate::TransactionState::Committed => {
-                    return Err(GraphError::TransactionFailed(
-                        "Cannot rollback a transaction that has been committed".to_string(),
-                    ));
-                }
-                crate::TransactionState::Active => {}
+    fn get_connected_edges(
+        &self,
+        options: GetConnectedEdgesOptions,
+    ) -> Result<Vec<Edge>, GraphError> {
+        let mut bindings = serde_json::Map::new();
+        let id_json = match options.vertex_id {
+            ElementId::StringValue(s) => json!(s),
+            ElementId::Int64(i) => json!(i),
+            ElementId::Uuid(u) => json!(u.to_string()),
+        };
+        bindings.insert("vertex_id".to_string(), id_json);
+
+        let direction_step = match options.direction {
+            Direction::Outgoing => "outE",
+            Direction::Incoming => "inE",
+            Direction::Both => "bothE",
+        };
+
+        let mut gremlin = if let Some(labels) = options.edge_types {
+            if !labels.is_empty() {
+                let label_bindings: Vec<String> = labels
+                    .iter()
+                    .enumerate()
+                    .map(|(i, label)| {
+                        let binding_key = format!("edge_label_{i}");
+                        bindings.insert(binding_key.clone(), json!(label));
+                        binding_key
+                    })
+                    .collect();
+                let labels_str = label_bindings.join(", ");
+                format!("g.V(vertex_id).{direction_step}({labels_str})")
+            } else {
+                format!("g.V(vertex_id).{direction_step}()")
             }
+        } else {
+            format!("g.V(vertex_id).{direction_step}()")
+        };
+
+        if let Some(lim) = options.limit {
+            gremlin.push_str(&format!(".limit({lim})"));
         }
 
-        let result = self.api.rollback();
+        gremlin.push_str(".elementMap()");
 
-        if result.is_ok() {
-            let mut state = self.state.write().unwrap();
-            *state = crate::TransactionState::RolledBack;
-        }
-        result
+        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+
+        let result_data = if let Some(arr) = response.as_array() {
+            arr.clone()
+        } else if let Some(inner) = response.get("@value").and_then(Value::as_array) {
+            inner.clone()
+        } else {
+            return Err(GraphError::InternalError(
+                "Invalid response from Gremlin for get_connected_edges".to_string(),
+            ));
+        };
+
+        result_data
+            .iter()
+            .map(helpers::parse_edge_from_gremlin)
+            .collect()
     }
 
     fn create_vertex(&self, options: CreateVertexOptions) -> Result<Vertex, GraphError> {
@@ -400,6 +485,66 @@ impl GuestTransaction for Transaction {
         let obj = graphson_map_to_object(element)?;
 
         helpers::parse_vertex_from_gremlin(&obj)
+    }
+
+    fn create_vertices(
+        &self,
+        vertices: Vec<CreateVertexOptions>,
+    ) -> Result<Vec<Vertex>, GraphError> {
+        if vertices.is_empty() {
+            return Ok(vec![]);
+        }
+
+        if vertices.len() == 1 {
+            let mut vertices = vertices;
+            let vertex = self.create_vertex(vertices.pop().unwrap())?;
+            return Ok(vec![vertex]);
+        }
+
+        let mut gremlin = "g.union(".to_string();
+        let mut bindings = serde_json::Map::new();
+        let mut union_parts = Vec::new();
+
+        for (i, options) in vertices.into_iter().enumerate() {
+            let label_binding = format!("l{i}");
+            let mut part = format!("addV({label_binding})");
+            bindings.insert(label_binding, json!(options.vertex_type));
+
+            for (j, (key, value)) in options
+                .properties
+                .unwrap_or_default()
+                .into_iter()
+                .enumerate()
+            {
+                let key_binding = format!("k_{i}_{j}");
+                let val_binding = format!("v_{i}_{j}");
+                part.push_str(&format!(".property({key_binding}, {val_binding})"));
+                bindings.insert(key_binding, json!(key));
+                bindings.insert(val_binding, conversions::to_json_value(value.clone())?);
+            }
+
+            union_parts.push(part);
+        }
+
+        gremlin.push_str(&union_parts.join(", "));
+        gremlin.push_str(").elementMap()");
+
+        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+
+        let result_data = if let Some(arr) = response.as_array() {
+            arr.clone()
+        } else if let Some(inner) = response.get("@value").and_then(Value::as_array) {
+            inner.clone()
+        } else {
+            return Err(GraphError::InternalError(
+                "Invalid response from Gremlin for create_vertices".to_string(),
+            ));
+        };
+
+        result_data
+            .iter()
+            .map(helpers::parse_vertex_from_gremlin)
+            .collect()
     }
 
     fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
@@ -760,6 +905,81 @@ impl GuestTransaction for Transaction {
         helpers::parse_edge_from_gremlin(&Value::Object(edge_json))
     }
 
+    fn create_edges(&self, edges: Vec<CreateEdgeOptions>) -> Result<Vec<Edge>, GraphError> {
+        if edges.is_empty() {
+            return Ok(vec![]);
+        }
+
+        if edges.len() == 1 {
+            let mut edges = edges;
+            let edge = self.create_edge(edges.pop().unwrap())?;
+            return Ok(vec![edge]);
+        }
+
+        let mut gremlin = "g.union(".to_string();
+        let mut bindings = serde_json::Map::new();
+        let mut union_parts = Vec::new();
+
+        for (i, edge_spec) in edges.into_iter().enumerate() {
+            let from_binding = format!("from_{i}");
+            let to_binding = format!("to_{i}");
+            let label_binding = format!("label_{i}");
+
+            let from_id_json = match &edge_spec.from_vertex {
+                ElementId::StringValue(s) => json!(s),
+                ElementId::Int64(val) => json!(val),
+                ElementId::Uuid(u) => json!(u.to_string()),
+            };
+            bindings.insert(from_binding.clone(), from_id_json);
+
+            let to_id_json = match &edge_spec.to_vertex {
+                ElementId::StringValue(s) => json!(s),
+                ElementId::Int64(val) => json!(val),
+                ElementId::Uuid(u) => json!(u.to_string()),
+            };
+            bindings.insert(to_binding.clone(), to_id_json);
+            bindings.insert(label_binding.clone(), json!(edge_spec.edge_type));
+
+            let mut part =
+                format!("V({from_binding}).addE({label_binding}).to(__.V({to_binding}))");
+
+            for (j, (key, value)) in edge_spec
+                .properties
+                .unwrap_or_default()
+                .into_iter()
+                .enumerate()
+            {
+                let key_binding = format!("k_{i}_{j}");
+                let val_binding = format!("v_{i}_{j}");
+                part.push_str(&format!(".property({key_binding}, {val_binding})"));
+                bindings.insert(key_binding, json!(key));
+                bindings.insert(val_binding, conversions::to_json_value(value.clone())?);
+            }
+
+            union_parts.push(part);
+        }
+
+        gremlin.push_str(&union_parts.join(", "));
+        gremlin.push_str(").elementMap()");
+
+        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+
+        let result_data = if let Some(arr) = response.as_array() {
+            arr.clone()
+        } else if let Some(inner) = response.get("@value").and_then(Value::as_array) {
+            inner.clone()
+        } else {
+            return Err(GraphError::InternalError(
+                "Invalid response from Gremlin for create_edges".to_string(),
+            ));
+        };
+
+        result_data
+            .iter()
+            .map(helpers::parse_edge_from_gremlin)
+            .collect()
+    }
+
     fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
         let gremlin = "g.E(edge_id).elementMap()".to_string();
         let mut bindings = serde_json::Map::new();
@@ -1027,263 +1247,50 @@ impl GuestTransaction for Transaction {
             .collect()
     }
 
-    fn get_adjacent_vertices(
-        &self,
-        options: GetAdjacentVerticesOptions,
-    ) -> Result<Vec<Vertex>, GraphError> {
-        let mut bindings = serde_json::Map::new();
-        let id_json = match options.vertex_id {
-            ElementId::StringValue(s) => json!(s),
-            ElementId::Int64(i) => json!(i),
-            ElementId::Uuid(u) => json!(u.to_string()),
-        };
-        bindings.insert("vertex_id".to_string(), id_json);
-
-        let direction_step = match options.direction {
-            Direction::Outgoing => "out",
-            Direction::Incoming => "in",
-            Direction::Both => "both",
-        };
-
-        let mut gremlin = if let Some(labels) = options.edge_types {
-            if !labels.is_empty() {
-                let label_bindings: Vec<String> = labels
-                    .iter()
-                    .enumerate()
-                    .map(|(i, label)| {
-                        let binding_key = format!("label_{i}");
-                        bindings.insert(binding_key.clone(), json!(label));
-                        binding_key
-                    })
-                    .collect();
-                let labels_str = label_bindings.join(", ");
-                format!("g.V(vertex_id).{direction_step}({labels_str})")
-            } else {
-                format!("g.V(vertex_id).{direction_step}()")
+    fn commit(&self) -> Result<(), GraphError> {
+        {
+            let state = self.state.read().unwrap();
+            match *state {
+                crate::TransactionState::Committed => return Ok(()),
+                crate::TransactionState::RolledBack => {
+                    return Err(GraphError::TransactionFailed(
+                        "Cannot commit a transaction that has been rolled back".to_string(),
+                    ));
+                }
+                crate::TransactionState::Active => {}
             }
-        } else {
-            format!("g.V(vertex_id).{direction_step}()")
-        };
-
-        if let Some(lim) = options.limit {
-            gremlin.push_str(&format!(".limit({lim})"));
         }
 
-        gremlin.push_str(".elementMap()");
+        let result = self.api.commit();
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
-
-        let result_data = if let Some(arr) = response.as_array() {
-            arr.clone()
-        } else if let Some(inner) = response.get("@value").and_then(Value::as_array) {
-            inner.clone()
-        } else {
-            return Err(GraphError::InternalError(
-                "Invalid response from Gremlin for get_adjacent_vertices".to_string(),
-            ));
-        };
-
-        result_data
-            .iter()
-            .map(helpers::parse_vertex_from_gremlin)
-            .collect()
+        if result.is_ok() {
+            let mut state = self.state.write().unwrap();
+            *state = crate::TransactionState::Committed;
+        }
+        result
     }
 
-    fn get_connected_edges(
-        &self,
-        options: GetConnectedEdgesOptions,
-    ) -> Result<Vec<Edge>, GraphError> {
-        let mut bindings = serde_json::Map::new();
-        let id_json = match options.vertex_id {
-            ElementId::StringValue(s) => json!(s),
-            ElementId::Int64(i) => json!(i),
-            ElementId::Uuid(u) => json!(u.to_string()),
-        };
-        bindings.insert("vertex_id".to_string(), id_json);
-
-        let direction_step = match options.direction {
-            Direction::Outgoing => "outE",
-            Direction::Incoming => "inE",
-            Direction::Both => "bothE",
-        };
-
-        let mut gremlin = if let Some(labels) = options.edge_types {
-            if !labels.is_empty() {
-                let label_bindings: Vec<String> = labels
-                    .iter()
-                    .enumerate()
-                    .map(|(i, label)| {
-                        let binding_key = format!("edge_label_{i}");
-                        bindings.insert(binding_key.clone(), json!(label));
-                        binding_key
-                    })
-                    .collect();
-                let labels_str = label_bindings.join(", ");
-                format!("g.V(vertex_id).{direction_step}({labels_str})")
-            } else {
-                format!("g.V(vertex_id).{direction_step}()")
+    fn rollback(&self) -> Result<(), GraphError> {
+        {
+            let state = self.state.read().unwrap();
+            match *state {
+                crate::TransactionState::RolledBack => return Ok(()),
+                crate::TransactionState::Committed => {
+                    return Err(GraphError::TransactionFailed(
+                        "Cannot rollback a transaction that has been committed".to_string(),
+                    ));
+                }
+                crate::TransactionState::Active => {}
             }
-        } else {
-            format!("g.V(vertex_id).{direction_step}()")
-        };
-
-        if let Some(lim) = options.limit {
-            gremlin.push_str(&format!(".limit({lim})"));
         }
 
-        gremlin.push_str(".elementMap()");
+        let result = self.api.rollback();
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
-
-        let result_data = if let Some(arr) = response.as_array() {
-            arr.clone()
-        } else if let Some(inner) = response.get("@value").and_then(Value::as_array) {
-            inner.clone()
-        } else {
-            return Err(GraphError::InternalError(
-                "Invalid response from Gremlin for get_connected_edges".to_string(),
-            ));
-        };
-
-        result_data
-            .iter()
-            .map(helpers::parse_edge_from_gremlin)
-            .collect()
-    }
-
-    fn create_vertices(
-        &self,
-        vertices: Vec<CreateVertexOptions>,
-    ) -> Result<Vec<Vertex>, GraphError> {
-        if vertices.is_empty() {
-            return Ok(vec![]);
+        if result.is_ok() {
+            let mut state = self.state.write().unwrap();
+            *state = crate::TransactionState::RolledBack;
         }
-
-        if vertices.len() == 1 {
-            let mut vertices = vertices;
-            let vertex = self.create_vertex(vertices.pop().unwrap())?;
-            return Ok(vec![vertex]);
-        }
-
-        let mut gremlin = "g.union(".to_string();
-        let mut bindings = serde_json::Map::new();
-        let mut union_parts = Vec::new();
-
-        for (i, options) in vertices.into_iter().enumerate() {
-            let label_binding = format!("l{i}");
-            let mut part = format!("addV({label_binding})");
-            bindings.insert(label_binding, json!(options.vertex_type));
-
-            for (j, (key, value)) in options
-                .properties
-                .unwrap_or_default()
-                .into_iter()
-                .enumerate()
-            {
-                let key_binding = format!("k_{i}_{j}");
-                let val_binding = format!("v_{i}_{j}");
-                part.push_str(&format!(".property({key_binding}, {val_binding})"));
-                bindings.insert(key_binding, json!(key));
-                bindings.insert(val_binding, conversions::to_json_value(value.clone())?);
-            }
-
-            union_parts.push(part);
-        }
-
-        gremlin.push_str(&union_parts.join(", "));
-        gremlin.push_str(").elementMap()");
-
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
-
-        let result_data = if let Some(arr) = response.as_array() {
-            arr.clone()
-        } else if let Some(inner) = response.get("@value").and_then(Value::as_array) {
-            inner.clone()
-        } else {
-            return Err(GraphError::InternalError(
-                "Invalid response from Gremlin for create_vertices".to_string(),
-            ));
-        };
-
-        result_data
-            .iter()
-            .map(helpers::parse_vertex_from_gremlin)
-            .collect()
-    }
-
-    fn create_edges(&self, edges: Vec<CreateEdgeOptions>) -> Result<Vec<Edge>, GraphError> {
-        if edges.is_empty() {
-            return Ok(vec![]);
-        }
-
-        if edges.len() == 1 {
-            let mut edges = edges;
-            let edge = self.create_edge(edges.pop().unwrap())?;
-            return Ok(vec![edge]);
-        }
-
-        let mut gremlin = "g.union(".to_string();
-        let mut bindings = serde_json::Map::new();
-        let mut union_parts = Vec::new();
-
-        for (i, edge_spec) in edges.into_iter().enumerate() {
-            let from_binding = format!("from_{i}");
-            let to_binding = format!("to_{i}");
-            let label_binding = format!("label_{i}");
-
-            let from_id_json = match &edge_spec.from_vertex {
-                ElementId::StringValue(s) => json!(s),
-                ElementId::Int64(val) => json!(val),
-                ElementId::Uuid(u) => json!(u.to_string()),
-            };
-            bindings.insert(from_binding.clone(), from_id_json);
-
-            let to_id_json = match &edge_spec.to_vertex {
-                ElementId::StringValue(s) => json!(s),
-                ElementId::Int64(val) => json!(val),
-                ElementId::Uuid(u) => json!(u.to_string()),
-            };
-            bindings.insert(to_binding.clone(), to_id_json);
-            bindings.insert(label_binding.clone(), json!(edge_spec.edge_type));
-
-            let mut part =
-                format!("V({from_binding}).addE({label_binding}).to(__.V({to_binding}))");
-
-            for (j, (key, value)) in edge_spec
-                .properties
-                .unwrap_or_default()
-                .into_iter()
-                .enumerate()
-            {
-                let key_binding = format!("k_{i}_{j}");
-                let val_binding = format!("v_{i}_{j}");
-                part.push_str(&format!(".property({key_binding}, {val_binding})"));
-                bindings.insert(key_binding, json!(key));
-                bindings.insert(val_binding, conversions::to_json_value(value.clone())?);
-            }
-
-            union_parts.push(part);
-        }
-
-        gremlin.push_str(&union_parts.join(", "));
-        gremlin.push_str(").elementMap()");
-
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
-
-        let result_data = if let Some(arr) = response.as_array() {
-            arr.clone()
-        } else if let Some(inner) = response.get("@value").and_then(Value::as_array) {
-            inner.clone()
-        } else {
-            return Err(GraphError::InternalError(
-                "Invalid response from Gremlin for create_edges".to_string(),
-            ));
-        };
-
-        result_data
-            .iter()
-            .map(helpers::parse_edge_from_gremlin)
-            .collect()
+        result
     }
 
     fn is_active(&self) -> bool {

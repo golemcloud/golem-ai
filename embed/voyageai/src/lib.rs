@@ -1,22 +1,22 @@
 use golem_embed::{
     config::with_config_key,
-    durability::{DurableEmbed, ExtendedGuest},
-    golem::embed::embed::{Config, ContentPart, EmbeddingResponse, Error, Guest, RerankResponse},
-    LOGGING_STATE,
+    durability::{DurableEmbed, ExtendedEmbeddingProvider},
+    model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse},
+    EmbeddingProvider, LOGGING_STATE,
 };
 
 use crate::{
     client::VoyageAIApi,
-    conversitions::{
+    conversations::{
         create_embedding_request, create_rerank_request, process_embedding_response,
         process_rerank_response,
     },
 };
 
 mod client;
-mod conversitions;
+mod conversations;
 
-struct VoyageAIApiComponent;
+pub struct VoyageAIApiComponent;
 
 impl VoyageAIApiComponent {
     const ENV_VAR_NAME: &'static str = "VOYAGEAI_API_KEY";
@@ -53,7 +53,7 @@ impl VoyageAIApiComponent {
     }
 }
 
-impl Guest for VoyageAIApiComponent {
+impl EmbeddingProvider for VoyageAIApiComponent {
     fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -77,8 +77,6 @@ impl Guest for VoyageAIApiComponent {
     }
 }
 
-impl ExtendedGuest for VoyageAIApiComponent {}
+impl ExtendedEmbeddingProvider for VoyageAIApiComponent {}
 
-type DurableVoyageAIApiComponent = DurableEmbed<VoyageAIApiComponent>;
-
-golem_embed::export_embed!(DurableVoyageAIApiComponent with_types_in golem_embed);
+pub type DurableVoyageAIApiComponent = DurableEmbed<VoyageAIApiComponent>;

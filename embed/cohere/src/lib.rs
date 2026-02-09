@@ -2,12 +2,11 @@ use client::EmbeddingsApi;
 use conversions::create_embed_request;
 use golem_embed::{
     config::with_config_key,
-    durability::{DurableEmbed, ExtendedGuest},
-    golem::embed::embed::{
-        Config, ContentPart, EmbeddingResponse as GolemEmbeddingResponse, Error, Guest,
-        RerankResponse,
+    durability::{DurableEmbed, ExtendedEmbeddingProvider},
+    model::{
+        Config, ContentPart, EmbeddingResponse as GolemEmbeddingResponse, Error, RerankResponse,
     },
-    LOGGING_STATE,
+    EmbeddingProvider, LOGGING_STATE,
 };
 
 use crate::conversions::{
@@ -17,7 +16,7 @@ use crate::conversions::{
 mod client;
 mod conversions;
 
-struct CohereComponent;
+pub struct CohereComponent;
 
 impl CohereComponent {
     const ENV_VAR_NAME: &'static str = "COHERE_API_KEY";
@@ -54,7 +53,7 @@ impl CohereComponent {
     }
 }
 
-impl Guest for CohereComponent {
+impl EmbeddingProvider for CohereComponent {
     fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<GolemEmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         with_config_key(Self::ENV_VAR_NAME, Err, |cohere_api_key| {
@@ -76,8 +75,6 @@ impl Guest for CohereComponent {
     }
 }
 
-impl ExtendedGuest for CohereComponent {}
+impl ExtendedEmbeddingProvider for CohereComponent {}
 
-type DurableCohereComponent = DurableEmbed<CohereComponent>;
-
-golem_embed::export_embed!(DurableCohereComponent with_types_in golem_embed);
+pub type DurableCohereComponent = DurableEmbed<CohereComponent>;

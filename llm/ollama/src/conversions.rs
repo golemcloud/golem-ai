@@ -4,7 +4,7 @@ use crate::client::{
     MessageRole, OllamaModelOptions, Tool,
 };
 use base64::{engine::general_purpose, Engine};
-use golem_llm::golem::llm::llm::{
+use golem_llm::model::{
     Config, ContentPart, Error, ErrorCode, Event, FinishReason, ImageReference, Message, Response,
     ResponseMetadata, Role, ToolCall as GolemToolCall, ToolResult, Usage,
 };

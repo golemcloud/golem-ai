@@ -7,28 +7,31 @@ use crate::conversions::{
     scored_points_to_search_results, vector_records_to_upsert_request,
 };
 use golem_vector::config::{get_optional_config, with_config_key, with_connection_config_key};
-use golem_vector::durability::{DurableVector, ExtendedGuest};
-use golem_vector::golem::vector::{
-    analytics::{CollectionStats, FieldStats, Guest as AnalyticsGuest},
-    collections::{CollectionInfo, Guest as CollectionsGuest, IndexConfig},
-    connection::{ConnectionStatus, Credentials, Guest as ConnectionGuest},
-    namespaces::{Guest as NamespacesGuest, NamespaceInfo},
-    search::{Guest as SearchGuest, SearchQuery},
+use golem_vector::durability::{DurableVector, ExtendedVectorProvider};
+use golem_vector::model::{
+    analytics::{CollectionStats, FieldStats},
+    collections::{CollectionInfo, IndexConfig},
+    connection::{ConnectionStatus, Credentials},
+    namespaces::NamespaceInfo,
+    search::SearchQuery,
     search_extended::{
-        ContextPair, GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
-        RecommendationStrategy,
+        ContextPair, GroupedSearchResult, RecommendationExample, RecommendationStrategy,
     },
     types::{
         DistanceMetric, FilterExpression, Id, Metadata, MetadataValue, SearchResult, VectorData,
         VectorError, VectorRecord,
     },
-    vectors::{BatchResult, Guest as VectorsGuest, ListResponse},
+    vectors::{BatchResult, ListResponse},
+};
+use golem_vector::{
+    AnalyticsProvider, CollectionProvider, ConnectionProvider, NamespacesProvider,
+    SearchExtendedProvider, SearchProvider, VectorsProvider,
 };
 
 mod client;
 mod conversions;
 
-struct QdrantComponent;
+pub struct QdrantComponent;
 
 impl QdrantComponent {
     const URL_ENV_VAR: &'static str = "QDRANT_URL";
@@ -99,7 +102,7 @@ impl QdrantComponent {
     }
 }
 
-impl ExtendedGuest for QdrantComponent {
+impl ExtendedVectorProvider for QdrantComponent {
     fn connect_internal(
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -111,7 +114,7 @@ impl ExtendedGuest for QdrantComponent {
     }
 }
 
-impl ConnectionGuest for QdrantComponent {
+impl ConnectionProvider for QdrantComponent {
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -170,7 +173,7 @@ impl ConnectionGuest for QdrantComponent {
     }
 }
 
-impl CollectionsGuest for QdrantComponent {
+impl CollectionProvider for QdrantComponent {
     fn upsert_collection(
         name: String,
         _description: Option<String>,
@@ -256,7 +259,7 @@ impl CollectionsGuest for QdrantComponent {
     }
 }
 
-impl VectorsGuest for QdrantComponent {
+impl VectorsProvider for QdrantComponent {
     fn upsert_vectors(
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -502,7 +505,7 @@ impl VectorsGuest for QdrantComponent {
     }
 }
 
-impl SearchGuest for QdrantComponent {
+impl SearchProvider for QdrantComponent {
     fn search_vectors(
         collection: String,
         query: SearchQuery,
@@ -594,7 +597,7 @@ impl SearchGuest for QdrantComponent {
     }
 }
 
-impl SearchExtendedGuest for QdrantComponent {
+impl SearchExtendedProvider for QdrantComponent {
     fn recommend_vectors(
         collection: String,
         positive: Vec<RecommendationExample>,
@@ -771,7 +774,7 @@ impl SearchExtendedGuest for QdrantComponent {
     }
 }
 
-impl AnalyticsGuest for QdrantComponent {
+impl AnalyticsProvider for QdrantComponent {
     fn get_collection_stats(
         collection: String,
         _namespace: Option<String>,
@@ -837,7 +840,7 @@ impl AnalyticsGuest for QdrantComponent {
     }
 }
 
-impl NamespacesGuest for QdrantComponent {
+impl NamespacesProvider for QdrantComponent {
     fn upsert_namespace(
         _collection: String,
         _name: String,
@@ -874,6 +877,4 @@ impl NamespacesGuest for QdrantComponent {
     }
 }
 
-type DurableQdrantComponent = DurableVector<QdrantComponent>;
-
-golem_vector::export_vector!(DurableQdrantComponent with_types_in golem_vector);
+pub type DurableQdrantComponent = DurableVector<QdrantComponent>;

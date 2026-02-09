@@ -1,7 +1,7 @@
 use crate::client::{IndexModel, QueryResponse, ScoredVector, UpsertRequest, Vector};
-use golem_vector::golem::vector::collections::CollectionInfo;
-use golem_vector::golem::vector::search::SearchQuery;
-use golem_vector::golem::vector::types::{
+use golem_vector::model::collections::CollectionInfo;
+use golem_vector::model::search::SearchQuery;
+use golem_vector::model::types::{
     DistanceMetric, FilterCondition, FilterExpression, FilterOperator, Metadata, MetadataValue,
     SearchResult, VectorData, VectorError, VectorRecord,
 };
@@ -414,7 +414,7 @@ pub fn extract_prefix_from_filter(filter: &FilterExpression) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_vector::golem::vector::types::SparseVector;
+    use golem_vector::model::types::SparseVector;
 
     #[test]
     fn test_vector_data_to_dense() {

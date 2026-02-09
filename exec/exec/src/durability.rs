@@ -43,9 +43,8 @@ mod passthrough_impl {
 #[cfg(feature = "durability")]
 mod durable_impl {
     use crate::durability::{DurableExec, SessionSnapshot};
-    use crate::golem::exec::executor::{
-        Error, ExecResult, File, Guest, GuestSession, Language, RunOptions,
-    };
+    use crate::model::{Error, ExecResult, File, Language, RunOptions};
+    use crate::{ExecutionProvider, ExecutionSession};
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
     use golem_rust::value_and_type::{
@@ -54,7 +53,9 @@ mod durable_impl {
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::fmt::{Debug, Display, Formatter};
 
-    impl<Impl: Guest + SessionSnapshot<Impl::Session> + 'static> Guest for DurableExec<Impl> {
+    impl<Impl: ExecutionProvider + SessionSnapshot<Impl::Session> + 'static> ExecutionProvider
+        for DurableExec<Impl>
+    {
         type Session = DurableSession<Impl>;
 
         fn run(
@@ -93,13 +94,15 @@ mod durable_impl {
         }
     }
 
-    pub struct DurableSession<Impl: Guest> {
+    pub struct DurableSession<Impl: ExecutionProvider> {
         inner: Impl::Session,
         lang: Language,
         module_names: Vec<String>,
     }
 
-    impl<Impl: Guest + SessionSnapshot<Impl::Session> + 'static> GuestSession for DurableSession<Impl> {
+    impl<Impl: ExecutionProvider + SessionSnapshot<Impl::Session> + 'static> ExecutionSession
+        for DurableSession<Impl>
+    {
         fn new(lang: Language, modules: Vec<File>) -> Self {
             Self {
                 lang: lang.clone(),
@@ -175,6 +178,14 @@ mod durable_impl {
 
         fn set_working_dir(&self, path: String) -> Result<(), Error> {
             self.inner.set_working_dir(path)
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::durability::{EmptySnapshot, SessionSnapshot};
-use crate::golem::exec::executor::{Error, ExecResult, File, Language, RunOptions};
-use crate::golem::exec::types::{LanguageKind, StageResult};
+use crate::model::{Error, ExecResult, File, Language, RunOptions};
+use crate::model::{LanguageKind, StageResult};
 use crate::{get_contents_as_string, io_error, stage_result_failure};
 use indoc::indoc;
 use rustpython::vm::builtins::{PyBaseException, PyBaseExceptionRef, PyStr, PyStrRef};

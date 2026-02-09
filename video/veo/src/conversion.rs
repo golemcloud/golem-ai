@@ -3,7 +3,7 @@ use crate::client::{
     TextToVideoRequest, VeoApi, VideoData, VideoParameters,
 };
 use golem_video::error::invalid_input;
-use golem_video::exports::golem::video_generation::types::{
+use golem_video::model::types::{
     AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Resolution, Video, VideoError,
     VideoResult,
 };
@@ -393,8 +393,8 @@ pub fn cancel_video_generation(
 
 pub fn generate_lip_sync_video(
     _client: &VeoApi,
-    _video: golem_video::exports::golem::video_generation::types::LipSyncVideo,
-    _audio: golem_video::exports::golem::video_generation::types::AudioSource,
+    _video: golem_video::model::types::LipSyncVideo,
+    _audio: golem_video::model::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Lip sync is not supported by Veo API".to_string(),
@@ -404,7 +404,7 @@ pub fn generate_lip_sync_video(
 pub fn list_available_voices(
     _client: &VeoApi,
     _language: Option<String>,
-) -> Result<Vec<golem_video::exports::golem::video_generation::types::VoiceInfo>, VideoError> {
+) -> Result<Vec<golem_video::model::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Veo API".to_string(),
     ))
@@ -416,7 +416,7 @@ pub fn extend_video(
     _prompt: Option<String>,
     _negative_prompt: Option<String>,
     _cfg_scale: Option<f32>,
-    _provider_options: Option<Vec<golem_video::exports::golem::video_generation::types::Kv>>,
+    _provider_options: Option<Vec<golem_video::model::types::Kv>>,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video extension is not supported by Veo API".to_string(),
@@ -425,7 +425,7 @@ pub fn extend_video(
 
 pub fn upscale_video(
     _client: &VeoApi,
-    _input: golem_video::exports::golem::video_generation::types::BaseVideo,
+    _input: golem_video::model::types::BaseVideo,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video upscaling is not supported by Veo API".to_string(),
@@ -434,8 +434,8 @@ pub fn upscale_video(
 
 pub fn generate_video_effects(
     _client: &VeoApi,
-    _input: golem_video::exports::golem::video_generation::types::InputImage,
-    _effect: golem_video::exports::golem::video_generation::types::EffectType,
+    _input: golem_video::model::types::InputImage,
+    _effect: golem_video::model::types::EffectType,
     _model: Option<String>,
     _duration: Option<f32>,
     _mode: Option<String>,
@@ -447,7 +447,7 @@ pub fn generate_video_effects(
 
 pub fn multi_image_generation(
     _client: &VeoApi,
-    _input_images: Vec<golem_video::exports::golem::video_generation::types::InputImage>,
+    _input_images: Vec<golem_video::model::types::InputImage>,
     _prompt: Option<String>,
     _config: GenerationConfig,
 ) -> Result<String, VideoError> {

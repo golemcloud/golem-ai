@@ -6,33 +6,29 @@ use crate::conversions::{
     voice_filter_to_language_code,
 };
 use golem_rust::golem_wasm::Pollable;
-use golem_tts::durability::{DurableTts, ExtendedGuest};
-use golem_tts::golem::tts::advanced::{
-    AudioSample, Guest as AdvancedGuest, GuestLongFormOperation, GuestPronunciationLexicon,
-    LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry, PronunciationLexicon,
-    VoiceDesignParams,
+use golem_tts::durability::{DurableTts, ExtendedTtsProvider};
+use golem_tts::model::advanced::{
+    AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
+    PronunciationLexicon, VoiceDesignParams,
 };
-use golem_tts::golem::tts::streaming::{
-    Guest as StreamingGuest, GuestSynthesisStream, GuestVoiceConversionStream, StreamStatus,
-    SynthesisStream, VoiceConversionStream,
-};
-use golem_tts::golem::tts::synthesis::{
-    Guest as SynthesisGuest, SynthesisOptions, ValidationResult,
-};
-use golem_tts::golem::tts::types::{
+use golem_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
+use golem_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_tts::model::types::{
     AudioChunk, AudioFormat, LanguageCode, SynthesisMetadata, SynthesisResult, TextInput,
     TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
-use golem_tts::golem::tts::voices::{
-    Guest as VoicesGuest, GuestVoice, GuestVoiceResults, LanguageInfo, Voice, VoiceFilter,
-    VoiceInfo, VoiceResults,
+use golem_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_tts::{
+    AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
+    StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
+    VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
 };
 use std::cell::{Cell, RefCell};
 
 mod client;
 mod conversions;
 
-struct GoogleVoiceImpl {
+pub struct GoogleVoiceImpl {
     voice_data: GoogleVoice,
     client: GoogleTtsApi,
 }
@@ -43,7 +39,14 @@ impl GoogleVoiceImpl {
     }
 }
 
-impl GuestVoice for GoogleVoiceImpl {
+impl VoiceInterface for GoogleVoiceImpl {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_id(&self) -> String {
         self.voice_data.name.clone()
     }
@@ -131,7 +134,7 @@ impl GuestVoice for GoogleVoiceImpl {
     fn preview(&self, text: String) -> Result<Vec<u8>, TtsError> {
         let input = TextInput {
             content: text,
-            text_type: golem_tts::golem::tts::types::TextType::Plain,
+            text_type: golem_tts::model::types::TextType::Plain,
             language: Some(self.get_language()),
         };
         let voice_name = &self.voice_data.name;
@@ -143,7 +146,7 @@ impl GuestVoice for GoogleVoiceImpl {
     }
 }
 
-struct GoogleVoiceResults {
+pub struct GoogleVoiceResults {
     voices: RefCell<Vec<VoiceInfo>>,
     current_index: Cell<usize>,
     has_more: Cell<bool>,
@@ -162,7 +165,14 @@ impl GoogleVoiceResults {
     }
 }
 
-impl GuestVoiceResults for GoogleVoiceResults {
+impl VoiceResultsInterface for GoogleVoiceResults {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn has_more(&self) -> bool {
         self.has_more.get()
     }
@@ -190,7 +200,7 @@ impl GuestVoiceResults for GoogleVoiceResults {
     }
 }
 
-struct GoogleSynthesisStream {
+pub struct GoogleSynthesisStream {
     client: GoogleTtsApi,
     current_request: RefCell<Option<crate::client::SynthesizeSpeechRequest>>,
     chunk_buffer: RefCell<Vec<u8>>,
@@ -204,7 +214,7 @@ impl GoogleSynthesisStream {
     fn new(client: GoogleTtsApi, options: Option<SynthesisOptions>) -> Self {
         let default_input = TextInput {
             content: "".to_string(),
-            text_type: golem_tts::golem::tts::types::TextType::Plain,
+            text_type: golem_tts::model::types::TextType::Plain,
             language: Some("en-US".to_string()),
         };
         let (request, _) = conversions::synthesis_options_to_tts_request(
@@ -226,7 +236,14 @@ impl GoogleSynthesisStream {
     }
 }
 
-impl GuestSynthesisStream for GoogleSynthesisStream {
+impl SynthesisStreamInterface for GoogleSynthesisStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn send_text(&self, input: TextInput) -> Result<(), TtsError> {
         if self.finished.get() {
             return Err(TtsError::UnsupportedOperation(
@@ -237,11 +254,11 @@ impl GuestSynthesisStream for GoogleSynthesisStream {
         let mut request_opt = self.current_request.borrow_mut();
         if let Some(request) = request_opt.as_mut() {
             match input.text_type {
-                golem_tts::golem::tts::types::TextType::Plain => {
+                golem_tts::model::types::TextType::Plain => {
                     request.input.text = Some(input.content.clone());
                     request.input.ssml = None;
                 }
-                golem_tts::golem::tts::types::TextType::Ssml => {
+                golem_tts::model::types::TextType::Ssml => {
                     request.input.ssml = Some(input.content.clone());
                     request.input.text = None;
                 }
@@ -313,7 +330,7 @@ impl GuestSynthesisStream for GoogleSynthesisStream {
     }
 }
 
-struct GoogleVoiceConversionStream {
+pub struct GoogleVoiceConversionStream {
     finished: Cell<bool>,
 }
 
@@ -325,7 +342,14 @@ impl GoogleVoiceConversionStream {
     }
 }
 
-impl GuestVoiceConversionStream for GoogleVoiceConversionStream {
+impl VoiceConversionStreamInterface for GoogleVoiceConversionStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn send_audio(&self, _audio_data: Vec<u8>) -> Result<(), TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Voice conversion not supported by Google Cloud TTS".to_string(),
@@ -348,7 +372,7 @@ impl GuestVoiceConversionStream for GoogleVoiceConversionStream {
     }
 }
 
-struct GooglePronunciationLexicon {
+pub struct GooglePronunciationLexicon {
     name: String,
     language: LanguageCode,
     entries: RefCell<Vec<PronunciationEntry>>,
@@ -364,7 +388,14 @@ impl GooglePronunciationLexicon {
     }
 }
 
-impl GuestPronunciationLexicon for GooglePronunciationLexicon {
+impl PronunciationLexiconInterface for GooglePronunciationLexicon {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -402,7 +433,7 @@ impl GuestPronunciationLexicon for GooglePronunciationLexicon {
     }
 }
 
-struct GoogleLongFormOperation {
+pub struct GoogleLongFormOperation {
     content: String,
     output_location: String,
     client: GoogleTtsApi,
@@ -421,7 +452,7 @@ impl GoogleLongFormOperation {
     ) -> Self {
         let default_input = TextInput {
             content: content.clone(),
-            text_type: golem_tts::golem::tts::types::TextType::Plain,
+            text_type: golem_tts::model::types::TextType::Plain,
             language: Some("en-US".to_string()),
         };
         let (request, _) = conversions::synthesis_options_to_tts_request(
@@ -535,7 +566,14 @@ impl GoogleLongFormOperation {
     }
 }
 
-impl GuestLongFormOperation for GoogleLongFormOperation {
+impl LongFormOperationInterface for GoogleLongFormOperation {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_status(&self) -> OperationStatus {
         self.status.get()
     }
@@ -588,7 +626,7 @@ impl GuestLongFormOperation for GoogleLongFormOperation {
     }
 }
 
-struct GoogleComponent;
+pub struct GoogleComponent;
 
 impl GoogleComponent {
     const CREDENTIALS_ENV_VAR: &'static str = "GOOGLE_APPLICATION_CREDENTIALS";
@@ -602,7 +640,7 @@ impl GoogleComponent {
     }
 }
 
-impl VoicesGuest for GoogleComponent {
+impl VoiceProvider for GoogleComponent {
     type Voice = GoogleVoiceImpl;
     type VoiceResults = GoogleVoiceResults;
 
@@ -677,10 +715,10 @@ impl VoicesGuest for GoogleComponent {
     }
 }
 
-impl SynthesisGuest for GoogleComponent {
+impl SynthesizeProvider for GoogleComponent {
     fn synthesize(
         input: TextInput,
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisResult, TtsError> {
         validate_synthesis_input(&input, options.as_ref())?;
@@ -756,7 +794,7 @@ impl SynthesisGuest for GoogleComponent {
 
     fn synthesize_batch(
         inputs: Vec<TextInput>,
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, TtsError> {
         for input in &inputs {
@@ -843,7 +881,7 @@ impl SynthesisGuest for GoogleComponent {
 
     fn get_timing_marks(
         _input: TextInput,
-        _voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Timing marks not supported by Google Cloud TTS".to_string(),
@@ -852,7 +890,7 @@ impl SynthesisGuest for GoogleComponent {
 
     fn validate_input(
         input: TextInput,
-        _voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, TtsError> {
         match validate_synthesis_input(&input, None) {
             Ok(_) => Ok(create_validation_result(true, None)),
@@ -870,12 +908,12 @@ impl SynthesisGuest for GoogleComponent {
     }
 }
 
-impl StreamingGuest for GoogleComponent {
+impl StreamingVoiceProvider for GoogleComponent {
     type SynthesisStream = GoogleSynthesisStream;
     type VoiceConversionStream = GoogleVoiceConversionStream;
 
     fn create_stream(
-        _voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
         let client = Self::create_client()?;
@@ -884,7 +922,7 @@ impl StreamingGuest for GoogleComponent {
     }
 
     fn create_voice_conversion_stream(
-        _target_voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
         let stream = GoogleVoiceConversionStream::new();
@@ -892,7 +930,7 @@ impl StreamingGuest for GoogleComponent {
     }
 }
 
-impl AdvancedGuest for GoogleComponent {
+impl AdvancedTtsProvider for GoogleComponent {
     type PronunciationLexicon = GooglePronunciationLexicon;
     type LongFormOperation = GoogleLongFormOperation;
 
@@ -914,7 +952,7 @@ impl AdvancedGuest for GoogleComponent {
 
     fn convert_voice(
         _input_audio: Vec<u8>,
-        _target_voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
         _preserve_timing: Option<bool>,
     ) -> Result<Vec<u8>, TtsError> {
         Err(TtsError::UnsupportedOperation(
@@ -943,7 +981,7 @@ impl AdvancedGuest for GoogleComponent {
 
     fn synthesize_long_form(
         content: String,
-        _voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         _chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
@@ -956,9 +994,9 @@ impl AdvancedGuest for GoogleComponent {
     }
 }
 
-impl ExtendedGuest for GoogleComponent {
+impl ExtendedTtsProvider for GoogleComponent {
     fn unwrapped_synthesis_stream(
-        _voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream {
         let client = Self::create_client().expect("Failed to create Google client");
@@ -966,7 +1004,7 @@ impl ExtendedGuest for GoogleComponent {
     }
 
     fn unwrapped_voice_conversion_stream(
-        _target_voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream {
         GoogleVoiceConversionStream::new()
@@ -981,6 +1019,4 @@ impl ExtendedGuest for GoogleComponent {
     }
 }
 
-type DurableGoogleComponent = DurableTts<GoogleComponent>;
-
-golem_tts::export_tts!(DurableGoogleComponent with_types_in golem_tts);
+pub type DurableGoogleComponent = DurableTts<GoogleComponent>;

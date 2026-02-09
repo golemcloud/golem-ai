@@ -1,6 +1,6 @@
 use crate::client::{GraphData, Neo4jNode, Neo4jResponse};
 use crate::conversions::from_cypher_element_id;
-use golem_graph::golem::graph::{
+use golem_graph::model::{
     connection::ConnectionConfig,
     errors::GraphError,
     schema::PropertyType,
@@ -314,7 +314,7 @@ pub(crate) fn element_id_to_key(id: &ElementId) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_graph::golem::graph::types::PropertyValue;
+    use golem_graph::model::types::PropertyValue;
     use serde_json::json;
 
     #[test]

@@ -7,20 +7,25 @@ mod retry;
 pub mod runtime;
 pub mod transcription;
 
-wit_bindgen::generate!({
-    path: "../wit",
-    world: "stt-library",
-    generate_all,
-    generate_unused_types: true,
-    additional_derives: [PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue],
-    pub_export_macro: true,
-});
+pub mod model;
 
+use crate::model::languages::LanguageInfo;
+use crate::model::transcription::{
+    MultiTranscriptionResult, SttError, TranscriptionRequest, TranscriptionResult,
+};
 use std::{cell::RefCell, str::FromStr};
 
-// re-export generated exports
-pub use crate::exports::golem;
-pub use __export_stt_library_impl as export_stt;
+pub trait LanguageProvider {
+    fn list_languages() -> Result<Vec<LanguageInfo>, model::languages::SttError>;
+}
+
+pub trait TranscriptionProvider {
+    fn transcribe(request: TranscriptionRequest) -> Result<TranscriptionResult, SttError>;
+
+    fn transcribe_many(
+        requests: Vec<TranscriptionRequest>,
+    ) -> Result<MultiTranscriptionResult, SttError>;
+}
 
 pub struct LoggingState {
     logging_initialized: bool,

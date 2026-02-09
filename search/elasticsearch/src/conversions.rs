@@ -2,7 +2,7 @@ use crate::client::{
     ElasticsearchHit, ElasticsearchMappings, ElasticsearchQuery, ElasticsearchSearchResponse,
     ElasticsearchSettings,
 };
-use golem_search::golem::search::types::{
+use golem_search::model::{
     Doc, FieldType, Schema, SchemaField, SearchHit, SearchQuery, SearchResults,
 };
 use serde_json::{json, Map, Value};
@@ -446,7 +446,7 @@ mod tests {
     use crate::client::{
         ElasticsearchHit, ElasticsearchHits, ElasticsearchSearchResponse, ElasticsearchTotal,
     };
-    use golem_search::golem::search::types::{HighlightConfig, SearchConfig};
+    use golem_search::model::{HighlightConfig, SearchConfig};
 
     #[test]
     fn test_doc_to_elasticsearch_document() {

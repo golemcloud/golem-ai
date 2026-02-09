@@ -1,15 +1,15 @@
-use crate::exports::golem::web_search::web_search::Guest;
-use crate::exports::golem::web_search::web_search::{SearchError, SearchParams};
+use crate::model::web_search::{SearchError, SearchParams};
+use crate::WebSearchProvider;
 use golem_rust::value_and_type::{FromValueAndType, IntoValue as IntoValueTrait};
 use std::marker::PhantomData;
 
 /// Wraps a websearch implementation with custom durability
-pub struct Durablewebsearch<Impl> {
+pub struct DurableWebSearch<Impl> {
     phantom: PhantomData<Impl>,
 }
 
 /// Trait to be implemented in addition to the websearch `Guest` trait when wrapping it with `Durablewebsearch`.
-pub trait ExtendedwebsearchGuest: Guest + 'static {
+pub trait ExtendedWebSearchProvider: WebSearchProvider + 'static {
     type ReplayState: std::fmt::Debug + Clone + IntoValueTrait + FromValueAndType;
 
     /// Creates an instance of the websearch specific `SearchSession` without wrapping it in a `Resource`
@@ -26,14 +26,12 @@ pub trait ExtendedwebsearchGuest: Guest + 'static {
 /// When the durability feature flag is off, wrapping with `Durablewebsearch` is just a passthrough
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
-    use crate::durability::{Durablewebsearch, ExtendedwebsearchGuest};
-    use crate::golem::web_search::web_search::{Guest, SearchSession};
-    use crate::golem::web_search::web_search::{
-        SearchError, SearchMetadata, SearchParams, SearchResult,
-    };
+    use crate::durability::{DurableWebSearch, ExtendedWebSearchProvider};
     use crate::init_logging;
+    use crate::model::web_search::{Guest, SearchSession};
+    use crate::model::web_search::{SearchError, SearchMetadata, SearchParams, SearchResult};
 
-    impl<Impl: ExtendedwebsearchGuest> Guest for Durablewebsearch<Impl> {
+    impl<Impl: ExtendedWebSearchProvider> Guest for DurableWebSearch<Impl> {
         type SearchSession = Impl::SearchSession;
 
         fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
@@ -60,12 +58,10 @@ mod passthrough_impl {
 /// which is implemented using the type classes and builder in the `golem-rust` library.
 #[cfg(feature = "durability")]
 mod durable_impl {
-    use crate::durability::{Durablewebsearch, ExtendedwebsearchGuest};
-    use crate::exports::golem::web_search::web_search::{Guest, GuestSearchSession, SearchSession};
-    use crate::exports::golem::web_search::web_search::{
-        SearchError, SearchMetadata, SearchParams, SearchResult,
-    };
-    use crate::init_logging;
+    use crate::durability::{DurableWebSearch, ExtendedWebSearchProvider};
+    use crate::model::web_search::SearchSession;
+    use crate::model::web_search::{SearchError, SearchMetadata, SearchParams, SearchResult};
+    use crate::{init_logging, SearchSessionInterface, WebSearchProvider};
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
     use golem_rust::{with_persistence_level, PersistenceLevel};
@@ -81,7 +77,7 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedwebsearchGuest> Guest for Durablewebsearch<Impl> {
+    impl<Impl: ExtendedWebSearchProvider> WebSearchProvider for DurableWebSearch<Impl> {
         type SearchSession = DurableSearchSession<Impl>;
 
         fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
@@ -152,17 +148,17 @@ mod durable_impl {
     /// When reaching the end of the replay mode, if the replayed session was not finished yet,
     /// the retry parameters implemented in `ExtendedwebsearchGuest` is used to create a new websearch session
     /// and continue the search seamlessly.
-    enum DurableSearchSessionState<Impl: ExtendedwebsearchGuest> {
+    enum DurableSearchSessionState<Impl: ExtendedWebSearchProvider> {
         Live { session: Impl::SearchSession },
         Replay { replay_state: Impl::ReplayState },
     }
 
-    pub struct DurableSearchSession<Impl: ExtendedwebsearchGuest> {
+    pub struct DurableSearchSession<Impl: ExtendedWebSearchProvider> {
         state: RefCell<Option<DurableSearchSessionState<Impl>>>,
         params: SearchParams,
     }
 
-    impl<Impl: ExtendedwebsearchGuest> DurableSearchSession<Impl> {
+    impl<Impl: ExtendedWebSearchProvider> DurableSearchSession<Impl> {
         fn live(session: Impl::SearchSession, params: SearchParams) -> Self {
             Self {
                 state: RefCell::new(Some(DurableSearchSessionState::Live { session })),
@@ -181,7 +177,7 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedwebsearchGuest> Drop for DurableSearchSession<Impl> {
+    impl<Impl: ExtendedWebSearchProvider> Drop for DurableSearchSession<Impl> {
         fn drop(&mut self) {
             match self.state.take() {
                 Some(DurableSearchSessionState::Live { session }) => {
@@ -197,7 +193,15 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedwebsearchGuest> GuestSearchSession for DurableSearchSession<Impl> {
+    impl<Impl: ExtendedWebSearchProvider> SearchSessionInterface for DurableSearchSession<Impl> {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
         fn next_page(&self) -> Result<Vec<SearchResult>, SearchError> {
             let durability = Durability::<(Vec<SearchResult>, Impl::ReplayState), SearchError>::new(
                 "golem_websearch",

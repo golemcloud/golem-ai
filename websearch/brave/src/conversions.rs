@@ -1,5 +1,5 @@
 use crate::client::{SearchRequest, SearchResponse, WebResult};
-use golem_web_search::golem::web_search::web_search::{
+use golem_web_search::model::web_search::{
     SearchError, SearchMetadata, SearchParams, SearchResult,
 };
 

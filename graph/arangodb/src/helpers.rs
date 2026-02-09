@@ -1,4 +1,4 @@
-use golem_graph::golem::graph::{
+use golem_graph::model::{
     connection::ConnectionConfig,
     errors::GraphError,
     types::{Edge, ElementId, Path, Vertex},
@@ -7,7 +7,6 @@ use serde_json::{Map, Value};
 use std::env;
 
 use crate::conversions;
-use crate::helpers;
 
 pub(crate) fn parse_vertex_from_document(
     doc: &Map<String, Value>,
@@ -93,7 +92,7 @@ pub(crate) fn parse_path_from_document(doc: &Map<String, Value>) -> Result<Path,
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.split('/').next())
                 .unwrap_or_default();
-            vertices.push(helpers::parse_vertex_from_document(v_doc, collection)?);
+            vertices.push(parse_vertex_from_document(v_doc, collection)?);
         }
     }
 
@@ -105,7 +104,7 @@ pub(crate) fn parse_path_from_document(doc: &Map<String, Value>) -> Result<Path,
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.split('/').next())
                 .unwrap_or_default();
-            edges.push(helpers::parse_edge_from_document(e_doc, collection)?);
+            edges.push(parse_edge_from_document(e_doc, collection)?);
         }
     }
 
@@ -196,8 +195,8 @@ pub(crate) fn config_from_env() -> Result<ConnectionConfig, GraphError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_graph::golem::graph::errors::GraphError;
-    use golem_graph::golem::graph::types::ElementId;
+    use golem_graph::model::errors::GraphError;
+    use golem_graph::model::types::ElementId;
     use serde_json::{json, Map, Value};
     use std::env;
 

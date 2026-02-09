@@ -8,12 +8,13 @@ use crate::conversions::{
 };
 use golem_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
 use golem_llm::config::{get_config_key, with_config_key};
-use golem_llm::durability::{DurableLLM, ExtendedGuest};
+use golem_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_llm::event_source::EventSource;
-use golem_llm::golem::llm::llm::{
-    ChatStream, Config, ContentPart, Error, ErrorCode, Event, Guest, Response, StreamDelta,
-    StreamEvent, ToolCall,
+use golem_llm::model::{
+    ChatStream, Config, ContentPart, Error, ErrorCode, Event, Response, StreamDelta, StreamEvent,
+    ToolCall,
 };
+use golem_llm::LlmProvider;
 use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
@@ -21,7 +22,7 @@ use std::cell::{Ref, RefCell, RefMut};
 mod client;
 mod conversions;
 
-struct OpenAIChatStream {
+pub struct OpenAIChatStream {
     stream: RefCell<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
@@ -178,7 +179,7 @@ impl LlmChatStreamState for OpenAIChatStream {
     }
 }
 
-struct OpenAIComponent;
+pub struct OpenAIComponent;
 
 impl OpenAIComponent {
     const ENV_VAR_NAME: &'static str = "OPENAI_API_KEY";
@@ -213,7 +214,7 @@ impl OpenAIComponent {
     }
 }
 
-impl Guest for OpenAIComponent {
+impl LlmProvider for OpenAIComponent {
     type ChatStream = LlmChatStream<OpenAIChatStream>;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -228,7 +229,7 @@ impl Guest for OpenAIComponent {
     }
 }
 
-impl ExtendedGuest for OpenAIComponent {
+impl ExtendedLlmProvider for OpenAIComponent {
     fn unwrapped_stream(events: Vec<Event>, config: Config) -> Self::ChatStream {
         with_config_key(
             Self::ENV_VAR_NAME,
@@ -246,6 +247,4 @@ impl ExtendedGuest for OpenAIComponent {
     }
 }
 
-type DurableOpenAIComponent = DurableLLM<OpenAIComponent>;
-
-golem_llm::export_llm!(DurableOpenAIComponent with_types_in golem_llm);
+pub type DurableOpenAIComponent = DurableLLM<OpenAIComponent>;

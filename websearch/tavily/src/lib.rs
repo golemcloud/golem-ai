@@ -3,12 +3,12 @@ mod conversions;
 
 use crate::client::TavilySearchApi;
 use crate::conversions::{params_to_request, response_to_results, validate_search_params};
-use golem_web_search::durability::Durablewebsearch;
-use golem_web_search::durability::ExtendedwebsearchGuest;
-use golem_web_search::golem::web_search::web_search::{
-    Guest, GuestSearchSession, SearchError, SearchMetadata, SearchParams, SearchResult,
-    SearchSession,
+use golem_web_search::durability::DurableWebSearch;
+use golem_web_search::durability::ExtendedWebSearchProvider;
+use golem_web_search::model::web_search::{
+    SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
+use golem_web_search::{SearchSessionInterface, WebSearchProvider};
 use std::cell::RefCell;
 
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
@@ -40,7 +40,7 @@ impl TavilySearch {
             return Ok(Vec::new());
         }
 
-        let request = crate::conversions::params_to_request(&self.params)?;
+        let request = params_to_request(&self.params)?;
         let response = self.client.search(request)?;
         let (results, metadata) = response_to_results(response, &self.params);
 
@@ -55,7 +55,7 @@ impl TavilySearch {
 }
 
 // Create a wrapper that implements GuestSearchSession properly
-struct TavilySearchSession(RefCell<TavilySearch>);
+pub struct TavilySearchSession(RefCell<TavilySearch>);
 
 impl TavilySearchSession {
     fn new(search: TavilySearch) -> Self {
@@ -63,7 +63,15 @@ impl TavilySearchSession {
     }
 }
 
-impl GuestSearchSession for TavilySearchSession {
+impl SearchSessionInterface for TavilySearchSession {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn next_page(&self) -> Result<Vec<SearchResult>, SearchError> {
         let mut search = self.0.borrow_mut();
         search.next_page()
@@ -74,7 +82,7 @@ impl GuestSearchSession for TavilySearchSession {
     }
 }
 
-struct TavilySearchComponent;
+pub struct TavilySearchComponent;
 
 impl TavilySearchComponent {
     const API_KEY_VAR: &'static str = "TAVILY_API_KEY";
@@ -114,7 +122,7 @@ impl TavilySearchComponent {
     }
 }
 
-impl Guest for TavilySearchComponent {
+impl WebSearchProvider for TavilySearchComponent {
     type SearchSession = TavilySearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
@@ -132,7 +140,7 @@ impl Guest for TavilySearchComponent {
     }
 }
 
-impl ExtendedwebsearchGuest for TavilySearchComponent {
+impl ExtendedWebSearchProvider for TavilySearchComponent {
     type ReplayState = TavilyReplayState;
 
     fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
@@ -161,5 +169,4 @@ impl ExtendedwebsearchGuest for TavilySearchComponent {
     }
 }
 
-type DurableTavilyComponent = Durablewebsearch<TavilySearchComponent>;
-golem_web_search::export_websearch!(DurableTavilyComponent with_types_in golem_web_search);
+pub type DurableTavilyComponent = DurableWebSearch<TavilySearchComponent>;

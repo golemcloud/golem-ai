@@ -6,26 +6,22 @@ use crate::conversions::{
 };
 use golem_rust::golem_wasm::Pollable;
 use golem_tts::config::with_config_key;
-use golem_tts::durability::{DurableTts, ExtendedGuest};
-use golem_tts::golem::tts::advanced::{
-    AudioSample, Guest as AdvancedGuest, GuestLongFormOperation, GuestPronunciationLexicon,
-    LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry, PronunciationLexicon,
-    VoiceDesignParams,
+use golem_tts::durability::{DurableTts, ExtendedTtsProvider};
+use golem_tts::model::advanced::{
+    AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
+    PronunciationLexicon, VoiceDesignParams,
 };
-use golem_tts::golem::tts::streaming::{
-    Guest as StreamingGuest, GuestSynthesisStream, GuestVoiceConversionStream, StreamStatus,
-    SynthesisStream, VoiceConversionStream,
-};
-use golem_tts::golem::tts::synthesis::{
-    Guest as SynthesisGuest, SynthesisOptions, ValidationResult,
-};
-use golem_tts::golem::tts::types::{
+use golem_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
+use golem_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_tts::model::types::{
     AudioChunk, AudioFormat, LanguageCode, SynthesisMetadata, SynthesisResult, TextInput,
     TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
-use golem_tts::golem::tts::voices::{
-    Guest as VoicesGuest, GuestVoice, GuestVoiceResults, LanguageInfo, Voice, VoiceFilter,
-    VoiceInfo, VoiceResults,
+use golem_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_tts::{
+    AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
+    StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
+    VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
 };
 use log::{info, warn};
 use std::cell::{Cell, RefCell};
@@ -33,7 +29,7 @@ use std::cell::{Cell, RefCell};
 mod client;
 mod conversions;
 
-struct DeepgramVoiceImpl {
+pub struct DeepgramVoiceImpl {
     model_data: Model,
     client: DeepgramTtsApi,
 }
@@ -44,7 +40,14 @@ impl DeepgramVoiceImpl {
     }
 }
 
-impl GuestVoice for DeepgramVoiceImpl {
+impl VoiceInterface for DeepgramVoiceImpl {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_id(&self) -> String {
         self.model_data.voice_id.clone()
     }
@@ -132,7 +135,7 @@ impl GuestVoice for DeepgramVoiceImpl {
     }
 }
 
-struct DeepgramVoiceResults {
+pub struct DeepgramVoiceResults {
     voices: RefCell<Vec<VoiceInfo>>,
     current_index: Cell<usize>,
 }
@@ -146,7 +149,14 @@ impl DeepgramVoiceResults {
     }
 }
 
-impl GuestVoiceResults for DeepgramVoiceResults {
+impl VoiceResultsInterface for DeepgramVoiceResults {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn has_more(&self) -> bool {
         self.current_index.get() < self.voices.borrow().len()
     }
@@ -171,10 +181,10 @@ impl GuestVoiceResults for DeepgramVoiceResults {
 }
 
 #[warn(dead_code)]
-struct DeepgramSynthesisStream {
+pub struct DeepgramSynthesisStream {
     client: DeepgramTtsApi,
-    current_request: RefCell<Option<crate::client::TextToSpeechRequest>>,
-    params: RefCell<Option<crate::client::TextToSpeechParams>>,
+    current_request: RefCell<Option<client::TextToSpeechRequest>>,
+    params: RefCell<Option<client::TextToSpeechParams>>,
     response_stream: RefCell<Option<golem_wasi_http::Response>>,
     chunk_buffer: RefCell<Vec<u8>>,
     bytes_streamed: Cell<usize>,
@@ -188,10 +198,10 @@ impl DeepgramSynthesisStream {
     fn new(voice_id: String, client: DeepgramTtsApi, options: Option<SynthesisOptions>) -> Self {
         let (request, params) = synthesis_options_to_tts_request(String::new(), options)
             .unwrap_or_else(|_| {
-                let request = crate::client::TextToSpeechRequest {
+                let request = client::TextToSpeechRequest {
                     text: String::new(),
                 };
-                let params = Some(crate::client::TextToSpeechParams {
+                let params = Some(client::TextToSpeechParams {
                     model: Some(voice_id.clone()),
                     encoding: Some("linear16".to_string()),
                     container: Some("wav".to_string()),
@@ -223,7 +233,14 @@ impl DeepgramSynthesisStream {
     }
 }
 
-impl GuestSynthesisStream for DeepgramSynthesisStream {
+impl SynthesisStreamInterface for DeepgramSynthesisStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn send_text(&self, input: TextInput) -> Result<(), TtsError> {
         info!("[DEEPGRAM] send_text called with: '{}'", input.content);
 
@@ -414,7 +431,7 @@ impl GuestSynthesisStream for DeepgramSynthesisStream {
     }
 }
 
-struct DeepgramVoiceConversionStream {
+pub struct DeepgramVoiceConversionStream {
     _voice_id: String,
 }
 
@@ -426,7 +443,14 @@ impl DeepgramVoiceConversionStream {
     }
 }
 
-impl GuestVoiceConversionStream for DeepgramVoiceConversionStream {
+impl VoiceConversionStreamInterface for DeepgramVoiceConversionStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn send_audio(&self, _audio_data: Vec<u8>) -> Result<(), TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Deepgram does not support voice conversion".to_string(),
@@ -448,7 +472,7 @@ impl GuestVoiceConversionStream for DeepgramVoiceConversionStream {
     fn close(&self) {}
 }
 
-struct DeepgramPronunciationLexicon {
+pub struct DeepgramPronunciationLexicon {
     _name: String,
 }
 
@@ -462,7 +486,14 @@ impl DeepgramPronunciationLexicon {
     }
 }
 
-impl GuestPronunciationLexicon for DeepgramPronunciationLexicon {
+impl PronunciationLexiconInterface for DeepgramPronunciationLexicon {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_name(&self) -> String {
         self._name.clone()
     }
@@ -494,7 +525,7 @@ impl GuestPronunciationLexicon for DeepgramPronunciationLexicon {
     }
 }
 
-struct DeepgramLongFormOperation {
+pub struct DeepgramLongFormOperation {
     content: String,
     voice_id: String,
     client: DeepgramTtsApi,
@@ -556,7 +587,14 @@ impl DeepgramLongFormOperation {
     }
 }
 
-impl GuestLongFormOperation for DeepgramLongFormOperation {
+impl LongFormOperationInterface for DeepgramLongFormOperation {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_status(&self) -> OperationStatus {
         self.status.get()
     }
@@ -605,7 +643,7 @@ impl GuestLongFormOperation for DeepgramLongFormOperation {
     }
 }
 
-struct DeepgramComponent;
+pub struct DeepgramComponent;
 
 impl DeepgramComponent {
     const ENV_VAR_NAME: &'static str = "DEEPGRAM_API_KEY";
@@ -651,7 +689,7 @@ impl DeepgramComponent {
     }
 }
 
-impl VoicesGuest for DeepgramComponent {
+impl VoiceProvider for DeepgramComponent {
     type Voice = DeepgramVoiceImpl;
     type VoiceResults = DeepgramVoiceResults;
 
@@ -817,10 +855,10 @@ impl VoicesGuest for DeepgramComponent {
     }
 }
 
-impl SynthesisGuest for DeepgramComponent {
+impl SynthesizeProvider for DeepgramComponent {
     fn synthesize(
         input: TextInput,
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisResult, TtsError> {
         validate_synthesis_request(
@@ -929,7 +967,7 @@ impl SynthesisGuest for DeepgramComponent {
 
     fn synthesize_batch(
         inputs: Vec<TextInput>,
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, TtsError> {
         let mut results = Vec::new();
@@ -984,7 +1022,7 @@ impl SynthesisGuest for DeepgramComponent {
 
     fn get_timing_marks(
         _input: TextInput,
-        _voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _voice: golem_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Timing marks not supported by Deepgram".to_string(),
@@ -993,7 +1031,7 @@ impl SynthesisGuest for DeepgramComponent {
 
     fn validate_input(
         input: TextInput,
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, TtsError> {
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
@@ -1039,12 +1077,12 @@ impl SynthesisGuest for DeepgramComponent {
     }
 }
 
-impl StreamingGuest for DeepgramComponent {
+impl StreamingVoiceProvider for DeepgramComponent {
     type SynthesisStream = DeepgramSynthesisStream;
     type VoiceConversionStream = DeepgramVoiceConversionStream;
 
     fn create_stream(
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
         let client = Self::create_streaming_client()?;
@@ -1055,7 +1093,7 @@ impl StreamingGuest for DeepgramComponent {
     }
 
     fn create_voice_conversion_stream(
-        target_voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
         let client = Self::create_client()?;
@@ -1066,7 +1104,7 @@ impl StreamingGuest for DeepgramComponent {
     }
 }
 
-impl AdvancedGuest for DeepgramComponent {
+impl AdvancedTtsProvider for DeepgramComponent {
     type PronunciationLexicon = DeepgramPronunciationLexicon;
     type LongFormOperation = DeepgramLongFormOperation;
 
@@ -1088,7 +1126,7 @@ impl AdvancedGuest for DeepgramComponent {
 
     fn convert_voice(
         _input_audio: Vec<u8>,
-        _target_voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
         _preserve_timing: Option<bool>,
     ) -> Result<Vec<u8>, TtsError> {
         Err(TtsError::UnsupportedOperation(
@@ -1117,7 +1155,7 @@ impl AdvancedGuest for DeepgramComponent {
 
     fn synthesize_long_form(
         content: String,
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
@@ -1138,9 +1176,9 @@ impl AdvancedGuest for DeepgramComponent {
     }
 }
 
-impl ExtendedGuest for DeepgramComponent {
+impl ExtendedTtsProvider for DeepgramComponent {
     fn unwrapped_synthesis_stream(
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream {
         let client = Self::create_streaming_client()
@@ -1151,7 +1189,7 @@ impl ExtendedGuest for DeepgramComponent {
     }
 
     fn unwrapped_voice_conversion_stream(
-        target_voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        target_voice: golem_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream {
         let client = Self::create_client()
@@ -1170,6 +1208,4 @@ impl ExtendedGuest for DeepgramComponent {
     }
 }
 
-type DurableDeepgramComponent = DurableTts<DeepgramComponent>;
-
-golem_tts::export_tts!(DurableDeepgramComponent with_types_in golem_tts);
+pub type DurableDeepgramComponent = DurableTts<DeepgramComponent>;

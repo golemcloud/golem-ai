@@ -8,9 +8,8 @@ mod transaction;
 use client::ArangoDbApi;
 use golem_graph::config::with_config_key;
 use golem_graph::durability::{DurableGraph, ExtendedGuest};
-use golem_graph::golem::graph::{
-    connection::ConnectionConfig, errors::GraphError, transactions::Guest as TransactionGuest,
-};
+use golem_graph::model::{connection::ConnectionConfig, errors::GraphError};
+use golem_graph::TransactionProvider;
 use std::sync::Arc;
 
 pub struct GraphArangoDbComponent;
@@ -68,7 +67,7 @@ impl ExtendedGuest for GraphArangoDbComponent {
     }
 }
 
-impl TransactionGuest for GraphArangoDbComponent {
+impl TransactionProvider for GraphArangoDbComponent {
     type Transaction = Transaction;
 }
 
@@ -87,6 +86,4 @@ impl Transaction {
     }
 }
 
-type DurableGraphArangoDbComponent = DurableGraph<GraphArangoDbComponent>;
-
-golem_graph::export_graph!(DurableGraphArangoDbComponent with_types_in golem_graph);
+pub type DurableGraphArangoDbComponent = DurableGraph<GraphArangoDbComponent>;

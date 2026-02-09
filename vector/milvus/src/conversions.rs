@@ -2,13 +2,13 @@ use crate::client::{
     CollectionInfo, CollectionStats, DeleteRequest, GetRequest, InsertRequest, QueryRequest,
     SearchRequest, SearchResult as MilvusSearchResult, SparseFloatVector, UpsertRequest,
 };
-use golem_vector::golem::vector::search::SearchQuery;
-use golem_vector::golem::vector::types::{
+use golem_vector::model::search::SearchQuery;
+use golem_vector::model::types::{
     BinaryVector, DistanceMetric, FilterCondition, FilterExpression, FilterOperator,
     GeoCoordinates, MetadataFunc, MetadataValue, SearchResult, SparseVector, VectorData,
     VectorError, VectorRecord,
 };
-use golem_vector::golem::vector::{
+use golem_vector::model::{
     analytics::CollectionStats as ExportCollectionStats,
     collections::CollectionInfo as ExportCollectionInfo,
 };

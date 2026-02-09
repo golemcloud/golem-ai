@@ -1,4 +1,4 @@
-use golem_graph::golem::graph::{
+use golem_graph::model::{
     errors::GraphError,
     types::{ComparisonOperator, FilterCondition, SortSpec},
 };

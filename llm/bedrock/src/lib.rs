@@ -1,9 +1,10 @@
 use async_utils::get_async_runtime;
 use client::Bedrock;
-use golem_llm::durability::{DurableLLM, ExtendedGuest};
-use golem_llm::golem::llm::llm::{
-    self, ChatStream, Config, Error, Event, Guest, Message, Response,
+use golem_llm::durability::{DurableLLM, ExtendedLlmProvider};
+use golem_llm::model::{
+    ChatStream, Config, ContentPart, Error, Event, Message, Response, Role, StreamDelta,
 };
+use golem_llm::LlmProvider;
 use golem_rust::bindings::wasi::clocks::monotonic_clock;
 use indoc::indoc;
 use stream::BedrockChatStream;
@@ -14,9 +15,9 @@ mod conversions;
 mod stream;
 mod wasi_client;
 
-struct BedrockComponent;
+pub struct BedrockComponent;
 
-impl Guest for BedrockComponent {
+impl LlmProvider for BedrockComponent {
     type ChatStream = BedrockChatStream;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -33,7 +34,7 @@ impl Guest for BedrockComponent {
     }
 }
 
-impl ExtendedGuest for BedrockComponent {
+impl ExtendedLlmProvider for BedrockComponent {
     fn unwrapped_stream(messages: Vec<Event>, config: Config) -> Self::ChatStream {
         let runtime = get_async_runtime();
 
@@ -49,13 +50,13 @@ impl ExtendedGuest for BedrockComponent {
 
     fn retry_prompt(
         original_events: &[Result<Event, Error>],
-        partial_result: &[llm::StreamDelta],
+        partial_result: &[StreamDelta],
     ) -> Vec<Event> {
         let mut extended_events = Vec::new();
         extended_events.push(Event::Message(Message {
-            role: llm::Role::System,
+            role: Role::System,
             name: None,
-            content: vec![llm::ContentPart::Text(indoc! {"
+            content: vec![ContentPart::Text(indoc! {"
                 You were asked the same question previously, but the response was interrupted before completion.
                 Please continue your response from where you left off.
                 Do not include the part of the response that was already seen.
@@ -63,9 +64,9 @@ impl ExtendedGuest for BedrockComponent {
             }.to_string())],
         }));
         extended_events.push(Event::Message(Message {
-            role: llm::Role::User,
+            role: Role::User,
             name: None,
-            content: vec![llm::ContentPart::Text(
+            content: vec![ContentPart::Text(
                 "Here is the original question:".to_string(),
             )],
         }));
@@ -82,7 +83,7 @@ impl ExtendedGuest for BedrockComponent {
             }
             if let Some(tool_calls) = &delta.tool_calls {
                 for tool_call in tool_calls {
-                    partial_result_as_content.push(llm::ContentPart::Text(format!(
+                    partial_result_as_content.push(ContentPart::Text(format!(
                         "<tool-call id=\"{}\" name=\"{}\" arguments=\"{}\"/>",
                         tool_call.id, tool_call.name, tool_call.arguments_json,
                     )));
@@ -91,9 +92,9 @@ impl ExtendedGuest for BedrockComponent {
         }
 
         extended_events.push(Event::Message(Message {
-            role: llm::Role::User,
+            role: Role::User,
             name: None,
-            content: vec![llm::ContentPart::Text(
+            content: vec![ContentPart::Text(
                 "Here is the partial response that was successfully received:".to_string(),
             )]
             .into_iter()
@@ -109,10 +110,8 @@ impl ExtendedGuest for BedrockComponent {
     }
 }
 
-async fn get_bedrock_client() -> Result<Bedrock, llm::Error> {
+async fn get_bedrock_client() -> Result<Bedrock, Error> {
     Bedrock::new().await
 }
 
-type DurableBedrockComponent = DurableLLM<BedrockComponent>;
-
-golem_llm::export_llm!(DurableBedrockComponent with_types_in golem_llm);
+pub type DurableBedrockComponent = DurableLLM<BedrockComponent>;

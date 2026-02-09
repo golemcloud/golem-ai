@@ -7,13 +7,12 @@ use crate::conversions::{
 };
 use golem_rust::golem_wasm::Pollable;
 use golem_search::config::with_config_keys;
-use golem_search::durability::{DurableSearch, ExtendedGuest};
-use golem_search::golem::search::core::{
-    CreateIndexOptions, Guest, GuestSearchStream, SearchStream,
-};
-use golem_search::golem::search::types::{
+use golem_search::durability::{DurableSearch, ExtendedSearchProvider};
+use golem_search::model::{CreateIndexOptions, SearchStream};
+use golem_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
+use golem_search::{SearchProvider, SearchStreamInterface};
 use log::trace;
 use std::cell::{Cell, RefCell};
 
@@ -21,7 +20,7 @@ mod client;
 mod conversions;
 
 /// Uses scroll API for streaming large result sets
-struct ElasticsearchSearchStream {
+pub struct ElasticsearchSearchStream {
     client: ElasticsearchApi,
     index_name: String,
     query: SearchQuery,
@@ -51,7 +50,15 @@ impl ElasticsearchSearchStream {
     }
 }
 
-impl GuestSearchStream for ElasticsearchSearchStream {
+impl SearchStreamInterface for ElasticsearchSearchStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_next(&self) -> Option<Vec<SearchHit>> {
         if self.finished.get() {
             return Some(vec![]);
@@ -182,7 +189,7 @@ impl ElasticsearchSearchStream {
     }
 }
 
-struct ElasticsearchComponent;
+pub struct ElasticsearchComponent;
 
 impl ElasticsearchComponent {
     const URL_ENV_VAR: &'static str = "ELASTICSEARCH_URL";
@@ -228,7 +235,7 @@ impl ElasticsearchComponent {
     }
 }
 
-impl Guest for ElasticsearchComponent {
+impl SearchProvider for ElasticsearchComponent {
     type SearchStream = ElasticsearchSearchStream;
 
     fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -350,7 +357,7 @@ impl Guest for ElasticsearchComponent {
     }
 }
 
-impl ExtendedGuest for ElasticsearchComponent {
+impl ExtendedSearchProvider for ElasticsearchComponent {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
         let client = Self::create_client().unwrap_or_else(|_| {
             ElasticsearchApi::new("http://localhost:9200".to_string(), None, None, None)
@@ -377,6 +384,4 @@ impl Drop for ElasticsearchSearchStream {
     }
 }
 
-type DurableElasticsearchComponent = DurableSearch<ElasticsearchComponent>;
-
-golem_search::export_search!(DurableElasticsearchComponent with_types_in golem_search);
+pub type DurableElasticsearchComponent = DurableSearch<ElasticsearchComponent>;

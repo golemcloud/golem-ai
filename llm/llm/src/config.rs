@@ -1,4 +1,4 @@
-use crate::golem::llm::llm::{Error, ErrorCode};
+use crate::model::{Error, ErrorCode};
 use std::ffi::OsStr;
 
 /// Gets an expected configuration value from the environment, and fails if its is not found

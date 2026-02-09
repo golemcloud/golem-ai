@@ -8,9 +8,8 @@ mod transaction;
 use client::Neo4jApi;
 use golem_graph::config::with_config_key;
 use golem_graph::durability::{DurableGraph, ExtendedGuest};
-use golem_graph::golem::graph::{
-    connection::ConnectionConfig, errors::GraphError, transactions::Guest as TransactionGuest,
-};
+use golem_graph::model::{connection::ConnectionConfig, errors::GraphError};
+use golem_graph::TransactionProvider;
 use std::sync::Arc;
 
 pub struct GraphNeo4jComponent;
@@ -67,7 +66,7 @@ impl ExtendedGuest for GraphNeo4jComponent {
     }
 }
 
-impl TransactionGuest for GraphNeo4jComponent {
+impl TransactionProvider for GraphNeo4jComponent {
     type Transaction = Transaction;
 }
 
@@ -92,6 +91,4 @@ impl Transaction {
     }
 }
 
-type DurableGraphNeo4jComponent = DurableGraph<GraphNeo4jComponent>;
-
-golem_graph::export_graph!(DurableGraphNeo4jComponent with_types_in golem_graph);
+pub type DurableGraphNeo4jComponent = DurableGraph<GraphNeo4jComponent>;

@@ -10,26 +10,24 @@ use crate::conversion::{
     upscale_video,
 };
 use golem_video::config::with_config_key;
-use golem_video::durability::{DurableVideo, ExtendedGuest};
-use golem_video::exports::golem::video_generation::advanced::{
-    ExtendVideoOptions, GenerateVideoEffectsOptions, Guest as AdvancedGuest,
-    MultImageGenerationOptions,
+use golem_video::durability::{DurableVideo, ExtendedVideoGenerationProvider};
+use golem_video::model::advanced::{
+    ExtendVideoOptions, GenerateVideoEffectsOptions, MultImageGenerationOptions,
 };
-use golem_video::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
-use golem_video::exports::golem::video_generation::types::{
+use golem_video::model::types::{
     AudioSource, BaseVideo, GenerationConfig, LipSyncVideo, MediaInput, VideoError, VideoResult,
     VoiceInfo,
 };
-use golem_video::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
+use golem_video::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 
-struct KlingComponent;
+pub struct KlingComponent;
 
 impl KlingComponent {
     const ACCESS_KEY_ENV_VAR: &'static str = "KLING_ACCESS_KEY";
     const SECRET_KEY_ENV_VAR: &'static str = "KLING_SECRET_KEY";
 }
 
-impl VideoGenerationGuest for KlingComponent {
+impl VideoGenerationProvider for KlingComponent {
     fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
         with_config_key(Self::ACCESS_KEY_ENV_VAR, Err, |access_key| {
             with_config_key(Self::SECRET_KEY_ENV_VAR, Err, |secret_key| {
@@ -58,7 +56,7 @@ impl VideoGenerationGuest for KlingComponent {
     }
 }
 
-impl LipSyncGuest for KlingComponent {
+impl LipSyncProvider for KlingComponent {
     fn generate_lip_sync(video: LipSyncVideo, audio: AudioSource) -> Result<String, VideoError> {
         with_config_key(Self::ACCESS_KEY_ENV_VAR, Err, |access_key| {
             with_config_key(Self::SECRET_KEY_ENV_VAR, Err, |secret_key| {
@@ -78,7 +76,7 @@ impl LipSyncGuest for KlingComponent {
     }
 }
 
-impl AdvancedGuest for KlingComponent {
+impl AdvancedVideoGenerationProvider for KlingComponent {
     fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
         with_config_key(Self::ACCESS_KEY_ENV_VAR, Err, |access_key| {
             with_config_key(Self::SECRET_KEY_ENV_VAR, Err, |secret_key| {
@@ -135,8 +133,6 @@ impl AdvancedGuest for KlingComponent {
     }
 }
 
-impl ExtendedGuest for KlingComponent {}
+impl ExtendedVideoGenerationProvider for KlingComponent {}
 
-type DurableKlingComponent = DurableVideo<KlingComponent>;
-
-golem_video::export_video!(DurableKlingComponent with_types_in golem_video);
+pub type DurableKlingComponent = DurableVideo<KlingComponent>;

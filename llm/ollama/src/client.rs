@@ -4,7 +4,7 @@ use base64::{engine::general_purpose, Engine};
 use golem_llm::{
     error::{error_code_from_status, from_event_source_error},
     event_source::EventSource,
-    golem::llm::llm::ErrorCode,
+    model::ErrorCode,
 };
 use golem_wasi_http::{
     header::{HeaderMap, HeaderValue, CONTENT_TYPE},
@@ -12,7 +12,7 @@ use golem_wasi_http::{
 };
 use log::trace;
 
-use golem_llm::golem::llm::llm::Error;
+use golem_llm::model::Error;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 

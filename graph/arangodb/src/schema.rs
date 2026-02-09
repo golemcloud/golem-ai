@@ -1,24 +1,24 @@
 use crate::{helpers, GraphArangoDbComponent, SchemaManager};
 use golem_graph::{
     durability::ExtendedGuest,
-    golem::graph::{
+    model::{
         connection::ConnectionConfig,
         errors::GraphError,
         schema::{
-            ContainerInfo, ContainerType, EdgeLabelSchema, EdgeTypeDefinition,
-            Guest as SchemaGuest, GuestSchemaManager, IndexDefinition,
+            ContainerInfo, ContainerType, EdgeLabelSchema, EdgeTypeDefinition, IndexDefinition,
             SchemaManager as SchemaManagerResource, VertexLabelSchema,
         },
     },
+    SchemaManagerInterface, SchemaManagerProvider,
 };
 use std::sync::Arc;
 
-impl SchemaGuest for GraphArangoDbComponent {
+impl SchemaManagerProvider for GraphArangoDbComponent {
     type SchemaManager = SchemaManager;
 
     fn get_schema_manager(
         config: Option<ConnectionConfig>,
-    ) -> Result<golem_graph::golem::graph::schema::SchemaManager, GraphError> {
+    ) -> Result<golem_graph::model::schema::SchemaManager, GraphError> {
         let final_config = match config {
             Some(provided_config) => provided_config,
             None => helpers::config_from_env()?,
@@ -34,7 +34,14 @@ impl SchemaGuest for GraphArangoDbComponent {
     }
 }
 
-impl GuestSchemaManager for SchemaManager {
+impl SchemaManagerInterface for SchemaManager {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
         self.create_container(schema.label, ContainerType::VertexContainer)
     }

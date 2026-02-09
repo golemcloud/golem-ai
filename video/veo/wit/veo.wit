@@ -1,5 +1,0 @@
-package golem:video-veo@1.0.0;
-
-world video-library {
-  include golem:video-generation/video-library@1.0.0;
-} 

@@ -3,7 +3,7 @@ use crate::conversions::{
 };
 use golem_rust::bindings::golem::rdbms::postgres::{DbConnection, DbResult, DbValue};
 use golem_vector::config::get_max_retries_config;
-use golem_vector::golem::vector::types::VectorError;
+use golem_vector::model::types::VectorError;
 use log::trace;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

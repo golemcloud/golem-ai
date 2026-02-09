@@ -1,7 +1,7 @@
 use crate::client::{
     MeilisearchDocument, MeilisearchSearchRequest, MeilisearchSearchResponse, MeilisearchSettings,
 };
-use golem_search::golem::search::types::{
+use golem_search::model::{
     Doc, FieldType, Schema, SchemaField, SearchHit, SearchQuery, SearchResults,
 };
 use serde_json::{Map as JsonMap, Value as JsonValue};
@@ -260,7 +260,7 @@ fn _convert_meilisearch_facets_to_golem(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_search::golem::search::types::{HighlightConfig, SearchConfig};
+    use golem_search::model::{HighlightConfig, SearchConfig};
     use serde_json::json;
 
     #[test]

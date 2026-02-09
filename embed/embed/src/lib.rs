@@ -1,20 +1,21 @@
 pub mod config;
 pub mod durability;
 pub mod error;
+pub mod model;
 
-wit_bindgen::generate!({
-    path: "../wit",
-    world: "embed-library",
-    generate_all,
-    generate_unused_types: true,
-    additional_derives: [PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue],
-    pub_export_macro: true,
-});
-
-pub use crate::exports::golem;
-pub use __export_embed_library_impl as export_embed;
+use crate::model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse};
 use std::cell::RefCell;
 use std::str::FromStr;
+
+pub trait EmbeddingProvider {
+    fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error>;
+
+    fn rerank(
+        query: String,
+        documents: Vec<String>,
+        config: Config,
+    ) -> Result<RerankResponse, Error>;
+}
 
 pub struct LoggingState {
     logging_initialized: bool,

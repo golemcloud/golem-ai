@@ -8,25 +8,23 @@ use crate::conversion::{
     upscale_video,
 };
 use golem_video::config::with_config_key;
-use golem_video::durability::{DurableVideo, ExtendedGuest};
-use golem_video::exports::golem::video_generation::advanced::{
-    ExtendVideoOptions, GenerateVideoEffectsOptions, Guest as AdvancedGuest,
-    MultImageGenerationOptions,
+use golem_video::durability::{DurableVideo, ExtendedVideoGenerationProvider};
+use golem_video::model::advanced::{
+    ExtendVideoOptions, GenerateVideoEffectsOptions, MultImageGenerationOptions,
 };
-use golem_video::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
-use golem_video::exports::golem::video_generation::types::{
+use golem_video::model::types::{
     AudioSource, BaseVideo, GenerationConfig, LipSyncVideo, MediaInput, VideoError, VideoResult,
     VoiceInfo,
 };
-use golem_video::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
+use golem_video::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 
-struct StabilityComponent;
+pub struct StabilityComponent;
 
 impl StabilityComponent {
     const ENV_VAR_NAME: &'static str = "STABILITY_API_KEY";
 }
 
-impl VideoGenerationGuest for StabilityComponent {
+impl VideoGenerationProvider for StabilityComponent {
     fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = StabilityApi::new(api_key);
@@ -46,7 +44,7 @@ impl VideoGenerationGuest for StabilityComponent {
     }
 }
 
-impl LipSyncGuest for StabilityComponent {
+impl LipSyncProvider for StabilityComponent {
     fn generate_lip_sync(video: LipSyncVideo, audio: AudioSource) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = StabilityApi::new(api_key);
@@ -62,7 +60,7 @@ impl LipSyncGuest for StabilityComponent {
     }
 }
 
-impl AdvancedGuest for StabilityComponent {
+impl AdvancedVideoGenerationProvider for StabilityComponent {
     fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = StabilityApi::new(api_key);
@@ -111,8 +109,6 @@ impl AdvancedGuest for StabilityComponent {
     }
 }
 
-impl ExtendedGuest for StabilityComponent {}
+impl ExtendedVideoGenerationProvider for StabilityComponent {}
 
-type DurableStabilityComponent = DurableVideo<StabilityComponent>;
-
-golem_video::export_video!(DurableStabilityComponent with_types_in golem_video);
+pub type DurableStabilityComponent = DurableVideo<StabilityComponent>;

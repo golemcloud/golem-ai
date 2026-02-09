@@ -1,5 +1,5 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use golem_graph::golem::graph::errors::GraphError;
+use golem_graph::model::errors::GraphError;
 use golem_wasi_http::{Client, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -214,7 +214,7 @@ impl Neo4jApi {
                 return Self::map_neo4j_http_status(
                     status.as_u16(),
                     &error_msg,
-                    &serde_json::Value::Null,
+                    &Value::Null,
                 );
             }
         }
@@ -553,8 +553,8 @@ impl Neo4jApi {
             _ => {
                 let enhanced_message = format!("Neo4j error [{code}]: {message}");
                 let mut debug_error_body = error_body.clone();
-                debug_error_body["neo4j_error_code"] = serde_json::Value::String(code.to_string());
-                debug_error_body["neo4j_message"] = serde_json::Value::String(message.to_string());
+                debug_error_body["neo4j_error_code"] = Value::String(code.to_string());
+                debug_error_body["neo4j_message"] = Value::String(message.to_string());
 
                 GraphError::InternalError(format!(
                     "{} | Debug info: {}",

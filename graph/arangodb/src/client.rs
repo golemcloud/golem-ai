@@ -1,9 +1,9 @@
 use base64::{engine::general_purpose, Engine as _};
-use golem_graph::golem::graph::errors::GraphError;
-use golem_graph::golem::graph::schema::{
+use golem_graph::model::errors::GraphError;
+use golem_graph::model::schema::{
     ContainerInfo, ContainerType, EdgeTypeDefinition, IndexDefinition, IndexType,
 };
-use golem_graph::golem::graph::types::ElementId;
+use golem_graph::model::types::ElementId;
 use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
@@ -439,9 +439,9 @@ impl ArangoDbApi {
 
                         let unique = index.unique.unwrap_or(false);
                         let index_type = match index.index_type.as_str() {
-                            "geo" => golem_graph::golem::graph::schema::IndexType::Geospatial,
-                            "inverted" => golem_graph::golem::graph::schema::IndexType::Text,
-                            _ => golem_graph::golem::graph::schema::IndexType::Exact,
+                            "geo" => IndexType::Geospatial,
+                            "inverted" => IndexType::Text,
+                            _ => IndexType::Exact,
                         };
 
                         let logical_name = if index.fields.len() == 1 {

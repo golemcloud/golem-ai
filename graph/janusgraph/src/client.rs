@@ -1,4 +1,4 @@
-use golem_graph::golem::graph::errors::GraphError;
+use golem_graph::model::errors::GraphError;
 use golem_wasi_http::{Client, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};

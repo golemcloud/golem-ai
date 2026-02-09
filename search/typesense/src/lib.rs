@@ -2,13 +2,12 @@ use crate::client::{CollectionField, CollectionSchema, TypesenseSearchApi};
 use crate::conversions::*;
 use golem_rust::golem_wasm::Pollable;
 use golem_search::config::with_config_keys;
-use golem_search::durability::{DurableSearch, ExtendedGuest};
-use golem_search::golem::search::core::{
-    CreateIndexOptions, Guest, GuestSearchStream, SearchStream,
-};
-use golem_search::golem::search::types::{
+use golem_search::durability::{DurableSearch, ExtendedSearchProvider};
+use golem_search::model::{CreateIndexOptions, SearchStream};
+use golem_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
+use golem_search::{SearchProvider, SearchStreamInterface};
 use log::trace;
 use std::cell::{Cell, RefCell};
 
@@ -17,7 +16,7 @@ mod conversions;
 
 /// Simple search stream implementation for Typesense
 /// Since Typesense doesn't have native streaming, we implement pagination-based streaming
-struct TypesenseSearchStream {
+pub struct TypesenseSearchStream {
     client: TypesenseSearchApi,
     index_name: String,
     query: SearchQuery,
@@ -44,7 +43,7 @@ impl TypesenseSearchStream {
     }
 }
 
-struct TypesenseComponent;
+pub struct TypesenseComponent;
 
 impl TypesenseComponent {
     const API_KEY_ENV_VAR: &'static str = "TYPESENSE_API_KEY";
@@ -66,7 +65,15 @@ impl TypesenseComponent {
     }
 }
 
-impl GuestSearchStream for TypesenseSearchStream {
+impl SearchStreamInterface for TypesenseSearchStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_next(&self) -> Option<Vec<SearchHit>> {
         if self.finished.get() {
             return Some(vec![]);
@@ -107,13 +114,12 @@ impl GuestSearchStream for TypesenseSearchStream {
             }
         }
     }
-
     fn blocking_get_next(&self) -> Vec<SearchHit> {
         self.get_next().unwrap_or_default()
     }
 }
 
-impl Guest for TypesenseComponent {
+impl SearchProvider for TypesenseComponent {
     type SearchStream = TypesenseSearchStream;
 
     fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -293,7 +299,7 @@ impl Guest for TypesenseComponent {
     }
 }
 
-impl ExtendedGuest for TypesenseComponent {
+impl ExtendedSearchProvider for TypesenseComponent {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
         let client = Self::create_client().unwrap_or_else(|_e| {
             TypesenseSearchApi::new("dummy".to_string(), "http://localhost:8108".to_string())
@@ -336,5 +342,4 @@ impl ExtendedGuest for TypesenseComponent {
     }
 }
 
-type DurableTypesenseComponent = DurableSearch<TypesenseComponent>;
-golem_search::export_search!(DurableTypesenseComponent with_types_in golem_search);
+pub type DurableTypesenseComponent = DurableSearch<TypesenseComponent>;

@@ -1,5 +1,6 @@
 use crate::event_source::{Event, EventSource, MessageEvent};
-use crate::golem::llm::llm::{Error, ErrorCode, GuestChatStream, StreamEvent};
+use crate::model::{Error, ErrorCode, StreamEvent};
+use crate::ChatStreamInterface;
 use golem_rust::golem_wasm::Pollable;
 use std::cell::{Ref, RefMut};
 use std::task::Poll;
@@ -31,7 +32,7 @@ impl<T: LlmChatStreamState> LlmChatStream<T> {
     }
 }
 
-impl<T: LlmChatStreamState> GuestChatStream for LlmChatStream<T> {
+impl<T: LlmChatStreamState> ChatStreamInterface for LlmChatStream<T> {
     fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>> {
         if self.implementation.is_finished() {
             return Some(vec![]);
@@ -103,5 +104,13 @@ impl<T: LlmChatStreamState> GuestChatStream for LlmChatStream<T> {
                 return events;
             }
         }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }

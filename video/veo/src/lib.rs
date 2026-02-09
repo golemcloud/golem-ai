@@ -9,19 +9,17 @@ use crate::conversion::{
     upscale_video,
 };
 use golem_video::config::with_config_key;
-use golem_video::durability::{DurableVideo, ExtendedGuest};
-use golem_video::exports::golem::video_generation::advanced::{
-    ExtendVideoOptions, GenerateVideoEffectsOptions, Guest as AdvancedGuest,
-    MultImageGenerationOptions,
+use golem_video::durability::{DurableVideo, ExtendedVideoGenerationProvider};
+use golem_video::model::advanced::{
+    ExtendVideoOptions, GenerateVideoEffectsOptions, MultImageGenerationOptions,
 };
-use golem_video::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
-use golem_video::exports::golem::video_generation::types::{
+use golem_video::model::types::{
     AudioSource, BaseVideo, GenerationConfig, LipSyncVideo, MediaInput, VideoError, VideoResult,
     VoiceInfo,
 };
-use golem_video::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
+use golem_video::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 
-struct VeoComponent;
+pub struct VeoComponent;
 
 impl VeoComponent {
     const PROJECT_ID_ENV_VAR: &'static str = "VEO_PROJECT_ID";
@@ -29,7 +27,7 @@ impl VeoComponent {
     const PRIVATE_KEY_ENV_VAR: &'static str = "VEO_PRIVATE_KEY";
 }
 
-impl VideoGenerationGuest for VeoComponent {
+impl VideoGenerationProvider for VeoComponent {
     fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
         with_config_key(Self::PROJECT_ID_ENV_VAR, Err, |project_id| {
             with_config_key(Self::CLIENT_EMAIL_ENV_VAR, Err, |client_email| {
@@ -64,7 +62,7 @@ impl VideoGenerationGuest for VeoComponent {
     }
 }
 
-impl LipSyncGuest for VeoComponent {
+impl LipSyncProvider for VeoComponent {
     fn generate_lip_sync(video: LipSyncVideo, audio: AudioSource) -> Result<String, VideoError> {
         with_config_key(Self::PROJECT_ID_ENV_VAR, Err, |project_id| {
             with_config_key(Self::CLIENT_EMAIL_ENV_VAR, Err, |client_email| {
@@ -88,7 +86,7 @@ impl LipSyncGuest for VeoComponent {
     }
 }
 
-impl AdvancedGuest for VeoComponent {
+impl AdvancedVideoGenerationProvider for VeoComponent {
     fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
         with_config_key(Self::PROJECT_ID_ENV_VAR, Err, |project_id| {
             with_config_key(Self::CLIENT_EMAIL_ENV_VAR, Err, |client_email| {
@@ -153,8 +151,6 @@ impl AdvancedGuest for VeoComponent {
     }
 }
 
-impl ExtendedGuest for VeoComponent {}
+impl ExtendedVideoGenerationProvider for VeoComponent {}
 
-type DurableVeoComponent = DurableVideo<VeoComponent>;
-
-golem_video::export_video!(DurableVeoComponent with_types_in golem_video);
+pub type DurableVeoComponent = DurableVideo<VeoComponent>;

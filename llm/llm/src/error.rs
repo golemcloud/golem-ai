@@ -1,8 +1,8 @@
 use crate::event_source;
-use crate::golem::llm::llm::{Error, ErrorCode};
+use crate::model::{Error, ErrorCode};
 use golem_wasi_http::StatusCode;
 
-/// Creates an `Error` value representing that something is unsuported
+/// Creates an `Error` value representing that something is unsupported
 pub fn unsupported(what: impl AsRef<str>) -> Error {
     Error {
         code: ErrorCode::Unsupported,

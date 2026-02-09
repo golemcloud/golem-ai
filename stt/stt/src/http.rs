@@ -87,7 +87,7 @@ impl WstdHttpClient {
     }
 
     fn should_retry_wstd_result(
-        result: &Result<wstd::http::Response<wstd::http::body::IncomingBody>, wstd::http::Error>,
+        result: &Result<Response<wstd::http::body::IncomingBody>, wstd::http::Error>,
     ) -> bool {
         match result {
             Err(wstd_error) => Self::is_retryable_wstd_error(wstd_error),
@@ -122,7 +122,7 @@ impl Default for WstdHttpClient {
     }
 }
 
-struct WasiRequest<T: Body>(wstd::http::Request<T>);
+struct WasiRequest<T: Body>(Request<T>);
 
 #[derive(Debug)]
 struct BytesCursor {
@@ -165,7 +165,7 @@ impl From<Request<Bytes>> for WasiRequest<BytesCursor> {
 
         let cursor_body = BytesCursor::new(body);
 
-        let mut req = wstd::http::Request::builder()
+        let mut req = Request::builder()
             .uri(parts.uri)
             .method(parts.method)
             .version(parts.version)

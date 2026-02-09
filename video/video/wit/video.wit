@@ -1,5 +1,0 @@
-package golem:video-library@1.0.0;
-
-world video-library {
-    export golem:video/video@1.0.0;
-}

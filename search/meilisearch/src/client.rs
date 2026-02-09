@@ -1,5 +1,5 @@
 use golem_search::error::{from_reqwest_error, internal_error, search_error_from_status};
-use golem_search::golem::search::types::SearchError;
+use golem_search::model::SearchError;
 use golem_wasi_http::{Client, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;

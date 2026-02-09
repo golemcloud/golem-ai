@@ -7,13 +7,12 @@ use crate::conversions::{
 };
 use golem_rust::golem_wasm::Pollable;
 use golem_search::config::with_config_keys;
-use golem_search::durability::{DurableSearch, ExtendedGuest};
-use golem_search::golem::search::core::{
-    CreateIndexOptions, Guest, GuestSearchStream, SearchStream,
-};
-use golem_search::golem::search::types::{
+use golem_search::durability::{DurableSearch, ExtendedSearchProvider};
+use golem_search::model::{CreateIndexOptions, SearchStream};
+use golem_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
+use golem_search::{SearchProvider, SearchStreamInterface};
 use log::trace;
 use std::cell::{Cell, RefCell};
 
@@ -21,7 +20,7 @@ mod client;
 mod conversions;
 
 /// Uses scroll API for streaming large result sets with fallback to pagination
-struct OpenSearchSearchStream {
+pub struct OpenSearchSearchStream {
     client: OpenSearchApi,
     index_name: String,
     query: SearchQuery,
@@ -137,7 +136,15 @@ impl OpenSearchSearchStream {
     }
 }
 
-impl GuestSearchStream for OpenSearchSearchStream {
+impl SearchStreamInterface for OpenSearchSearchStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_next(&self) -> Option<Vec<SearchHit>> {
         if self.finished.get() {
             return Some(vec![]);
@@ -154,13 +161,12 @@ impl GuestSearchStream for OpenSearchSearchStream {
             self.try_pagination_next()
         }
     }
-
     fn blocking_get_next(&self) -> Vec<SearchHit> {
         self.get_next().unwrap_or_default()
     }
 }
 
-struct OpenSearchComponent;
+pub struct OpenSearchComponent;
 
 impl OpenSearchComponent {
     const BASE_URL_ENV_VAR: &'static str = "OPENSEARCH_BASE_URL";
@@ -188,7 +194,7 @@ impl OpenSearchComponent {
     }
 }
 
-impl Guest for OpenSearchComponent {
+impl SearchProvider for OpenSearchComponent {
     type SearchStream = OpenSearchSearchStream;
 
     fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -339,7 +345,7 @@ impl Guest for OpenSearchComponent {
     }
 }
 
-impl ExtendedGuest for OpenSearchComponent {
+impl ExtendedSearchProvider for OpenSearchComponent {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
         let client = Self::create_client().unwrap_or_else(|_| {
             OpenSearchApi::new("http://localhost:9200".to_string(), None, None, None)
@@ -366,6 +372,4 @@ impl Drop for OpenSearchSearchStream {
     }
 }
 
-type DurableOpenSearchComponent = DurableSearch<OpenSearchComponent>;
-
-golem_search::export_search!(DurableOpenSearchComponent with_types_in golem_search);
+pub type DurableOpenSearchComponent = DurableSearch<OpenSearchComponent>;

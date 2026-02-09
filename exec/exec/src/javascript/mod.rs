@@ -1,8 +1,8 @@
 mod builtin;
 
 use crate::durability::{EmptySnapshot, SessionSnapshot};
-use crate::golem::exec::executor::{Error, ExecResult, File, Language, RunOptions};
-use crate::golem::exec::types::{LanguageKind, StageResult};
+use crate::model::{Error, ExecResult, File, Language, RunOptions};
+use crate::model::{LanguageKind, StageResult};
 use crate::{get_contents_as_string, stage_result_failure};
 use futures::TryFutureExt;
 use rquickjs::loader::{BuiltinLoader, BuiltinResolver};

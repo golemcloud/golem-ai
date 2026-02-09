@@ -5,11 +5,10 @@ edition = "2021"
 license = "Apache-2.0"
 homepage = "https://golem.cloud"
 repository = "https://github.com/golemcloud/golem-ai"
-description = "WebAssembly components for executing dynamic code snippets, with special support for Golem Cloud"
+description = "Library for executing dynamic code snippets on Golem Cloud"
 
 [lib]
 path = "src/lib.rs"
-crate-type = ["cdylib"]
 
 [features]
 default = ["javascript", "python", "durability"]
@@ -30,13 +29,4 @@ rquickjs = { version = "0.9.0", default-features = false, features = ["futures",
 rustpython = { git = "https://github.com/RustPython/RustPython", rev = "6ead82154e06a4490c0a87b966db5528eee13070", default-features = false, features = ["stdlib", "stdio", "importlib", "freeze-stdlib"], optional = true }
 wasi = { workspace = true }
 wasi-logger = "0.1.2"
-wit-bindgen = { version = "0.40.0" }
-wit-bindgen-rt = { workspace = true }
 wstd = { workspace = true }
-
-[package.metadata.component.bindings.with]
-"golem:exec/types@1.0.0" = "golem_exec::golem::exec::types"
-"golem:exec/executor@1.0.0" = "golem_exec::golem::exec::executor"
-
-[package.metadata.component.target.dependencies]
-"golem:exec" = { path = "wit/deps/golem-exec" }

@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug};
 
 use golem_embed::{
     error::{error_code_from_status, from_reqwest_error},
-    golem::embed::embed::Error,
+    model::Error,
 };
 use log::trace;
 
@@ -19,7 +19,7 @@ const BASE_URL: &str = "https://api.openai.com/v1";
 pub struct EmbeddingsApi {
     openai_api_key: String,
     openai_base_url: String,
-    client: golem_wasi_http::Client,
+    client: Client,
 }
 
 impl EmbeddingsApi {

@@ -1,40 +1,41 @@
 use std::marker::PhantomData;
 
-use crate::exports::golem::stt::languages::Guest as WitLanguageGuest;
-use crate::guest::SttTranscriptionGuest;
+use crate::guest::SttTranscriptionProvider;
+use crate::LanguageProvider;
 
 pub struct DurableStt<Impl> {
     phantom: PhantomData<Impl>,
 }
 
-pub trait ExtendedGuest: SttTranscriptionGuest + WitLanguageGuest + 'static {}
+pub trait ExtendedSttProvider: SttTranscriptionProvider + LanguageProvider + 'static {}
 
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use bytes::Bytes;
 
-    use crate::exports::golem::stt::languages::{
+    use crate::model::golem::stt::languages::{
         Guest as WitLanguageGuest, LanguageInfo as WitLanguageInfo,
     };
 
-    use crate::durability::{DurableStt, ExtendedGuest};
-    use crate::exports::golem::stt::transcription::{
+    use crate::durability::{DurableStt, ExtendedSttProvider};
+    use crate::model::golem::stt::transcription::{
         Guest as WitTranscriptionGuest, MultiTranscriptionResult as WitMultiTranscriptionResult,
         TranscriptionRequest as WitTranscriptionRequest,
     };
 
-    use crate::exports::golem::stt::types::{
-        SttError as WitSttError, TranscriptionResult as WitTranscriptionResult,
+    use crate::model::golem::stt::types::{
+        SttError, TranscriptionResult as WitTranscriptionResult,
     };
 
     use crate::guest::SttTranscriptionRequest;
+    use crate::model::types::SttError;
     use crate::LOGGING_STATE;
     use golem_rust::{FromValueAndType, IntoValue};
 
-    impl<Impl: ExtendedGuest> WitTranscriptionGuest for DurableStt<Impl> {
+    impl<Impl: ExtendedSttProvider> WitTranscriptionGuest for DurableStt<Impl> {
         fn transcribe(
             request: WitTranscriptionRequest,
-        ) -> Result<WitTranscriptionResult, WitSttError> {
+        ) -> Result<WitTranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
 
             let request = SttTranscriptionRequest {
@@ -49,7 +50,7 @@ mod passthrough_impl {
 
         fn transcribe_many(
             requests: Vec<WitTranscriptionRequest>,
-        ) -> Result<WitMultiTranscriptionResult, WitSttError> {
+        ) -> Result<WitMultiTranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
 
             let stt_requests: Vec<SttTranscriptionRequest> = requests
@@ -66,8 +67,8 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> WitLanguageGuest for DurableStt<Impl> {
-        fn list_languages() -> Result<Vec<WitLanguageInfo>, WitSttError> {
+    impl<Impl: ExtendedSttProvider> WitLanguageGuest for DurableStt<Impl> {
+        fn list_languages() -> Result<Vec<WitLanguageInfo>, SttError> {
             Impl::list_languages()
         }
     }
@@ -82,8 +83,8 @@ mod passthrough_impl {
         requests: Vec<WitTranscriptionRequest>,
     }
 
-    impl From<&WitSttError> for WitSttError {
-        fn from(error: &WitSttError) -> Self {
+    impl From<&SttError> for SttError {
+        fn from(error: &SttError) -> Self {
             error.clone()
         }
     }
@@ -95,30 +96,21 @@ mod durable_impl {
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
 
-    use crate::exports::golem::stt::languages::{
-        Guest as WitLanguageGuest, LanguageInfo as WitLanguageInfo,
-    };
-
-    use crate::durability::{DurableStt, ExtendedGuest};
-    use crate::exports::golem::stt::transcription::{
-        Guest as WitTranscriptionGuest, MultiTranscriptionResult as WitMultiTranscriptionResult,
-        TranscriptionRequest as WitTranscriptionRequest,
-    };
-
-    use crate::exports::golem::stt::types::{
-        SttError as WitSttError, TranscriptionResult as WitTranscriptionResult,
-    };
+    use crate::durability::{DurableStt, ExtendedSttProvider};
 
     use crate::guest::SttTranscriptionRequest;
-    use crate::LOGGING_STATE;
+    use crate::model::languages::LanguageInfo;
+    use crate::model::transcription::{
+        MultiTranscriptionResult, TranscriptionRequest, TranscriptionResult,
+    };
+    use crate::model::types::SttError;
+    use crate::{LanguageProvider, TranscriptionProvider, LOGGING_STATE};
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
 
-    impl<Impl: ExtendedGuest> WitTranscriptionGuest for DurableStt<Impl> {
-        fn transcribe(
-            request: WitTranscriptionRequest,
-        ) -> Result<WitTranscriptionResult, WitSttError> {
+    impl<Impl: ExtendedSttProvider> TranscriptionProvider for DurableStt<Impl> {
+        fn transcribe(request: TranscriptionRequest) -> Result<TranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
-            let durability = Durability::<WitTranscriptionResult, WitSttError>::new(
+            let durability = Durability::<TranscriptionResult, SttError>::new(
                 "golem_stt",
                 "transcribe",
                 DurableFunctionType::WriteRemote,
@@ -142,7 +134,7 @@ mod durable_impl {
                 });
 
                 // Reconstruct original request for persistence
-                let orig_request_copy = WitTranscriptionRequest {
+                let orig_request_copy = TranscriptionRequest {
                     request_id,
                     audio: audio_bytes.to_vec(),
                     config,
@@ -161,10 +153,10 @@ mod durable_impl {
         }
 
         fn transcribe_many(
-            requests: Vec<WitTranscriptionRequest>,
-        ) -> Result<WitMultiTranscriptionResult, WitSttError> {
+            requests: Vec<TranscriptionRequest>,
+        ) -> Result<MultiTranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
-            let durability = Durability::<WitMultiTranscriptionResult, WitSttError>::new(
+            let durability = Durability::<MultiTranscriptionResult, SttError>::new(
                 "golem_stt",
                 "transcribe_many",
                 DurableFunctionType::WriteRemote,
@@ -200,10 +192,10 @@ mod durable_impl {
                 });
 
                 // Reconstruct original requests for persistence
-                let orig_requests_copy: Vec<WitTranscriptionRequest> = requests_with_bytes
+                let orig_requests_copy: Vec<TranscriptionRequest> = requests_with_bytes
                     .into_iter()
                     .map(
-                        |(audio_bytes, request_id, config, options)| WitTranscriptionRequest {
+                        |(audio_bytes, request_id, config, options)| TranscriptionRequest {
                             request_id,
                             audio: audio_bytes.to_vec(),
                             config,
@@ -224,24 +216,24 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> WitLanguageGuest for DurableStt<Impl> {
-        fn list_languages() -> Result<Vec<WitLanguageInfo>, WitSttError> {
+    impl<Impl: ExtendedSttProvider> LanguageProvider for DurableStt<Impl> {
+        fn list_languages() -> Result<Vec<LanguageInfo>, SttError> {
             Impl::list_languages()
         }
     }
 
     #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
     struct TranscribeInput {
-        request: WitTranscriptionRequest,
+        request: TranscriptionRequest,
     }
 
     #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
     struct TranscribeManyInput {
-        requests: Vec<WitTranscriptionRequest>,
+        requests: Vec<TranscriptionRequest>,
     }
 
-    impl From<&WitSttError> for WitSttError {
-        fn from(error: &WitSttError) -> Self {
+    impl From<&SttError> for SttError {
+        fn from(error: &SttError) -> Self {
             error.clone()
         }
     }

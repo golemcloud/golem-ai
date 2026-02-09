@@ -5,14 +5,12 @@ use client::EmbeddingsApi;
 use conversions::{create_request, process_embedding_response};
 use golem_embed::{
     config::with_config_key,
-    durability::{DurableEmbed, ExtendedGuest},
-    golem::embed::embed::{
-        Config, ContentPart, EmbeddingResponse, Error, ErrorCode, Guest, RerankResponse,
-    },
-    LOGGING_STATE,
+    durability::{DurableEmbed, ExtendedEmbeddingProvider},
+    model::{Config, ContentPart, EmbeddingResponse, Error, ErrorCode, RerankResponse},
+    EmbeddingProvider, LOGGING_STATE,
 };
 
-struct OpenAIComponent;
+pub struct OpenAIComponent;
 
 impl OpenAIComponent {
     const ENV_VAR_NAME: &'static str = "OPENAI_API_KEY";
@@ -33,7 +31,7 @@ impl OpenAIComponent {
     }
 }
 
-impl Guest for OpenAIComponent {
+impl EmbeddingProvider for OpenAIComponent {
     fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         with_config_key(Self::ENV_VAR_NAME, Err, |openai_api_key| {
@@ -55,8 +53,6 @@ impl Guest for OpenAIComponent {
     }
 }
 
-impl ExtendedGuest for OpenAIComponent {}
+impl ExtendedEmbeddingProvider for OpenAIComponent {}
 
-type DurableOpenAIComponent = DurableEmbed<OpenAIComponent>;
-
-golem_embed::export_embed!(DurableOpenAIComponent with_types_in golem_embed);
+pub type DurableOpenAIComponent = DurableEmbed<OpenAIComponent>;

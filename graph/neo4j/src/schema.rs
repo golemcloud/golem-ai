@@ -2,22 +2,21 @@ use crate::client::{Neo4jStatement, Neo4jStatements};
 use crate::helpers::{config_from_env, map_neo4j_type_to_wit};
 use crate::{GraphNeo4jComponent, SchemaManager};
 use golem_graph::durability::ExtendedGuest;
-use golem_graph::golem::graph::transactions::GuestTransaction;
-use golem_graph::golem::graph::{
+use golem_graph::model::{
     connection::ConnectionConfig,
     errors::GraphError,
     schema::{
-        EdgeLabelSchema, EdgeTypeDefinition, Guest as SchemaGuest, GuestSchemaManager,
-        IndexDefinition, IndexType, PropertyDefinition, PropertyType,
-        SchemaManager as SchemaManagerResource, VertexLabelSchema,
+        EdgeLabelSchema, EdgeTypeDefinition, IndexDefinition, IndexType, PropertyDefinition,
+        PropertyType, SchemaManager as SchemaManagerResource, VertexLabelSchema,
     },
 };
+use golem_graph::{SchemaManagerInterface, SchemaManagerProvider, TransactionInterface};
 use log::trace;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-impl SchemaGuest for GraphNeo4jComponent {
+impl SchemaManagerProvider for GraphNeo4jComponent {
     type SchemaManager = SchemaManager;
 
     fn get_schema_manager(
@@ -35,7 +34,14 @@ impl SchemaGuest for GraphNeo4jComponent {
     }
 }
 
-impl GuestSchemaManager for SchemaManager {
+impl SchemaManagerInterface for SchemaManager {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
         for prop in schema.properties {
             if prop.required {
@@ -414,9 +420,7 @@ impl GuestSchemaManager for SchemaManager {
         ))
     }
 
-    fn list_edge_types(
-        &self,
-    ) -> Result<Vec<golem_graph::golem::graph::schema::EdgeTypeDefinition>, GraphError> {
+    fn list_edge_types(&self) -> Result<Vec<EdgeTypeDefinition>, GraphError> {
         Err(GraphError::UnsupportedOperation(
             "list_edge_types is not supported by the Neo4j provider".to_string(),
         ))
@@ -425,7 +429,7 @@ impl GuestSchemaManager for SchemaManager {
     fn create_container(
         &self,
         _name: String,
-        _container_type: golem_graph::golem::graph::schema::ContainerType,
+        _container_type: golem_graph::model::schema::ContainerType,
     ) -> Result<(), GraphError> {
         Err(GraphError::UnsupportedOperation(
             "create_container is not supported by the Neo4j provider".to_string(),
@@ -434,7 +438,7 @@ impl GuestSchemaManager for SchemaManager {
 
     fn list_containers(
         &self,
-    ) -> Result<Vec<golem_graph::golem::graph::schema::ContainerInfo>, GraphError> {
+    ) -> Result<Vec<golem_graph::model::schema::ContainerInfo>, GraphError> {
         Ok(vec![])
     }
 }

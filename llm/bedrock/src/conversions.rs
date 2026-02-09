@@ -7,7 +7,7 @@ use aws_sdk_bedrockruntime::types::{
     SystemContentBlock, Tool, ToolConfiguration, ToolInputSchema, ToolSpecification, ToolUseBlock,
 };
 use aws_smithy_types::{Document, Number};
-use golem_llm::golem::llm::llm;
+use golem_llm::model as llm;
 use std::collections::HashMap;
 use wstd::http;
 
@@ -18,7 +18,7 @@ pub struct BedrockInput {
     pub messages: Vec<bedrock::types::Message>,
     pub inference_configuration: InferenceConfiguration,
     pub tools: Option<ToolConfiguration>,
-    pub additional_fields: aws_smithy_types::Document,
+    pub additional_fields: Document,
 }
 
 impl BedrockInput {
@@ -407,7 +407,7 @@ fn bedrock_stop_reason_to_finish_reason(reason: &bedrock::types::StopReason) -> 
     }
 }
 
-fn bedrock_image_to_llm_content_part(block: bedrock::types::ImageBlock) -> llm::ContentPart {
+fn bedrock_image_to_llm_content_part(block: ImageBlock) -> llm::ContentPart {
     let mime_type = format!("image/{}", block.format.as_str());
 
     let reference = match block.source {

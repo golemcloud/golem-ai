@@ -6,13 +6,12 @@ use crate::conversions::{
 };
 use golem_rust::golem_wasm::Pollable;
 use golem_search::config::with_config_keys;
-use golem_search::durability::{DurableSearch, ExtendedGuest};
-use golem_search::golem::search::core::{
-    CreateIndexOptions, Guest, GuestSearchStream, SearchStream,
-};
-use golem_search::golem::search::types::{
+use golem_search::durability::{DurableSearch, ExtendedSearchProvider};
+use golem_search::model::{CreateIndexOptions, SearchStream};
+use golem_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
+use golem_search::{SearchProvider, SearchStreamInterface};
 use std::cell::{Cell, RefCell};
 
 mod client;
@@ -20,7 +19,7 @@ mod conversions;
 
 /// Simple search stream implementation for Meilisearch
 /// Since Meilisearch doesn't have native streaming, we implement pagination-based streaming
-struct MeilisearchSearchStream {
+pub struct MeilisearchSearchStream {
     client: MeilisearchApi,
     index_name: String,
     query: SearchQuery,
@@ -46,7 +45,15 @@ impl MeilisearchSearchStream {
     }
 }
 
-impl GuestSearchStream for MeilisearchSearchStream {
+impl SearchStreamInterface for MeilisearchSearchStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_next(&self) -> Option<Vec<SearchHit>> {
         if self.finished.get() {
             return Some(vec![]);
@@ -96,13 +103,12 @@ impl GuestSearchStream for MeilisearchSearchStream {
             }
         }
     }
-
     fn blocking_get_next(&self) -> Vec<SearchHit> {
         self.get_next().unwrap_or_default()
     }
 }
 
-struct MeilisearchComponent;
+pub struct MeilisearchComponent;
 
 impl MeilisearchComponent {
     const BASE_URL_ENV_VAR: &'static str = "MEILISEARCH_BASE_URL";
@@ -125,7 +131,7 @@ impl MeilisearchComponent {
     }
 }
 
-impl Guest for MeilisearchComponent {
+impl SearchProvider for MeilisearchComponent {
     type SearchStream = MeilisearchSearchStream;
 
     fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -254,7 +260,7 @@ impl Guest for MeilisearchComponent {
     }
 }
 
-impl ExtendedGuest for MeilisearchComponent {
+impl ExtendedSearchProvider for MeilisearchComponent {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
         let client = Self::create_client()
             .unwrap_or_else(|_| MeilisearchApi::new("http://localhost:7700".to_string(), None));
@@ -271,6 +277,4 @@ impl ExtendedGuest for MeilisearchComponent {
     }
 }
 
-type DurableMeilisearchComponent = DurableSearch<MeilisearchComponent>;
-
-golem_search::export_search!(DurableMeilisearchComponent with_types_in golem_search);
+pub type DurableMeilisearchComponent = DurableSearch<MeilisearchComponent>;

@@ -9,10 +9,11 @@ mod transaction;
 use client::JanusGraphApi;
 use golem_graph::config::with_config_key;
 use golem_graph::durability::{DurableGraph, ExtendedGuest};
-use golem_graph::golem::graph::{
-    connection::ConnectionConfig, errors::GraphError, transactions::Guest as TransactionGuest,
+use golem_graph::model::{
+    connection::ConnectionConfig, errors::GraphError,
 };
 use std::sync::Arc;
+use golem_graph::TransactionProvider;
 
 pub struct GraphJanusGraphComponent;
 
@@ -65,7 +66,7 @@ impl ExtendedGuest for GraphJanusGraphComponent {
     }
 }
 
-impl TransactionGuest for GraphJanusGraphComponent {
+impl TransactionProvider for GraphJanusGraphComponent {
     type Transaction = Transaction;
 }
 
@@ -84,6 +85,4 @@ impl Transaction {
     }
 }
 
-type DurableGraphJanusGraphComponent = DurableGraph<GraphJanusGraphComponent>;
-
-golem_graph::export_graph!(DurableGraphJanusGraphComponent with_types_in golem_graph);
+pub type DurableGraphJanusGraphComponent = DurableGraph<GraphJanusGraphComponent>;

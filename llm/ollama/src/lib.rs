@@ -2,15 +2,16 @@ use std::cell::{Ref, RefCell, RefMut};
 
 use client::{CompletionsRequest, OllamaApi};
 use conversions::{events_to_request, process_response};
-use golem_llm::golem::llm::llm::ErrorCode;
+use golem_llm::model::ErrorCode;
 use golem_llm::{
     chat_stream::{LlmChatStream, LlmChatStreamState},
-    durability::{DurableLLM, ExtendedGuest},
+    durability::{DurableLLM, ExtendedLlmProvider},
     event_source::EventSource,
-    golem::llm::llm::{
-        ChatStream, Config, ContentPart, Error, Event, FinishReason, Guest, Message, Response,
+    model::{
+        ChatStream, Config, ContentPart, Error, Event, FinishReason, Message, Response,
         ResponseMetadata, Role, StreamDelta, StreamEvent, ToolCall, Usage,
     },
+    LlmProvider,
 };
 use golem_rust::golem_wasm::Pollable;
 use log::trace;
@@ -18,7 +19,7 @@ use log::trace;
 mod client;
 mod conversions;
 
-struct OllamaChatStream {
+pub struct OllamaChatStream {
     stream: RefCell<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
@@ -185,7 +186,7 @@ impl LlmChatStreamState for OllamaChatStream {
     }
 }
 
-struct OllamaComponent;
+pub struct OllamaComponent;
 
 impl OllamaComponent {
     fn request(client: &OllamaApi, request: CompletionsRequest) -> Result<Response, Error> {
@@ -205,7 +206,7 @@ impl OllamaComponent {
     }
 }
 
-impl Guest for OllamaComponent {
+impl LlmProvider for OllamaComponent {
     type ChatStream = LlmChatStream<OllamaChatStream>;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -219,7 +220,7 @@ impl Guest for OllamaComponent {
     }
 }
 
-impl ExtendedGuest for OllamaComponent {
+impl ExtendedLlmProvider for OllamaComponent {
     fn unwrapped_stream(events: Vec<Event>, config: Config) -> LlmChatStream<OllamaChatStream> {
         let client = OllamaApi::new(config.model.clone());
         match events_to_request(events, config) {
@@ -289,6 +290,4 @@ impl ExtendedGuest for OllamaComponent {
     }
 }
 
-type DurableOllamaComponent = DurableLLM<OllamaComponent>;
-
-golem_llm::export_llm!(DurableOllamaComponent with_types_in golem_llm);
+pub type DurableOllamaComponent = DurableLLM<OllamaComponent>;

@@ -5,12 +5,12 @@ use std::cell::RefCell;
 
 use crate::client::SerperSearchApi;
 use crate::conversions::{params_to_request, response_to_results, validate_search_params};
-use golem_web_search::durability::Durablewebsearch;
-use golem_web_search::durability::ExtendedwebsearchGuest;
-use golem_web_search::golem::web_search::web_search::{
-    Guest, GuestSearchSession, SearchError, SearchMetadata, SearchParams, SearchResult,
-    SearchSession,
+use golem_web_search::durability::DurableWebSearch;
+use golem_web_search::durability::ExtendedWebSearchProvider;
+use golem_web_search::model::web_search::{
+    SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
+use golem_web_search::{SearchSessionInterface, WebSearchProvider};
 
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
 pub struct SerperReplayState {
@@ -45,7 +45,7 @@ impl SerperSearch {
         }
 
         let request =
-            crate::conversions::params_to_request(self.params.clone(), self.current_page)?;
+            params_to_request(self.params.clone(), self.current_page)?;
         let num_results = request.num.unwrap_or(10);
         let response = self.client.search(request)?;
         let (results, metadata) = response_to_results(response, &self.params, self.current_page);
@@ -63,7 +63,7 @@ impl SerperSearch {
 }
 
 // Create a wrapper that implements GuestSearchSession properly
-struct SerperSearchSession(RefCell<SerperSearch>);
+pub struct SerperSearchSession(RefCell<SerperSearch>);
 
 impl SerperSearchSession {
     fn new(search: SerperSearch) -> Self {
@@ -71,7 +71,15 @@ impl SerperSearchSession {
     }
 }
 
-impl GuestSearchSession for SerperSearchSession {
+impl SearchSessionInterface for SerperSearchSession {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn next_page(&self) -> Result<Vec<SearchResult>, SearchError> {
         let mut search = self.0.borrow_mut();
         search.next_page()
@@ -83,7 +91,7 @@ impl GuestSearchSession for SerperSearchSession {
     }
 }
 
-struct SerperSearchComponent;
+pub struct SerperSearchComponent;
 
 impl SerperSearchComponent {
     const API_KEY_VAR: &'static str = "SERPER_API_KEY";
@@ -122,7 +130,7 @@ impl SerperSearchComponent {
     }
 }
 
-impl Guest for SerperSearchComponent {
+impl WebSearchProvider for SerperSearchComponent {
     type SearchSession = SerperSearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
@@ -140,7 +148,7 @@ impl Guest for SerperSearchComponent {
     }
 }
 
-impl ExtendedwebsearchGuest for SerperSearchComponent {
+impl ExtendedWebSearchProvider for SerperSearchComponent {
     type ReplayState = SerperReplayState;
 
     fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
@@ -172,5 +180,4 @@ impl ExtendedwebsearchGuest for SerperSearchComponent {
     }
 }
 
-type DurableSerperComponent = Durablewebsearch<SerperSearchComponent>;
-golem_web_search::export_websearch!(DurableSerperComponent with_types_in golem_web_search);
+pub type DurableSerperComponent = DurableWebSearch<SerperSearchComponent>;

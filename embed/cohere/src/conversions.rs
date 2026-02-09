@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use base64::{engine::general_purpose, Engine};
 use golem_embed::{
     error::unsupported,
-    golem::embed::embed::{
+    model::{
         Config, ContentPart, Embedding, EmbeddingResponse as GolemEmbeddingResponse, Error,
         OutputDtype, RerankResponse as GolemRerankResponse, RerankResult, TaskType, Usage,
         VectorData,

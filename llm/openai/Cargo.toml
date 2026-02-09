@@ -4,12 +4,11 @@ version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://golem.cloud"
-repository = "https://github.com/golemcloud/golem-llm"
-description = "WebAssembly component for working with OpenAI APIs, with special support for Golem Cloud"
+repository = "https://github.com/golemcloud/golem-ai"
+description = "Library for working with OpenAI APIs on Golem Cloud"
 
 [lib]
 path = "src/lib.rs"
-crate-type = ["cdylib"]
 
 [features]
 default = ["durability"]
@@ -23,21 +22,4 @@ golem-wasi-http = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-wit-bindgen-rt = { workspace = true }
 base64 = { workspace = true }
-
-[package.metadata.component]
-package = "golem:llm-openai"
-
-[package.metadata.component.bindings]
-generate_unused_types = true
-
-[package.metadata.component.bindings.with]
-"golem:llm/llm@1.0.0" = "golem_llm::golem::llm::llm"
-
-[package.metadata.component.target]
-path = "wit"
-
-[package.metadata.component.target.dependencies]
-"golem:llm" = { path = "wit/deps/golem-llm" }
-"wasi:io" = { path = "wit/deps/io" }

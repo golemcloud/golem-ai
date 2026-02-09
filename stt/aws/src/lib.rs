@@ -1,28 +1,25 @@
-use golem_stt::durability::{DurableStt, ExtendedGuest};
-use golem_stt::golem::stt::languages::{
-    Guest as WitLanguageGuest, LanguageInfo as WitLanguageInfo,
-};
+use golem_stt::durability::{DurableStt, ExtendedSttProvider};
 
 use golem_stt::error::Error as SttError;
 
-use golem_stt::golem::stt::transcription::{
+use golem_stt::model::transcription::{
     FailedTranscription as WitFailedTranscription,
     MultiTranscriptionResult as WitMultiTranscriptionResult,
     TranscribeOptions as WitTranscribeOptions,
 };
 
-use golem_stt::golem::stt::types::{
+use golem_stt::model::types::{
     AudioFormat as WitAudioFormat, SttError as WitSttError, TimingInfo as WitTimingInfo,
     TranscriptionChannel as WitTranscriptionChannel,
     TranscriptionMetadata as WitTranscriptionMetadata,
     TranscriptionResult as WitTranscriptionResult, TranscriptionSegment as WitTranscriptionSegment,
     WordSegment as WitWordSegment,
 };
-use golem_stt::guest::{SttTranscriptionGuest, SttTranscriptionRequest};
+use golem_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
 use golem_stt::http::WstdHttpClient;
 use golem_stt::runtime::WasiAsyncRuntime;
 use golem_stt::transcription::SttProviderClient;
-use golem_stt::LOGGING_STATE;
+use golem_stt::{LanguageProvider, LOGGING_STATE};
 use log::trace;
 use transcription::api::{TranscribeApi, TranscriptionResponse};
 use transcription::request::{
@@ -33,7 +30,7 @@ use futures_concurrency::future::Join;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 use wstd::runtime::block_on;
-
+use golem_stt::model::languages::LanguageInfo;
 use crate::transcription::{S3Client, TranscribeClient};
 
 mod transcription;
@@ -42,8 +39,7 @@ static API_CLIENT: OnceCell<
     TranscribeApi<S3Client<WstdHttpClient>, TranscribeClient<WstdHttpClient, WasiAsyncRuntime>>,
 > = OnceCell::new();
 
-#[allow(unused)]
-struct SttComponent;
+pub struct SttComponent;
 
 impl SttComponent {
     fn create_or_get_client() -> Result<
@@ -77,14 +73,14 @@ impl SttComponent {
     }
 }
 
-impl WitLanguageGuest for SttComponent {
-    fn list_languages() -> Result<Vec<WitLanguageInfo>, WitSttError> {
+impl LanguageProvider for SttComponent {
+    fn list_languages() -> Result<Vec<LanguageInfo>, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
         let supported_languages = transcription::api::get_supported_languages();
         Ok(supported_languages
             .iter()
-            .map(|lang| WitLanguageInfo {
+            .map(|lang| LanguageInfo {
                 code: lang.code.to_string(),
                 name: lang.name.to_string(),
                 native_name: lang.native_name.to_string(),
@@ -93,7 +89,7 @@ impl WitLanguageGuest for SttComponent {
     }
 }
 
-impl SttTranscriptionGuest for SttComponent {
+impl SttTranscriptionProvider for SttComponent {
     fn transcribe(req: SttTranscriptionRequest) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -385,8 +381,6 @@ impl From<TranscriptionResponse> for WitTranscriptionResult {
     }
 }
 
-impl ExtendedGuest for SttComponent {}
+impl ExtendedSttProvider for SttComponent {}
 
-type DurableDeepgramComponent = DurableStt<SttComponent>;
-
-golem_stt::export_stt!(DurableDeepgramComponent with_types_in golem_stt);
+pub type DurableDeepgramComponent = DurableStt<SttComponent>;

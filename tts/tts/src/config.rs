@@ -1,4 +1,4 @@
-use crate::exports::golem::tts::types::TtsError;
+use crate::model::types::TtsError;
 use std::ffi::OsStr;
 
 pub fn with_config_key<R>(
