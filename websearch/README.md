@@ -1,25 +1,19 @@
 # golem-web-search
 
-WebAssembly Components providing a unified API for various web search providers.
+Rust libraries providing a unified API for various web search providers, to be used with Golem.
 
 ## Versions
 
-Each web search provider has two versions: **Default** (with Golem-specific durability features) and **Portable** (no Golem dependencies).
+There are 4 published libraries for each release:
 
-There are 8 published WASM files for each release:
+| Name                         | Description                                                                                |
+|------------------------------|--------------------------------------------------------------------------------------------|
+| `golem-ai-web-search-brave`  | Web search implementation for Brave Search, using custom Golem specific durability features |
+| `golem-ai-web-search-google` | Web search implementation for Google Custom Search, using custom Golem specific durability features |
+| `golem-ai-web-search-serper` | Web search implementation for Serper.dev, using custom Golem specific durability features |
+| `golem-ai-web-search-tavily` | Web search implementation for Tavily AI, using custom Golem specific durability features |
 
-| Name                                 | Description                                                                                |
-|--------------------------------------|--------------------------------------------------------------------------------------------|
-| `golem-web-search-brave.wasm`        | Web search implementation for Brave Search, using custom Golem specific durability features |
-| `golem-web-search-google.wasm`       | Web search implementation for Google Custom Search, using custom Golem specific durability features |
-| `golem-web-search-serper.wasm`       | Web search implementation for Serper.dev, using custom Golem specific durability features |
-| `golem-web-search-tavily.wasm`       | Web search implementation for Tavily AI, using custom Golem specific durability features |
-| `golem-web-search-brave-portable.wasm` | Web search implementation for Brave Search, with no Golem specific dependencies |
-| `golem-web-search-google-portable.wasm` | Web search implementation for Google Custom Search, with no Golem specific dependencies |
-| `golem-web-search-serper-portable.wasm` | Web search implementation for Serper.dev, with no Golem specific dependencies |
-| `golem-web-search-tavily-portable.wasm` | Web search implementation for Tavily AI, with no Golem specific dependencies |
-
-Every component **exports** the same `golem:web-search` interface, [defined here](wit/golem-web-search.wit).
+Every library **exports** the same `golem:web-search` interface.
 
 ## Usage
 

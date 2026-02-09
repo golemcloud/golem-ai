@@ -1,29 +1,21 @@
 # golem-llm
 
-WebAssembly Components providing a unified API for various LLM providers.
+Rust libraries providing a unified API for various LLM providers, to be used with Golem.
 
 ## Versions
 
-Each LLM provider has two versions: **Default** (with Golem-specific durability features) and **Portable** (no Golem dependencies).
+There are 6 published implementations for each release:
 
-There are 12 published WASM files for each release:
+| Name                      | Description                                                                            |
+|---------------------------|----------------------------------------------------------------------------------------|
+| `golem-ai-llm-anthropic`  | LLM implementation for Anthropic AI, using custom Golem specific durability features   |
+| `golem-ai-llm-ollama`     | LLM implementation for Ollama, using custom Golem specific durability features         |
+| `golem-ai-llm-grok`       | LLM implementation for xAI (Grok), using custom Golem specific durability features     |
+| `golem-ai-llm-openai`     | LLM implementation for OpenAI, using custom Golem specific durability features         |
+| `golem-ai-llm-openrouter` | LLM implementation for OpenRouter, using custom Golem specific durability features     |
+| `golem-ai-llm-bedrock`    | LLM implementation for Amazon Bedrock, using custom Golem specific durability features |
 
-| Name                                 | Description                                                                            |
-|--------------------------------------|----------------------------------------------------------------------------------------|
-| `golem-llm-anthropic.wasm`           | LLM implementation for Anthropic AI, using custom Golem specific durability features   |
-| `golem-llm-ollama.wasm`              | LLM implementation for Ollama, using custom Golem specific durability features         |
-| `golem-llm-grok.wasm`                | LLM implementation for xAI (Grok), using custom Golem specific durability features     |
-| `golem-llm-openai.wasm`              | LLM implementation for OpenAI, using custom Golem specific durability features         |
-| `golem-llm-openrouter.wasm`          | LLM implementation for OpenRouter, using custom Golem specific durability features     |
-| `golem-llm-bedrock.wasm`             | LLM implementation for Amazon Bedrock, using custom Golem specific durability features |
-| `golem-llm-anthropic-portable.wasm`  | LLM implementation for Anthropic AI, with no Golem specific dependencies.              |
-| `golem-llm-ollama-portable.wasm`     | LLM implementation for Ollama, with no Golem specific dependencies.                    |
-| `golem-llm-grok-portable.wasm`       | LLM implementation for xAI (Grok), with no Golem specific dependencies.                |
-| `golem-llm-openai-portable.wasm`     | LLM implementation for OpenAI, with no Golem specific dependencies.                    |
-| `golem-llm-openrouter-portable.wasm` | LLM implementation for OpenRouter, with no Golem specific dependencies.                |
-| `golem-llm-bedrock-portable.wasm`    | LLM implementation for Amazon Bedrock, with no Golem specific dependencies.            |
-
-Every component **exports** the same `golem:llm` interface, [defined here](wit/golem-llm.wit).
+Every library **exports** the same `golem:llm` interface.
 
 ## Usage
 

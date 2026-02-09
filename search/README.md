@@ -1,27 +1,20 @@
 # golem-search
 
-WebAssembly Components providing a unified API for various search providers.
+Rust libraries providing a unified API for various search providers, to be used with Golem.
 
 ## Versions
 
-Each search provider has two versions: **Default** (with Golem-specific durability features) and **Portable** (no Golem dependencies).
+There are 5 published libraries for each release:
 
-There are 10 published WASM files for each release:
+| Name                            | Description                                                                                |
+|---------------------------------|--------------------------------------------------------------------------------------------|
+| `golem-ai-search-algolia`       | Search implementation for Algolia, using custom Golem specific durability features |
+| `golem-ai-search-elasticsearch` | Search implementation for Elasticsearch, using custom Golem specific durability features |
+| `golem-ai-search-meilisearch`   | Search implementation for Meilisearch, using custom Golem specific durability features |
+| `golem-ai-search-opensearch`    | Search implementation for OpenSearch, using custom Golem specific durability features |
+| `golem-ai-search-typesense`     | Search implementation for Typesense, using custom Golem specific durability features |
 
-| Name                                 | Description                                                                                |
-|--------------------------------------|--------------------------------------------------------------------------------------------|
-| `golem-search-algolia.wasm`          | Search implementation for Algolia, using custom Golem specific durability features |
-| `golem-search-elasticsearch.wasm`    | Search implementation for Elasticsearch, using custom Golem specific durability features |
-| `golem-search-meilisearch.wasm`      | Search implementation for Meilisearch, using custom Golem specific durability features |
-| `golem-search-opensearch.wasm`       | Search implementation for OpenSearch, using custom Golem specific durability features |
-| `golem-search-typesense.wasm`        | Search implementation for Typesense, using custom Golem specific durability features |
-| `golem-search-algolia-portable.wasm` | Search implementation for Algolia, with no Golem specific dependencies |
-| `golem-search-elasticsearch-portable.wasm` | Search implementation for Elasticsearch, with no Golem specific dependencies |
-| `golem-search-meilisearch-portable.wasm` | Search implementation for Meilisearch, with no Golem specific dependencies |
-| `golem-search-opensearch-portable.wasm` | Search implementation for OpenSearch, with no Golem specific dependencies |
-| `golem-search-typesense-portable.wasm` | Search implementation for Typesense, with no Golem specific dependencies |
-
-Every component **exports** the same `golem:search` interface, [defined here](wit/golem-search.wit).
+Every library **exports** the same `golem:search` interface.
 
 ## Usage
 

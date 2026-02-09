@@ -59,8 +59,6 @@ jobs:
           override: true
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
-      - name: Install cargo-component
-        run: cargo binstall --force cargo-component@0.21.1
       - name: Build all
         run: cargo make build-all
   build-test-components:
@@ -525,11 +523,6 @@ jobs:
           override: true
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
-      - name: Install cargo-component
-        run: cargo binstall --force cargo-component@0.21.1
       - name: Build all components in release
         run: cargo make release-build-all
-      - name: Login GH CLI
-        shell: bash
-        run: gh auth login --with-token < <(echo ${{ secrets.GITHUB_TOKEN }})
-      - run: gh release upload -R golemcloud/golem-llm --clobber ${{ github.ref_name }} components/release/*.wasm
+# TODO: publish to crates.io

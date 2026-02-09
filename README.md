@@ -1,6 +1,6 @@
 # golem-ai
 
-WebAssembly Components providing API for modules LLM, WebSearch, Video and Search for various providers.
+Rust libraries providing API for modules LLM, WebSearch, Video and Search for various providers, to be used with Golem.
 
 ## Modules
 
@@ -37,26 +37,7 @@ Provides a unified API for various Video Generation providers:
 - **Kling** - Kling video generation and lip-sync
 - **Runway** - Runway ML video generation
 
-## Component Versions
-
-Each provider has two versions available:
-
-### Default Versions
-- Include Golem-specific durability features
-- Depend on [Golem's host API](https://learn.golem.cloud/golem-host-functions)
-- Provide advanced features like crash recovery and state persistence
-- Example: `golem-ai-llm-openai.wasm`
-
-### Portable Versions  
-- No Golem-specific dependencies
-- Can be used in any WebAssembly environment
-- Example: `golem-ai-llm-openai-portable.wasm`
-
-Every component **exports** the same unified interface for its module, defined in the respective WIT files:
-- LLM: [`llm/wit/golem-llm.wit`](llm/wit/golem-llm.wit)
-- WebSearch: [`websearch/wit/golem-web-search.wit`](websearch/wit/golem-web-search.wit)
-- Search: [`search/wit/golem-search.wit`](search/wit/golem-search.wit)
-- Video: [`video/wit/golem-video.wit`](video/wit/golem-video.wit)
+Every library **exports** the same unified interface for its module.
 
 For detailed information about each module and its providers, see the individual README files:
 - [LLM Module](llm/README.md)
@@ -70,67 +51,15 @@ For detailed information about each module and its providers, see the individual
 
 The easiest way to get started is to use one of the predefined **templates** Golem provides.
 
-**NOT AVAILABLE YET**
+### Using a dependency
 
-### Using a component dependency
+To existing Golem applications the `golem-ai` libraries can be added as a **dependency** in their `Cargo.toml` files.
 
-To existing Golem applications the `golem-ai` WASM components can be added as a **binary dependency**.
-
-**NOT AVAILABLE YET**
-
-### Integrating the composing step to the build
-
-Currently it is necessary to manually add the [`wac`](https://github.com/bytecodealliance/wac) tool call to the application manifest to link with the selected implementation. The `test` directory of this repository shows multiple examples of this.
-
-The summary of the steps to be done, assuming the component was created with `golem-cli component new rust my:example`:
-
-1. Copy the `profiles` section from `common-rust/golem.yaml` to the component's `golem.yaml` file (for example in `components-rust/my-example/golem.yaml`) so it can be customized.
-2. Add a second **build step** after the `cargo component build` which is calling `wac` to compose with the selected (and downloaded) binary. See the example below.
-3. Modify the `componentWasm` field to point to the composed WASM file.
-4. Add the appropriate WIT file (from this repository) to the application's root `wit/deps/golem:<module>` directory.
-5. Import the WIT file in your component's WIT file: `import golem:llm/llm@1.0.0;' (for LLM example)
-
-Example app manifest build section (using OpenAI LLM as example):
-
-```yaml
-components:
-  my:example:
-    presets:
-      debug:
-        build:
-          - command: cargo component build
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/debug/my_example.wasm
-          - command: wac plug --plug ../../golem_ai_llm_openai.wasm ../../target/wasm32-wasip1/debug/my_example.wasm -o ../../target/wasm32-wasip1/debug/my_example_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/my_example.wasm
-              - ../../golem_ai_llm_openai.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/my_example_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/my_example_plugged.wasm
-        linkedWasm: ../../golem-temp/components/my_example_debug.wasm
-        clean:
-          - src/bindings.rs
-```
 For detailed information about available profiles and environment variables for each module, see the individual README files:
 - [LLM Module](llm/README.md)
 - [WebSearch Module](websearch/README.md)
 - [Search Module](search/README.md)
 - [Video Module](video/README.md)
-
-### Using without Golem
-
-To use the provider components in a WebAssembly project independent of Golem you need to do the following:
-
-1. Download one of the `-portable.wasm` versions
-2. Download the appropriate WIT package and import it
-3. Use [`wac`](https://github.com/bytecodealliance/wac) to compose your component with the selected implementation.
 
 ## Examples
 
@@ -184,20 +113,17 @@ Some of the important tasks are:
 
 | Command                             | Description                                                                                                    |
 |-------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| `cargo make build`                  | Build all components with Golem bindings in Debug                                                              |
-| `cargo make release-build`          | Build all components with Golem bindings in Release                                                            |
-| `cargo make build-portable`         | Build all components with no Golem bindings in Debug                                                           |
-| `cargo make release-build-portable` | Build all components with no Golem bindings in Release                                                         |
+| `cargo make build`                  | Build all libraries in Debug                                                                                   |
+| `cargo make release-build`          | Build all libraries in Release                                                                                 |
 | `cargo make unit-tests`             | Run all unit tests                                                                                             |
 | `cargo make check`                  | Checks formatting and Clippy rules                                                                             |
 | `cargo make fix`                    | Fixes formatting and Clippy rules                                                                              |
-| `cargo make wit`                    | Used after editing the `<module>/wit/golem-<module>.wit` file - distributes the changes to all wit directories |
-| `cargo make build-test-components`  | Builds all test apps in `/test`, with all provider build-options using `golem-cli build --preset <provider>`   |
+| `cargo make build-test`             | Builds all test apps in `/test`, with all provider build-options using `golem-cli build --preset <provider>`   |
 
-**Note**: `cargo make` command build, release-build, build-portable, release-build-portable, wit, build-test-components, can be used with 
-`cargo make <command> <module>` to target only the selected module. (e.g. `cargo make build llm`, `cargo make wit video`)
+**Note**: `cargo make` commands build, release-build, build-test, can be used with 
+`cargo make <command> <module>` to target only the selected module. (e.g. `cargo make build llm`)
 
-The `test` directory contains a **Golem application** for testing various features of the LLM, WebSearch, Video and Search components.
+The `test` directory contains a **Golem application** for testing various features of the LLM, WebSearch, Video and Search libraries.
 Check [the Golem documentation](https://learn.golem.cloud/quickstart) to learn how to install Golem and `golem-cli` to
 run these tests.
 
