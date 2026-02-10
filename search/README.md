@@ -39,7 +39,7 @@ with the underlying search provider.
 
 ## Examples
 
-Take the [test application](../test/search/components-rust/test-search/src/lib.rs) as an example of using `golem-search` from Rust. The
+Take the [test application](../test/search-old/components-rust/test-search/src/lib.rs) as an example of using `golem-search` from Rust. The
 implemented test functions are demonstrating the following:
 
 | Function Name | Description                                                                                |

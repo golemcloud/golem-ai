@@ -1,292 +1,42 @@
 # Schema for IDEA:
-# $schema: https://schema.golem.cloud/app/golem/1.2.5/golem.schema.json
-# Schema for vscode-yaml
-# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.2.5/golem.schema.json
-
-# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
-# For creating APIs see https://learn.golem.cloud/invoke/making-custom-apis
+# $schema: https://schema.golem.cloud/app/golem/1.5.0-dev.1/golem.schema.json
+# Schema for vscode-yaml:
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.5.0-dev.1/golem.schema.json
 
 components:
   test:stt:
-    presets:
-      # DEBUG PROFILES
-      aws-debug:
-        files:
-          - sourcePath: samples/jfk.mp3
-            targetPath: /samples/jfk.mp3
-            permissions: read-only
-          - sourcePath: samples/mm1.wav
-            targetPath: /samples/mm1.wav
-            permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features aws
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_stt_aws.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_aws_stt_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_ai_stt_aws.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_aws_stt_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_aws_stt_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_aws_stt_debug.wasm
-        clean:
-          - src/bindings.rs
-      azure-debug:
-        files:
-          - sourcePath: samples/jfk.mp3
-            targetPath: /samples/jfk.mp3
-            permissions: read-only
-          - sourcePath: samples/mm1.wav
-            targetPath: /samples/mm1.wav
-            permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features azure
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_stt_azure.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_azure_stt_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_ai_stt_azure.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_azure_stt_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_azure_stt_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_azure_stt_debug.wasm
-        clean:
-          - src/bindings.rs
-      deepgram-debug:
-        files:
-          - sourcePath: samples/jfk.mp3
-            targetPath: /samples/jfk.mp3
-            permissions: read-only
-          - sourcePath: samples/mm1.wav
-            targetPath: /samples/mm1.wav
-            permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features deepgram
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_stt_deepgram.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_deepgram_stt_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_ai_stt_deepgram.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_deepgram_stt_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_deepgram_stt_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_deepgram_stt_debug.wasm
-        clean:
-          - src/bindings.rs
-      google-debug:
-        files:
-          - sourcePath: samples/jfk.mp3
-            targetPath: /samples/jfk.mp3
-            permissions: read-only
-          - sourcePath: samples/mm1.wav
-            targetPath: /samples/mm1.wav
-            permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features google
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_stt_google.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_google_stt_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_ai_stt_google.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_google_stt_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_google_stt_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_google_stt_debug.wasm
-        clean:
-          - src/bindings.rs
-      whisper-debug:
-        default: true
-        files:
-          - sourcePath: samples/jfk.mp3
-            targetPath: /samples/jfk.mp3
-            permissions: read-only
-          - sourcePath: samples/mm1.wav
-            targetPath: /samples/mm1.wav
-            permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features whisper
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_ai_stt_whisper.wasm ../../target/wasm32-wasip1/debug/test_stt.wasm -o ../../target/wasm32-wasip1/debug/test_whisper_stt_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_ai_stt_whisper.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_whisper_stt_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_whisper_stt_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_whisper_stt_debug.wasm
-        clean:
-          - src/bindings.rs
+    templates: rust
+    files:
+        - sourcePath: samples/jfk.mp3
+          targetPath: /samples/jfk.mp3
+          permissions: read-only
+        - sourcePath: samples/mm1.wav
+          targetPath: /samples/mm1.wav
+          permissions: read-only
+    env:
+      # STT_PROVIDER_LOG_LEVEL: "trace"
+      # STT_PROVIDER_MAX_RETRIES: "10"
 
-      # RELEASE PROFILES
-      aws-release:
-        files:
-          - sourcePath: samples/jfk.mp3
-            targetPath: /samples/jfk.mp3
-            permissions: read-only
-          - sourcePath: samples/mm1.wav
-            targetPath: /samples/mm1.wav
-            permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features aws
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/release/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_stt_aws.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_aws_stt_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_ai_stt_aws.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_aws_stt_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_aws_stt_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_aws_stt_release.wasm
-        clean:
-          - src/bindings.rs
-      azure-release:
-        files:
-          - sourcePath: samples/jfk.mp3
-            targetPath: /samples/jfk.mp3
-            permissions: read-only
-          - sourcePath: samples/mm1.wav
-            targetPath: /samples/mm1.wav
-            permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features azure
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/release/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_stt_azure.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_azure_stt_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_ai_stt_azure.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_azure_stt_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_azure_stt_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_azure_stt_release.wasm
-        clean:
-          - src/bindings.rs
-      deepgram-release:
-        files:
-          - sourcePath: samples/jfk.mp3
-            targetPath: /samples/jfk.mp3
-            permissions: read-only
-          - sourcePath: samples/mm1.wav
-            targetPath: /samples/mm1.wav
-            permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features deepgram
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/release/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_stt_deepgram.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_deepgram_stt_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_ai_stt_deepgram.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_deepgram_stt_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_deepgram_stt_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_deepgram_stt_release.wasm
-        clean:
-          - src/bindings.rs
-      google-release:
-        files:
-          - sourcePath: samples/jfk.mp3
-            targetPath: /samples/jfk.mp3
-            permissions: read-only
-          - sourcePath: samples/mm1.wav
-            targetPath: /samples/mm1.wav
-            permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features google
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/release/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_stt_google.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_google_stt_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_ai_stt_google.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_google_stt_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_google_stt_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_google_stt_release.wasm
-        clean:
-          - src/bindings.rs
-      whisper-release:
-        files:
-          - sourcePath: samples/jfk.mp3
-            targetPath: /samples/jfk.mp3
-            permissions: read-only
-          - sourcePath: samples/mm1.wav
-            targetPath: /samples/mm1.wav
-            permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features whisper
-            sources:
-              - src
-              - wit-generated
-            targets:
-              - ../../target/wasm32-wasip1/release/test_stt.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_ai_stt_whisper.wasm ../../target/wasm32-wasip1/release/test_stt.wasm -o ../../target/wasm32-wasip1/release/test_whisper_stt_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_stt.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_ai_stt_whisper.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_whisper_stt_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_whisper_stt_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_whisper_stt_debug.wasm
-        clean:
-          - src/bindings.rs
-# Example for adding dependencies for Worker to Worker communication:
-# See https://learn.golem.cloud/docs/app-manifest#fields_dependencies for more information
-#
-# dependencies:
-#   test:stt:
-#     - type: wasm
-#       path: /Users/kmatas/Repos/Rust/golem/golem-llm/target/wasm32-wasip1/debug/golem_ai_stt_whisper.wasm
+      ## AWS
+      # AWS_REGION: "{{ AWS_REGION }}"
+      # AWS_ACCESS_KEY: "{{ AWS_ACCESS_KEY }}"
+      # AWS_SECRET_KEY: "{{ AWS_SECRET_KEY }}"
+      # AWS_BUCKET_NAME: "{{ AWS_BUCKET_NAME }}"
+
+      ## Azure
+      # AZURE_REGION: "{{ AZURE_REGION }}"
+      # AZURE_SUBSCRIPTION_KEY: "{{ AZURE_SUBSCRIPTION_KEY }}"
+
+      ## Deepgram
+      # DEEPGRAM_API_TOKEN: "{{ DEEPGRAM_API_TOKEN }}"
+      # DEEPGRAM_ENDPOINT: "{{ DEEPGRAM_ENDPOINT }}"
+
+      ## Google
+      # GOOGLE_LOCATION: "{{ GOOGLE_LOCATION }}"
+      # GOOGLE_BUCKET_NAME: "{{ GOOGLE_BUCKET_NAME }}"
+      # GOOGLE_PROJECT_ID: "{{ GOOGLE_PROJECT_ID }}"
+      # GOOGLE_CLIENT_EMAIL: "{{ GOOGLE_CLIENT_EMAIL }}"
+      # GOOGLE_PRIVATE_KEY: "{{ GOOGLE_PRIVATE_KEY }}"
+
+      ## Whisper
+      # OPENAI_API_KEY: "{{ OPENAI_API_KEY }}"

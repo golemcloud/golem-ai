@@ -4,38 +4,26 @@ version = "0.0.1"
 edition = "2021"
 
 [lib]
-path = "src/lib.rs"
 crate-type = ["cdylib"]
-required-features = []
+path = "src/lib.rs"
 
 [features]
 default = ["whisper"]
-aws = []
-azure = []
-deepgram = []
-google = []
-whisper = []
+whisper = ["golem-ai-stt-whisper"]
+aws = ["golem-ai-stt-aws"]
+azure = ["golem-ai-stt-azure"]
+deepgram = ["golem-ai-stt-deepgram"]
+google = ["golem-ai-stt-google"]
 
 [dependencies]
-# To use common shared libs, use the following:
-# common-lib = { path = "../../common-rust/common-lib" }
-log = "0.4.27"
 golem-rust = { workspace = true }
+golem-ai-stt = { path = "../../../../stt/stt" }
+golem-ai-stt-whisper = { path = "../../../../stt/whisper", optional = true }
+golem-ai-stt-aws = { path = "../../../../stt/aws", optional = true }
+golem-ai-stt-azure = { path = "../../../../stt/azure", optional = true }
+golem-ai-stt-deepgram = { path = "../../../../stt/deepgram", optional = true }
+golem-ai-stt-google = { path = "../../../../stt/google", optional = true }
+log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-wit-bindgen-rt = { workspace = true }
-
-[package.metadata.component.target]
-path = "wit-generated"
-
-[package.metadata.component.bindings.with]
-
-[package.metadata.component.target.dependencies]
-"golem:stt" = { path = "wit-generated/deps/golem-ai-stt" }
-"test:stt-exports" = { path = "wit-generated/deps/test_stt-exports" }
-
-[package.metadata.component.bindings]
-# See https://github.com/bytecodealliance/cargo-component/blob/main/src/metadata.rs#L62
-
-# derives = ["serde::Serialize", "serde::Deserialize"]
-# generate_unused_types = true
+wstd = { workspace = true }

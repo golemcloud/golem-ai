@@ -1,0 +1,7 @@
+{
+  "kind": "ResolvedExternalCommandMarkerHash",
+  "id": "{\"build_dir\":\"/Users/vigoo/projects/golem/golem-llm/test/components-rust/test-llm\",\"command\":{\"command\":\"wac plug --plug ../../../target/wasm32-wasip1/debug/golem_llm_openai.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm\",\"sources\":[\"../../target/wasm32-wasip1/debug/test_llm.wasm\",\"../../../target/wasm32-wasip1/debug/golem_llm_openai.wasm\"],\"targets\":[\"../../target/wasm32-wasip1/debug/test_openai_plugged.wasm\"]}}",
+  "hashInput": "{\"build_dir\":\"/Users/vigoo/projects/golem/golem-llm/test/components-rust/test-llm\",\"command\":{\"command\":\"wac plug --plug ../../../target/wasm32-wasip1/debug/golem_llm_openai.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm\",\"sources\":[\"../../target/wasm32-wasip1/debug/test_llm.wasm\",\"../../../target/wasm32-wasip1/debug/golem_llm_openai.wasm\"],\"targets\":[\"../../target/wasm32-wasip1/debug/test_openai_plugged.wasm\"]}}",
+  "hashHex": "fa95a1c833ab03abc8f7aab15e75a6a5e66373bc49a578e6d83b8214a1c126bc",
+  "success": true
+}

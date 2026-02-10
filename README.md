@@ -68,7 +68,7 @@ The `test` directory contains comprehensive examples for each module:
 Individual test directories for each module (with examples):
 - [LLM Test](test/llm/)
 - [WebSearch Test](test/websearch/)
-- [Search Test](test/search/)
+- [Search Test](test/search-old/)
 - [Video Test](test/video/)
 - [Video Advanced Test](test/video-advanced/)
 

@@ -1,46 +1,100 @@
-#[allow(static_mut_refs)]
-mod bindings;
+use golem_ai_llm::model::*;
+use golem_ai_llm::LlmProvider;
+use golem_rust::{agent_definition, agent_implementation, mark_atomic_operation};
 
-use crate::bindings::exports::test::llm_exports::test_llm_api::*;
-use crate::bindings::golem::llm::llm;
-use crate::bindings::golem::llm::llm::StreamEvent;
-use crate::bindings::test::helper_client::test_helper_client::TestHelperApi;
-use golem_rust::atomically;
+#[agent_definition]
+pub trait TestHelper {
+    fn new(name: String) -> Self;
+    fn inc_and_get(&mut self) -> u64;
+}
+
+struct TestHelperImpl {
+    _name: String,
+    total: u64,
+}
+
+#[agent_implementation]
+impl TestHelper for TestHelperImpl {
+    fn new(name: String) -> Self {
+        Self {
+            _name: name,
+            total: 0,
+        }
+    }
+
+    fn inc_and_get(&mut self) -> u64 {
+        self.total += 1;
+        self.total
+    }
+}
 
 mod utils;
 
-struct Component;
+#[cfg(feature = "openai")]
+type Provider = golem_ai_llm_openai::DurableOpenAI;
+#[cfg(feature = "anthropic")]
+type Provider = golem_ai_llm_anthropic::DurableAnthropic;
+#[cfg(feature = "bedrock")]
+type Provider = golem_ai_llm_bedrock::DurableBedrock;
+#[cfg(feature = "grok")]
+type Provider = golem_ai_llm_grok::DurableGrok;
+#[cfg(feature = "openrouter")]
+type Provider = golem_ai_llm_openrouter::DurableOpenRouter;
+#[cfg(feature = "ollama")]
+type Provider = golem_ai_llm_ollama::DurableOllama;
 
 #[cfg(feature = "openai")]
-const MODEL: &'static str = "gpt-3.5-turbo";
+const MODEL: &str = "gpt-3.5-turbo";
 #[cfg(feature = "bedrock")]
-const MODEL: &'static str = "anthropic.claude-3-5-sonnet-20240620-v1:0";
+const MODEL: &str = "anthropic.claude-3-5-sonnet-20240620-v1:0";
 #[cfg(feature = "anthropic")]
-const MODEL: &'static str = "claude-3-7-sonnet-20250219";
+const MODEL: &str = "claude-3-7-sonnet-20250219";
 #[cfg(feature = "grok")]
-const MODEL: &'static str = "grok-3-beta";
+const MODEL: &str = "grok-3-beta";
 #[cfg(feature = "openrouter")]
-const MODEL: &'static str = "openrouter/auto";
+const MODEL: &str = "openrouter/auto";
 #[cfg(feature = "ollama")]
-const MODEL: &'static str = "qwen3:1.7b";
+const MODEL: &str = "qwen3:1.7b";
 
 #[cfg(feature = "openai")]
-const IMAGE_MODEL: &'static str = "gpt-4o-mini";
+const IMAGE_MODEL: &str = "gpt-4o-mini";
 #[cfg(feature = "bedrock")]
-const IMAGE_MODEL: &'static str = "anthropic.claude-3-5-sonnet-20240620-v1:0";
+const IMAGE_MODEL: &str = "anthropic.claude-3-5-sonnet-20240620-v1:0";
 #[cfg(feature = "anthropic")]
-const IMAGE_MODEL: &'static str = "claude-3-7-sonnet-20250219";
+const IMAGE_MODEL: &str = "claude-3-7-sonnet-20250219";
 #[cfg(feature = "grok")]
-const IMAGE_MODEL: &'static str = "grok-2-vision-latest";
+const IMAGE_MODEL: &str = "grok-2-vision-latest";
 #[cfg(feature = "openrouter")]
-const IMAGE_MODEL: &'static str = "openrouter/auto";
+const IMAGE_MODEL: &str = "openrouter/auto";
 #[cfg(feature = "ollama")]
-const IMAGE_MODEL: &'static str = "gemma3:4b";
+const IMAGE_MODEL: &str = "gemma3:4b";
 
-impl Guest for Component {
-    /// test1 demonstrates a simple, non-streaming text question-answer interaction with the LLM.
-    fn test1() -> String {
-        let config = llm::Config {
+#[agent_definition]
+pub trait LlmTest {
+    fn new(name: String) -> Self;
+
+    fn test1(&self) -> String;
+    fn test2(&self) -> String;
+    fn test3(&self) -> String;
+    fn test4(&self) -> String;
+    fn test5(&self) -> String;
+    async fn test6(&self) -> String;
+    fn test7(&self) -> String;
+    async fn test8(&self) -> String;
+}
+
+struct LlmTestImpl {
+    _name: String,
+}
+
+#[agent_implementation]
+impl LlmTest for LlmTestImpl {
+    fn new(name: String) -> Self {
+        Self { _name: name }
+    }
+
+    fn test1(&self) -> String {
+        let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
             max_tokens: None,
@@ -51,16 +105,16 @@ impl Guest for Component {
         };
 
         println!("Sending request to LLM...");
-        let response = llm::send(
-            &[llm::Event::Message(llm::Message {
-                role: llm::Role::User,
+        let response = Provider::send(
+            vec![Event::Message(Message {
+                role: Role::User,
                 name: Some("vigoo".to_string()),
-                content: vec![llm::ContentPart::Text(
+                content: vec![ContentPart::Text(
                     "What is the usual weather on the Vršič pass in the beginning of May?"
                         .to_string(),
                 )],
             })],
-            &config,
+            config,
         );
         println!("Response: {:?}", response);
 
@@ -72,11 +126,11 @@ impl Guest for Component {
                         .content
                         .into_iter()
                         .map(|content| match content {
-                            llm::ContentPart::Text(txt) => txt,
-                            llm::ContentPart::Image(image_ref) => match image_ref {
-                                llm::ImageReference::Url(url_data) =>
+                            ContentPart::Text(txt) => txt,
+                            ContentPart::Image(image_ref) => match image_ref {
+                                ImageReference::Url(url_data) =>
                                     format!("[IMAGE URL: {}]", url_data.url),
-                                llm::ImageReference::Inline(inline_data) => format!(
+                                ImageReference::Inline(inline_data) => format!(
                                     "[INLINE IMAGE: {} bytes, mime: {}]",
                                     inline_data.data.len(),
                                     inline_data.mime_type
@@ -99,15 +153,13 @@ impl Guest for Component {
         }
     }
 
-    /// test2 demonstrates how to use tools with the LLM, including generating a tool response
-    /// and collecting chat events
-    fn test2() -> String {
-        let config = llm::Config {
+    fn test2(&self) -> String {
+        let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
             max_tokens: None,
             stop_sequences: None,
-            tools: Some(vec![llm::ToolDefinition {
+            tools: Some(vec![ToolDefinition {
                 name: "test-tool".to_string(),
                 description: Some("Test tool for generating test values".to_string()),
                 parameters_schema: r#"{
@@ -130,24 +182,24 @@ impl Guest for Component {
         };
 
         let input = vec![
-            llm::ContentPart::Text("Generate a random number between 1 and 10".to_string()),
-            llm::ContentPart::Text(
+            ContentPart::Text("Generate a random number between 1 and 10".to_string()),
+            ContentPart::Text(
                 "then translate this number to German and output it as a text message.".to_string(),
             ),
         ];
 
         let mut events = vec![];
-        events.push(llm::Event::Message(llm::Message {
-            role: llm::Role::User,
+        events.push(Event::Message(Message {
+            role: Role::User,
             name: Some("vigoo".to_string()),
             content: input.clone(),
         }));
 
         println!("Sending request to LLM...");
-        let response1 = llm::send(&events, &config);
+        let response1 = Provider::send(events.clone(), config.clone());
         let tool_request = match response1 {
             Ok(response) => {
-                events.push(llm::Event::Response(response.clone()));
+                events.push(Event::Response(response.clone()));
                 response.tool_calls
             }
             Err(error) => {
@@ -163,8 +215,8 @@ impl Guest for Component {
 
         if !tool_request.is_empty() {
             for call in tool_request {
-                events.push(llm::Event::ToolResults(vec![llm::ToolResult::Success(
-                    llm::ToolSuccess {
+                events.push(Event::ToolResults(vec![ToolResult::Success(
+                    ToolSuccess {
                         id: call.id,
                         name: call.name,
                         result_json: r#"{ "value": 6 }"#.to_string(),
@@ -173,7 +225,7 @@ impl Guest for Component {
                 )]));
             }
 
-            let response2 = llm::send(&events, &config);
+            let response2 = Provider::send(events, config);
 
             match response2 {
                 Ok(response) => {
@@ -193,9 +245,8 @@ impl Guest for Component {
         }
     }
 
-    /// test3 is a streaming version of test1, a single turn question-answer interaction
-    fn test3() -> String {
-        let config = llm::Config {
+    fn test3(&self) -> String {
+        let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
             max_tokens: None,
@@ -206,16 +257,16 @@ impl Guest for Component {
         };
 
         println!("Starting streaming request to LLM...");
-        let stream = llm::stream(
-            &[llm::Event::Message(llm::Message {
-                role: llm::Role::User,
+        let stream = Provider::stream(
+            vec![Event::Message(Message {
+                role: Role::User,
                 name: Some("vigoo".to_string()),
-                content: vec![llm::ContentPart::Text(
+                content: vec![ContentPart::Text(
                     "What is the usual weather on the Vršič pass in the beginning of May?"
                         .to_string(),
                 )],
             })],
-            &config,
+            config,
         );
 
         let mut result = String::new();
@@ -231,10 +282,10 @@ impl Guest for Component {
 
                 match event {
                     Ok(StreamEvent::Delta(delta)) => {
-                        result.push_str(&format!("DELTA: {:?}\n", delta,));
+                        result.push_str(&format!("DELTA: {:?}\n", delta));
                     }
                     Ok(StreamEvent::Finish(finish)) => {
-                        result.push_str(&format!("FINISH: {:?}\n", finish,));
+                        result.push_str(&format!("FINISH: {:?}\n", finish));
                     }
                     Err(error) => {
                         result.push_str(&format!(
@@ -251,14 +302,13 @@ impl Guest for Component {
         result
     }
 
-    /// test4 shows how streaming works together with using tools
-    fn test4() -> String {
-        let config = llm::Config {
+    fn test4(&self) -> String {
+        let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
             max_tokens: None,
             stop_sequences: None,
-            tools: Some(vec![llm::ToolDefinition {
+            tools: Some(vec![ToolDefinition {
                 name: "test-tool".to_string(),
                 description: Some("Test tool for generating test values".to_string()),
                 parameters_schema: r#"{
@@ -281,20 +331,20 @@ impl Guest for Component {
         };
 
         let input = vec![
-            llm::ContentPart::Text("Generate a random number between 1 and 10".to_string()),
-            llm::ContentPart::Text(
+            ContentPart::Text("Generate a random number between 1 and 10".to_string()),
+            ContentPart::Text(
                 "then translate this number to German and output it as a text message.".to_string(),
             ),
         ];
 
         println!("Starting streaming request to LLM...");
-        let stream = llm::stream(
-            &[llm::Event::Message(llm::Message {
-                role: llm::Role::User,
+        let stream = Provider::stream(
+            vec![Event::Message(Message {
+                role: Role::User,
                 name: Some("vigoo".to_string()),
                 content: input,
             })],
-            &config,
+            config,
         );
 
         let mut result = String::new();
@@ -311,10 +361,10 @@ impl Guest for Component {
 
                 match event {
                     Ok(StreamEvent::Delta(delta)) => {
-                        result.push_str(&format!("DELTA: {:?}\n", delta,));
+                        result.push_str(&format!("DELTA: {:?}\n", delta));
                     }
                     Ok(StreamEvent::Finish(finish)) => {
-                        result.push_str(&format!("FINISH: {:?}\n", finish,));
+                        result.push_str(&format!("FINISH: {:?}\n", finish));
                     }
                     Err(error) => {
                         result.push_str(&format!(
@@ -332,9 +382,8 @@ impl Guest for Component {
         result
     }
 
-    /// test5 demonstrates how to send image urls to the LLM
-    fn test5() -> String {
-        let config = llm::Config {
+    fn test5(&self) -> String {
+        let config = Config {
             model: IMAGE_MODEL.to_string(),
             temperature: None,
             max_tokens: None,
@@ -345,29 +394,29 @@ impl Guest for Component {
         };
 
         println!("Sending request to LLM...");
-        let response = llm::send(
-            &[
-                llm::Event::Message(llm::Message {
-                    role: llm::Role::User,
+        let response = Provider::send(
+            vec![
+                Event::Message(Message {
+                    role: Role::User,
                     name: None,
                     content: vec![
-                        llm::ContentPart::Text("What is on this image?".to_string()),
-                        llm::ContentPart::Image(llm::ImageReference::Url(llm::ImageUrl {
+                        ContentPart::Text("What is on this image?".to_string()),
+                        ContentPart::Image(ImageReference::Url(ImageUrl {
                             url: "https://blog.vigoo.dev/images/blog-zio-kafka-debugging-3.png"
                                 .to_string(),
-                            detail: Some(llm::ImageDetail::High),
+                            detail: Some(ImageDetail::High),
                         })),
                     ],
                 }),
-                llm::Event::Message(llm::Message {
-                    role: llm::Role::System,
+                Event::Message(Message {
+                    role: Role::System,
                     name: None,
-                    content: vec![llm::ContentPart::Text(
+                    content: vec![ContentPart::Text(
                         "Produce the output in both English and Hungarian".to_string(),
                     )],
                 }),
             ],
-            &config,
+            config,
         );
         println!("Response: {:?}", response);
 
@@ -379,11 +428,11 @@ impl Guest for Component {
                         .content
                         .into_iter()
                         .map(|content| match content {
-                            llm::ContentPart::Text(txt) => txt,
-                            llm::ContentPart::Image(image_ref) => match image_ref {
-                                llm::ImageReference::Url(url_data) =>
+                            ContentPart::Text(txt) => txt,
+                            ContentPart::Image(image_ref) => match image_ref {
+                                ImageReference::Url(url_data) =>
                                     format!("[IMAGE URL: {}]", url_data.url),
-                                llm::ImageReference::Inline(inline_data) => format!(
+                                ImageReference::Inline(inline_data) => format!(
                                     "[INLINE IMAGE: {} bytes, mime: {}]",
                                     inline_data.data.len(),
                                     inline_data.mime_type
@@ -406,10 +455,8 @@ impl Guest for Component {
         }
     }
 
-    /// test6 simulates a crash during a streaming LLM response, but only first time.
-    /// after the automatic recovery it will continue and finish the request successfully.
-    fn test6() -> String {
-        let config = llm::Config {
+    async fn test6(&self) -> String {
+        let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
             max_tokens: None,
@@ -420,16 +467,16 @@ impl Guest for Component {
         };
 
         println!("Starting streaming request to LLM...");
-        let stream = llm::stream(
-            &[llm::Event::Message(llm::Message {
-                role: llm::Role::User,
+        let stream = Provider::stream(
+            vec![Event::Message(Message {
+                role: Role::User,
                 name: Some("vigoo".to_string()),
-                content: vec![llm::ContentPart::Text(
+                content: vec![ContentPart::Text(
                     "What is the usual weather on the Vršič pass in the beginning of May?"
                         .to_string(),
                 )],
             })],
-            &config,
+            config,
         );
 
         let mut result = String::new();
@@ -451,17 +498,17 @@ impl Guest for Component {
                     Ok(StreamEvent::Delta(delta)) => {
                         for content in delta.content.unwrap_or_default() {
                             match content {
-                                llm::ContentPart::Text(txt) => {
+                                ContentPart::Text(txt) => {
                                     result.push_str(&txt);
                                 }
-                                llm::ContentPart::Image(image_ref) => match image_ref {
-                                    llm::ImageReference::Url(url_data) => {
+                                ContentPart::Image(image_ref) => match image_ref {
+                                    ImageReference::Url(url_data) => {
                                         result.push_str(&format!(
                                             "IMAGE URL: {} ({:?})\n",
                                             url_data.url, url_data.detail
                                         ));
                                     }
-                                    llm::ImageReference::Inline(inline_data) => {
+                                    ImageReference::Inline(inline_data) => {
                                         result.push_str(&format!(
                                             "INLINE IMAGE: {} bytes, mime: {}, detail: {:?}\n",
                                             inline_data.data.len(),
@@ -474,7 +521,7 @@ impl Guest for Component {
                         }
                     }
                     Ok(StreamEvent::Finish(finish)) => {
-                        result.push_str(&format!("\nFINISH: {:?}\n", finish,));
+                        result.push_str(&format!("\nFINISH: {:?}\n", finish));
                     }
                     Err(error) => {
                         result.push_str(&format!(
@@ -489,13 +536,12 @@ impl Guest for Component {
             }
 
             if round == 2 {
-                atomically(|| {
-                    let client = TestHelperApi::new(&name);
-                    let answer = client.blocking_inc_and_get();
-                    if answer == 1 {
-                        panic!("Simulating crash")
-                    }
-                });
+                let _guard = mark_atomic_operation();
+                let mut client = TestHelperClient::get(name.clone());
+                let answer = client.inc_and_get().await;
+                if answer == 1 {
+                    panic!("Simulating crash")
+                }
             }
 
             round += 1;
@@ -504,12 +550,11 @@ impl Guest for Component {
         result
     }
 
-    /// test7 demonstrates how to use an image from the Initial File System (IFS) as an inline image
-    fn test7() -> String {
+    fn test7(&self) -> String {
         use std::fs::File;
         use std::io::Read;
 
-        let config = llm::Config {
+        let config = Config {
             model: IMAGE_MODEL.to_string(),
             temperature: None,
             max_tokens: None,
@@ -532,23 +577,23 @@ impl Guest for Component {
         }
 
         println!("Sending request to LLM with inline image...");
-        let response = llm::send(
-            &[llm::Event::Message(llm::Message {
-                role: llm::Role::User,
+        let response = Provider::send(
+            vec![Event::Message(Message {
+                role: Role::User,
                 name: None,
                 content: vec![
-                    llm::ContentPart::Text(
+                    ContentPart::Text(
                         "Please describe this cat image in detail. What breed might it be?"
                             .to_string(),
                     ),
-                    llm::ContentPart::Image(llm::ImageReference::Inline(llm::ImageSource {
+                    ContentPart::Image(ImageReference::Inline(ImageSource {
                         data: buffer,
                         mime_type: "image/png".to_string(),
                         detail: None,
                     })),
                 ],
             })],
-            &config,
+            config,
         );
         println!("Response: {:?}", response);
 
@@ -560,11 +605,11 @@ impl Guest for Component {
                         .content
                         .into_iter()
                         .map(|content| match content {
-                            llm::ContentPart::Text(txt) => txt,
-                            llm::ContentPart::Image(image_ref) => match image_ref {
-                                llm::ImageReference::Url(url_data) =>
+                            ContentPart::Text(txt) => txt,
+                            ContentPart::Image(image_ref) => match image_ref {
+                                ImageReference::Url(url_data) =>
                                     format!("[IMAGE URL: {}]", url_data.url),
-                                llm::ImageReference::Inline(inline_data) => format!(
+                                ImageReference::Inline(inline_data) => format!(
                                     "[INLINE IMAGE: {} bytes, mime: {}]",
                                     inline_data.data.len(),
                                     inline_data.mime_type
@@ -586,8 +631,9 @@ impl Guest for Component {
             }
         }
     }
-    fn test8() -> String {
-        let config = llm::Config {
+
+    async fn test8(&self) -> String {
+        let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
             max_tokens: None,
@@ -597,15 +643,15 @@ impl Guest for Component {
             provider_options: None,
         };
 
-        let mut events = vec![llm::Event::Message(llm::Message {
-            role: llm::Role::User,
+        let mut events = vec![Event::Message(Message {
+            role: Role::User,
             name: Some("vigoo".to_string()),
-            content: vec![llm::ContentPart::Text(
+            content: vec![ContentPart::Text(
                 "Do you know what a haiku is?".to_string(),
             )],
         })];
 
-        let stream = llm::stream(&events, &config);
+        let stream = Provider::stream(events.clone(), config.clone());
 
         let mut result = String::new();
 
@@ -618,23 +664,23 @@ impl Guest for Component {
             }
         }
 
-        events.push(llm::Event::Message(llm::Message {
-            role: llm::Role::Assistant,
+        events.push(Event::Message(Message {
+            role: Role::Assistant,
             name: Some("assistant".to_string()),
-            content: vec![llm::ContentPart::Text(result)],
+            content: vec![ContentPart::Text(result)],
         }));
 
-        events.push(llm::Event::Message(llm::Message {
-            role: llm::Role::User,
+        events.push(Event::Message(Message {
+            role: Role::User,
             name: Some("vigoo".to_string()),
-            content: vec![llm::ContentPart::Text(
+            content: vec![ContentPart::Text(
                 "Can you write one for me?".to_string(),
             )],
         }));
 
         println!("Message: {events:?}");
 
-        let stream = llm::stream(&events, &config);
+        let stream = Provider::stream(events, config);
 
         let mut result = String::new();
 
@@ -650,13 +696,12 @@ impl Guest for Component {
             }
 
             if round == 2 {
-                atomically(|| {
-                    let client = TestHelperApi::new(&name);
-                    let answer = client.blocking_inc_and_get();
-                    if answer == 1 {
-                        panic!("Simulating crash")
-                    }
-                });
+                let _guard = mark_atomic_operation();
+                let mut client = TestHelperClient::get(name.clone());
+                let answer = client.inc_and_get().await;
+                if answer == 1 {
+                    panic!("Simulating crash")
+                }
             }
 
             round += 1;
@@ -665,5 +710,3 @@ impl Guest for Component {
         result
     }
 }
-
-bindings::export!(Component with_types_in bindings);
