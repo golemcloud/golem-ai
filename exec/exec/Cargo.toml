@@ -27,7 +27,7 @@ hex = "0.4.3"
 indoc = "2.0.6"
 log = { workspace = true }
 rquickjs = { version = "0.9.0", default-features = false, features = ["futures", "bindgen", "loader", "macro"], optional = true }
-rustpython = { git = "https://github.com/RustPython/RustPython", rev = "d79b41ba289844be0fe391bab5a083f6688af648", default-features = false, features = ["stdlib", "stdio", "importlib", "freeze-stdlib"], optional = true }
+rustpython = { git = "https://github.com/RustPython/RustPython", rev = "d79b41ba289844be0fe391bab5a083f6688af648", default-features = false, features = ["stdlib", "stdio", "importlib", "freeze-stdlib", "host_env"], optional = true }
 wasi = { workspace = true }
 wasi-logger = "0.1.2"
 wstd = { workspace = true }
