@@ -298,12 +298,9 @@ mod tests {
             request: Request<Bytes>,
         ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
-            self.responses
-                .borrow_mut()
-                .pop_front()
-                .unwrap_or(Err(golem_ai_stt::http::Error::Generic(
-                    "unexpected error".to_string(),
-                )))
+            self.responses.borrow_mut().pop_front().unwrap_or(Err(
+                golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
+            ))
         }
     }
 

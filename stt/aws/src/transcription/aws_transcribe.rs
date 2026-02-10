@@ -374,8 +374,10 @@ pub trait TranscribeService {
         max_wait_time: Duration,
     ) -> Result<(), golem_ai_stt::error::Error>;
 
-    async fn delete_vocabulary(&self, vocabulary_name: &str)
-        -> Result<(), golem_ai_stt::error::Error>;
+    async fn delete_vocabulary(
+        &self,
+        vocabulary_name: &str,
+    ) -> Result<(), golem_ai_stt::error::Error>;
 
     async fn start_transcription_job(
         &self,
@@ -499,9 +501,9 @@ impl<HC: golem_ai_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, 
             let transcribe_response: T = serde_json::from_slice(response.body()).map_err(|e| {
                 (
                     request_id.clone(),
-                    golem_ai_stt::http::Error::Generic(
-                        format!("Failed to deserialize response: {e}",),
-                    ),
+                    golem_ai_stt::http::Error::Generic(format!(
+                        "Failed to deserialize response: {e}",
+                    )),
                 )
             })?;
 
@@ -955,12 +957,9 @@ mod tests {
             request: Request<Bytes>,
         ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
-            self.responses
-                .borrow_mut()
-                .pop_front()
-                .unwrap_or(Err(golem_ai_stt::http::Error::Generic(
-                    "unexpected error".to_string(),
-                )))
+            self.responses.borrow_mut().pop_front().unwrap_or(Err(
+                golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
+            ))
         }
     }
 

@@ -457,7 +457,12 @@ impl<HC: HttpClient, RT: AsyncRuntime> SpeechToTextClient<HC, RT> {
 
         let http_request = request_builder
             .body(body.unwrap_or_default())
-            .map_err(|e| (request_id.to_string(), golem_ai_stt::http::Error::HttpError(e)))?;
+            .map_err(|e| {
+                (
+                    request_id.to_string(),
+                    golem_ai_stt::http::Error::HttpError(e),
+                )
+            })?;
 
         trace!("Sending request to GCP Speech-to-Text API: {uri}");
 
@@ -475,9 +480,9 @@ impl<HC: HttpClient, RT: AsyncRuntime> SpeechToTextClient<HC, RT> {
             let json_response: T = serde_json::from_slice(response.body()).map_err(|e| {
                 (
                     request_id.to_string(),
-                    golem_ai_stt::http::Error::Generic(
-                        format!("Failed to deserialize response: {e}",),
-                    ),
+                    golem_ai_stt::http::Error::Generic(format!(
+                        "Failed to deserialize response: {e}",
+                    )),
                 )
             })?;
 
@@ -734,12 +739,9 @@ mod tests {
             request: Request<Bytes>,
         ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
-            self.responses
-                .borrow_mut()
-                .pop_front()
-                .unwrap_or(Err(golem_ai_stt::http::Error::Generic(
-                    "unexpected error".to_string(),
-                )))
+            self.responses.borrow_mut().pop_front().unwrap_or(Err(
+                golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
+            ))
         }
     }
 

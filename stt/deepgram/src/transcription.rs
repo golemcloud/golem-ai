@@ -271,7 +271,9 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             .header(CONTENT_TYPE, mime_type)
             .header("Authorization", &self.deepgram_api_token)
             .body(request.audio)
-            .map_err(|e| Error::Http(request_id.clone(), golem_ai_stt::http::Error::HttpError(e)))?;
+            .map_err(|e| {
+                Error::Http(request_id.clone(), golem_ai_stt::http::Error::HttpError(e))
+            })?;
 
         let response = self
             .http_client
@@ -469,12 +471,9 @@ mod tests {
             request: Request<Bytes>,
         ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
-            self.responses
-                .borrow_mut()
-                .pop_front()
-                .unwrap_or(Err(golem_ai_stt::http::Error::Generic(
-                    "unexpected error".to_string(),
-                )))
+            self.responses.borrow_mut().pop_front().unwrap_or(Err(
+                golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
+            ))
         }
     }
 

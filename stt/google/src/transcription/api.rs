@@ -1,7 +1,9 @@
 use std::time::Duration;
 
 use bytes::Bytes;
-use golem_ai_stt::{error::Error as SttError, languages::Language, transcription::SttProviderClient};
+use golem_ai_stt::{
+    error::Error as SttError, languages::Language, transcription::SttProviderClient,
+};
 
 use super::{
     gcp_cloud_storage::CloudStorageService,
@@ -302,14 +304,12 @@ impl<GC: CloudStorageService, ST: SpeechToTextService>
 
             let gcp_transcription = transcription_result?;
 
-            let mut transcription_response =
-                gcp_transcription
-                    .response
-                    .ok_or_else(|| golem_ai_stt::error::Error::APIUnknown {
-                        request_id: request_id.to_string(),
-                        provider_error: "Transcription completed but no transcript found"
-                            .to_string(),
-                    })?;
+            let mut transcription_response = gcp_transcription.response.ok_or_else(|| {
+                golem_ai_stt::error::Error::APIUnknown {
+                    request_id: request_id.to_string(),
+                    provider_error: "Transcription completed but no transcript found".to_string(),
+                }
+            })?;
 
             let transcription =
                 transcription_response
@@ -322,14 +322,12 @@ impl<GC: CloudStorageService, ST: SpeechToTextService>
                     ),
                     })?;
 
-            let inline_result =
-                transcription
-                    .inline_result
-                    .ok_or_else(|| golem_ai_stt::error::Error::APIUnknown {
-                        request_id: request_id.to_string(),
-                        provider_error: "Transcription completed but no InlineResult found"
-                            .to_string(),
-                    })?;
+            let inline_result = transcription.inline_result.ok_or_else(|| {
+                golem_ai_stt::error::Error::APIUnknown {
+                    request_id: request_id.to_string(),
+                    provider_error: "Transcription completed but no InlineResult found".to_string(),
+                }
+            })?;
 
             inline_result
                 .transcript

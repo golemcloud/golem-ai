@@ -325,6 +325,7 @@ args = [
     "--fix",
     "--allow-dirty",
     "--allow-staged",
+    "--all-targets",
     "--",
     "--no-deps",
     "-Dwarnings",

@@ -1,7 +1,7 @@
-use golem_wasi_http::Url;
-use golem_wasi_http::{Client, Method, Response};
 use golem_ai_web_search::error::from_reqwest_error;
 use golem_ai_web_search::model::web_search::SearchError;
+use golem_wasi_http::Url;
+use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
 

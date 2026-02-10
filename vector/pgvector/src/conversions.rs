@@ -3,7 +3,6 @@ use crate::client::{
     SearchResult as PgSearchResult, TableColumn, VectorData as PgVectorData,
     VectorResult as PgVectorResult,
 };
-use golem_rust::bindings::golem::rdbms::postgres::DbValue;
 use golem_ai_vector::model::search::SearchQuery;
 use golem_ai_vector::model::types::{
     DistanceMetric, FilterCondition, FilterExpression, FilterOperator, MetadataValue, SearchResult,
@@ -13,6 +12,7 @@ use golem_ai_vector::model::{
     analytics::CollectionStats as ExportCollectionStats,
     collections::CollectionInfo as ExportCollectionInfo,
 };
+use golem_rust::bindings::golem::rdbms::postgres::DbValue;
 use std::collections::HashMap;
 
 pub fn string_value_to_db_value(value: &str, column_type: &str) -> Result<DbValue, VectorError> {
@@ -334,7 +334,9 @@ fn metadata_to_string_map(
     Ok(map)
 }
 
-fn string_map_to_metadata(map: &HashMap<String, String>) -> golem_ai_vector::model::types::Metadata {
+fn string_map_to_metadata(
+    map: &HashMap<String, String>,
+) -> golem_ai_vector::model::types::Metadata {
     let mut metadata = Vec::new();
 
     for (key, value) in map {

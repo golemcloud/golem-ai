@@ -66,7 +66,10 @@ impl<HC: HttpClient> CloudStorageService for CloudStorageClient<HC> {
             .header("Authorization", format!("Bearer {access_token}"))
             .body(content)
             .map_err(|e| {
-                SttError::Http(request_id.to_string(), golem_ai_stt::http::Error::HttpError(e))
+                SttError::Http(
+                    request_id.to_string(),
+                    golem_ai_stt::http::Error::HttpError(e),
+                )
             })?;
 
         let response = self
@@ -148,7 +151,10 @@ impl<HC: HttpClient> CloudStorageService for CloudStorageClient<HC> {
             .uri(&uri)
             .body(Bytes::new())
             .map_err(|e| {
-                SttError::Http(request_id.to_string(), golem_ai_stt::http::Error::HttpError(e))
+                SttError::Http(
+                    request_id.to_string(),
+                    golem_ai_stt::http::Error::HttpError(e),
+                )
             })?;
 
         let response = self
@@ -265,12 +271,9 @@ mod tests {
             request: Request<Bytes>,
         ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
-            self.responses
-                .borrow_mut()
-                .pop_front()
-                .unwrap_or(Err(golem_ai_stt::http::Error::Generic(
-                    "unexpected error".to_string(),
-                )))
+            self.responses.borrow_mut().pop_front().unwrap_or(Err(
+                golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
+            ))
         }
     }
 

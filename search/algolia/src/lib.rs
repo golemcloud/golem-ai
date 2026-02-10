@@ -4,7 +4,6 @@ use crate::conversions::{
     create_retry_query, doc_to_algolia_object, schema_to_algolia_settings,
     search_query_to_algolia_query,
 };
-use golem_rust::golem_wasm::Pollable;
 use golem_ai_search::config::with_config_keys;
 use golem_ai_search::durability::{DurableSearch, ExtendedSearchProvider};
 use golem_ai_search::model::{CreateIndexOptions, SearchStream};
@@ -12,6 +11,7 @@ use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
 use golem_ai_search::{SearchProvider, SearchStreamInterface};
+use golem_rust::golem_wasm::Pollable;
 use std::cell::{Cell, RefCell};
 
 mod client;

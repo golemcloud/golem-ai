@@ -5,7 +5,6 @@ use crate::conversions::{
     models_to_language_info, split_text_intelligently, synthesis_options_to_tts_request,
     validate_synthesis_input, voice_design_params_to_create_request, voice_filter_to_list_params,
 };
-use golem_rust::golem_wasm::Pollable;
 use golem_ai_tts::config::with_config_key;
 use golem_ai_tts::durability::{DurableTts, ExtendedTtsProvider};
 use golem_ai_tts::model::advanced::{
@@ -24,6 +23,7 @@ use golem_ai_tts::{
     StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
 };
+use golem_rust::golem_wasm::Pollable;
 use log::{info, trace, warn};
 use std::cell::{Cell, RefCell};
 

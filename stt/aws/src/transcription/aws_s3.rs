@@ -60,7 +60,10 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
             .header("Content-Length", &content_length)
             .body(content)
             .map_err(|e| {
-                Error::Http(request_id.to_string(), golem_ai_stt::http::Error::HttpError(e))
+                Error::Http(
+                    request_id.to_string(),
+                    golem_ai_stt::http::Error::HttpError(e),
+                )
             })?;
 
         let signed_request = self
@@ -93,10 +96,14 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
                     request_id,
                     provider_error: format!("S3 PutObject bad request: {error_body}",),
                 }),
-                s if s.is_server_error() => Err(golem_ai_stt::error::Error::APIInternalServerError {
-                    request_id,
-                    provider_error: format!("S3 PutObject server error ({status}): {error_body}"),
-                }),
+                s if s.is_server_error() => {
+                    Err(golem_ai_stt::error::Error::APIInternalServerError {
+                        request_id,
+                        provider_error: format!(
+                            "S3 PutObject server error ({status}): {error_body}"
+                        ),
+                    })
+                }
                 _ => Err(golem_ai_stt::error::Error::APIUnknown {
                     request_id,
                     provider_error: format!(
@@ -120,7 +127,12 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
             .method("DELETE")
             .uri(&uri)
             .body(Bytes::new())
-            .map_err(|e| (request_id.to_string(), golem_ai_stt::http::Error::HttpError(e)))?;
+            .map_err(|e| {
+                (
+                    request_id.to_string(),
+                    golem_ai_stt::http::Error::HttpError(e),
+                )
+            })?;
 
         let signed_request = self
             .signer
@@ -152,12 +164,14 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
                     request_id,
                     provider_error: format!("S3 DeleteObject bad request: {error_body}"),
                 }),
-                s if s.is_server_error() => Err(golem_ai_stt::error::Error::APIInternalServerError {
-                    request_id,
-                    provider_error: format!(
-                        "S3 DeleteObject server error ({status}): {error_body}"
-                    ),
-                }),
+                s if s.is_server_error() => {
+                    Err(golem_ai_stt::error::Error::APIInternalServerError {
+                        request_id,
+                        provider_error: format!(
+                            "S3 DeleteObject server error ({status}): {error_body}"
+                        ),
+                    })
+                }
                 _ => Err(golem_ai_stt::error::Error::APIUnknown {
                     request_id,
                     provider_error: format!(
@@ -226,12 +240,9 @@ mod tests {
             request: Request<Bytes>,
         ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
-            self.responses
-                .borrow_mut()
-                .pop_front()
-                .unwrap_or(Err(golem_ai_stt::http::Error::Generic(
-                    "unexpected error".to_string(),
-                )))
+            self.responses.borrow_mut().pop_front().unwrap_or(Err(
+                golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
+            ))
         }
     }
 

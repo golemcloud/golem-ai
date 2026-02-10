@@ -1,5 +1,7 @@
 use golem_ai_embed::error::unsupported;
-use golem_ai_embed::model::{Config, ContentPart, EmbeddingResponse as GolemEmbeddingResponse, Error};
+use golem_ai_embed::model::{
+    Config, ContentPart, EmbeddingResponse as GolemEmbeddingResponse, Error,
+};
 
 use crate::client::{EmbeddingRequest, EmbeddingResponse};
 

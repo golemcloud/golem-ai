@@ -4,7 +4,6 @@ use crate::conversions::{
     meilisearch_response_to_search_results, meilisearch_settings_to_schema,
     schema_to_meilisearch_settings, search_query_to_meilisearch_request,
 };
-use golem_rust::golem_wasm::Pollable;
 use golem_ai_search::config::with_config_keys;
 use golem_ai_search::durability::{DurableSearch, ExtendedSearchProvider};
 use golem_ai_search::model::{CreateIndexOptions, SearchStream};
@@ -12,6 +11,7 @@ use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
 use golem_ai_search::{SearchProvider, SearchStreamInterface};
+use golem_rust::golem_wasm::Pollable;
 use std::cell::{Cell, RefCell};
 
 mod client;

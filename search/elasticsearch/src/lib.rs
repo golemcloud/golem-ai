@@ -5,7 +5,6 @@ use crate::conversions::{
     elasticsearch_response_to_search_results, schema_to_elasticsearch_settings,
     search_query_to_elasticsearch_query,
 };
-use golem_rust::golem_wasm::Pollable;
 use golem_ai_search::config::with_config_keys;
 use golem_ai_search::durability::{DurableSearch, ExtendedSearchProvider};
 use golem_ai_search::model::{CreateIndexOptions, SearchStream};
@@ -13,6 +12,7 @@ use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
 use golem_ai_search::{SearchProvider, SearchStreamInterface};
+use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Cell, RefCell};
 
