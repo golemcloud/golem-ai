@@ -19,6 +19,7 @@ python = ["dep:rustpython"]
 [dependencies]
 golem-rust = { workspace = true }
 
+async-trait = "0.1.89"
 base64 = "0.22.1"
 encoding_rs = "0.8.35"
 futures = { workspace = true }

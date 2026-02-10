@@ -9,13 +9,13 @@ type Session = <Provider as ExecutionProvider>::Session;
 #[agent_definition]
 pub trait ExecPyTest {
     fn new(name: String) -> Self;
-    fn test1(&self) -> bool;
-    fn test2(&self) -> bool;
-    fn test3(&self) -> bool;
-    fn test4(&self) -> bool;
-    fn test5(&self) -> bool;
-    fn test6(&self) -> bool;
-    fn test7(&self) -> bool;
+    async fn test1(&self) -> bool;
+    async fn test2(&self) -> bool;
+    async fn test3(&self) -> bool;
+    async fn test4(&self) -> bool;
+    async fn test5(&self) -> bool;
+    async fn test6(&self) -> bool;
+    async fn test7(&self) -> bool;
 }
 
 struct ExecPyTestImpl {
@@ -28,7 +28,7 @@ impl ExecPyTest for ExecPyTestImpl {
         Self { _name: name }
     }
 
-    fn test1(&self) -> bool {
+    async fn test1(&self) -> bool {
         match Provider::run(
             Language {
                 kind: LanguageKind::Python,
@@ -42,7 +42,9 @@ impl ExecPyTest for ExecPyTestImpl {
             "#}
             .to_string(),
             empty_run_options(),
-        ) {
+        )
+        .await
+        {
             Ok(result) => {
                 println!("Result: {:?}", result);
                 result.run.stdout == "Hello, world! 42\n" && result.run.exit_code == Some(0)
@@ -54,7 +56,7 @@ impl ExecPyTest for ExecPyTestImpl {
         }
     }
 
-    fn test2(&self) -> bool {
+    async fn test2(&self) -> bool {
         match Provider::run(
             Language {
                 kind: LanguageKind::Python,
@@ -72,7 +74,9 @@ impl ExecPyTest for ExecPyTestImpl {
                 stdin: Some("world".to_string()),
                 ..empty_run_options()
             },
-        ) {
+        )
+        .await
+        {
             Ok(result) => {
                 println!("Result: {:?}", result);
                 result.run.stdout == "Hello, world! 42\n" && result.run.exit_code == Some(0)
@@ -84,7 +88,7 @@ impl ExecPyTest for ExecPyTestImpl {
         }
     }
 
-    fn test3(&self) -> bool {
+    async fn test3(&self) -> bool {
         match Provider::run(
             Language {
                 kind: LanguageKind::Python,
@@ -100,7 +104,9 @@ impl ExecPyTest for ExecPyTestImpl {
                 args: Some(vec!["arg1".to_string(), "arg2".to_string()]),
                 ..empty_run_options()
             },
-        ) {
+        )
+        .await
+        {
             Ok(result) => {
                 println!("Result: {:?}", result);
                 result.run.stdout == "['arg1', 'arg2']\n" && result.run.exit_code == Some(0)
@@ -112,7 +118,7 @@ impl ExecPyTest for ExecPyTestImpl {
         }
     }
 
-    fn test4(&self) -> bool {
+    async fn test4(&self) -> bool {
         match Provider::run(
             Language {
                 kind: LanguageKind::Python,
@@ -128,7 +134,9 @@ impl ExecPyTest for ExecPyTestImpl {
                 env: Some(vec![("TEST_ENV_VAR".to_string(), "test_value".to_string())]),
                 ..empty_run_options()
             },
-        ) {
+        )
+        .await
+        {
             Ok(result) => {
                 println!("Result: {:?}", result);
                 result.run.stdout == "test_value\n" && result.run.exit_code == Some(0)
@@ -140,7 +148,7 @@ impl ExecPyTest for ExecPyTestImpl {
         }
     }
 
-    fn test5(&self) -> bool {
+    async fn test5(&self) -> bool {
         match Provider::run(
             Language {
                 kind: LanguageKind::Python,
@@ -171,7 +179,9 @@ impl ExecPyTest for ExecPyTestImpl {
             "#}
             .to_string(),
             empty_run_options(),
-        ) {
+        )
+        .await
+        {
             Ok(result) => {
                 println!("Result: {:?}", result);
                 result.run.stdout == "Hello, world! 42\n" && result.run.exit_code == Some(0)
@@ -183,7 +193,7 @@ impl ExecPyTest for ExecPyTestImpl {
         }
     }
 
-    fn test6(&self) -> bool {
+    async fn test6(&self) -> bool {
         let session = Session::new(
             Language {
                 kind: LanguageKind::Python,
@@ -217,6 +227,7 @@ impl ExecPyTest for ExecPyTestImpl {
                 .to_string(),
                 empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -240,6 +251,7 @@ impl ExecPyTest for ExecPyTestImpl {
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -263,6 +275,7 @@ impl ExecPyTest for ExecPyTestImpl {
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -297,6 +310,7 @@ impl ExecPyTest for ExecPyTestImpl {
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -316,6 +330,7 @@ impl ExecPyTest for ExecPyTestImpl {
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -330,7 +345,7 @@ impl ExecPyTest for ExecPyTestImpl {
         r1 && r2 && r3 && r4 && r5
     }
 
-    fn test7(&self) -> bool {
+    async fn test7(&self) -> bool {
         let session = Session::new(
             Language {
                 kind: LanguageKind::Python,
@@ -365,6 +380,7 @@ impl ExecPyTest for ExecPyTestImpl {
                 .to_string(),
                 empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);
@@ -376,29 +392,25 @@ impl ExecPyTest for ExecPyTestImpl {
                 },
             );
 
-        let r3 = session
-            .download("test/output.txt".to_string())
-            .map_or_else(
-                |err| {
-                    println!("Error downloading file: {}", err);
-                    false
-                },
-                |file| {
-                    let content = String::from_utf8(file).unwrap_or_default();
-                    println!("Downloaded file content: {}", content);
-                    content == "Hello, Golem! - Processed by Golem"
-                },
-            );
+        let r3 = session.download("test/output.txt".to_string()).map_or_else(
+            |err| {
+                println!("Error downloading file: {}", err);
+                false
+            },
+            |file| {
+                let content = String::from_utf8(file).unwrap_or_default();
+                println!("Downloaded file content: {}", content);
+                content == "Hello, Golem! - Processed by Golem"
+            },
+        );
 
-        let r4 = session
-            .set_working_dir("test".to_string())
-            .map_or_else(
-                |err| {
-                    println!("Error setting working directory: {}", err);
-                    false
-                },
-                |_| true,
-            );
+        let r4 = session.set_working_dir("test".to_string()).map_or_else(
+            |err| {
+                println!("Error setting working directory: {}", err);
+                false
+            },
+            |_| true,
+        );
 
         let r5 = session
             .run(
@@ -413,6 +425,7 @@ impl ExecPyTest for ExecPyTestImpl {
                 .to_string(),
                 empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);

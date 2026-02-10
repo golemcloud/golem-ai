@@ -9,14 +9,16 @@ mod executor;
 pub mod model;
 
 use crate::model::{Encoding, Error, ExecResult, File, Language, RunOptions, StageResult};
+use async_trait::async_trait;
 use base64::Engine;
 
 pub use executor::DurableExecution;
 
+#[async_trait(?Send)]
 pub trait ExecutionProvider {
     type Session: ExecutionSession;
 
-    fn run(
+    async fn run(
         lang: Language,
         modules: Vec<File>,
         snippet: String,
@@ -24,6 +26,7 @@ pub trait ExecutionProvider {
     ) -> Result<ExecResult, Error>;
 }
 
+#[async_trait(?Send)]
 pub trait ExecutionSession: 'static {
     fn new(lang: Language, modules: Vec<File>) -> Self
     where
@@ -31,7 +34,7 @@ pub trait ExecutionSession: 'static {
 
     fn upload(&self, file: File) -> Result<(), Error>;
 
-    fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error>;
+    async fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error>;
 
     fn download(&self, path: String) -> Result<Vec<u8>, Error>;
 

@@ -926,6 +926,7 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 name = "golem-ai-exec"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
  "base64",
  "encoding_rs",
  "futures",

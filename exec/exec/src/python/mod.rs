@@ -8,9 +8,9 @@ use rustpython::vm::{
     extend_class, py_class, Interpreter, PyObjectRef, PyRef, PyResult, Settings, VirtualMachine,
 };
 use rustpython::{vm, InterpreterBuilderExt};
-use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU32;
+use std::sync::Mutex;
 use std::{fs, io};
 use wstd::time::Instant;
 
@@ -32,14 +32,14 @@ fn py_exception_error(vm: &VirtualMachine, err: &PyBaseExceptionRef) -> Error {
 pub struct PythonComponent;
 
 impl PythonComponent {
-    pub fn run(
+    pub async fn run(
         lang: Language,
         files: Vec<File>,
         snippet: String,
         options: RunOptions,
     ) -> Result<ExecResult, Error> {
         let session = PythonSession::new(lang, files);
-        session.run(snippet, options)
+        session.run(snippet, options).await
     }
 }
 
@@ -88,7 +88,7 @@ pub struct PythonSession {
     modules: Vec<File>,
     data_root: PathBuf,
     module_root: PathBuf,
-    state: RefCell<Option<PythonSessionState>>,
+    state: Mutex<Option<PythonSessionState>>,
 }
 
 impl PythonSession {
@@ -97,7 +97,7 @@ impl PythonSession {
     }
 
     pub fn set_cwd(&self, path: String) -> Result<(), Error> {
-        if let Some(state) = self.state.borrow_mut().as_mut() {
+        if let Some(state) = self.state.lock().unwrap().as_mut() {
             state.cwd = path;
         }
         Ok(())
@@ -118,17 +118,17 @@ impl PythonSession {
             modules,
             data_root,
             module_root,
-            state: RefCell::new(None),
+            state: Mutex::new(None),
         }
     }
 
-    pub fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
+    pub async fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
         self.ensure_initialized()?;
         ensure_language_is_supported(&self.lang)?;
 
         let start = Instant::now();
 
-        let maybe_state = self.state.borrow();
+        let maybe_state = self.state.lock().unwrap();
         let state = maybe_state.as_ref().unwrap();
         let mut result = None;
 
@@ -324,14 +324,15 @@ impl PythonSession {
     }
 
     fn ensure_initialized(&self) -> Result<(), Error> {
-        let state = self.state.borrow_mut().take();
+        let mut state_field = self.state.lock().unwrap();
+        let state = state_field.take();
         match state {
             None => {
                 let state = self.initialize()?;
-                *self.state.borrow_mut() = Some(state);
+                *state_field = Some(state);
             }
             Some(state) => {
-                *self.state.borrow_mut() = Some(state);
+                *state_field = Some(state);
             }
         }
         Ok(())
@@ -390,7 +391,7 @@ impl SessionSnapshot<PythonSession> for PythonSession {
 
 impl Drop for PythonSession {
     fn drop(&mut self) {
-        if let Some(mut state) = self.state.borrow_mut().take() {
+        if let Some(mut state) = self.state.lock().unwrap().take() {
             state.interpreter.finalize(state.last_error.take());
         }
 

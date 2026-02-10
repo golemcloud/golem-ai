@@ -63,12 +63,12 @@ pub trait ExecJsTest {
     async fn test03(&self) -> bool;
     async fn test04(&self) -> bool;
     async fn test05(&self) -> bool;
-    fn test06(&self) -> bool;
+    async fn test06(&self) -> bool;
     async fn test07(&self) -> bool;
     async fn test08(&self) -> bool;
     async fn test09(&self) -> bool;
-    fn test10(&self) -> bool;
-    fn test11(&self) -> bool;
+    async fn test10(&self) -> bool;
+    async fn test11(&self) -> bool;
 }
 
 struct ExecJsTestImpl {
@@ -97,7 +97,7 @@ impl ExecJsTest for ExecJsTestImpl {
             "# }
             .to_string(),
             empty_run_options(),
-        );
+        ).await;
 
         restart.here().await;
 
@@ -148,7 +148,7 @@ impl ExecJsTest for ExecJsTestImpl {
                 stdin: Some("1\n2\n3\n".to_string()),
                 ..empty_run_options()
             },
-        );
+        ).await;
 
         restart.here().await;
 
@@ -200,7 +200,7 @@ impl ExecJsTest for ExecJsTestImpl {
                 stdin: Some("1\n2\n3\n".to_string()),
                 ..empty_run_options()
             },
-        );
+        ).await;
 
         restart.here().await;
 
@@ -234,7 +234,7 @@ impl ExecJsTest for ExecJsTestImpl {
                 args: Some(vec!["arg1".to_string(), "arg2".to_string()]),
                 ..empty_run_options()
             },
-        );
+        ).await;
 
         restart.here().await;
 
@@ -268,7 +268,7 @@ impl ExecJsTest for ExecJsTestImpl {
                 env: Some(vec![("INPUT".to_string(), "test_value".to_string())]),
                 ..empty_run_options()
             },
-        );
+        ).await;
 
         restart.here().await;
 
@@ -284,7 +284,7 @@ impl ExecJsTest for ExecJsTestImpl {
         }
     }
 
-    fn test06(&self) -> bool {
+    async fn test06(&self) -> bool {
         let result = Provider::run(
             Language {
                 kind: LanguageKind::Javascript,
@@ -306,7 +306,7 @@ impl ExecJsTest for ExecJsTestImpl {
             "# }
             .to_string(),
             empty_run_options(),
-        );
+        ).await;
 
         match result {
             Ok(result) => {
@@ -349,6 +349,7 @@ impl ExecJsTest for ExecJsTestImpl {
                 .to_string(),
                 empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -372,6 +373,7 @@ impl ExecJsTest for ExecJsTestImpl {
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -397,6 +399,7 @@ impl ExecJsTest for ExecJsTestImpl {
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -439,6 +442,7 @@ impl ExecJsTest for ExecJsTestImpl {
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -458,6 +462,7 @@ impl ExecJsTest for ExecJsTestImpl {
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -508,6 +513,7 @@ impl ExecJsTest for ExecJsTestImpl {
                 .to_string(),
                 empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);
@@ -584,6 +590,7 @@ impl ExecJsTest for ExecJsTestImpl {
                 .to_string(),
                 empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);
@@ -645,6 +652,7 @@ impl ExecJsTest for ExecJsTestImpl {
                 .to_string(),
                 empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);
@@ -674,7 +682,7 @@ impl ExecJsTest for ExecJsTestImpl {
         r1 && r2 && r3 && r4 && r5 && r6
     }
 
-    fn test10(&self) -> bool {
+    async fn test10(&self) -> bool {
         match Provider::run(
             Language {
                 kind: LanguageKind::Javascript,
@@ -698,7 +706,7 @@ impl ExecJsTest for ExecJsTestImpl {
                 }),
                 ..empty_run_options()
             },
-        ) {
+        ).await {
             Ok(result) => {
                 println!("Result: {:?}", result);
                 false
@@ -710,7 +718,7 @@ impl ExecJsTest for ExecJsTestImpl {
         }
     }
 
-    fn test11(&self) -> bool {
+    async fn test11(&self) -> bool {
         let session = Session::new(
             Language {
                 kind: LanguageKind::Javascript,
@@ -729,6 +737,7 @@ impl ExecJsTest for ExecJsTestImpl {
                 .to_string(),
                 empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);
@@ -759,6 +768,7 @@ impl ExecJsTest for ExecJsTestImpl {
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);

@@ -2,14 +2,16 @@ use crate::durability::{DurableExec, EmptySnapshot, SessionSnapshot};
 use crate::model::LanguageKind;
 use crate::model::{Error, ExecResult, File, Language, RunOptions};
 use crate::{get_contents, io_error, stage_result_failure, ExecutionProvider, ExecutionSession};
+use async_trait::async_trait;
 use std::path::PathBuf;
 
 pub struct Execution;
 
+#[async_trait(?Send)]
 impl ExecutionProvider for Execution {
     type Session = Session;
 
-    fn run(
+    async fn run(
         lang: Language,
         modules: Vec<File>,
         snippet: String,
@@ -20,7 +22,7 @@ impl ExecutionProvider for Execution {
                 #[cfg(feature = "javascript")]
                 {
                     let session = crate::javascript::JavaScriptSession::new(lang, modules);
-                    session.run(snippet, options)
+                    session.run(snippet, options).await
                 }
                 #[cfg(not(feature = "javascript"))]
                 {
@@ -31,7 +33,7 @@ impl ExecutionProvider for Execution {
                 #[cfg(feature = "python")]
                 {
                     let session = crate::python::PythonSession::new(lang, modules);
-                    session.run(snippet, options)
+                    session.run(snippet, options).await
                 }
                 #[cfg(not(feature = "python"))]
                 {
@@ -74,6 +76,7 @@ impl Session {
     }
 }
 
+#[async_trait(?Send)]
 impl ExecutionSession for Session {
     fn new(lang: Language, modules: Vec<File>) -> Self {
         match &lang.kind {
@@ -116,12 +119,12 @@ impl ExecutionSession for Session {
         Ok(())
     }
 
-    fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
+    async fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
         match self {
             #[cfg(feature = "javascript")]
-            Session::Javascript(session) => session.run(snippet, options),
+            Session::Javascript(session) => session.run(snippet, options).await,
             #[cfg(feature = "python")]
-            Session::Python(session) => session.run(snippet, options),
+            Session::Python(session) => session.run(snippet, options).await,
             Session::Unsupported => Err(Error::UnsupportedLanguage),
         }
     }

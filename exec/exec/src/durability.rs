@@ -45,20 +45,22 @@ mod durable_impl {
     use crate::durability::{DurableExec, SessionSnapshot};
     use crate::model::{Error, ExecResult, File, Language, RunOptions};
     use crate::{ExecutionProvider, ExecutionSession};
+    use async_trait::async_trait;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     use golem_rust::durability::Durability;
     use golem_rust::value_and_type::{
         FromValueAndType, IntoValue, NodeBuilder, TypeNodeBuilder, WitValueExtractor,
     };
-    use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
+    use golem_rust::{use_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::fmt::{Debug, Display, Formatter};
 
+    #[async_trait(?Send)]
     impl<Impl: ExecutionProvider + SessionSnapshot<Impl::Session> + 'static> ExecutionProvider
         for DurableExec<Impl>
     {
         type Session = DurableSession<Impl>;
 
-        fn run(
+        async fn run(
             lang: Language,
             modules: Vec<File>,
             snippet: String,
@@ -70,14 +72,17 @@ mod durable_impl {
                 DurableFunctionType::WriteLocal,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                let result = {
+                    let _guard = use_persistence_level(PersistenceLevel::PersistNothing);
+
                     Impl::run(
                         lang.clone(),
                         modules.clone(),
                         snippet.clone(),
                         options.clone(),
                     )
-                });
+                    .await
+                };
                 durability.persist_serializable(
                     RunInput {
                         language: lang,
@@ -100,6 +105,7 @@ mod durable_impl {
         module_names: Vec<String>,
     }
 
+    #[async_trait(?Send)]
     impl<Impl: ExecutionProvider + SessionSnapshot<Impl::Session> + 'static> ExecutionSession
         for DurableSession<Impl>
     {
@@ -115,7 +121,7 @@ mod durable_impl {
             self.inner.upload(file)
         }
 
-        fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
+        async fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
             let durability = Durability::<SessionRunResult<Impl::Snapshot>, UnusedError>::new(
                 "golem_ai_exec",
                 "session_run",
@@ -131,9 +137,10 @@ mod durable_impl {
                 // We can take a snapshot of the session and restore it during replay without
                 // actually running the snippet.
                 if durability.is_live() {
-                    let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                        self.inner.run(snippet, options)
-                    });
+                    let result = {
+                        let _guard = use_persistence_level(PersistenceLevel::PersistNothing);
+                        self.inner.run(snippet, options).await
+                    };
                     let snapshot = Impl::take_snapshot(&self.inner);
                     let result = SessionRunResult {
                         result,
@@ -149,11 +156,11 @@ mod durable_impl {
                     result.result
                 }
             } else {
-                // We cannot take a snapshot of the session so we have to run the actual snippet
+                // We cannot take a snapshot of the session, so we have to run the actual snippet
                 // in both live and replay modes.
                 //
                 // We still persist a custom oplog entry to increase oplog readability
-                let result = self.inner.run(snippet, options);
+                let result = self.inner.run(snippet, options).await;
                 let result = SessionRunResult {
                     result,
                     snapshot: None,
