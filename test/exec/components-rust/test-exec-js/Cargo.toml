@@ -1,0 +1,17 @@
+[package]
+name = "test_exec_js"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+golem-rust = { workspace = true }
+golem-ai-exec = { path = "../../../../exec/exec", default-features = false, features = ["javascript", "durability"] }
+indoc = "2.0.6"
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wstd = { workspace = true }

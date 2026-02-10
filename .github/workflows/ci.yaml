@@ -87,7 +87,7 @@ jobs:
         run: |
           set -e
           echo "Installing Golem CLI"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.2/golem-cli-x86_64-unknown-linux-gnu -o ./golem-cli
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.5.0-dev.1/golem-cli-x86_64-unknown-linux-gnu -o ./golem-cli
           sudo chmod +x ./golem-cli
           sudo mv ./golem-cli /usr/local/bin/golem-cli
           echo "Installed Golem CLI"
@@ -124,7 +124,7 @@ jobs:
         run: |
           set -e
           echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.2/golem-x86_64-unknown-linux-gnu -o ./golem
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.5.0-dev.1/golem-x86_64-unknown-linux-gnu -o ./golem
           sudo chmod +x ./golem
           sudo mv ./golem /usr/local/bin/golem
           golem --version
@@ -200,7 +200,7 @@ jobs:
         run: |
           set -e
           echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.2/golem-x86_64-unknown-linux-gnu -o ./golem
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.5.0-dev.1/golem-x86_64-unknown-linux-gnu -o ./golem
           sudo chmod +x ./golem
           sudo mv ./golem /usr/local/bin/golem
           golem --version
@@ -295,7 +295,7 @@ jobs:
         run: |
           set -e
           echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.2/golem-x86_64-unknown-linux-gnu -o ./golem
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.5.0-dev.1/golem-x86_64-unknown-linux-gnu -o ./golem
           sudo chmod +x ./golem
           sudo mv ./golem /usr/local/bin/golem
           golem --version
@@ -431,7 +431,7 @@ jobs:
         run: |
           set -e
           echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.4.2/golem-x86_64-unknown-linux-gnu -o ./golem
+          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.5.0-dev.1/golem-x86_64-unknown-linux-gnu -o ./golem
           sudo chmod +x ./golem
           sudo mv ./golem /usr/local/bin/golem
           golem --version
