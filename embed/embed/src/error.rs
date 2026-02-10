@@ -1,4 +1,4 @@
-use crate::golem::embed::embed::{Error, ErrorCode};
+use crate::model::{Error, ErrorCode};
 use golem_wasi_http::StatusCode;
 
 pub fn unsupported(what: impl AsRef<str>) -> Error {

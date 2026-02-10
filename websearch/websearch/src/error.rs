@@ -1,4 +1,4 @@
-use crate::golem::web_search::web_search::SearchError;
+use crate::model::web_search::SearchError;
 use golem_wasi_http::StatusCode;
 use std::error::Error;
 

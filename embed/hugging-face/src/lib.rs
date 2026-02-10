@@ -3,18 +3,16 @@ mod conversions;
 
 use client::EmbeddingsApi;
 use conversions::{create_embedding_request, process_embedding_response};
-use golem_embed::{
+use golem_ai_embed::{
     config::with_config_key,
-    durability::{DurableEmbed, ExtendedGuest},
-    golem::embed::embed::{
-        Config, ContentPart, EmbeddingResponse, Error, ErrorCode, Guest, RerankResponse,
-    },
-    LOGGING_STATE,
+    durability::{DurableEmbed, ExtendedEmbeddingProvider},
+    model::{Config, ContentPart, EmbeddingResponse, Error, ErrorCode, RerankResponse},
+    EmbeddingProvider, LOGGING_STATE,
 };
 
-struct HuggingFaceComponent;
+pub struct HuggingFace;
 
-impl HuggingFaceComponent {
+impl HuggingFace {
     const ENV_VAR_NAME: &'static str = "HUGGINGFACE_API_KEY";
 
     fn embeddings(
@@ -30,7 +28,7 @@ impl HuggingFaceComponent {
     }
 }
 
-impl Guest for HuggingFaceComponent {
+impl EmbeddingProvider for HuggingFace {
     fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         with_config_key(Self::ENV_VAR_NAME, Err, |huggingface_api_key| {
@@ -52,8 +50,6 @@ impl Guest for HuggingFaceComponent {
     }
 }
 
-impl ExtendedGuest for HuggingFaceComponent {}
+impl ExtendedEmbeddingProvider for HuggingFace {}
 
-type DurableHuggingFaceComponent = DurableEmbed<HuggingFaceComponent>;
-
-golem_embed::export_embed!(DurableHuggingFaceComponent with_types_in golem_embed);
+pub type DurableHuggingFace = DurableEmbed<HuggingFace>;

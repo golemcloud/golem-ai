@@ -1,6 +1,6 @@
-use golem_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
-use golem_llm::event_source::EventSource;
-use golem_llm::golem::llm::llm::Error;
+use golem_ai_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
+use golem_ai_llm::event_source::EventSource;
+use golem_ai_llm::model::Error;
 use golem_wasi_http::header::HeaderValue;
 use golem_wasi_http::{Client, Method, Response};
 use log::trace;

@@ -1,4 +1,4 @@
-use crate::golem::search::types::SearchError;
+use crate::model::SearchError;
 use golem_wasi_http::StatusCode;
 
 pub fn unsupported(_what: impl AsRef<str>) -> SearchError {

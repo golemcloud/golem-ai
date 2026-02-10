@@ -1,9 +1,9 @@
 use crate::client::{ImageToVideoRequest, PollResponse, StabilityApi, TextToImageRequest};
-use golem_video::error::{internal_error, invalid_input, unsupported_feature};
-use golem_video::exports::golem::video_generation::types::{
+use golem_ai_video::error::{internal_error, invalid_input, unsupported_feature};
+use golem_ai_video::model::types::{
     AspectRatio, GenerationConfig, JobStatus, MediaData, MediaInput, Video, VideoError, VideoResult,
 };
-use golem_video::utils::download_image_from_url;
+use golem_ai_video::utils::download_image_from_url;
 use image::ImageFormat;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -323,20 +323,16 @@ pub fn generate_video(
             let image_data = generate_image_from_text(client, prompt, &config)?;
 
             // Create a new MediaInput with the generated image
-            let image_input = MediaInput::Image(
-                golem_video::exports::golem::video_generation::types::Reference {
-                    data: golem_video::exports::golem::video_generation::types::InputImage {
-                        data: MediaData::Bytes(
-                            golem_video::exports::golem::video_generation::types::RawBytes {
-                                bytes: image_data,
-                                mime_type: "image/png".to_string(),
-                            },
-                        ),
-                    },
-                    prompt: None,
-                    role: None,
+            let image_input = MediaInput::Image(golem_ai_video::model::types::Reference {
+                data: golem_ai_video::model::types::InputImage {
+                    data: MediaData::Bytes(golem_ai_video::model::types::RawBytes {
+                        bytes: image_data,
+                        mime_type: "image/png".to_string(),
+                    }),
                 },
-            );
+                prompt: None,
+                role: None,
+            });
 
             // Now generate video from the image
             let request = media_input_to_request(image_input, config)?;
@@ -400,8 +396,8 @@ pub fn cancel_video_generation(_task_id: String) -> Result<String, VideoError> {
 
 pub fn generate_lip_sync_video(
     _client: &StabilityApi,
-    _video: golem_video::exports::golem::video_generation::types::LipSyncVideo,
-    _audio: golem_video::exports::golem::video_generation::types::AudioSource,
+    _video: golem_ai_video::model::types::LipSyncVideo,
+    _audio: golem_ai_video::model::types::AudioSource,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Lip sync is not supported by Stability API".to_string(),
@@ -411,7 +407,7 @@ pub fn generate_lip_sync_video(
 pub fn list_available_voices(
     _client: &StabilityApi,
     _language: Option<String>,
-) -> Result<Vec<golem_video::exports::golem::video_generation::types::VoiceInfo>, VideoError> {
+) -> Result<Vec<golem_ai_video::model::types::VoiceInfo>, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Voice listing is not supported by Stability API".to_string(),
     ))
@@ -423,7 +419,7 @@ pub fn extend_video(
     _prompt: Option<String>,
     _negative_prompt: Option<String>,
     _cfg_scale: Option<f32>,
-    _provider_options: Option<Vec<golem_video::exports::golem::video_generation::types::Kv>>,
+    _provider_options: Option<Vec<golem_ai_video::model::types::Kv>>,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video extension is not supported by Stability API".to_string(),
@@ -432,7 +428,7 @@ pub fn extend_video(
 
 pub fn upscale_video(
     _client: &StabilityApi,
-    _input: golem_video::exports::golem::video_generation::types::BaseVideo,
+    _input: golem_ai_video::model::types::BaseVideo,
 ) -> Result<String, VideoError> {
     Err(VideoError::UnsupportedFeature(
         "Video upscaling is not supported by Stability API".to_string(),
@@ -441,8 +437,8 @@ pub fn upscale_video(
 
 pub fn generate_video_effects(
     _client: &StabilityApi,
-    _input: golem_video::exports::golem::video_generation::types::InputImage,
-    _effect: golem_video::exports::golem::video_generation::types::EffectType,
+    _input: golem_ai_video::model::types::InputImage,
+    _effect: golem_ai_video::model::types::EffectType,
     _model: Option<String>,
     _duration: Option<f32>,
     _mode: Option<String>,
@@ -454,7 +450,7 @@ pub fn generate_video_effects(
 
 pub fn multi_image_generation(
     _client: &StabilityApi,
-    _input_images: Vec<golem_video::exports::golem::video_generation::types::InputImage>,
+    _input_images: Vec<golem_ai_video::model::types::InputImage>,
     _prompt: Option<String>,
     _config: GenerationConfig,
 ) -> Result<String, VideoError> {

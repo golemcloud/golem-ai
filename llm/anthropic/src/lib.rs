@@ -7,14 +7,15 @@ use crate::client::{
 use crate::conversions::{
     convert_usage, events_to_request, process_response, stop_reason_to_finish_reason,
 };
-use golem_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
-use golem_llm::config::{get_config_key, with_config_key};
-use golem_llm::durability::{DurableLLM, ExtendedGuest};
-use golem_llm::event_source::EventSource;
-use golem_llm::golem::llm::llm::{
-    ChatStream, Config, ContentPart, Error, ErrorCode, Event, Guest, Message, Response,
-    ResponseMetadata, Role, StreamDelta, StreamEvent, ToolCall,
+use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
+use golem_ai_llm::config::{get_config_key, with_config_key};
+use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
+use golem_ai_llm::event_source::EventSource;
+use golem_ai_llm::model::{
+    ChatStream, Config, ContentPart, Error, ErrorCode, Event, Message, Response, ResponseMetadata,
+    Role, StreamDelta, StreamEvent, ToolCall,
 };
+use golem_ai_llm::LlmProvider;
 use golem_rust::golem_wasm::Pollable;
 use indoc::indoc;
 use log::trace;
@@ -28,7 +29,7 @@ struct JsonFragment {
     json: String,
 }
 
-struct AnthropicChatStream {
+pub struct AnthropicChatStream {
     stream: RefCell<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
@@ -252,9 +253,9 @@ impl LlmChatStreamState for AnthropicChatStream {
     }
 }
 
-struct AnthropicComponent;
+pub struct Anthropic;
 
-impl AnthropicComponent {
+impl Anthropic {
     const ENV_VAR_NAME: &'static str = "ANTHROPIC_API_KEY";
 
     fn request(client: MessagesApi, request: MessagesRequest) -> Result<Response, Error> {
@@ -274,7 +275,7 @@ impl AnthropicComponent {
     }
 }
 
-impl Guest for AnthropicComponent {
+impl LlmProvider for Anthropic {
     type ChatStream = LlmChatStream<AnthropicChatStream>;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -289,7 +290,7 @@ impl Guest for AnthropicComponent {
     }
 }
 
-impl ExtendedGuest for AnthropicComponent {
+impl ExtendedLlmProvider for Anthropic {
     fn unwrapped_stream(events: Vec<Event>, config: Config) -> LlmChatStream<AnthropicChatStream> {
         with_config_key(
             Self::ENV_VAR_NAME,
@@ -364,6 +365,4 @@ impl ExtendedGuest for AnthropicComponent {
     }
 }
 
-type DurableAnthropicComponent = DurableLLM<AnthropicComponent>;
-
-golem_llm::export_llm!(DurableAnthropicComponent with_types_in golem_llm);
+pub type DurableAnthropic = DurableLLM<Anthropic>;

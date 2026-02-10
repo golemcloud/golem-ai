@@ -1,0 +1,7 @@
+{
+  "kind": "RpcLinkMarkerHash",
+  "id": "test:llm",
+  "hashInput": "test:llm#",
+  "hashHex": "af943af2be135ba77dbcabe7395cb3bd9b1433c1b7501262ebf0e190041f3379",
+  "success": true
+}

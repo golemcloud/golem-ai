@@ -1,72 +1,90 @@
-#[allow(static_mut_refs)]
-mod bindings;
-
-use crate::bindings::exports::test::graph_exports::test_graph_api::*;
-use crate::bindings::golem::graph::transactions::{
-    CreateEdgeOptions, CreateVertexOptions, ExecuteQueryOptions, GetAdjacentVerticesOptions,
+use golem_ai_graph::model::connection::ConnectionConfig;
+use golem_ai_graph::model::types::{
+    CreateEdgeOptions, CreateVertexOptions, Direction, ExecuteQueryOptions,
+    GetAdjacentVerticesOptions, GetNeighborhoodOptions, PathExistsOptions, PathOptions,
+    PropertyValue, QueryResult,
 };
-use crate::bindings::golem::graph::types::{
-    GetNeighborhoodOptions, PathExistsOptions, PathOptions, QueryResult,
-};
-use crate::bindings::golem::graph::{
-    connection::{connect, ConnectionConfig},
-    schema,
-    types::{Direction, PropertyValue},
-};
-
-struct Component;
+use golem_ai_graph::{GraphProvider, SchemaManagerProvider};
+use golem_rust::{agent_definition, agent_implementation};
 
 #[cfg(feature = "arangodb")]
-const PROVIDER: &'static str = "arangodb";
+type Provider = golem_ai_graph_arangodb::DurableArangoDb;
 #[cfg(feature = "janusgraph")]
-const PROVIDER: &'static str = "janusgraph";
+type Provider = golem_ai_graph_janusgraph::DurableJanusGraph;
 #[cfg(feature = "neo4j")]
-const PROVIDER: &'static str = "neo4j";
-
-const DEFAULT_TEST_HOST: &'static str = "127.0.0.1";
+type Provider = golem_ai_graph_neo4j::DurableNeo4j;
 
 #[cfg(feature = "arangodb")]
-const TEST_DATABASE: &'static str = "test";
+const PROVIDER: &str = "arangodb";
+#[cfg(feature = "janusgraph")]
+const PROVIDER: &str = "janusgraph";
+#[cfg(feature = "neo4j")]
+const PROVIDER: &str = "neo4j";
+
+const DEFAULT_TEST_HOST: &str = "127.0.0.1";
+
+#[cfg(feature = "arangodb")]
+const TEST_DATABASE: &str = "test";
 #[cfg(feature = "arangodb")]
 const TEST_PORT: u16 = 8529;
 #[cfg(feature = "arangodb")]
-const TEST_USERNAME: &'static str = "root";
+const TEST_USERNAME: &str = "root";
 #[cfg(feature = "arangodb")]
-const TEST_PASSWORD: &'static str = "test";
+const TEST_PASSWORD: &str = "test";
 
 #[cfg(feature = "janusgraph")]
-const TEST_DATABASE: &'static str = "janusgraph";
+const TEST_DATABASE: &str = "janusgraph";
 #[cfg(feature = "janusgraph")]
 const TEST_PORT: u16 = 8182;
 #[cfg(feature = "janusgraph")]
-const TEST_USERNAME: &'static str = "";
+const TEST_USERNAME: &str = "";
 #[cfg(feature = "janusgraph")]
-const TEST_PASSWORD: &'static str = "";
+const TEST_PASSWORD: &str = "";
 
 #[cfg(feature = "neo4j")]
-const TEST_DATABASE: &'static str = "neo4j";
+const TEST_DATABASE: &str = "neo4j";
 #[cfg(feature = "neo4j")]
 const TEST_PORT: u16 = 7474;
 #[cfg(feature = "neo4j")]
-const TEST_USERNAME: &'static str = "neo4j";
+const TEST_USERNAME: &str = "neo4j";
 #[cfg(feature = "neo4j")]
-const TEST_PASSWORD: &'static str = "password";
+const TEST_PASSWORD: &str = "password";
 
 fn get_test_host() -> String {
     std::env::var("GRAPH_TEST_HOST").unwrap_or_else(|_| DEFAULT_TEST_HOST.to_string())
 }
 
-// Helper function to ensure required collections exist for ArangoDB tests
+fn make_config() -> ConnectionConfig {
+    ConnectionConfig {
+        hosts: Some(vec![get_test_host()]),
+        port: Some(TEST_PORT),
+        database_name: Some(TEST_DATABASE.to_string()),
+        username: if TEST_USERNAME.is_empty() {
+            None
+        } else {
+            Some(TEST_USERNAME.to_string())
+        },
+        password: if TEST_PASSWORD.is_empty() {
+            None
+        } else {
+            Some(TEST_PASSWORD.to_string())
+        },
+        timeout_seconds: None,
+        max_connections: None,
+        provider_config: vec![],
+    }
+}
+
 #[cfg(feature = "arangodb")]
 fn ensure_arangodb_collections(
-    graph_connection: &crate::bindings::golem::graph::connection::Graph,
+    _graph_connection: &golem_ai_graph::model::connection::Graph,
 ) -> Result<(), String> {
-    use crate::bindings::golem::graph::schema::{self, ContainerType};
+    use golem_ai_graph::model::schema::ContainerType;
     use std::collections::HashSet;
 
     println!("Setting up ArangoDB collections for testing...");
 
-    let schema_manager = match schema::get_schema_manager(None) {
+    let schema_manager = match Provider::get_schema_manager(None) {
         Ok(manager) => manager,
         Err(error) => return Err(format!("Failed to get schema manager: {:?}", error)),
     };
@@ -102,7 +120,7 @@ fn ensure_arangodb_collections(
             continue;
         }
 
-        match schema_manager.create_container(name, container_type) {
+        match schema_manager.create_container(name.to_string(), container_type) {
             Ok(_) => println!("Collection '{}' created successfully", name),
             Err(error) => {
                 println!("ERROR: Could not create collection '{}': {:?}", name, error);
@@ -116,37 +134,40 @@ fn ensure_arangodb_collections(
 
 #[cfg(not(feature = "arangodb"))]
 fn ensure_arangodb_collections(
-    _graph_connection: &crate::bindings::golem::graph::connection::Graph,
+    _graph_connection: &golem_ai_graph::model::connection::Graph,
 ) -> Result<(), String> {
     Ok(())
 }
 
-impl Guest for Component {
-    /// test1 demonstrates basic vertex creation and retrieval operations
-    fn test1() -> String {
+#[agent_definition]
+pub trait GraphTest {
+    fn new(name: String) -> Self;
+    fn test1(&self) -> String;
+    fn test2(&self) -> String;
+    fn test3(&self) -> String;
+    fn test4(&self) -> String;
+    fn test5(&self) -> String;
+    fn test6(&self) -> String;
+    fn test7(&self) -> String;
+}
+
+struct GraphTestImpl {
+    _name: String,
+}
+
+#[agent_implementation]
+impl GraphTest for GraphTestImpl {
+    fn new(name: String) -> Self {
+        Self { _name: name }
+    }
+
+    fn test1(&self) -> String {
         println!("Starting test1: Basic vertex operations with {}", PROVIDER);
 
-        let config = ConnectionConfig {
-            hosts: Some(vec![get_test_host()]),
-            port: Some(TEST_PORT),
-            database_name: Some(TEST_DATABASE.to_string()),
-            username: if TEST_USERNAME.is_empty() {
-                None
-            } else {
-                Some(TEST_USERNAME.to_string())
-            },
-            password: if TEST_PASSWORD.is_empty() {
-                None
-            } else {
-                Some(TEST_PASSWORD.to_string())
-            },
-            timeout_seconds: None,
-            max_connections: None,
-            provider_config: vec![],
-        };
+        let config = make_config();
 
         println!("Connecting to graph database...");
-        let graph_connection = match connect(&config) {
+        let graph_connection = match Provider::connect(config) {
             Ok(conn) => conn,
             Err(error) => {
                 return format!(
@@ -177,7 +198,7 @@ impl Guest for Component {
         ];
 
         println!("Creating vertex...");
-        let vertex = match transaction.create_vertex(&CreateVertexOptions {
+        let vertex = match transaction.create_vertex(CreateVertexOptions {
             vertex_type: "Person".to_string(),
             properties: Some(properties),
             labels: None,
@@ -188,14 +209,12 @@ impl Guest for Component {
 
         println!("Created vertex with ID: {:?}", vertex.id);
 
-        // Retrieving the vertex by ID
-        let retrieved_vertex = match transaction.get_vertex(&vertex.id.clone()) {
+        let retrieved_vertex = match transaction.get_vertex(vertex.id.clone()) {
             Ok(Some(v)) => v,
             Ok(None) => return "ERROR: Vertex not found after creation".to_string(),
             Err(error) => return format!("ERROR: Vertex retrieval failed: {:?}", error),
         };
 
-        // Committing the transaction
         match transaction.commit() {
             Ok(_) => println!("Transaction committed successfully"),
             Err(error) => return format!("ERROR: Commit failed: {:?}", error),
@@ -212,31 +231,13 @@ impl Guest for Component {
         )
     }
 
-    /// test2 demonstrates edge creation and relationship operations
-    fn test2() -> String {
+    fn test2(&self) -> String {
         println!("Starting test2: Edge operations with {}", PROVIDER);
         let mut results = Vec::new();
 
-        let config = ConnectionConfig {
-            hosts: Some(vec![get_test_host()]),
-            port: Some(TEST_PORT),
-            database_name: Some(TEST_DATABASE.to_string()),
-            username: if TEST_USERNAME.is_empty() {
-                None
-            } else {
-                Some(TEST_USERNAME.to_string())
-            },
-            password: if TEST_PASSWORD.is_empty() {
-                None
-            } else {
-                Some(TEST_PASSWORD.to_string())
-            },
-            timeout_seconds: None,
-            max_connections: None,
-            provider_config: vec![],
-        };
+        let config = make_config();
 
-        let graph_connection = match connect(&config) {
+        let graph_connection = match Provider::connect(config) {
             Ok(conn) => conn,
             Err(error) => {
                 return format!("ERROR: Connection failed: {:?}", error);
@@ -254,7 +255,6 @@ impl Guest for Component {
             }
         };
 
-        // Creating two vertices
         let person1_props = vec![
             (
                 "name".to_string(),
@@ -271,7 +271,7 @@ impl Guest for Component {
             ("age".to_string(), PropertyValue::Int32(28)),
         ];
 
-        let vertex1 = match transaction.create_vertex(&CreateVertexOptions {
+        let vertex1 = match transaction.create_vertex(CreateVertexOptions {
             vertex_type: "Person".to_string(),
             properties: Some(person1_props),
             labels: None,
@@ -280,7 +280,7 @@ impl Guest for Component {
             Err(error) => return format!("ERROR: First vertex creation failed: {:?}", error),
         };
 
-        let vertex2 = match transaction.create_vertex(&CreateVertexOptions {
+        let vertex2 = match transaction.create_vertex(CreateVertexOptions {
             vertex_type: "Person".to_string(),
             properties: Some(person2_props),
             labels: None,
@@ -301,7 +301,7 @@ impl Guest for Component {
             ("weight".to_string(), PropertyValue::Float32Value(0.8)),
         ];
 
-        let edge = match transaction.create_edge(&CreateEdgeOptions {
+        let edge = match transaction.create_edge(CreateEdgeOptions {
             edge_type: "KNOWS".to_string(),
             from_vertex: vertex1.id.clone(),
             to_vertex: vertex2.id.clone(),
@@ -317,9 +317,8 @@ impl Guest for Component {
             Err(error) => return format!("ERROR: Edge creation failed: {:?}", error),
         };
 
-        // Retrieve adjacent vertices
         let adjacent_vertices = match transaction.get_adjacent_vertices(
-            &GetAdjacentVerticesOptions {
+            GetAdjacentVerticesOptions {
                 vertex_id: vertex1.id.clone(),
                 direction: Direction::Outgoing,
                 edge_types: Some(vec!["KNOWS".to_string()]),
@@ -358,28 +357,10 @@ impl Guest for Component {
         )
     }
 
-    /// test3 demonstrates transaction rollback and error handling
-    fn test3() -> String {
-        let config = ConnectionConfig {
-            hosts: Some(vec![get_test_host()]),
-            port: Some(TEST_PORT),
-            database_name: Some(TEST_DATABASE.to_string()),
-            username: if TEST_USERNAME.is_empty() {
-                None
-            } else {
-                Some(TEST_USERNAME.to_string())
-            },
-            password: if TEST_PASSWORD.is_empty() {
-                None
-            } else {
-                Some(TEST_PASSWORD.to_string())
-            },
-            timeout_seconds: None,
-            max_connections: None,
-            provider_config: vec![],
-        };
+    fn test3(&self) -> String {
+        let config = make_config();
 
-        let graph_connection = match connect(&config) {
+        let graph_connection = match Provider::connect(config) {
             Ok(conn) => conn,
             Err(error) => {
                 return format!("ERROR: Connection failed: {:?}", error);
@@ -397,7 +378,6 @@ impl Guest for Component {
             }
         };
 
-        // Creating a vertex
         let properties = vec![
             (
                 "name".to_string(),
@@ -406,7 +386,7 @@ impl Guest for Component {
             ("temp".to_string(), PropertyValue::Boolean(true)),
         ];
 
-        let vertex = match transaction.create_vertex(&CreateVertexOptions {
+        let vertex = match transaction.create_vertex(CreateVertexOptions {
             vertex_type: "TempUser".to_string(),
             properties: Some(properties),
             labels: None,
@@ -417,7 +397,6 @@ impl Guest for Component {
 
         let is_active_before = transaction.is_active();
 
-        // Intentionally rolling-back the transaction
         match transaction.rollback() {
             Ok(_) => println!("Transaction rolled back successfully"),
             Err(error) => return format!("ERROR: Rollback failed: {:?}", error),
@@ -436,31 +415,13 @@ impl Guest for Component {
         )
     }
 
-    /// test4 demonstrates batch operations for creating multiple vertices and edges
-    fn test4() -> String {
+    fn test4(&self) -> String {
         println!("Starting test4: Batch operations with {}", PROVIDER);
         let mut results = Vec::new();
 
-        let config = ConnectionConfig {
-            hosts: Some(vec![get_test_host()]),
-            port: Some(TEST_PORT),
-            database_name: Some(TEST_DATABASE.to_string()),
-            username: if TEST_USERNAME.is_empty() {
-                None
-            } else {
-                Some(TEST_USERNAME.to_string())
-            },
-            password: if TEST_PASSWORD.is_empty() {
-                None
-            } else {
-                Some(TEST_PASSWORD.to_string())
-            },
-            timeout_seconds: None,
-            max_connections: None,
-            provider_config: vec![],
-        };
+        let config = make_config();
 
-        let graph_connection = match connect(&config) {
+        let graph_connection = match Provider::connect(config) {
             Ok(conn) => conn,
             Err(error) => {
                 return format!("ERROR: Connection failed: {:?}", error);
@@ -478,7 +439,6 @@ impl Guest for Component {
             }
         };
 
-        // Creating multiple vertices in a batch
         let vertex_specs = vec![
             CreateVertexOptions {
                 vertex_type: "Company".to_string(),
@@ -518,7 +478,7 @@ impl Guest for Component {
             },
         ];
 
-        let vertices = match transaction.create_vertices(&vertex_specs) {
+        let vertices = match transaction.create_vertices(vertex_specs) {
             Ok(v) => {
                 results.push("Standard batch vertex creation succeeded".to_string());
                 v
@@ -532,7 +492,6 @@ impl Guest for Component {
             }
         };
 
-        // Creating edges between the vertices
         if vertices.len() >= 3 {
             let edge_specs = vec![CreateEdgeOptions {
                 edge_type: "WORKS_FOR".to_string(),
@@ -550,7 +509,7 @@ impl Guest for Component {
                 ]),
             }];
 
-            let edges = match transaction.create_edges(&edge_specs) {
+            let edges = match transaction.create_edges(edge_specs) {
                 Ok(e) => {
                     results.push("Standard batch edge creation succeeded".to_string());
                     e
@@ -587,31 +546,13 @@ impl Guest for Component {
         }
     }
 
-    /// test5 demonstrates graph traversal and pathfinding operations
-    fn test5() -> String {
+    fn test5(&self) -> String {
         println!("Starting test5: Traversal operations with {}", PROVIDER);
         let mut results = Vec::new();
 
-        let config = ConnectionConfig {
-            hosts: Some(vec![get_test_host()]),
-            port: Some(TEST_PORT),
-            database_name: Some(TEST_DATABASE.to_string()),
-            username: if TEST_USERNAME.is_empty() {
-                None
-            } else {
-                Some(TEST_USERNAME.to_string())
-            },
-            password: if TEST_PASSWORD.is_empty() {
-                None
-            } else {
-                Some(TEST_PASSWORD.to_string())
-            },
-            timeout_seconds: None,
-            max_connections: None,
-            provider_config: vec![],
-        };
+        let config = make_config();
 
-        let graph_connection = match connect(&config) {
+        let graph_connection = match Provider::connect(config) {
             Ok(conn) => conn,
             Err(error) => return format!("ERROR: Connection failed: {:?}", error),
         };
@@ -625,8 +566,7 @@ impl Guest for Component {
             Err(error) => return format!("ERROR: Transaction creation failed: {:?}", error),
         };
 
-        // Create a small network: A -> B -> C
-        let vertex_a = match transaction.create_vertex(&CreateVertexOptions {
+        let vertex_a = match transaction.create_vertex(CreateVertexOptions {
             vertex_type: "Node".to_string(),
             properties: Some(vec![(
                 "name".to_string(),
@@ -638,7 +578,7 @@ impl Guest for Component {
             Err(error) => return format!("ERROR: Vertex A creation failed: {:?}", error),
         };
 
-        let vertex_b = match transaction.create_vertex(&CreateVertexOptions {
+        let vertex_b = match transaction.create_vertex(CreateVertexOptions {
             vertex_type: "Node".to_string(),
             properties: Some(vec![(
                 "name".to_string(),
@@ -650,7 +590,7 @@ impl Guest for Component {
             Err(error) => return format!("ERROR: Vertex B creation failed: {:?}", error),
         };
 
-        let vertex_c = match transaction.create_vertex(&CreateVertexOptions {
+        let vertex_c = match transaction.create_vertex(CreateVertexOptions {
             vertex_type: "Node".to_string(),
             properties: Some(vec![(
                 "name".to_string(),
@@ -662,22 +602,20 @@ impl Guest for Component {
             Err(error) => return format!("ERROR: Vertex C creation failed: {:?}", error),
         };
 
-        // Creating edges
-        let _ = transaction.create_edge(&CreateEdgeOptions {
+        let _ = transaction.create_edge(CreateEdgeOptions {
             edge_type: "CONNECTS".to_string(),
             from_vertex: vertex_a.id.clone(),
             to_vertex: vertex_b.id.clone(),
             properties: None,
         });
-        let _ = transaction.create_edge(&CreateEdgeOptions {
+        let _ = transaction.create_edge(CreateEdgeOptions {
             edge_type: "CONNECTS".to_string(),
             from_vertex: vertex_b.id.clone(),
             to_vertex: vertex_c.id.clone(),
             properties: None,
         });
 
-        // Testing neighborhood exploration
-        let neighborhood = match transaction.get_neighborhood(&GetNeighborhoodOptions {
+        let neighborhood = match transaction.get_neighborhood(GetNeighborhoodOptions {
             center: vertex_b.id.clone(),
             depth: 1,
             direction: Direction::Both,
@@ -697,8 +635,7 @@ impl Guest for Component {
             }
         };
 
-        // Test pathfinding
-        let path_exists_result = match transaction.path_exists(&PathExistsOptions {
+        let path_exists_result = match transaction.path_exists(PathExistsOptions {
             from_vertex: vertex_a.id.clone(),
             to_vertex: vertex_c.id.clone(),
             path: Some(PathOptions {
@@ -739,31 +676,13 @@ impl Guest for Component {
         )
     }
 
-    /// test6 demonstrates query operations using database-specific query languages
-    fn test6() -> String {
+    fn test6(&self) -> String {
         println!("Starting test6: Query operations with {}", PROVIDER);
         let mut results = Vec::new();
 
-        let config = ConnectionConfig {
-            hosts: Some(vec![get_test_host()]),
-            port: Some(TEST_PORT),
-            database_name: Some(TEST_DATABASE.to_string()),
-            username: if TEST_USERNAME.is_empty() {
-                None
-            } else {
-                Some(TEST_USERNAME.to_string())
-            },
-            password: if TEST_PASSWORD.is_empty() {
-                None
-            } else {
-                Some(TEST_PASSWORD.to_string())
-            },
-            timeout_seconds: None,
-            max_connections: None,
-            provider_config: vec![],
-        };
+        let config = make_config();
 
-        let graph_connection = match connect(&config) {
+        let graph_connection = match Provider::connect(config) {
             Ok(conn) => conn,
             Err(error) => return format!("ERROR: Connection failed: {:?}", error),
         };
@@ -776,8 +695,7 @@ impl Guest for Component {
             Err(error) => return format!("ERROR: Transaction creation failed: {:?}", error),
         };
 
-        // Creating some test data first
-        let _ = transaction.create_vertex(&CreateVertexOptions {
+        let _ = transaction.create_vertex(CreateVertexOptions {
             vertex_type: "Product".to_string(),
             properties: Some(vec![
                 (
@@ -789,7 +707,7 @@ impl Guest for Component {
             labels: None,
         });
 
-        let _ = transaction.create_vertex(&CreateVertexOptions {
+        let _ = transaction.create_vertex(CreateVertexOptions {
             vertex_type: "Product".to_string(),
             properties: Some(vec![
                 (
@@ -801,7 +719,6 @@ impl Guest for Component {
             labels: None,
         });
 
-        // Execute a provider-specific query
         let (query_string, parameters) = match PROVIDER {
             "neo4j" => {
                 results.push("Using Neo4j Cypher query with parameters".to_string());
@@ -833,7 +750,7 @@ impl Guest for Component {
             }
         };
 
-        let query_result = match transaction.execute_query(&ExecuteQueryOptions {
+        let query_result = match transaction.execute_query(ExecuteQueryOptions {
             query: query_string,
             parameters: if parameters.is_empty() {
                 None
@@ -881,12 +798,10 @@ impl Guest for Component {
         )
     }
 
-    /// test7 demonstrates schema management operations
-    fn test7() -> String {
+    fn test7(&self) -> String {
         println!("Starting test7: Schema operations with {}", PROVIDER);
 
-        // Testing schema manager creation
-        let schema_manager = match schema::get_schema_manager(None) {
+        let schema_manager = match Provider::get_schema_manager(None) {
             Ok(manager) => manager,
             Err(error) => {
                 return format!("ERROR: Schema manager creation failed: {:?}", error);
@@ -917,7 +832,6 @@ impl Guest for Component {
             }
         }
 
-        // Trying to list indexes
         match schema_manager.list_indexes() {
             Ok(idx_list) => {
                 index_count = idx_list.len();
@@ -937,5 +851,3 @@ impl Guest for Component {
         )
     }
 }
-
-bindings::export!(Component with_types_in bindings);

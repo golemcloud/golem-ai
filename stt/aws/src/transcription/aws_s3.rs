@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use chrono::Utc;
-use golem_stt::{error::Error, http::HttpClient};
+use golem_ai_stt::{error::Error, http::HttpClient};
 use http::{Request, StatusCode};
 use log::trace;
 
@@ -14,14 +14,14 @@ pub trait S3Service {
         bucket: &str,
         object_name: &str,
         content: Bytes,
-    ) -> Result<(), golem_stt::error::Error>;
+    ) -> Result<(), golem_ai_stt::error::Error>;
 
     async fn delete_object(
         &self,
         request_id: &str,
         bucket: &str,
         object_name: &str,
-    ) -> Result<(), golem_stt::error::Error>;
+    ) -> Result<(), golem_ai_stt::error::Error>;
 }
 
 pub struct S3Client<HC: HttpClient> {
@@ -45,7 +45,7 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
         bucket: &str,
         object_name: &str,
         content: Bytes,
-    ) -> Result<(), golem_stt::error::Error> {
+    ) -> Result<(), golem_ai_stt::error::Error> {
         let timestamp = Utc::now();
         let uri = format!("https://{bucket}.s3.amazonaws.com/{object_name}");
 
@@ -60,7 +60,10 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
             .header("Content-Length", &content_length)
             .body(content)
             .map_err(|e| {
-                Error::Http(request_id.to_string(), golem_stt::http::Error::HttpError(e))
+                Error::Http(
+                    request_id.to_string(),
+                    golem_ai_stt::http::Error::HttpError(e),
+                )
             })?;
 
         let signed_request = self
@@ -69,7 +72,7 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
             .map_err(|err| {
                 (
                     request_id.to_string(),
-                    golem_stt::http::Error::Generic(format!("Failed to sign request: {err}")),
+                    golem_ai_stt::http::Error::Generic(format!("Failed to sign request: {err}")),
                 )
             })?;
 
@@ -89,15 +92,19 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
             let request_id = request_id.to_string();
 
             match status {
-                StatusCode::BAD_REQUEST => Err(golem_stt::error::Error::APIBadRequest {
+                StatusCode::BAD_REQUEST => Err(golem_ai_stt::error::Error::APIBadRequest {
                     request_id,
                     provider_error: format!("S3 PutObject bad request: {error_body}",),
                 }),
-                s if s.is_server_error() => Err(golem_stt::error::Error::APIInternalServerError {
-                    request_id,
-                    provider_error: format!("S3 PutObject server error ({status}): {error_body}"),
-                }),
-                _ => Err(golem_stt::error::Error::APIUnknown {
+                s if s.is_server_error() => {
+                    Err(golem_ai_stt::error::Error::APIInternalServerError {
+                        request_id,
+                        provider_error: format!(
+                            "S3 PutObject server error ({status}): {error_body}"
+                        ),
+                    })
+                }
+                _ => Err(golem_ai_stt::error::Error::APIUnknown {
                     request_id,
                     provider_error: format!(
                         "S3 PutObject unexpected error ({status}): {error_body}",
@@ -112,7 +119,7 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
         request_id: &str,
         bucket: &str,
         object_name: &str,
-    ) -> Result<(), golem_stt::error::Error> {
+    ) -> Result<(), golem_ai_stt::error::Error> {
         let timestamp = Utc::now();
         let uri = format!("https://{bucket}.s3.amazonaws.com/{object_name}");
 
@@ -120,7 +127,12 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
             .method("DELETE")
             .uri(&uri)
             .body(Bytes::new())
-            .map_err(|e| (request_id.to_string(), golem_stt::http::Error::HttpError(e)))?;
+            .map_err(|e| {
+                (
+                    request_id.to_string(),
+                    golem_ai_stt::http::Error::HttpError(e),
+                )
+            })?;
 
         let signed_request = self
             .signer
@@ -128,7 +140,7 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
             .map_err(|err| {
                 (
                     request_id.to_string(),
-                    golem_stt::http::Error::Generic(format!("Failed to sign request: {err}")),
+                    golem_ai_stt::http::Error::Generic(format!("Failed to sign request: {err}")),
                 )
             })?;
 
@@ -148,17 +160,19 @@ impl<HC: HttpClient> S3Service for S3Client<HC> {
             let request_id = request_id.to_string();
 
             match status {
-                StatusCode::BAD_REQUEST => Err(golem_stt::error::Error::APIBadRequest {
+                StatusCode::BAD_REQUEST => Err(golem_ai_stt::error::Error::APIBadRequest {
                     request_id,
                     provider_error: format!("S3 DeleteObject bad request: {error_body}"),
                 }),
-                s if s.is_server_error() => Err(golem_stt::error::Error::APIInternalServerError {
-                    request_id,
-                    provider_error: format!(
-                        "S3 DeleteObject server error ({status}): {error_body}"
-                    ),
-                }),
-                _ => Err(golem_stt::error::Error::APIUnknown {
+                s if s.is_server_error() => {
+                    Err(golem_ai_stt::error::Error::APIInternalServerError {
+                        request_id,
+                        provider_error: format!(
+                            "S3 DeleteObject server error ({status}): {error_body}"
+                        ),
+                    })
+                }
+                _ => Err(golem_ai_stt::error::Error::APIUnknown {
                     request_id,
                     provider_error: format!(
                         "S3 DeleteObject unexpected error ({status}): {error_body}"
@@ -181,7 +195,7 @@ mod tests {
     use super::*;
 
     struct MockHttpClient {
-        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_stt::http::Error>>>,
+        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_ai_stt::http::Error>>>,
         pub captured_requests: RefCell<Vec<Request<Bytes>>>,
     }
 
@@ -224,14 +238,11 @@ mod tests {
         async fn execute(
             &self,
             request: Request<Bytes>,
-        ) -> Result<Response<Vec<u8>>, golem_stt::http::Error> {
+        ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
-            self.responses
-                .borrow_mut()
-                .pop_front()
-                .unwrap_or(Err(golem_stt::http::Error::Generic(
-                    "unexpected error".to_string(),
-                )))
+            self.responses.borrow_mut().pop_front().unwrap_or(Err(
+                golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
+            ))
         }
     }
 

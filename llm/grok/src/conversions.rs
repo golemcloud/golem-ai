@@ -1,6 +1,6 @@
 use crate::client::{CompletionsRequest, CompletionsResponse, Detail, Effort};
 use base64::{engine::general_purpose, Engine as _};
-use golem_llm::golem::llm::llm::{
+use golem_ai_llm::model::{
     Config, ContentPart, Error, ErrorCode, Event, FinishReason, ImageDetail, ImageReference,
     Response, ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
 };

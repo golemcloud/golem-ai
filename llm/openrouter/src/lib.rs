@@ -5,15 +5,16 @@ use crate::client::{ChatCompletionChunk, CompletionsApi, CompletionsRequest, Fun
 use crate::conversions::{
     convert_finish_reason, convert_usage, events_to_request, process_response,
 };
-use golem_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
-use golem_llm::config::{get_config_key, with_config_key};
-use golem_llm::durability::{DurableLLM, ExtendedGuest};
-use golem_llm::error::error_code_from_status;
-use golem_llm::event_source::EventSource;
-use golem_llm::golem::llm::llm::{
-    ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Guest, Message,
-    Response, ResponseMetadata, Role, StreamDelta, StreamEvent, ToolCall,
+use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
+use golem_ai_llm::config::{get_config_key, with_config_key};
+use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
+use golem_ai_llm::error::error_code_from_status;
+use golem_ai_llm::event_source::EventSource;
+use golem_ai_llm::model::{
+    ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Message, Response,
+    ResponseMetadata, Role, StreamDelta, StreamEvent, ToolCall,
 };
+use golem_ai_llm::LlmProvider;
 use golem_rust::golem_wasm::Pollable;
 use golem_wasi_http::StatusCode;
 use log::trace;
@@ -27,7 +28,7 @@ struct JsonFragment {
     json: String,
 }
 
-struct OpenRouterChatStream {
+pub struct OpenRouterChatStream {
     stream: RefCell<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
@@ -234,9 +235,9 @@ impl LlmChatStreamState for OpenRouterChatStream {
     }
 }
 
-struct OpenRouterComponent;
+pub struct OpenRouter;
 
-impl OpenRouterComponent {
+impl OpenRouter {
     const ENV_VAR_NAME: &'static str = "OPENROUTER_API_KEY";
 
     fn request(client: CompletionsApi, request: CompletionsRequest) -> Result<Response, Error> {
@@ -256,7 +257,7 @@ impl OpenRouterComponent {
     }
 }
 
-impl Guest for OpenRouterComponent {
+impl LlmProvider for OpenRouter {
     type ChatStream = LlmChatStream<OpenRouterChatStream>;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -271,7 +272,7 @@ impl Guest for OpenRouterComponent {
     }
 }
 
-impl ExtendedGuest for OpenRouterComponent {
+impl ExtendedLlmProvider for OpenRouter {
     fn unwrapped_stream(events: Vec<Event>, config: Config) -> LlmChatStream<OpenRouterChatStream> {
         with_config_key(
             Self::ENV_VAR_NAME,
@@ -348,6 +349,4 @@ impl ExtendedGuest for OpenRouterComponent {
     }
 }
 
-type DurableOpenRouterComponent = DurableLLM<OpenRouterComponent>;
-
-golem_llm::export_llm!(DurableOpenRouterComponent with_types_in golem_llm);
+pub type DurableOpenRouter = DurableLLM<OpenRouter>;

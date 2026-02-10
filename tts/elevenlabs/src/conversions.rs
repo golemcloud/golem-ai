@@ -2,13 +2,13 @@ use crate::client::{
     CreateVoiceRequest, ListVoicesParams, Model, TextToSpeechParams, TextToSpeechRequest,
     Voice as ElevenLabsVoice, VoiceSettings as ElevenLabsVoiceSettings,
 };
-use golem_tts::golem::tts::advanced::{AgeCategory, AudioSample, VoiceDesignParams};
-use golem_tts::golem::tts::synthesis::{SynthesisOptions, ValidationResult};
-use golem_tts::golem::tts::types::{
+use golem_ai_tts::model::advanced::{AgeCategory, AudioSample, VoiceDesignParams};
+use golem_ai_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_ai_tts::model::types::{
     AudioFormat, SynthesisMetadata, SynthesisResult, TextInput, TextType, TtsError, VoiceGender,
     VoiceQuality, VoiceSettings,
 };
-use golem_tts::golem::tts::voices::{LanguageInfo, VoiceFilter, VoiceInfo};
+use golem_ai_tts::model::voices::{LanguageInfo, VoiceFilter, VoiceInfo};
 use log::info;
 
 pub fn estimate_audio_duration(audio_data: &[u8], _sample_rate: u32) -> f32 {
@@ -1078,7 +1078,7 @@ mod tests {
 
     #[test]
     fn test_validate_voice_settings() {
-        use golem_tts::golem::tts::types::VoiceSettings;
+        use golem_ai_tts::model::types::VoiceSettings;
 
         let settings = VoiceSettings {
             speed: Some(1.0),

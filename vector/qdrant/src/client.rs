@@ -1,5 +1,5 @@
-use golem_vector::config::{get_max_retries_config, get_timeout_config};
-use golem_vector::golem::vector::types::VectorError;
+use golem_ai_vector::config::{get_max_retries_config, get_timeout_config};
+use golem_ai_vector::model::types::VectorError;
 use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;

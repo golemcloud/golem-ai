@@ -3,31 +3,30 @@ use crate::helpers::{
     parse_vertex_from_document,
 };
 use crate::{conversions, helpers, Transaction};
-use golem_graph::golem::graph::transactions::{
+use golem_ai_graph::model::transactions::{
     CreateEdgeOptions, CreateVertexOptions, ExecuteQueryOptions, FindAllPathsOptions,
     FindShortestPathOptions, FindVerticesOptions, GetVerticesAtDistanceOptions, Path,
     PathExistsOptions, QueryExecutionResult, Subgraph,
 };
-use golem_graph::golem::graph::types::{
+use golem_ai_graph::model::types::{
     FindEdgesOptions, GetAdjacentVerticesOptions, GetConnectedEdgesOptions, GetNeighborhoodOptions,
     QueryResult, UpdateEdgeOptions, UpdateVertexOptions,
 };
-use golem_graph::golem::graph::{
+use golem_ai_graph::model::{
     errors::GraphError,
-    transactions::GuestTransaction,
     types::{Direction, Edge, ElementId, Vertex},
 };
+use golem_ai_graph::TransactionInterface;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-impl GuestTransaction for Transaction {
-    fn commit(&self) -> Result<(), GraphError> {
-        self.api.commit_transaction(&self.transaction_id)
+impl TransactionInterface for Transaction {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
-
-    fn rollback(&self) -> Result<(), GraphError> {
-        self.api.rollback_transaction(&self.transaction_id)
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 
     fn execute_query(
@@ -41,7 +40,7 @@ impl GuestTransaction for Transaction {
             }
         }
 
-        let query_json = serde_json::json!({
+        let query_json = json!({
             "query": options.query,
             "bindVars": bind_vars,
         });
@@ -319,6 +318,100 @@ impl GuestTransaction for Transaction {
             .collect()
     }
 
+    fn get_adjacent_vertices(
+        &self,
+        options: GetAdjacentVerticesOptions,
+    ) -> Result<Vec<Vertex>, GraphError> {
+        let start_node = element_id_to_string(&options.vertex_id);
+        let dir_str = match options.direction {
+            Direction::Outgoing => "OUTBOUND",
+            Direction::Incoming => "INBOUND",
+            Direction::Both => "ANY",
+        };
+
+        let collections = options.edge_types.unwrap_or_default().join(", ");
+
+        let query = json!({
+            "query": format!(
+                "FOR v IN 1..1 {} @start_node {} RETURN v",
+                dir_str,
+                collections
+            ),
+            "bindVars": {
+                "start_node": start_node,
+            }
+        });
+
+        let response = self
+            .api
+            .execute_in_transaction(&self.transaction_id, query)?;
+        let result_array = response.as_array().ok_or_else(|| {
+            GraphError::InternalError("Expected array in AQL response".to_string())
+        })?;
+
+        let mut vertices = vec![];
+        for val in result_array {
+            if let Some(doc) = val.as_object() {
+                let collection = doc
+                    .get("_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.split('/').next())
+                    .unwrap_or_default();
+                let vertex = parse_vertex_from_document(doc, collection)?;
+                vertices.push(vertex);
+            }
+        }
+
+        Ok(vertices)
+    }
+
+    fn get_connected_edges(
+        &self,
+        options: GetConnectedEdgesOptions,
+    ) -> Result<Vec<Edge>, GraphError> {
+        let start_node = element_id_to_string(&options.vertex_id);
+        let dir_str = match options.direction {
+            Direction::Outgoing => "OUTBOUND",
+            Direction::Incoming => "INBOUND",
+            Direction::Both => "ANY",
+        };
+
+        let collections = options.edge_types.unwrap_or_default().join(", ");
+
+        let query = json!({
+            "query": format!(
+                "FOR v, e IN 1..1 {} @start_node {} RETURN e",
+                dir_str,
+                collections
+            ),
+            "bindVars": {
+                "start_node": start_node,
+            }
+        });
+
+        let response = self
+            .api
+            .execute_in_transaction(&self.transaction_id, query)?;
+        let result_array = response.as_array().ok_or_else(|| {
+            GraphError::InternalError("Expected array in AQL response".to_string())
+        })?;
+
+        let mut edges = vec![];
+        for val in result_array {
+            if let Some(doc) = val.as_object() {
+                let collection = doc
+                    .get("_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.split('/').next())
+                    .unwrap_or_default();
+                let edge = parse_edge_from_document(doc, collection)?;
+                edges.push(edge);
+            }
+        }
+
+        Ok(edges)
+    }
+
     fn create_vertex(&self, options: CreateVertexOptions) -> Result<Vertex, GraphError> {
         if !options.labels.map(|l| l.is_empty()).unwrap_or_default() {
             return Err(GraphError::UnsupportedOperation(
@@ -351,7 +444,19 @@ impl GuestTransaction for Transaction {
                 GraphError::InternalError("Missing vertex document in response".to_string())
             })?;
 
-        helpers::parse_vertex_from_document(vertex_doc, &options.vertex_type)
+        parse_vertex_from_document(vertex_doc, &options.vertex_type)
+    }
+
+    fn create_vertices(
+        &self,
+        vertices: Vec<CreateVertexOptions>,
+    ) -> Result<Vec<Vertex>, GraphError> {
+        let mut created_vertices = vec![];
+        for vertex_options in vertices {
+            let vertex = self.create_vertex(vertex_options)?;
+            created_vertices.push(vertex);
+        }
+        Ok(created_vertices)
     }
 
     fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
@@ -388,7 +493,7 @@ impl GuestTransaction for Transaction {
             if vertex_doc.is_empty() || result_array.first().unwrap().is_null() {
                 return Ok(None);
             }
-            let vertex = helpers::parse_vertex_from_document(vertex_doc, collection)?;
+            let vertex = parse_vertex_from_document(vertex_doc, collection)?;
             Ok(Some(vertex))
         } else {
             Ok(None)
@@ -463,7 +568,7 @@ impl GuestTransaction for Transaction {
                 .filter(|c| {
                     matches!(
                         c.container_type,
-                        golem_graph::golem::graph::schema::ContainerType::EdgeContainer
+                        golem_ai_graph::model::schema::ContainerType::EdgeContainer
                     )
                 })
                 .map(|c| c.name.clone())
@@ -505,7 +610,7 @@ impl GuestTransaction for Transaction {
         let mut bind_vars = serde_json::Map::new();
         bind_vars.insert("@collection".to_string(), json!(collection.clone()));
 
-        let where_clause = golem_graph::query_utils::build_where_clause(
+        let where_clause = golem_ai_graph::query_utils::build_where_clause(
             &options.filters,
             "v",
             &mut bind_vars,
@@ -516,7 +621,7 @@ impl GuestTransaction for Transaction {
             query_parts.push(where_clause);
         }
 
-        let sort_clause = golem_graph::query_utils::build_sort_clause(&options.sort, "v");
+        let sort_clause = golem_ai_graph::query_utils::build_sort_clause(&options.sort, "v");
         if !sort_clause.is_empty() {
             query_parts.push(sort_clause);
         }
@@ -581,6 +686,15 @@ impl GuestTransaction for Transaction {
             })?;
 
         helpers::parse_edge_from_document(edge_doc, &options.edge_type)
+    }
+
+    fn create_edges(&self, edges: Vec<CreateEdgeOptions>) -> Result<Vec<Edge>, GraphError> {
+        let mut created_edges = vec![];
+        for edge_options in edges {
+            let edge = self.create_edge(edge_options)?;
+            created_edges.push(edge);
+        }
+        Ok(created_edges)
     }
 
     fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
@@ -718,7 +832,7 @@ impl GuestTransaction for Transaction {
         let mut bind_vars = serde_json::Map::new();
         bind_vars.insert("@collection".to_string(), json!(collection.clone()));
 
-        let where_clause = golem_graph::query_utils::build_where_clause(
+        let where_clause = golem_ai_graph::query_utils::build_where_clause(
             &options.filters,
             "e",
             &mut bind_vars,
@@ -729,7 +843,7 @@ impl GuestTransaction for Transaction {
             query_parts.push(where_clause);
         }
 
-        let sort_clause = golem_graph::query_utils::build_sort_clause(&options.sort, "e");
+        let sort_clause = golem_ai_graph::query_utils::build_sort_clause(&options.sort, "e");
         if !sort_clause.is_empty() {
             query_parts.push(sort_clause);
         }
@@ -765,119 +879,12 @@ impl GuestTransaction for Transaction {
         Ok(edges)
     }
 
-    fn get_adjacent_vertices(
-        &self,
-        options: GetAdjacentVerticesOptions,
-    ) -> Result<Vec<Vertex>, GraphError> {
-        let start_node = helpers::element_id_to_string(&options.vertex_id);
-        let dir_str = match options.direction {
-            Direction::Outgoing => "OUTBOUND",
-            Direction::Incoming => "INBOUND",
-            Direction::Both => "ANY",
-        };
-
-        let collections = options.edge_types.unwrap_or_default().join(", ");
-
-        let query = json!({
-            "query": format!(
-                "FOR v IN 1..1 {} @start_node {} RETURN v",
-                dir_str,
-                collections
-            ),
-            "bindVars": {
-                "start_node": start_node,
-            }
-        });
-
-        let response = self
-            .api
-            .execute_in_transaction(&self.transaction_id, query)?;
-        let result_array = response.as_array().ok_or_else(|| {
-            GraphError::InternalError("Expected array in AQL response".to_string())
-        })?;
-
-        let mut vertices = vec![];
-        for val in result_array {
-            if let Some(doc) = val.as_object() {
-                let collection = doc
-                    .get("_id")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| s.split('/').next())
-                    .unwrap_or_default();
-                let vertex = helpers::parse_vertex_from_document(doc, collection)?;
-                vertices.push(vertex);
-            }
-        }
-
-        Ok(vertices)
+    fn commit(&self) -> Result<(), GraphError> {
+        self.api.commit_transaction(&self.transaction_id)
     }
 
-    fn get_connected_edges(
-        &self,
-        options: GetConnectedEdgesOptions,
-    ) -> Result<Vec<Edge>, GraphError> {
-        let start_node = helpers::element_id_to_string(&options.vertex_id);
-        let dir_str = match options.direction {
-            Direction::Outgoing => "OUTBOUND",
-            Direction::Incoming => "INBOUND",
-            Direction::Both => "ANY",
-        };
-
-        let collections = options.edge_types.unwrap_or_default().join(", ");
-
-        let query = json!({
-            "query": format!(
-                "FOR v, e IN 1..1 {} @start_node {} RETURN e",
-                dir_str,
-                collections
-            ),
-            "bindVars": {
-                "start_node": start_node,
-            }
-        });
-
-        let response = self
-            .api
-            .execute_in_transaction(&self.transaction_id, query)?;
-        let result_array = response.as_array().ok_or_else(|| {
-            GraphError::InternalError("Expected array in AQL response".to_string())
-        })?;
-
-        let mut edges = vec![];
-        for val in result_array {
-            if let Some(doc) = val.as_object() {
-                let collection = doc
-                    .get("_id")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| s.split('/').next())
-                    .unwrap_or_default();
-                let edge = helpers::parse_edge_from_document(doc, collection)?;
-                edges.push(edge);
-            }
-        }
-
-        Ok(edges)
-    }
-
-    fn create_vertices(
-        &self,
-        vertices: Vec<CreateVertexOptions>,
-    ) -> Result<Vec<Vertex>, GraphError> {
-        let mut created_vertices = vec![];
-        for vertex_options in vertices {
-            let vertex = self.create_vertex(vertex_options)?;
-            created_vertices.push(vertex);
-        }
-        Ok(created_vertices)
-    }
-
-    fn create_edges(&self, edges: Vec<CreateEdgeOptions>) -> Result<Vec<Edge>, GraphError> {
-        let mut created_edges = vec![];
-        for edge_options in edges {
-            let edge = self.create_edge(edge_options)?;
-            created_edges.push(edge);
-        }
-        Ok(created_edges)
+    fn rollback(&self) -> Result<(), GraphError> {
+        self.api.rollback_transaction(&self.transaction_id)
     }
 
     fn is_active(&self) -> bool {
@@ -968,8 +975,8 @@ impl Transaction {
     }
 }
 
-fn aql_syntax() -> golem_graph::query_utils::QuerySyntax {
-    golem_graph::query_utils::QuerySyntax {
+fn aql_syntax() -> golem_ai_graph::query_utils::QuerySyntax {
+    golem_ai_graph::query_utils::QuerySyntax {
         equal: "==",
         not_equal: "!=",
         less_than: "<",

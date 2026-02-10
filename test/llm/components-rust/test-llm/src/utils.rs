@@ -1,6 +1,6 @@
-use crate::bindings::golem::llm::llm;
+use golem_ai_llm::model::*;
 
-pub fn consume_next_event(stream: &llm::ChatStream) -> Option<String> {
+pub fn consume_next_event(stream: &ChatStream) -> Option<String> {
     let events = stream.get_next();
 
     if events.is_empty() {
@@ -13,20 +13,20 @@ pub fn consume_next_event(stream: &llm::ChatStream) -> Option<String> {
         println!("Received {event:?}");
 
         match event {
-            Ok(llm::StreamEvent::Delta(delta)) => {
+            Ok(StreamEvent::Delta(delta)) => {
                 for content in delta.content.unwrap_or_default() {
                     match content {
-                        llm::ContentPart::Text(txt) => {
+                        ContentPart::Text(txt) => {
                             result.push_str(&txt);
                         }
-                        llm::ContentPart::Image(image_ref) => match image_ref {
-                            llm::ImageReference::Url(url_data) => {
+                        ContentPart::Image(image_ref) => match image_ref {
+                            ImageReference::Url(url_data) => {
                                 result.push_str(&format!(
                                     "IMAGE URL: {} ({:?})\n",
                                     url_data.url, url_data.detail
                                 ));
                             }
-                            llm::ImageReference::Inline(inline_data) => {
+                            ImageReference::Inline(inline_data) => {
                                 result.push_str(&format!(
                                     "INLINE IMAGE: {} bytes, mime: {}, detail: {:?}\n",
                                     inline_data.data.len(),
@@ -38,7 +38,7 @@ pub fn consume_next_event(stream: &llm::ChatStream) -> Option<String> {
                     }
                 }
             }
-            Ok(llm::StreamEvent::Finish(..)) => {}
+            Ok(StreamEvent::Finish(..)) => {}
             Err(error) => {
                 result.push_str(&format!(
                     "\nERROR: {:?} {} ({})\n",

@@ -1,44 +1,192 @@
 # Schema for IDEA:
-# $schema: https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
-# Schema for vscode-yaml
-# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
+# $schema: https://schema.golem.cloud/app/golem/1.5.0-dev.1/golem.schema.json
+# Schema for vscode-yaml:
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.5.0-dev.1/golem.schema.json
 
-# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
+# Field reference: https://learn.golem.cloud/app-manifest#field-reference
+# Creating HTTP APIs: https://learn.golem.cloud/invoke/making-custom-apis
 
-templates:
+componentTemplates:
   rust:
-    profiles:
-      debug:
+    presets:
+      # DEBUG PROFILES
+      elevenlabs-debug:
+        default: true
         build:
-        - command: cargo component build
+        - command: cargo component build --no-default-features --features elevenlabs
           sources:
           - src
-          - wit-generated
           - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        linkedWasm: ../../golem-temp/components/{{ component_name | to_snake_case }}_debug.wasm
+        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          basedOnCompiledWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          withAgent: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_elevenlabs_debug.static.wasm
+        sourceWit: .wit/wit
+        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
+        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_elevenlabs_debug.static.wasm
+        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_elevenlabs_debug.wasm
         clean:
         - src/bindings.rs
-      release:
+
+      deepgram-debug:
         build:
-        - command: cargo component build --release
+        - command: cargo component build --no-default-features --features deepgram
           sources:
           - src
-          - wit-generated
           - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
           targets:
-          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        linkedWasm: ../../golem-temp/components/{{ component_name | to_snake_case }}_release.wasm
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          basedOnCompiledWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          withAgent: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_deepgram_debug.static.wasm
+        sourceWit: .wit/wit
+        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
+        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_deepgram_debug.static.wasm
+        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_deepgram_debug.wasm
         clean:
         - src/bindings.rs
-    defaultProfile: debug
+
+      google-debug:
+        build:
+        - command: cargo component build --no-default-features --features google
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          basedOnCompiledWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          withAgent: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_google_debug.static.wasm
+        sourceWit: .wit/wit
+        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
+        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_google_debug.static.wasm
+        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_google_debug.wasm
+        clean:
+        - src/bindings.rs
+
+      aws-debug:
+        build:
+        - command: cargo component build --no-default-features --features aws
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          basedOnCompiledWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          withAgent: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_aws_debug.static.wasm
+        sourceWit: .wit/wit
+        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
+        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_aws_debug.static.wasm
+        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_aws_debug.wasm
+        clean:
+        - src/bindings.rs
+
+      # RELEASE PROFILES
+      elevenlabs-release:
+        build:
+        - command: cargo component build --release --no-default-features --features elevenlabs
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          basedOnCompiledWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          withAgent: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_elevenlabs_release.static.wasm
+        sourceWit: .wit/wit
+        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
+        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_elevenlabs_release.static.wasm
+        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_elevenlabs_release.wasm
+        clean:
+        - src/bindings.rs
+
+      deepgram-release:
+        build:
+        - command: cargo component build --release --no-default-features --features deepgram
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          basedOnCompiledWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          withAgent: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_deepgram_release.static.wasm
+        sourceWit: .wit/wit
+        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
+        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_deepgram_release.static.wasm
+        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_deepgram_release.wasm
+        clean:
+        - src/bindings.rs
+
+      google-release:
+        build:
+        - command: cargo component build --release --no-default-features --features google
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          basedOnCompiledWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          withAgent: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_google_release.static.wasm
+        sourceWit: .wit/wit
+        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
+        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_google_release.static.wasm
+        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_google_release.wasm
+        clean:
+        - src/bindings.rs
+
+      aws-release:
+        build:
+        - command: cargo component build --release --no-default-features --features aws
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          basedOnCompiledWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
+          withAgent: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_aws_release.static.wasm
+        sourceWit: .wit/wit
+        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
+        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_aws_release.static.wasm
+        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_aws_release.wasm
+        clean:
+        - src/bindings.rs
 customCommands:
   cargo-clean:
   - command: cargo clean

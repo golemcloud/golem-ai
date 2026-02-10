@@ -1,5 +1,5 @@
-use crate::golem::graph::errors::GraphError;
-use crate::golem::graph::types::ElementId;
+use crate::model::errors::GraphError;
+use crate::model::types::ElementId;
 
 pub mod mapping {
     use super::*;

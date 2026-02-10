@@ -3,7 +3,7 @@ use crate::client::{
     MessagesResponse, StopReason, Tool, ToolChoice,
 };
 use base64::{engine::general_purpose, Engine as _};
-use golem_llm::golem::llm::llm::{
+use golem_ai_llm::model::{
     Config, ContentPart, Error, ErrorCode, Event, FinishReason, ImageReference, ImageSource,
     ImageUrl, Response, ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
 };

@@ -1,36 +1,105 @@
-#[allow(static_mut_refs)]
-mod bindings;
-
-use crate::bindings::exports::test::exec_js_exports::test_exec_js_api::*;
-use crate::bindings::golem::exec::executor::run;
-use crate::bindings::golem::exec::types::{
-    Encoding, Error, File, Language, LanguageKind, Limits, RunOptions,
-};
-use crate::bindings::test::helper_client::test_helper_client::TestHelperApi;
-use golem_rust::{atomically, generate_idempotency_key};
+use golem_ai_exec::model::*;
+use golem_ai_exec::{DurableExecution, ExecutionProvider, ExecutionSession};
+use golem_rust::{agent_definition, agent_implementation, generate_idempotency_key, mark_atomic_operation};
 use indoc::indoc;
 
-struct Component;
+type Provider = DurableExecution;
+type Session = <Provider as ExecutionProvider>::Session;
 
-impl Guest for Component {
-    fn test01() -> bool {
+#[agent_definition]
+pub trait TestHelper {
+    fn new(name: String) -> Self;
+    fn inc_and_get(&mut self) -> u64;
+}
+
+struct TestHelperImpl {
+    _name: String,
+    total: u64,
+}
+
+#[agent_implementation]
+impl TestHelper for TestHelperImpl {
+    fn new(name: String) -> Self {
+        Self {
+            _name: name,
+            total: 0,
+        }
+    }
+
+    fn inc_and_get(&mut self) -> u64 {
+        self.total += 1;
+        self.total
+    }
+}
+
+struct Restart {
+    name: String,
+}
+
+impl Restart {
+    pub fn new() -> Self {
+        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
+        let key = generate_idempotency_key();
+        Self {
+            name: format!("{name}-{key}"),
+        }
+    }
+
+    pub async fn here(&self) {
+        let _guard = mark_atomic_operation();
+        let mut client = TestHelperClient::get(self.name.clone());
+        let answer = client.inc_and_get().await;
+        if answer == 1 {
+            panic!("Simulating crash")
+        }
+    }
+}
+
+#[agent_definition]
+pub trait ExecJsTest {
+    fn new(name: String) -> Self;
+    async fn test01(&self) -> bool;
+    async fn test02(&self) -> bool;
+    async fn test03(&self) -> bool;
+    async fn test04(&self) -> bool;
+    async fn test05(&self) -> bool;
+    async fn test06(&self) -> bool;
+    async fn test07(&self) -> bool;
+    async fn test08(&self) -> bool;
+    async fn test09(&self) -> bool;
+    async fn test10(&self) -> bool;
+    async fn test11(&self) -> bool;
+}
+
+struct ExecJsTestImpl {
+    _name: String,
+}
+
+#[agent_implementation]
+impl ExecJsTest for ExecJsTestImpl {
+    fn new(name: String) -> Self {
+        Self { _name: name }
+    }
+
+    async fn test01(&self) -> bool {
         let restart = Restart::new();
 
-        let result = run(
-            &Language {
+        let result = Provider::run(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[],
+            vec![],
             indoc! { r#"
                 const x = 40 + 2;
                 const name = "world";
                 console.log(`Hello, ${name}!`, x);
-            "# },
-            &empty_run_options(),
-        );
+            "# }
+            .to_string(),
+            empty_run_options(),
+        ).await;
 
-        restart.here();
+        restart.here().await;
 
         match result {
             Ok(result) => {
@@ -44,15 +113,15 @@ impl Guest for Component {
         }
     }
 
-    fn test02() -> bool {
+    async fn test02(&self) -> bool {
         let restart = Restart::new();
 
-        let result = run(
-            &Language {
+        let result = Provider::run(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[],
+            vec![],
             indoc! { r#"
                 import { createInterface } from "node:readline";
 
@@ -73,14 +142,15 @@ impl Guest for Component {
                 rl.on('close', () => {
                     console.log(`Total Sum: ${sum}`);
                 });
-            "# },
-            &RunOptions {
+            "# }
+            .to_string(),
+            RunOptions {
                 stdin: Some("1\n2\n3\n".to_string()),
                 ..empty_run_options()
             },
-        );
+        ).await;
 
-        restart.here();
+        restart.here().await;
 
         match result {
             Ok(result) => {
@@ -94,15 +164,15 @@ impl Guest for Component {
         }
     }
 
-    fn test03() -> bool {
+    async fn test03(&self) -> bool {
         let restart = Restart::new();
 
-        let result = run(
-            &Language {
+        let result = Provider::run(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[],
+            vec![],
             indoc! { r#"
                 import { createInterface } from "node:readline";
 
@@ -124,14 +194,15 @@ impl Guest for Component {
                 }
 
                 await calculateSum();
-            "# },
-            &RunOptions {
+            "# }
+            .to_string(),
+            RunOptions {
                 stdin: Some("1\n2\n3\n".to_string()),
                 ..empty_run_options()
             },
-        );
+        ).await;
 
-        restart.here();
+        restart.here().await;
 
         match result {
             Ok(result) => {
@@ -145,26 +216,27 @@ impl Guest for Component {
         }
     }
 
-    fn test04() -> bool {
+    async fn test04(&self) -> bool {
         let restart = Restart::new();
 
-        let result = run(
-            &Language {
+        let result = Provider::run(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[],
+            vec![],
             indoc! { r#"
                 import { argv } from "node:process";
                 console.log(...argv);
-            "#},
-            &RunOptions {
+            "#}
+            .to_string(),
+            RunOptions {
                 args: Some(vec!["arg1".to_string(), "arg2".to_string()]),
                 ..empty_run_options()
             },
-        );
+        ).await;
 
-        restart.here();
+        restart.here().await;
 
         match result {
             Ok(result) => {
@@ -178,26 +250,27 @@ impl Guest for Component {
         }
     }
 
-    fn test05() -> bool {
+    async fn test05(&self) -> bool {
         let restart = Restart::new();
 
-        let result = run(
-            &Language {
+        let result = Provider::run(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[],
+            vec![],
             indoc! { r#"
                 import { env } from "node:process";
                 console.log(env.INPUT);
-            "# },
-            &RunOptions {
+            "# }
+            .to_string(),
+            RunOptions {
                 env: Some(vec![("INPUT".to_string(), "test_value".to_string())]),
                 ..empty_run_options()
             },
-        );
+        ).await;
 
-        restart.here();
+        restart.here().await;
 
         match result {
             Ok(result) => {
@@ -211,14 +284,13 @@ impl Guest for Component {
         }
     }
 
-    fn test06() -> bool {
-        let restart = Restart::new();
-        let result = run(
-            &Language {
+    async fn test06(&self) -> bool {
+        let result = Provider::run(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[File {
+            vec![File {
                 name: "test/module.js".to_string(),
                 content: indoc! { r#"
                     export const x = 40 + 2;
@@ -231,11 +303,10 @@ impl Guest for Component {
             indoc! { r#"
                 import { x, name } from "test/module.js";
                 console.log(`Hello, ${name}!`, x);
-            "# },
-            &empty_run_options(),
-        );
-
-        restart.here();
+            "# }
+            .to_string(),
+            empty_run_options(),
+        ).await;
 
         match result {
             Ok(result) => {
@@ -249,15 +320,15 @@ impl Guest for Component {
         }
     }
 
-    fn test07() -> bool {
+    async fn test07(&self) -> bool {
         let restart = Restart::new();
 
-        let session = bindings::golem::exec::executor::Session::new(
-            &Language {
+        let session = Session::new(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[File {
+            vec![File {
                 name: "test/module.js".to_string(),
                 content: indoc! { r#"
                     export const x = 40 + 2;
@@ -274,9 +345,11 @@ impl Guest for Component {
                 indoc! { r#"
                     import { x, name } from "test/module.js";
                     console.log(`Hello, ${name}!`, x);
-                "# },
-                &empty_run_options(),
+                "# }
+                .to_string(),
+                empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -293,12 +366,14 @@ impl Guest for Component {
                 indoc! { r#"
                     import { argv } from "node:process";
                     console.log(...argv);
-                "# },
-                &RunOptions {
+                "# }
+                .to_string(),
+                RunOptions {
                     args: Some(vec!["arg1".to_string(), "arg2".to_string()]),
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -310,19 +385,21 @@ impl Guest for Component {
                 },
             );
 
-        restart.here();
+        restart.here().await;
 
         let r3 = session
             .run(
                 indoc! { r#"
                     import { argv } from "node:process";
                     console.log(...argv);
-                "# },
-                &RunOptions {
+                "# }
+                .to_string(),
+                RunOptions {
                     args: Some(vec!["arg3".to_string()]),
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -359,12 +436,13 @@ impl Guest for Component {
 
         let r4 = session
             .run(
-                READLINE_SNIPPET,
-                &RunOptions {
+                READLINE_SNIPPET.to_string(),
+                RunOptions {
                     stdin: Some("1\n2\n3\n".to_string()),
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -375,14 +453,16 @@ impl Guest for Component {
                     result.run.stdout == "Total Sum: 6" && result.run.exit_code == Some(0)
                 },
             );
+
         let r5 = session
             .run(
-                READLINE_SNIPPET,
-                &RunOptions {
+                READLINE_SNIPPET.to_string(),
+                RunOptions {
                     stdin: Some("4\n100\n".to_string()),
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error: {}", err);
@@ -397,19 +477,19 @@ impl Guest for Component {
         r1 && r2 && r3 && r4 && r5
     }
 
-    fn test08() -> bool {
+    async fn test08(&self) -> bool {
         let restart = Restart::new();
 
-        let session = bindings::golem::exec::executor::Session::new(
-            &Language {
+        let session = Session::new(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[],
+            vec![],
         );
 
         let r1 = session
-            .upload(&File {
+            .upload(File {
                 name: "test/input.txt".to_string(),
                 content: "Hello, Golem!".as_bytes().to_vec(),
                 encoding: Some(Encoding::Utf8),
@@ -429,9 +509,11 @@ impl Guest for Component {
                     const content = readFileSync("test/input.txt", "utf8");
                     console.log(content);
                     writeFileSync("test/output.txt", content + " - Processed by Golem");
-                "# },
-                &empty_run_options(),
+                "# }
+                .to_string(),
+                empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);
@@ -443,36 +525,38 @@ impl Guest for Component {
                 },
             );
 
-        restart.here();
+        restart.here().await;
 
-        let r3 = session.download("test/output.txt").map_or_else(
-            |err| {
-                println!("Error downloading file: {}", err);
-                false
-            },
-            |file| {
-                let content = String::from_utf8(file).unwrap_or_default();
-                println!("Downloaded file content: {}", content);
-                content == "Hello, Golem! - Processed by Golem"
-            },
-        );
+        let r3 = session
+            .download("test/output.txt".to_string())
+            .map_or_else(
+                |err| {
+                    println!("Error downloading file: {}", err);
+                    false
+                },
+                |file| {
+                    let content = String::from_utf8(file).unwrap_or_default();
+                    println!("Downloaded file content: {}", content);
+                    content == "Hello, Golem! - Processed by Golem"
+                },
+            );
 
-        r1 & &r2 & &r3
+        r1 && r2 && r3
     }
 
-    fn test09() -> bool {
+    async fn test09(&self) -> bool {
         let restart = Restart::new();
 
-        let session = bindings::golem::exec::executor::Session::new(
-            &Language {
+        let session = Session::new(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[],
+            vec![],
         );
 
         let r1 = session
-            .upload(&File {
+            .upload(File {
                 name: "test/input.txt".to_string(),
                 content: "Hello, Golem!".as_bytes().to_vec(),
                 encoding: Some(Encoding::Utf8),
@@ -502,9 +586,11 @@ impl Guest for Component {
                                 }
                             });
                         });
-                    "# },
-                &empty_run_options(),
+                    "# }
+                .to_string(),
+                empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);
@@ -516,27 +602,31 @@ impl Guest for Component {
                 },
             );
 
-        restart.here();
+        restart.here().await;
 
-        let r3 = session.download("test/output.txt").map_or_else(
-            |err| {
-                println!("Error downloading file: {}", err);
-                false
-            },
-            |file| {
-                let content = String::from_utf8(file).unwrap_or_default();
-                println!("Downloaded file content: {}", content);
-                content == "Hello, Golem! - Processed by Golem"
-            },
-        );
+        let r3 = session
+            .download("test/output.txt".to_string())
+            .map_or_else(
+                |err| {
+                    println!("Error downloading file: {}", err);
+                    false
+                },
+                |file| {
+                    let content = String::from_utf8(file).unwrap_or_default();
+                    println!("Downloaded file content: {}", content);
+                    content == "Hello, Golem! - Processed by Golem"
+                },
+            );
 
-        let r4 = session.set_working_dir("test").map_or_else(
-            |err| {
-                println!("Error setting working directory: {}", err);
-                false
-            },
-            |_| true,
-        );
+        let r4 = session
+            .set_working_dir("test".to_string())
+            .map_or_else(
+                |err| {
+                    println!("Error setting working directory: {}", err);
+                    false
+                },
+                |_| true,
+            );
 
         let r5 = session
             .run(
@@ -558,9 +648,11 @@ impl Guest for Component {
                             }
                         });
                     });
-                "# },
-                &empty_run_options(),
+                "# }
+                .to_string(),
+                empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);
@@ -568,40 +660,44 @@ impl Guest for Component {
                 },
                 |result| {
                     println!("Result: {:?}", result);
-                    result.run.stdout == "Current working directory: test\nHello, Golem!" && result.run.exit_code == Some(0)
+                    result.run.stdout == "Current working directory: test\nHello, Golem!"
+                        && result.run.exit_code == Some(0)
                 },
             );
 
-        let r6 = session.download("test/output2.txt").map_or_else(
-            |err| {
-                println!("Error downloading file: {}", err);
-                false
-            },
-            |file| {
-                let content = String::from_utf8(file).unwrap_or_default();
-                println!("Downloaded file content: {}", content);
-                content == "Hello, Golem! - Processed by Golem"
-            },
-        );
+        let r6 = session
+            .download("test/output2.txt".to_string())
+            .map_or_else(
+                |err| {
+                    println!("Error downloading file: {}", err);
+                    false
+                },
+                |file| {
+                    let content = String::from_utf8(file).unwrap_or_default();
+                    println!("Downloaded file content: {}", content);
+                    content == "Hello, Golem! - Processed by Golem"
+                },
+            );
 
         r1 && r2 && r3 && r4 && r5 && r6
     }
 
-    fn test10() -> bool {
-        match run(
-            &Language {
+    async fn test10(&self) -> bool {
+        match Provider::run(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[],
+            vec![],
             indoc! { r#"
                 let x = 0;
                 setInterval(() => {
                     x += 1;
                     console.log(x);
                 }, 250);
-            "# },
-            &RunOptions {
+            "# }
+            .to_string(),
+            RunOptions {
                 limits: Some(Limits {
                     time_ms: Some(1000),
                     memory_bytes: None,
@@ -610,7 +706,7 @@ impl Guest for Component {
                 }),
                 ..empty_run_options()
             },
-        ) {
+        ).await {
             Ok(result) => {
                 println!("Result: {:?}", result);
                 false
@@ -622,13 +718,13 @@ impl Guest for Component {
         }
     }
 
-    fn test11() -> bool {
-        let session = bindings::golem::exec::executor::Session::new(
-            &Language {
+    async fn test11(&self) -> bool {
+        let session = Session::new(
+            Language {
                 kind: LanguageKind::Javascript,
                 version: None,
             },
-            &[],
+            vec![],
         );
 
         let r1 = session
@@ -637,9 +733,11 @@ impl Guest for Component {
                     import { writeFileSync } from "node:fs";
                     const content = new Array(1024).fill(0);
                     writeFileSync("output.bin", content);
-                "# },
-                &empty_run_options(),
+                "# }
+                .to_string(),
+                empty_run_options(),
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);
@@ -658,8 +756,9 @@ impl Guest for Component {
                     const content = new Array(1024).fill(0);
                     writeFileSync("output2.bin", content);
                     "#
-                },
-                &RunOptions {
+                }
+                .to_string(),
+                RunOptions {
                     limits: Some(Limits {
                         time_ms: None,
                         memory_bytes: None,
@@ -669,6 +768,7 @@ impl Guest for Component {
                     ..empty_run_options()
                 },
             )
+            .await
             .map_or_else(
                 |err| {
                     println!("Error running script: {}", err);
@@ -677,42 +777,20 @@ impl Guest for Component {
                 |_result| false,
             );
 
-        let r3 = session.list_files("").map_or_else(
-            |err| {
-                println!("Error listing files: {}", err);
-                false
-            },
-            |files| {
-                println!("List of files: {files:?}");
-                files == vec!["output.bin".to_string()]
-            },
-        );
+        let r3 = session
+            .list_files("".to_string())
+            .map_or_else(
+                |err| {
+                    println!("Error listing files: {}", err);
+                    false
+                },
+                |files| {
+                    println!("List of files: {files:?}");
+                    files == vec!["output.bin".to_string()]
+                },
+            );
 
         r1 && r2 && r3
-    }
-}
-
-struct Restart {
-    name: String,
-}
-
-impl Restart {
-    pub fn new() -> Self {
-        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
-        let key = generate_idempotency_key();
-        Self {
-            name: format!("{name}-{key}"),
-        }
-    }
-
-    pub fn here(&self) {
-        atomically(|| {
-            let client = TestHelperApi::new(&self.name);
-            let answer = client.blocking_inc_and_get();
-            if answer == 1 {
-                panic!("Simulating crash")
-            }
-        });
     }
 }
 
@@ -724,5 +802,3 @@ fn empty_run_options() -> RunOptions {
         limits: None,
     }
 }
-
-bindings::export!(Component with_types_in bindings);

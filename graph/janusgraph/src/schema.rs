@@ -1,18 +1,18 @@
-use crate::{helpers, GraphJanusGraphComponent, SchemaManager};
-use golem_graph::durability::ExtendedGuest;
-use golem_graph::golem::graph::{
+use crate::{helpers, JanusGraph, SchemaManager};
+use golem_ai_graph::durability::ExtendedGuest;
+use golem_ai_graph::model::{
     connection::ConnectionConfig,
     errors::GraphError,
     schema::{
-        ContainerInfo, EdgeLabelSchema, EdgeTypeDefinition, Guest as SchemaGuest,
-        GuestSchemaManager, IndexDefinition, IndexType, SchemaManager as SchemaManagerResource,
-        VertexLabelSchema,
+        ContainerInfo, EdgeLabelSchema, EdgeTypeDefinition, IndexDefinition, IndexType,
+        SchemaManager as SchemaManagerResource, VertexLabelSchema,
     },
 };
+use golem_ai_graph::{SchemaManagerInterface, SchemaManagerProvider};
 use serde_json::Value;
 use std::sync::Arc;
 
-impl SchemaGuest for GraphJanusGraphComponent {
+impl SchemaManagerProvider for JanusGraph {
     type SchemaManager = SchemaManager;
 
     fn get_schema_manager(
@@ -22,7 +22,7 @@ impl SchemaGuest for GraphJanusGraphComponent {
             Some(provided_config) => provided_config,
             None => helpers::config_from_env()?,
         };
-        let graph = crate::GraphJanusGraphComponent::connect_internal(&final_config)?;
+        let graph = JanusGraph::connect_internal(&final_config)?;
         let manager = SchemaManager {
             graph: Arc::new(graph),
         };
@@ -30,7 +30,14 @@ impl SchemaGuest for GraphJanusGraphComponent {
     }
 }
 
-impl GuestSchemaManager for SchemaManager {
+impl SchemaManagerInterface for SchemaManager {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
         let mut script = String::new();
 
@@ -252,7 +259,7 @@ impl GuestSchemaManager for SchemaManager {
     fn create_container(
         &self,
         _name: String,
-        _container_type: golem_graph::golem::graph::schema::ContainerType,
+        _container_type: golem_ai_graph::model::schema::ContainerType,
     ) -> Result<(), GraphError> {
         Err(GraphError::UnsupportedOperation(
             "Schema management is not supported in this version.".to_string(),
@@ -436,9 +443,9 @@ impl SchemaManager {
     }
 
     fn map_wit_type_to_janus_class(
-        prop_type: &golem_graph::golem::graph::schema::PropertyType,
+        prop_type: &golem_ai_graph::model::schema::PropertyType,
     ) -> &'static str {
-        use golem_graph::golem::graph::schema::PropertyType;
+        use golem_ai_graph::model::schema::PropertyType;
         match prop_type {
             PropertyType::StringType => "String.class",
             PropertyType::Int64 => "Long.class",

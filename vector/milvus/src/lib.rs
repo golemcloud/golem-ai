@@ -6,31 +6,34 @@ use crate::conversions::{
     milvus_search_results_to_search_results, vector_records_to_upsert_request, QueryRequestParams,
     SearchRequestParams,
 };
-use golem_vector::config::{get_optional_config, with_config_key, with_connection_config_key};
-use golem_vector::durability::{DurableVector, ExtendedGuest};
-use golem_vector::golem::vector::{
-    analytics::{CollectionStats, FieldStats, Guest as AnalyticsGuest},
-    collections::{CollectionInfo, Guest as CollectionsGuest, IndexConfig},
-    connection::{ConnectionStatus, Credentials, Guest as ConnectionGuest},
-    namespaces::{Guest as NamespacesGuest, NamespaceInfo},
-    search::{Guest as SearchGuest, SearchQuery},
+use golem_ai_vector::config::{get_optional_config, with_config_key, with_connection_config_key};
+use golem_ai_vector::durability::{DurableVector, ExtendedVectorProvider};
+use golem_ai_vector::model::{
+    analytics::{CollectionStats, FieldStats},
+    collections::{CollectionInfo, IndexConfig},
+    connection::{ConnectionStatus, Credentials},
+    namespaces::NamespaceInfo,
+    search::SearchQuery,
     search_extended::{
-        ContextPair, GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
-        RecommendationStrategy,
+        ContextPair, GroupedSearchResult, RecommendationExample, RecommendationStrategy,
     },
     types::{
         DistanceMetric, FilterExpression, Id, Metadata, MetadataValue, SearchResult, VectorData,
         VectorError, VectorRecord,
     },
-    vectors::{BatchResult, Guest as VectorsGuest, ListResponse},
+    vectors::{BatchResult, ListResponse},
+};
+use golem_ai_vector::{
+    AnalyticsProvider, CollectionProvider, ConnectionProvider, NamespacesProvider,
+    SearchExtendedProvider, SearchProvider, VectorsProvider,
 };
 
 mod client;
 mod conversions;
 
-struct MilvusComponent;
+pub struct Milvus;
 
-impl MilvusComponent {
+impl Milvus {
     const URI_ENV_VAR: &'static str = "MILVUS_URI";
     const TOKEN_ENV_VAR: &'static str = "MILVUS_TOKEN";
     const DATABASE_ENV_VAR: &'static str = "MILVUS_DATABASE";
@@ -64,7 +67,7 @@ impl MilvusComponent {
     }
 }
 
-impl ExtendedGuest for MilvusComponent {
+impl ExtendedVectorProvider for Milvus {
     fn connect_internal(
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -76,7 +79,7 @@ impl ExtendedGuest for MilvusComponent {
     }
 }
 
-impl ConnectionGuest for MilvusComponent {
+impl ConnectionProvider for Milvus {
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -135,7 +138,7 @@ impl ConnectionGuest for MilvusComponent {
     }
 }
 
-impl CollectionsGuest for MilvusComponent {
+impl CollectionProvider for Milvus {
     fn upsert_collection(
         name: String,
         description: Option<String>,
@@ -219,7 +222,7 @@ impl CollectionsGuest for MilvusComponent {
     }
 }
 
-impl VectorsGuest for MilvusComponent {
+impl VectorsProvider for Milvus {
     fn upsert_vectors(
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -450,7 +453,7 @@ impl VectorsGuest for MilvusComponent {
     }
 }
 
-impl SearchGuest for MilvusComponent {
+impl SearchProvider for Milvus {
     fn search_vectors(
         collection: String,
         query: SearchQuery,
@@ -556,7 +559,7 @@ impl SearchGuest for MilvusComponent {
     }
 }
 
-impl SearchExtendedGuest for MilvusComponent {
+impl SearchExtendedProvider for Milvus {
     fn recommend_vectors(
         _collection: String,
         _positive: Vec<RecommendationExample>,
@@ -633,7 +636,7 @@ impl SearchExtendedGuest for MilvusComponent {
     }
 }
 
-impl AnalyticsGuest for MilvusComponent {
+impl AnalyticsProvider for Milvus {
     fn get_collection_stats(
         collection: String,
         _namespace: Option<String>,
@@ -668,7 +671,7 @@ impl AnalyticsGuest for MilvusComponent {
     }
 }
 
-impl NamespacesGuest for MilvusComponent {
+impl NamespacesProvider for Milvus {
     fn upsert_namespace(
         collection: String,
         namespace: String,
@@ -778,6 +781,4 @@ impl NamespacesGuest for MilvusComponent {
     }
 }
 
-type DurableMilvusComponent = DurableVector<MilvusComponent>;
-
-golem_vector::export_vector!(DurableMilvusComponent with_types_in golem_vector);
+pub type DurableMilvus = DurableVector<Milvus>;

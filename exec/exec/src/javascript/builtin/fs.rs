@@ -1,4 +1,4 @@
-use crate::golem::exec::types::Error;
+use crate::model::Error;
 use rquickjs::{Ctx, JsLifetime};
 use std::path::{Path, PathBuf};
 

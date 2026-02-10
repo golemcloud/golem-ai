@@ -1,0 +1,7 @@
+{
+  "kind": "ResolvedExternalCommandMarkerHash",
+  "id": "{\"build_dir\":\"/Users/vigoo/projects/golem/golem-llm/test/components-rust/test-helper\",\"command\":{\"command\":\"cargo component build\",\"sources\":[\"src\",\"wit-generated\",\"../../common-rust\"],\"targets\":[\"../../target/wasm32-wasip1/debug/test_helper.wasm\"]}}",
+  "hashInput": "{\"build_dir\":\"/Users/vigoo/projects/golem/golem-llm/test/components-rust/test-helper\",\"command\":{\"command\":\"cargo component build\",\"sources\":[\"src\",\"wit-generated\",\"../../common-rust\"],\"targets\":[\"../../target/wasm32-wasip1/debug/test_helper.wasm\"]}}",
+  "hashHex": "b8088b9ccda4628e992d4c9ac4b86e9224dee0f599d16f529b13eb5f2801442a",
+  "success": true
+}

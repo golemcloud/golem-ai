@@ -2,23 +2,32 @@ pub mod chat_stream;
 pub mod config;
 pub mod durability;
 pub mod error;
+pub mod model;
 
 #[allow(dead_code)]
 pub mod event_source;
 
-wit_bindgen::generate!({
-    path: "../wit",
-    world: "llm-library",
-    generate_all,
-    generate_unused_types: true,
-    additional_derives: [PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue],
-    pub_export_macro: true,
-});
-
-pub use crate::exports::golem;
-pub use __export_llm_library_impl as export_llm;
+use crate::model::{ChatStream, Config, Error, Event, Response, StreamEvent};
 use std::cell::RefCell;
 use std::str::FromStr;
+
+pub trait LlmProvider {
+    type ChatStream: ChatStreamInterface;
+
+    fn send(events: Vec<Event>, config: Config) -> Result<Response, Error>;
+
+    fn stream(events: Vec<Event>, config: Config) -> ChatStream;
+}
+
+pub trait ChatStreamInterface: 'static {
+    fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>>;
+
+    fn get_next(&self) -> Vec<Result<StreamEvent, Error>>;
+
+    fn as_any(&self) -> &dyn std::any::Any;
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+}
 
 struct LoggingState {
     logging_initialized: bool,

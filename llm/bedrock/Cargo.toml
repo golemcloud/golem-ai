@@ -1,11 +1,11 @@
 [package]
-name = "golem-llm-bedrock"
+name = "golem-ai-llm-bedrock"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://golem.cloud"
-repository = "https://github.com/golemcloud/golem-llm"
-description = "WebAssembly component for working with Amazon Bedrock APIs, with special support for Golem Cloud"
+repository = "https://github.com/golemcloud/golem-ai"
+description = "Library for working with Amazon Bedrock APIs on Golem Cloud"
 
 [dependencies]
 # AWS SDK crates
@@ -22,7 +22,7 @@ wasi = { workspace = true }
 # To infer mime types of downloaded images before passing to bedrock
 infer = { version = "0.19.0", default-features = false }
 
-golem-llm = { workspace = true }
+golem-ai-llm = { workspace = true }
 golem-rust = { workspace = true }
 
 base64 = { workspace = true }
@@ -31,33 +31,15 @@ indoc = "2.0.6"
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-wit-bindgen-rt = { workspace = true }
 wstd = { workspace = true }
 
 [lib]
-crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [features]
 default = ["durability"]
 durability = [
     "golem-rust/durability",
-    "golem-llm/durability",
-    "golem-llm/nopoll",
+    "golem-ai-llm/durability",
+    "golem-ai-llm/nopoll",
 ]
-
-[package.metadata.component]
-package = "golem:llm-bedrock"
-
-[package.metadata.component.bindings]
-generate_unused_types = true
-
-[package.metadata.component.bindings.with]
-"golem:llm/llm@1.0.0" = "golem_llm::golem::llm::llm"
-
-[package.metadata.component.target]
-path = "wit"
-
-[package.metadata.component.target.dependencies]
-"golem:llm" = { path = "wit/deps/golem-llm" }
-"wasi:io" = { path = "wit/deps/io" }

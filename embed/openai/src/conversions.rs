@@ -1,5 +1,5 @@
-use golem_embed::error::unsupported;
-use golem_embed::golem::embed::embed::{
+use golem_ai_embed::error::unsupported;
+use golem_ai_embed::model::{
     Config, ContentPart, EmbeddingResponse as GolemEmbeddingResponse, Error, VectorData,
 };
 
@@ -21,12 +21,8 @@ pub fn create_request(inputs: Vec<ContentPart>, config: Config) -> Result<Embedd
         .unwrap_or_else(|| "text-embedding-ada-002".to_string());
 
     let encoding_format = match config.output_format {
-        Some(golem_embed::golem::embed::embed::OutputFormat::FloatArray) => {
-            Some(EncodingFormat::Float)
-        }
-        Some(golem_embed::golem::embed::embed::OutputFormat::Base64) => {
-            Some(EncodingFormat::Base64)
-        }
+        Some(golem_ai_embed::model::OutputFormat::FloatArray) => Some(EncodingFormat::Float),
+        Some(golem_ai_embed::model::OutputFormat::Base64) => Some(EncodingFormat::Base64),
         Some(_) => {
             return Err(unsupported(
                 "OpenAI only supports float and base64 output formats.",
@@ -63,13 +59,13 @@ pub fn process_embedding_response(
     for embeding_data in response.data {
         match embeding_data.embedding {
             Embedding::Base64(base64_data) => {
-                embeddings.push(golem_embed::golem::embed::embed::Embedding {
+                embeddings.push(golem_ai_embed::model::Embedding {
                     index: embeding_data.index as u32,
                     vector: VectorData::Base64(base64_data),
                 });
             }
             Embedding::Float32(embedding_vector) => {
-                embeddings.push(golem_embed::golem::embed::embed::Embedding {
+                embeddings.push(golem_ai_embed::model::Embedding {
                     index: embeding_data.index as u32,
                     vector: VectorData::Float(embedding_vector),
                 });
@@ -77,7 +73,7 @@ pub fn process_embedding_response(
         }
     }
 
-    let usage = golem_embed::golem::embed::embed::Usage {
+    let usage = golem_ai_embed::model::Usage {
         input_tokens: Some(response.usage.prompt_tokens),
         total_tokens: Some(response.usage.total_tokens),
     };

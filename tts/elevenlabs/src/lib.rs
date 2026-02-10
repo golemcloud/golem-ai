@@ -5,36 +5,32 @@ use crate::conversions::{
     models_to_language_info, split_text_intelligently, synthesis_options_to_tts_request,
     validate_synthesis_input, voice_design_params_to_create_request, voice_filter_to_list_params,
 };
-use golem_rust::golem_wasm::Pollable;
-use golem_tts::config::with_config_key;
-use golem_tts::durability::{DurableTts, ExtendedGuest};
-use golem_tts::golem::tts::advanced::{
-    AudioSample, Guest as AdvancedGuest, GuestLongFormOperation, GuestPronunciationLexicon,
-    LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry, PronunciationLexicon,
-    VoiceDesignParams,
+use golem_ai_tts::config::with_config_key;
+use golem_ai_tts::durability::{DurableTts, ExtendedTtsProvider};
+use golem_ai_tts::model::advanced::{
+    AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
+    PronunciationLexicon, VoiceDesignParams,
 };
-use golem_tts::golem::tts::streaming::{
-    Guest as StreamingGuest, GuestSynthesisStream, GuestVoiceConversionStream, StreamStatus,
-    SynthesisStream, VoiceConversionStream,
-};
-use golem_tts::golem::tts::synthesis::{
-    Guest as SynthesisGuest, SynthesisOptions, ValidationResult,
-};
-use golem_tts::golem::tts::types::{
+use golem_ai_tts::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
+use golem_ai_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_ai_tts::model::types::{
     AudioChunk, AudioFormat, LanguageCode, SynthesisResult, TextInput, TimingInfo, TtsError,
     VoiceGender, VoiceQuality, VoiceSettings,
 };
-use golem_tts::golem::tts::voices::{
-    Guest as VoicesGuest, GuestVoice, GuestVoiceResults, LanguageInfo, Voice, VoiceFilter,
-    VoiceInfo, VoiceResults,
+use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_ai_tts::{
+    AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
+    StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
+    VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
 };
+use golem_rust::golem_wasm::Pollable;
 use log::{info, trace, warn};
 use std::cell::{Cell, RefCell};
 
 mod client;
 mod conversions;
 
-struct ElevenLabsVoiceImpl {
+pub struct ElevenLabsVoiceImpl {
     voice_data: ElevenLabsVoice,
     client: ElevenLabsTtsApi,
 }
@@ -45,7 +41,14 @@ impl ElevenLabsVoiceImpl {
     }
 }
 
-impl GuestVoice for ElevenLabsVoiceImpl {
+impl VoiceInterface for ElevenLabsVoiceImpl {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_id(&self) -> String {
         self.voice_data.voice_id.clone()
     }
@@ -111,7 +114,7 @@ impl GuestVoice for ElevenLabsVoiceImpl {
     }
 
     fn preview(&self, text: String) -> Result<Vec<u8>, TtsError> {
-        let params = crate::client::TextToSpeechParams {
+        let params = client::TextToSpeechParams {
             enable_logging: Some(false),
             optimize_streaming_latency: Some(0),
             output_format: Some("mp3_22050_32".to_string()),
@@ -120,7 +123,7 @@ impl GuestVoice for ElevenLabsVoiceImpl {
         let model_version = self.client.get_model_version();
         let supports_language_code = !model_version.contains("multilingual");
 
-        let request = crate::client::TextToSpeechRequest {
+        let request = client::TextToSpeechRequest {
             text,
             model_id: Some(model_version.to_string()),
             language_code: if supports_language_code {
@@ -145,7 +148,7 @@ impl GuestVoice for ElevenLabsVoiceImpl {
     }
 }
 
-struct ElevenLabsVoiceResults {
+pub struct ElevenLabsVoiceResults {
     voices: RefCell<Vec<VoiceInfo>>,
     current_index: Cell<usize>,
     has_more: Cell<bool>,
@@ -164,7 +167,14 @@ impl ElevenLabsVoiceResults {
     }
 }
 
-impl GuestVoiceResults for ElevenLabsVoiceResults {
+impl VoiceResultsInterface for ElevenLabsVoiceResults {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn has_more(&self) -> bool {
         self.has_more.get()
     }
@@ -193,11 +203,11 @@ impl GuestVoiceResults for ElevenLabsVoiceResults {
     }
 }
 
-struct ElevenLabsSynthesisStream {
+pub struct ElevenLabsSynthesisStream {
     voice_id: String,
     client: ElevenLabsTtsApi,
-    current_request: RefCell<Option<crate::client::TextToSpeechRequest>>,
-    params: RefCell<Option<crate::client::TextToSpeechParams>>,
+    current_request: RefCell<Option<client::TextToSpeechRequest>>,
+    params: RefCell<Option<client::TextToSpeechParams>>,
     response_stream: RefCell<Option<golem_wasi_http::Response>>,
     chunk_buffer: RefCell<Vec<u8>>,
     bytes_streamed: Cell<usize>,
@@ -209,7 +219,7 @@ struct ElevenLabsSynthesisStream {
 impl ElevenLabsSynthesisStream {
     fn new(voice_id: String, client: ElevenLabsTtsApi, options: Option<SynthesisOptions>) -> Self {
         let (request, params) =
-            conversions::synthesis_options_to_tts_request(options, client.get_model_version());
+            synthesis_options_to_tts_request(options, client.get_model_version());
 
         Self {
             voice_id,
@@ -231,7 +241,14 @@ impl ElevenLabsSynthesisStream {
     }
 }
 
-impl GuestSynthesisStream for ElevenLabsSynthesisStream {
+impl SynthesisStreamInterface for ElevenLabsSynthesisStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn send_text(&self, input: TextInput) -> Result<(), TtsError> {
         if self.finished.get() {
             return Err(TtsError::InternalError("Stream is finished".to_string()));
@@ -369,7 +386,7 @@ impl GuestSynthesisStream for ElevenLabsSynthesisStream {
     }
 }
 
-struct ElevenLabsVoiceConversionStream {
+pub struct ElevenLabsVoiceConversionStream {
     voice_id: String,
     client: ElevenLabsTtsApi,
     audio_buffer: RefCell<Vec<u8>>,
@@ -389,7 +406,14 @@ impl ElevenLabsVoiceConversionStream {
     }
 }
 
-impl GuestVoiceConversionStream for ElevenLabsVoiceConversionStream {
+impl VoiceConversionStreamInterface for ElevenLabsVoiceConversionStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn send_audio(&self, audio_data: Vec<u8>) -> Result<(), TtsError> {
         if self.finished.get() {
             return Err(TtsError::InternalError("Stream is finished".to_string()));
@@ -453,7 +477,7 @@ impl GuestVoiceConversionStream for ElevenLabsVoiceConversionStream {
     }
 }
 
-struct ElevenLabsPronunciationLexicon {
+pub struct ElevenLabsPronunciationLexicon {
     name: String,
     language: LanguageCode,
     entries: RefCell<Vec<PronunciationEntry>>,
@@ -469,7 +493,14 @@ impl ElevenLabsPronunciationLexicon {
     }
 }
 
-impl GuestPronunciationLexicon for ElevenLabsPronunciationLexicon {
+impl PronunciationLexiconInterface for ElevenLabsPronunciationLexicon {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -511,7 +542,7 @@ impl GuestPronunciationLexicon for ElevenLabsPronunciationLexicon {
     }
 }
 
-struct ElevenLabsLongFormOperation {
+pub struct ElevenLabsLongFormOperation {
     content: String,
     output_location: String,
     voice_id: String,
@@ -556,7 +587,14 @@ impl ElevenLabsLongFormOperation {
     }
 }
 
-impl GuestLongFormOperation for ElevenLabsLongFormOperation {
+impl LongFormOperationInterface for ElevenLabsLongFormOperation {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_status(&self) -> OperationStatus {
         self.status.get()
     }
@@ -594,7 +632,7 @@ impl GuestLongFormOperation for ElevenLabsLongFormOperation {
             output_location: self.output_location.clone(),
             total_duration: estimated_duration as f32,
             chapter_durations: None,
-            metadata: golem_tts::golem::tts::types::SynthesisMetadata {
+            metadata: golem_ai_tts::model::types::SynthesisMetadata {
                 duration_seconds: estimated_duration as f32,
                 character_count: self.content.len() as u32,
                 word_count: self.content.split_whitespace().count() as u32,
@@ -606,9 +644,9 @@ impl GuestLongFormOperation for ElevenLabsLongFormOperation {
     }
 }
 
-struct ElevenLabsComponent;
+pub struct ElevenLabsTts;
 
-impl ElevenLabsComponent {
+impl ElevenLabsTts {
     const ENV_VAR_NAME: &'static str = "ELEVENLABS_API_KEY";
     const MODEL_VERSION_ENV_VAR: &'static str = "ELEVENLABS_MODEL_VERSION";
 
@@ -621,7 +659,7 @@ impl ElevenLabsComponent {
     }
 }
 
-impl VoicesGuest for ElevenLabsComponent {
+impl VoiceProvider for ElevenLabsTts {
     type Voice = ElevenLabsVoiceImpl;
     type VoiceResults = ElevenLabsVoiceResults;
 
@@ -695,10 +733,10 @@ impl VoicesGuest for ElevenLabsComponent {
     }
 }
 
-impl SynthesisGuest for ElevenLabsComponent {
+impl SynthesizeProvider for ElevenLabsTts {
     fn synthesize(
         input: TextInput,
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisResult, TtsError> {
         validate_synthesis_input(&input, options.as_ref())?;
@@ -767,7 +805,7 @@ impl SynthesisGuest for ElevenLabsComponent {
 
     fn synthesize_batch(
         inputs: Vec<TextInput>,
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, TtsError> {
         for input in &inputs {
@@ -846,7 +884,7 @@ impl SynthesisGuest for ElevenLabsComponent {
 
     fn get_timing_marks(
         _input: TextInput,
-        _voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Timing marks not supported by ElevenLabs".to_string(),
@@ -855,7 +893,7 @@ impl SynthesisGuest for ElevenLabsComponent {
 
     fn validate_input(
         input: TextInput,
-        _voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, TtsError> {
         let client = Self::create_client()?;
         let model_version = client.get_model_version();
@@ -867,12 +905,12 @@ impl SynthesisGuest for ElevenLabsComponent {
     }
 }
 
-impl StreamingGuest for ElevenLabsComponent {
+impl StreamingVoiceProvider for ElevenLabsTts {
     type SynthesisStream = ElevenLabsSynthesisStream;
     type VoiceConversionStream = ElevenLabsVoiceConversionStream;
 
     fn create_stream(
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
         let client = Self::create_client()?;
@@ -883,7 +921,7 @@ impl StreamingGuest for ElevenLabsComponent {
     }
 
     fn create_voice_conversion_stream(
-        target_voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
         let client = Self::create_client()?;
@@ -894,7 +932,7 @@ impl StreamingGuest for ElevenLabsComponent {
     }
 }
 
-impl AdvancedGuest for ElevenLabsComponent {
+impl AdvancedTtsProvider for ElevenLabsTts {
     type PronunciationLexicon = ElevenLabsPronunciationLexicon;
     type LongFormOperation = ElevenLabsLongFormOperation;
 
@@ -930,7 +968,7 @@ impl AdvancedGuest for ElevenLabsComponent {
 
     fn convert_voice(
         input_audio: Vec<u8>,
-        target_voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _preserve_timing: Option<bool>,
     ) -> Result<Vec<u8>, TtsError> {
         let client = Self::create_client()?;
@@ -983,7 +1021,7 @@ impl AdvancedGuest for ElevenLabsComponent {
 
     fn synthesize_long_form(
         content: String,
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
@@ -1001,9 +1039,9 @@ impl AdvancedGuest for ElevenLabsComponent {
     }
 }
 
-impl ExtendedGuest for ElevenLabsComponent {
+impl ExtendedTtsProvider for ElevenLabsTts {
     fn unwrapped_synthesis_stream(
-        voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream {
         let client = Self::create_client().unwrap_or_else(|_| {
@@ -1015,7 +1053,7 @@ impl ExtendedGuest for ElevenLabsComponent {
     }
 
     fn unwrapped_voice_conversion_stream(
-        target_voice: golem_tts::golem::tts::voices::VoiceBorrow<'_>,
+        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream {
         let client = Self::create_client().unwrap_or_else(|_| {
@@ -1035,6 +1073,4 @@ impl ExtendedGuest for ElevenLabsComponent {
     }
 }
 
-type DurableElevenLabsComponent = DurableTts<ElevenLabsComponent>;
-
-golem_tts::export_tts!(DurableElevenLabsComponent with_types_in golem_tts);
+pub type DurableElevenLabsTts = DurableTts<ElevenLabsTts>;

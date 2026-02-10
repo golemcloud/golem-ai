@@ -1,0 +1,7 @@
+{
+  "kind": "ResolvedExternalCommandMarkerHash",
+  "id": "{\"build_dir\":\"/Users/vigoo/projects/golem/golem-llm/test/components-rust/test-llm\",\"command\":{\"command\":\"cargo component build --no-default-features --features openai\",\"sources\":[\"src\",\"wit-generated\",\"../../common-rust\"],\"targets\":[\"../../target/wasm32-wasip1/debug/test_llm.wasm\"]}}",
+  "hashInput": "{\"build_dir\":\"/Users/vigoo/projects/golem/golem-llm/test/components-rust/test-llm\",\"command\":{\"command\":\"cargo component build --no-default-features --features openai\",\"sources\":[\"src\",\"wit-generated\",\"../../common-rust\"],\"targets\":[\"../../target/wasm32-wasip1/debug/test_llm.wasm\"]}}",
+  "hashHex": "f6af4c235390f4f743a654ab3d2ff9e57f88d29785e10bad388f3afb0a53fe43",
+  "success": true
+}

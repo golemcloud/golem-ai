@@ -1,6 +1,5 @@
-use crate::golem::llm::llm::{
-    Config, ContentPart, Error, Event, Guest, Message, Role, StreamDelta,
-};
+use crate::model::{Config, ContentPart, Error, Event, Message, Role, StreamDelta};
+use crate::LlmProvider;
 use golem_rust::golem_wasm::Pollable;
 use indoc::indoc;
 use std::marker::PhantomData;
@@ -11,7 +10,7 @@ pub struct DurableLLM<Impl> {
 }
 
 /// Trait to be implemented in addition to the LLM `Guest` trait when wrapping it with `DurableLLM`.
-pub trait ExtendedGuest: Guest + 'static {
+pub trait ExtendedLlmProvider: LlmProvider + 'static {
     /// Creates an instance of the LLM specific `ChatStream` without wrapping it in a `Resource`
     fn unwrapped_stream(events: Vec<Event>, config: Config) -> Self::ChatStream;
 
@@ -76,13 +75,13 @@ pub trait ExtendedGuest: Guest + 'static {
 /// When the durability feature flag is off, wrapping with `DurableLLM` is just a passthrough
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
-    use crate::durability::{DurableLLM, ExtendedGuest};
-    use crate::golem::llm::llm::{
+    use crate::durability::{DurableLLM, ExtendedLlmProvider};
+    use crate::init_logging;
+    use crate::model::{
         ChatStream, Config, Error, Event, Guest, Message, Response, ToolCall, ToolResult,
     };
-    use crate::init_logging;
 
-    impl<Impl: ExtendedGuest> Guest for DurableLLM<Impl> {
+    impl<Impl: ExtendedLlmProvider> Guest for DurableLLM<Impl> {
         type ChatStream = Impl::ChatStream;
 
         fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -107,12 +106,9 @@ mod passthrough_impl {
 /// which is implemented using the type classes and builder in the `golem-rust` library.
 #[cfg(feature = "durability")]
 mod durable_impl {
-    use crate::durability::{DurableLLM, ExtendedGuest};
-    use crate::golem::llm::llm::{
-        ChatStream, Config, Error, Event, Guest, GuestChatStream, Response, StreamDelta,
-        StreamEvent,
-    };
-    use crate::init_logging;
+    use crate::durability::{DurableLLM, ExtendedLlmProvider};
+    use crate::model::{ChatStream, Config, Error, Event, Response, StreamDelta, StreamEvent};
+    use crate::{init_logging, ChatStreamInterface, LlmProvider};
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     #[cfg(not(feature = "nopoll"))]
     use golem_rust::bindings::golem::durability::durability::LazyInitializedPollable;
@@ -122,14 +118,14 @@ mod durable_impl {
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};
 
-    impl<Impl: ExtendedGuest> Guest for DurableLLM<Impl> {
+    impl<Impl: ExtendedLlmProvider> LlmProvider for DurableLLM<Impl> {
         type ChatStream = DurableChatStream<Impl>;
 
         fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
             init_logging();
 
             let durability = Durability::<Response, Error>::new(
-                "golem_llm",
+                "golem_ai_llm",
                 "send",
                 DurableFunctionType::WriteRemote,
             );
@@ -148,7 +144,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, UnusedError>::new(
-                "golem_llm",
+                "golem_ai_llm",
                 "stream",
                 DurableFunctionType::WriteRemote,
             );
@@ -186,7 +182,7 @@ mod durable_impl {
     /// When reaching the end of the replay mode, if the replayed stream was not finished yet,
     /// the replay prompt implemented in `ExtendedGuest` is used to create a new LLM response
     /// stream and continue the response seamlessly.
-    enum DurableChatStreamState<Impl: ExtendedGuest> {
+    enum DurableChatStreamState<Impl: ExtendedLlmProvider> {
         Live {
             stream: Impl::ChatStream,
             #[cfg(not(feature = "nopoll"))]
@@ -202,12 +198,12 @@ mod durable_impl {
         },
     }
 
-    pub struct DurableChatStream<Impl: ExtendedGuest> {
+    pub struct DurableChatStream<Impl: ExtendedLlmProvider> {
         state: RefCell<Option<DurableChatStreamState<Impl>>>,
         subscription: RefCell<Option<Pollable>>,
     }
 
-    impl<Impl: ExtendedGuest> DurableChatStream<Impl> {
+    impl<Impl: ExtendedLlmProvider> DurableChatStream<Impl> {
         fn live(stream: Impl::ChatStream) -> Self {
             Self {
                 state: RefCell::new(Some(DurableChatStreamState::Live {
@@ -250,7 +246,7 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> Drop for DurableChatStream<Impl> {
+    impl<Impl: ExtendedLlmProvider> Drop for DurableChatStream<Impl> {
         fn drop(&mut self) {
             let _ = self.subscription.take();
 
@@ -279,11 +275,11 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> GuestChatStream for DurableChatStream<Impl> {
+    impl<Impl: ExtendedLlmProvider> ChatStreamInterface for DurableChatStream<Impl> {
         fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>> {
             let durability =
                 Durability::<Option<Vec<Result<StreamEvent, Error>>>, UnusedError>::new(
-                    "golem_llm",
+                    "golem_ai_llm",
                     "poll_next",
                     DurableFunctionType::ReadRemote,
                 );
@@ -314,7 +310,7 @@ mod durable_impl {
 
                             let (stream, first_live_result) =
                                 with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                    let stream = <Impl as ExtendedGuest>::unwrapped_stream(
+                                    let stream = <Impl as ExtendedLlmProvider>::unwrapped_stream(
                                         extended_events,
                                         config.clone(),
                                     );
@@ -408,6 +404,14 @@ mod durable_impl {
                     return events;
                 }
             }
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
         }
     }
 

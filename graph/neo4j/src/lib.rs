@@ -6,14 +6,13 @@ mod schema;
 mod transaction;
 
 use client::Neo4jApi;
-use golem_graph::config::with_config_key;
-use golem_graph::durability::{DurableGraph, ExtendedGuest};
-use golem_graph::golem::graph::{
-    connection::ConnectionConfig, errors::GraphError, transactions::Guest as TransactionGuest,
-};
+use golem_ai_graph::config::with_config_key;
+use golem_ai_graph::durability::{DurableGraph, ExtendedGuest};
+use golem_ai_graph::model::{connection::ConnectionConfig, errors::GraphError};
+use golem_ai_graph::TransactionProvider;
 use std::sync::Arc;
 
-pub struct GraphNeo4jComponent;
+pub struct Neo4j;
 
 pub struct Graph {
     api: Arc<Neo4jApi>,
@@ -36,7 +35,7 @@ pub struct SchemaManager {
     graph: Arc<Graph>,
 }
 
-impl ExtendedGuest for GraphNeo4jComponent {
+impl ExtendedGuest for Neo4j {
     type Graph = Graph;
     fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
         let host = with_config_key(config, "NEO4J_HOST")
@@ -67,7 +66,7 @@ impl ExtendedGuest for GraphNeo4jComponent {
     }
 }
 
-impl TransactionGuest for GraphNeo4jComponent {
+impl TransactionProvider for Neo4j {
     type Transaction = Transaction;
 }
 
@@ -92,6 +91,4 @@ impl Transaction {
     }
 }
 
-type DurableGraphNeo4jComponent = DurableGraph<GraphNeo4jComponent>;
-
-golem_graph::export_graph!(DurableGraphNeo4jComponent with_types_in golem_graph);
+pub type DurableNeo4j = DurableGraph<Neo4j>;

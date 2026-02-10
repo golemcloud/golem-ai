@@ -5,12 +5,12 @@ use std::cell::RefCell;
 
 use crate::client::BraveSearchApi;
 use crate::conversions::{params_to_request, response_to_results, validate_search_params};
-use golem_web_search::durability::Durablewebsearch;
-use golem_web_search::durability::ExtendedwebsearchGuest;
-use golem_web_search::golem::web_search::web_search::{
-    Guest, GuestSearchSession, SearchError, SearchMetadata, SearchParams, SearchResult,
-    SearchSession,
+use golem_ai_web_search::durability::DurableWebSearch;
+use golem_ai_web_search::durability::ExtendedWebSearchProvider;
+use golem_ai_web_search::model::web_search::{
+    SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
+use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
 
 // Define a custom ReplayState struct
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
@@ -21,7 +21,7 @@ pub struct BraveReplayState {
     pub finished: bool,
 }
 
-struct BraveSearch {
+struct BraveSearchSessionImpl {
     client: BraveSearchApi,
     params: SearchParams,
     metadata: Option<SearchMetadata>,
@@ -29,7 +29,7 @@ struct BraveSearch {
     finished: bool,
 }
 
-impl BraveSearch {
+impl BraveSearchSessionImpl {
     fn new(client: BraveSearchApi, params: SearchParams) -> Self {
         Self {
             client,
@@ -46,7 +46,7 @@ impl BraveSearch {
         }
 
         // Update request with current offset
-        let request = crate::conversions::params_to_request(&self.params, self.current_offset)?;
+        let request = params_to_request(&self.params, self.current_offset)?;
 
         let response = self.client.search(request)?;
         let (results, metadata) = response_to_results(&response, &self.params, self.current_offset);
@@ -64,15 +64,23 @@ impl BraveSearch {
 }
 
 // Create a wrapper that implements GuestSearchSession properly
-struct BraveSearchSession(RefCell<BraveSearch>);
+pub struct BraveSearchSession(RefCell<BraveSearchSessionImpl>);
 
 impl BraveSearchSession {
-    fn new(search: BraveSearch) -> Self {
+    fn new(search: BraveSearchSessionImpl) -> Self {
         Self(RefCell::new(search))
     }
 }
 
-impl GuestSearchSession for BraveSearchSession {
+impl SearchSessionInterface for BraveSearchSession {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn next_page(&self) -> Result<Vec<SearchResult>, SearchError> {
         let mut search = self.0.borrow_mut();
         search.next_page()
@@ -84,9 +92,9 @@ impl GuestSearchSession for BraveSearchSession {
     }
 }
 
-struct BraveSearchComponent;
+pub struct BraveSearch;
 
-impl BraveSearchComponent {
+impl BraveSearch {
     const API_KEY_VAR: &'static str = "BRAVE_API_KEY";
 
     fn create_client() -> Result<BraveSearchApi, SearchError> {
@@ -118,12 +126,12 @@ impl BraveSearchComponent {
         validate_search_params(&params)?;
 
         let client = Self::create_client()?;
-        let search = BraveSearch::new(client, params);
+        let search = BraveSearchSessionImpl::new(client, params);
         Ok(BraveSearchSession::new(search))
     }
 }
 
-impl Guest for BraveSearchComponent {
+impl WebSearchProvider for BraveSearch {
     type SearchSession = BraveSearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
@@ -139,13 +147,13 @@ impl Guest for BraveSearchComponent {
 }
 
 // ExtendedwebsearchGuest implementation
-impl ExtendedwebsearchGuest for BraveSearchComponent {
+impl ExtendedWebSearchProvider for BraveSearch {
     type ReplayState = BraveReplayState;
 
     fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
         let api_key = Self::get_api_key()?;
         let client = BraveSearchApi::new(api_key.clone());
-        let search = BraveSearch::new(client, params);
+        let search = BraveSearchSessionImpl::new(client, params);
         Ok(BraveSearchSession::new(search))
     }
 
@@ -164,7 +172,7 @@ impl ExtendedwebsearchGuest for BraveSearchComponent {
         params: SearchParams,
     ) -> Result<Self::SearchSession, SearchError> {
         let client = BraveSearchApi::new(state.api_key.clone());
-        let mut search = BraveSearch::new(client, params);
+        let mut search = BraveSearchSessionImpl::new(client, params);
         search.current_offset = state.current_offset;
         search.metadata = state.metadata.clone();
         search.finished = state.finished;
@@ -172,5 +180,4 @@ impl ExtendedwebsearchGuest for BraveSearchComponent {
     }
 }
 
-type DurableBraveComponent = Durablewebsearch<BraveSearchComponent>;
-golem_web_search::export_websearch!(DurableBraveComponent with_types_in golem_web_search);
+pub type DurableBraveSearch = DurableWebSearch<BraveSearch>;

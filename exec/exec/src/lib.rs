@@ -4,23 +4,48 @@ pub mod javascript;
 #[cfg(feature = "python")]
 pub mod python;
 
-mod component;
-mod durability;
+pub mod durability;
+mod executor;
+pub mod model;
 
-wit_bindgen::generate!({
-    path: "../wit",
-    world: "exec-library",
-    generate_all,
-    generate_unused_types: true,
-    additional_derives: [PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue],
-    pub_export_macro: true,
-});
-
-pub use crate::exports::golem;
-use crate::golem::exec::executor::Error;
-use crate::golem::exec::types::{Encoding, File, StageResult};
-pub use __export_exec_library_impl as export_exec;
+use crate::model::{Encoding, Error, ExecResult, File, Language, RunOptions, StageResult};
+use async_trait::async_trait;
 use base64::Engine;
+
+pub use executor::DurableExecution;
+
+#[async_trait(?Send)]
+pub trait ExecutionProvider {
+    type Session: ExecutionSession;
+
+    async fn run(
+        lang: Language,
+        modules: Vec<File>,
+        snippet: String,
+        options: RunOptions,
+    ) -> Result<ExecResult, Error>;
+}
+
+#[async_trait(?Send)]
+pub trait ExecutionSession: 'static {
+    fn new(lang: Language, modules: Vec<File>) -> Self
+    where
+        Self: Sized;
+
+    fn upload(&self, file: File) -> Result<(), Error>;
+
+    async fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error>;
+
+    fn download(&self, path: String) -> Result<Vec<u8>, Error>;
+
+    fn list_files(&self, dir: String) -> Result<Vec<String>, Error>;
+
+    fn set_working_dir(&self, path: String) -> Result<(), Error>;
+
+    fn as_any(&self) -> &dyn std::any::Any;
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+}
 
 pub(crate) fn get_contents_as_string(file: &File) -> Option<String> {
     get_contents(file).and_then(|bytes| String::from_utf8(bytes).ok())

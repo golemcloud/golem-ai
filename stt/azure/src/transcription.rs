@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use golem_stt::{
+use golem_ai_stt::{
     error::Error as SttError,
     http::{Error as HttpError, HttpClient, MultipartBuilder},
     languages::Language,
@@ -258,7 +258,7 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             let provider_error = String::from_utf8(response.body().to_vec()).map_err(|e| {
                 SttError::Http(
                     request_id.clone(),
-                    golem_stt::http::Error::Generic(format!(
+                    golem_ai_stt::http::Error::Generic(format!(
                         "Failed to parse response as UTF-8: {e}"
                     )),
                 )
@@ -386,7 +386,7 @@ fn get_mime_type(format: &AudioFormat) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use golem_stt::http::{Error as HttpError, HttpClient};
+    use golem_ai_stt::http::{Error as HttpError, HttpClient};
     use http::{Request, Response, StatusCode};
     use std::cell::RefCell;
     use std::collections::VecDeque;

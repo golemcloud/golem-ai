@@ -1,6 +1,6 @@
-use golem_search::config::{get_max_retries_config, get_timeout_config};
-use golem_search::error::{from_reqwest_error, internal_error, search_error_from_status};
-use golem_search::golem::search::types::SearchError;
+use golem_ai_search::config::{get_max_retries_config, get_timeout_config};
+use golem_ai_search::error::{from_reqwest_error, internal_error, search_error_from_status};
+use golem_ai_search::model::SearchError;
 use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;

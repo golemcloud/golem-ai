@@ -1,0 +1,6 @@
+package test:llm;
+
+world test-llm {
+  import golem:llm/llm@1.0.0;
+  export test:llm-exports/test-llm-api;
+}

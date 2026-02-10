@@ -7,14 +7,13 @@ mod schema;
 mod transaction;
 
 use client::JanusGraphApi;
-use golem_graph::config::with_config_key;
-use golem_graph::durability::{DurableGraph, ExtendedGuest};
-use golem_graph::golem::graph::{
-    connection::ConnectionConfig, errors::GraphError, transactions::Guest as TransactionGuest,
-};
+use golem_ai_graph::config::with_config_key;
+use golem_ai_graph::durability::{DurableGraph, ExtendedGuest};
+use golem_ai_graph::model::{connection::ConnectionConfig, errors::GraphError};
+use golem_ai_graph::TransactionProvider;
 use std::sync::Arc;
 
-pub struct GraphJanusGraphComponent;
+pub struct JanusGraph;
 
 pub struct Graph {
     pub api: Arc<JanusGraphApi>,
@@ -36,7 +35,7 @@ pub struct SchemaManager {
     pub graph: Arc<Graph>,
 }
 
-impl ExtendedGuest for GraphJanusGraphComponent {
+impl ExtendedGuest for JanusGraph {
     type Graph = Graph;
     fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
         let host = with_config_key(config, "JANUSGRAPH_HOST")
@@ -65,7 +64,7 @@ impl ExtendedGuest for GraphJanusGraphComponent {
     }
 }
 
-impl TransactionGuest for GraphJanusGraphComponent {
+impl TransactionProvider for JanusGraph {
     type Transaction = Transaction;
 }
 
@@ -84,6 +83,4 @@ impl Transaction {
     }
 }
 
-type DurableGraphJanusGraphComponent = DurableGraph<GraphJanusGraphComponent>;
-
-golem_graph::export_graph!(DurableGraphJanusGraphComponent with_types_in golem_graph);
+pub type DurableJanusGraph = DurableGraph<JanusGraph>;

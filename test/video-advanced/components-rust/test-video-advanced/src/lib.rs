@@ -1,27 +1,79 @@
-#[allow(static_mut_refs)]
-mod bindings;
-
-use crate::bindings::exports::test::video_advanced_exports::test_video_api::*;
-use crate::bindings::golem::video_generation::advanced::{
+use golem_ai_video::model::advanced::{
     ExtendVideoOptions, GenerateVideoEffectsOptions, MultImageGenerationOptions,
 };
-use crate::bindings::golem::video_generation::types;
-use crate::bindings::golem::video_generation::{advanced, lip_sync, video_generation};
-use crate::bindings::test::helper_client::test_helper_client::TestHelperApi;
-use golem_rust::atomically;
+use golem_ai_video::model::types;
+use golem_ai_video::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
+use golem_rust::{agent_definition, agent_implementation, mark_atomic_operation};
 use std::fs::File;
 use std::io::Read;
 use std::thread;
 use std::time::Duration;
 
-struct Component;
+#[cfg(feature = "kling")]
+type Provider = golem_ai_video_kling::DurableKling;
+#[cfg(feature = "runway")]
+type Provider = golem_ai_video_runway::DurableRunway;
+#[cfg(feature = "stability")]
+type Provider = golem_ai_video_stability::DurableStability;
+#[cfg(feature = "veo")]
+type Provider = golem_ai_video_veo::DurableVeo;
 
-impl Guest for Component {
-    /// Test1 - Image to video generation with first frame and last frame included (both inline images)
-    fn test1() -> String {
+#[agent_definition]
+pub trait TestHelper {
+    fn new(name: String) -> Self;
+    fn inc_and_get(&mut self) -> u64;
+}
+
+struct TestHelperImpl {
+    _name: String,
+    total: u64,
+}
+
+#[agent_implementation]
+impl TestHelper for TestHelperImpl {
+    fn new(name: String) -> Self {
+        Self {
+            _name: name,
+            total: 0,
+        }
+    }
+
+    fn inc_and_get(&mut self) -> u64 {
+        self.total += 1;
+        self.total
+    }
+}
+
+#[agent_definition]
+pub trait VideoAdvancedTest {
+    fn new(name: String) -> Self;
+
+    async fn test1(&self) -> String;
+    fn test2(&self) -> String;
+    fn test3(&self) -> String;
+    fn test4(&self) -> String;
+    fn test5(&self) -> String;
+    fn test6(&self) -> String;
+    fn test7(&self) -> String;
+    fn test8(&self) -> String;
+    fn test9(&self) -> String;
+    fn testx(&self) -> String;
+    async fn testy(&self) -> String;
+}
+
+struct VideoAdvancedTestImpl {
+    _name: String,
+}
+
+#[agent_implementation]
+impl VideoAdvancedTest for VideoAdvancedTestImpl {
+    fn new(name: String) -> Self {
+        Self { _name: name }
+    }
+
+    async fn test1(&self) -> String {
         println!("Test1: Image to video with first frame and last frame");
 
-        // Load test image for both first and last frame
         let (first_image_bytes, first_image_mime_type) = match load_file_bytes("/data/first.png") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
@@ -32,7 +84,6 @@ impl Guest for Component {
             Err(err) => return format!("ERROR: {}", err),
         };
 
-        // Create configuration with lastframe
         let config = types::GenerationConfig {
             negative_prompt: Some("blurry, low quality, distorted".to_string()),
             seed: None,
@@ -56,7 +107,6 @@ impl Guest for Component {
             camera_control: None,
         };
 
-        // Create media input with first frame image
         let media_input = types::MediaInput::Image(types::Reference {
             data: types::InputImage {
                 data: types::MediaData::Bytes(types::RawBytes {
@@ -64,30 +114,27 @@ impl Guest for Component {
                     mime_type: first_image_mime_type,
                 }),
             },
-            prompt: Some("A close up shot of eagle that slowly zooms into its eyes, and then it zooms out to a headshot of a majestic lion, smooth camera movement" .to_string()),
+            prompt: Some("A close up shot of eagle that slowly zooms into its eyes, and then it zooms out to a headshot of a majestic lion, smooth camera movement".to_string()),
             role: Some(types::ImageRole::First),
         });
 
         println!("Sending first/last frame video generation request...");
-        let job_id = match video_generation::generate(&media_input, &config) {
+        let job_id = match Provider::generate(media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
 
-        poll_job_until_complete_with_durability(&job_id, "test1")
+        poll_job_until_complete_with_durability(&job_id, "test1").await
     }
 
-    /// Test2 - Image to video generation with advancedcamera control enum
-    fn test2() -> String {
+    fn test2(&self) -> String {
         println!("Test2: Image to video with advancedcamera control enum");
 
-        // Load test image
         let (image_bytes, image_mime_type) = match load_file_bytes("/data/cameracontrol.jpeg") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
 
-        // Create configuration with camera movement enum
         let config = types::GenerationConfig {
             negative_prompt: Some("static, boring, low quality".to_string()),
             seed: None,
@@ -128,7 +175,7 @@ impl Guest for Component {
         });
 
         println!("Sending image-to-video with camera control request...");
-        let job_id = match video_generation::generate(&media_input, &config) {
+        let job_id = match Provider::generate(media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -136,18 +183,15 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test2")
     }
 
-    /// Test3 - Image to video generation with static and dynamic mask (URL input)
-    fn test3() -> String {
+    fn test3(&self) -> String {
         println!("Test3: Image to video with static and dynamic mask");
 
-        // Create static mask using URL
         let static_mask = types::StaticMask {
             mask: types::InputImage {
                 data: types::MediaData::Url("https://h2.inkwai.com/bs2/upload-ylab-stunt/ai_portal/1732888177/cOLNrShrSO/static_mask.png".to_string()),
             },
         };
 
-        // Create dynamic mask with trajectory points and URL
         let dynamic_mask = types::DynamicMask {
             mask: types::InputImage {
                 data: types::MediaData::Url("https://h2.inkwai.com/bs2/upload-ylab-stunt/ai_portal/1732888130/WU8spl23dA/dynamic_mask_1.png".to_string()),
@@ -177,17 +221,15 @@ impl Guest for Component {
         };
 
         let media_input = types::MediaInput::Image(types::Reference {
-
             data: types::InputImage {
                 data: types::MediaData::Url("https://h2.inkwai.com/bs2/upload-ylab-stunt/se/ai_portal_queue_mmu_image_upscale_aiweb/3214b798-e1b4-4b00-b7af-72b5b0417420_raw_image_0.jpg".to_string()),
             },
-
-           prompt: Some("The astronaut stood up and walked away".to_string()),
+            prompt: Some("The astronaut stood up and walked away".to_string()),
             role: None,
         });
 
         println!("Sending static and dynamic mask video generation request...");
-        let job_id = match video_generation::generate(&media_input, &config) {
+        let job_id = match Provider::generate(media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -195,12 +237,10 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test3")
     }
 
-    /// Test4 - List voice IDs and their information
-    fn test4() -> String {
+    fn test4(&self) -> String {
         println!("Test4: List voice IDs");
 
-        // List all available voices
-        match lip_sync::list_voices(None) {
+        match Provider::list_voices(None) {
             Ok(voices) => {
                 let mut result = String::new();
                 result.push_str("Available voices:\n");
@@ -220,8 +260,7 @@ impl Guest for Component {
         }
     }
 
-    /// Test5 - Lip-sync video generation using voice-id (inline raw bytes video input)
-    fn test5() -> String {
+    fn test5(&self) -> String {
         println!("Test5: Lip-sync with voice-id");
 
         let base_video = types::BaseVideo {
@@ -240,7 +279,7 @@ impl Guest for Component {
         let audio_source = types::AudioSource::FromText(text_to_speech);
 
         println!("Sending lip-sync with voice-id request...");
-        let job_id = match lip_sync::generate_lip_sync(&lip_sync_video, &audio_source) {
+        let job_id = match Provider::generate_lip_sync(lip_sync_video, audio_source) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate lip-sync: {:?}", error),
         };
@@ -248,8 +287,7 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test5")
     }
 
-    /// Test6 - Lip-sync video generation using audio file (inline raw bytes audio input)
-    fn test6() -> String {
+    fn test6(&self) -> String {
         println!("Test6: Lip-sync with audio file");
 
         let (audio_bytes, audio_mime_type) = match load_file_bytes("/data/audio.wav") {
@@ -271,7 +309,7 @@ impl Guest for Component {
         });
 
         println!("Sending lip-sync with audio file request...");
-        let job_id = match lip_sync::generate_lip_sync(&lip_sync_video, &audio_source) {
+        let job_id = match Provider::generate_lip_sync(lip_sync_video, audio_source) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate lip-sync: {:?}", error),
         };
@@ -279,8 +317,7 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test6")
     }
 
-    /// Test7 - Video effects with single input image (inline raw bytes) amd effect fuzzyfuzzy
-    fn test7() -> String {
+    fn test7(&self) -> String {
         println!("Test7: Video effects with single image");
 
         let (image_bytes, image_mime_type) = match load_file_bytes("/data/single-effect.jpeg") {
@@ -298,7 +335,7 @@ impl Guest for Component {
         let effect = types::EffectType::Single(types::SingleImageEffects::Fuzzyfuzzy);
 
         println!("Sending single image effect request...");
-        let job_id = match advanced::generate_video_effects(&GenerateVideoEffectsOptions {
+        let job_id = match Provider::generate_video_effects(GenerateVideoEffectsOptions {
             input,
             effect,
             model: None,
@@ -312,8 +349,7 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test7")
     }
 
-    /// Test8 - Video effects with two input images (URLs) and effect "hug"
-    fn test8() -> String {
+    fn test8(&self) -> String {
         println!("Test8: Video effects with two images");
 
         let input = types::InputImage {
@@ -332,7 +368,7 @@ impl Guest for Component {
         let effect = types::EffectType::Dual(dual_effect);
 
         println!("Sending dual image effect request...");
-        let job_id = match advanced::generate_video_effects(&GenerateVideoEffectsOptions {
+        let job_id = match Provider::generate_video_effects(GenerateVideoEffectsOptions {
             input,
             effect,
             model: None,
@@ -346,13 +382,9 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test8")
     }
 
-    /// Test9 - Extend video using generation-id from completed text-to-video
-    /// Klingv1 default, task succeeds, polling fails with a server side error
-    /// Using Klingv1-6
-    fn test9() -> String {
+    fn test9(&self) -> String {
         println!("Test9: Extend video using generation-id from completed text-to-video");
 
-        // Create a simple text-to-video generation
         let media_input = types::MediaInput::Text("A beautiful sunset over tropical beach paradise, with blue water reflecting the orange red sunset".to_string());
 
         let config = types::GenerationConfig {
@@ -374,20 +406,15 @@ impl Guest for Component {
         };
 
         println!("Sending text-to-video generation request...");
-        let job_id = match video_generation::generate(&media_input, &config) {
+        let job_id = match Provider::generate(media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
 
-        // First poll until completion
         let _poll_result = poll_job_until_complete(&job_id, "test9_initial");
 
-        // For test9, we need to get the generation-id from the completed video
-        // Since poll_job_until_complete returns a string,
-        // we need to poll again to get the actual video result
-        match video_generation::poll(&job_id) {
+        match Provider::poll(job_id) {
             Ok(video_result) => {
-                // Extract generation-id from the completed video result
                 let generation_id = if let Some(videos) = video_result.videos {
                     if let Some(video) = videos.first() {
                         if let Some(gid) = &video.generation_id {
@@ -407,7 +434,7 @@ impl Guest for Component {
                     generation_id
                 );
 
-                match advanced::extend_video(&ExtendVideoOptions {
+                match Provider::extend_video(ExtendVideoOptions {
                     video_id: generation_id,
                     prompt: Some("and the sunset fades into night".to_string()),
                     negative_prompt: None,
@@ -429,27 +456,21 @@ impl Guest for Component {
         }
     }
 
-    // Test 10 - Multi-image generation (2 URLs + 1 inline raw bytes), Supports max of 4 images
-    fn testx() -> String {
+    fn testx(&self) -> String {
         println!("Test10: Multi-image generation (2 URLs + 1 inline raw bytes)");
 
-        // Load one image as inline bytes
         let (image_bytes, image_mime_type) = match load_file_bytes("/data/multi-image.jpeg") {
             Ok((bytes, mime_type)) => (bytes, mime_type),
             Err(err) => return format!("ERROR: {}", err),
         };
 
-        // Create a list of 3 images: 2 URLs and 1 inline bytes as specified
         let input_images = vec![
-            // First image - URL
             types::InputImage {
                 data: types::MediaData::Url("https://h2.inkwai.com/bs2/upload-ylab-stunt/se/ai_portal_queue_mmu_image_upscale_aiweb/3214b798-e1b4-4b00-b7af-72b5b0417420_raw_image_0.jpg".to_string()),
             },
-            // Second image - URL  
             types::InputImage {
                 data: types::MediaData::Url("https://p1-kling.klingai.com/kcdn/cdn-kcdn112452/kling-api-document/multi-image-unicorn.jpeg".to_string()),
             },
-            // Third image - inline raw bytes
             types::InputImage {
                 data: types::MediaData::Bytes(types::RawBytes {
                     bytes: image_bytes,
@@ -479,7 +500,7 @@ impl Guest for Component {
         let prompt = "A girl riding a unicorn in the forest, cinematic realism style";
 
         println!("Sending multi-image generation request...");
-        let job_id = match advanced::multi_image_generation(&MultImageGenerationOptions {
+        let job_id = match Provider::multi_image_generation(MultImageGenerationOptions {
             input_images,
             prompt: Some(prompt.to_string()),
             config,
@@ -493,12 +514,9 @@ impl Guest for Component {
         poll_job_until_complete(&job_id, "test10")
     }
 
-    /// Test 11 first generates a text to video, then extends it with a video
-    /// and then lip syncs it with a voice-id
-    fn testy() -> String {
+    async fn testy(&self) -> String {
         println!("Test11: Text to video, extend video, lip sync");
 
-        // Step 1: Generate initial text-to-video
         let media_input = types::MediaInput::Text("A professional, Front facing, lookig at the camera,Caucasian businesswoman with striking red hair, neatly tied back, sits confidently in a modern office. No camera movement".to_string());
 
         let config = types::GenerationConfig {
@@ -520,19 +538,17 @@ impl Guest for Component {
         };
 
         println!("Sending text-to-video generation request...");
-        let job_id = match video_generation::generate(&media_input, &config) {
+        let job_id = match Provider::generate(media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
 
-        // Step 2: Poll the initial job to get the generation-id
         let initial_result = poll_job_until_complete(&job_id, "test11_text_to_video");
         if initial_result.starts_with("ERROR") {
             return initial_result;
         }
 
-        // Step 3: Extract generation-id from the initial video result
-        let generation_id = match video_generation::poll(&job_id) {
+        let generation_id = match Provider::poll(job_id) {
             Ok(video_result) => {
                 if let Some(videos) = video_result.videos {
                     if let Some(video) = videos.first() {
@@ -553,28 +569,24 @@ impl Guest for Component {
             }
         };
 
-        // Step 4: Extend the video with the generation-id
         println!("Extending video with generation ID: {}", generation_id);
-        let extend_job_id = match advanced::extend_video(
-            &ExtendVideoOptions {
-                video_id: generation_id,
-                prompt: Some("continue the video with a businesswoman with red hair, in a modern office, front facing, looking at the camera, no camera movement".to_string()),
-                negative_prompt: None,
-                cfg_scale: None,
-                provider_options: None,
-            }
-        ) {
+        let extend_job_id = match Provider::extend_video(ExtendVideoOptions {
+            video_id: generation_id,
+            prompt: Some("continue the video with a businesswoman with red hair, in a modern office, front facing, looking at the camera, no camera movement".to_string()),
+            negative_prompt: None,
+            cfg_scale: None,
+            provider_options: None,
+        }) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to extend video: {:?}", error),
         };
 
-        // Step 5: Poll the extended video job to get the new generation-id
         let extended_result = poll_job_until_complete(&extend_job_id, "test11_extended");
         if extended_result.starts_with("ERROR") {
             return extended_result;
         }
 
-        let extended_generation_id = match video_generation::poll(&extend_job_id) {
+        let extended_generation_id = match Provider::poll(extend_job_id) {
             Ok(video_result) => {
                 if let Some(videos) = video_result.videos {
                     if let Some(video) = videos.first() {
@@ -595,7 +607,6 @@ impl Guest for Component {
             }
         };
 
-        // Step 6: Perform lip-sync on the extended video
         println!(
             "Performing lip-sync on video with generation ID: {}",
             extended_generation_id
@@ -612,27 +623,23 @@ impl Guest for Component {
         let audio_source = types::AudioSource::FromText(text_to_speech);
 
         println!("Sending lip-sync request...");
-        let lip_sync_job_id = match lip_sync::generate_lip_sync(&lip_sync_video, &audio_source) {
+        let lip_sync_job_id = match Provider::generate_lip_sync(lip_sync_video, audio_source) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate lip-sync: {:?}", error),
         };
 
-        // Step 7: Save and print the final video path
         poll_job_until_complete(&lip_sync_job_id, "test11_lip_sync")
     }
 }
 
-// Helper function to save video result
 fn save_video_result(video_result: &types::VideoResult, test_name: &str) -> String {
     if let Some(videos) = &video_result.videos {
         if videos.is_empty() {
             return "No videos in result".to_string();
         }
-        // Handle multiple videos by collecting all results
         let mut results = Vec::new();
 
         for (i, video_data) in videos.iter().enumerate() {
-            // Since we no longer download video data, just display the URL
             if let Some(uri) = &video_data.uri {
                 results.push(format!(
                     "Video {}-{} available at URI: {}",
@@ -642,14 +649,12 @@ fn save_video_result(video_result: &types::VideoResult, test_name: &str) -> Stri
                 results.push(format!("No URI available for video {}-{}", test_name, i));
             }
         }
-        // Join all results with newlines
         results.join("\n")
     } else {
         "No videos in result".to_string()
     }
 }
 
-// Helper function to load file bytes
 fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
     println!("Reading file from: {}", path);
     let mut file = match File::open(path) {
@@ -665,7 +670,7 @@ fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
                 Some("png") => "image/png".to_string(),
                 Some("jpeg") => "image/jpeg".to_string(),
                 Some("wav") => "audio/wav".to_string(),
-                _ => "application/octet-stream".to_string(), // Default or unknown
+                _ => "application/octet-stream".to_string(),
             };
             Ok((buffer, mime_type))
         }
@@ -673,17 +678,14 @@ fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
     }
 }
 
-// Polling function happens here
 fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
     println!("Polling for {} results with job ID: {}", test_name, job_id);
 
-    // Wait 5 seconds after job creation before starting polling
     println!("Waiting 5 seconds for job initialization...");
     thread::sleep(Duration::from_secs(5));
 
-    // Poll every 5 seconds until completion (Kling generation takes few minutes)
     loop {
-        match video_generation::poll(&job_id) {
+        match Provider::poll(job_id.to_string()) {
             Ok(video_result) => match video_result.status {
                 types::JobStatus::Pending => {
                     println!("{} is pending...", test_name);
@@ -708,27 +710,24 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
             }
         }
 
-        // Wait 5 seconds before polling again
         thread::sleep(Duration::from_secs(5));
     }
 }
 
-fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> String {
+async fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> String {
     println!(
         "Polling for {} results with job ID: {} (with durability test)",
         test_name, job_id
     );
 
-    // Wait 5 seconds after job creation before starting polling
     println!("Waiting 5 seconds for job initialization...");
     thread::sleep(Duration::from_secs(5));
 
     let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
     let mut round = 0;
 
-    // Poll every 5 seconds until completion
     loop {
-        match video_generation::poll(&job_id) {
+        match Provider::poll(job_id.to_string()) {
             Ok(video_result) => match video_result.status {
                 types::JobStatus::Pending => {
                     println!("{} is pending... (round {})", test_name, round);
@@ -756,24 +755,18 @@ fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) -> Str
             }
         }
 
-        // Durability test simulation: simulate a crash during polling, but only first time
-        // After automatic recovery it will continue and finish the request successfully
         if round == 1 {
-            atomically(|| {
-                let client = TestHelperApi::new(&name);
-                let answer = client.blocking_inc_and_get();
-                if answer == 1 {
-                    panic!("Simulating crash during durability test")
-                }
-            });
+            let _guard = mark_atomic_operation();
+            let mut client = TestHelperClient::get(name.clone());
+            let answer = client.inc_and_get().await;
+            if answer == 1 {
+                panic!("Simulating crash during durability test")
+            }
         }
 
         round += 1;
 
         println!("Sleeping for 5 seconds");
-        // Wait 5 seconds before polling again
         thread::sleep(Duration::from_secs(5));
     }
 }
-
-bindings::export!(Component with_types_in bindings);

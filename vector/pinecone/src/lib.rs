@@ -5,31 +5,34 @@ use crate::conversions::{
     pinecone_query_response_to_search_results, pinecone_vector_to_vector_record,
     vector_records_to_upsert_request,
 };
-use golem_vector::config::with_config_key;
-use golem_vector::durability::{DurableVector, ExtendedGuest};
-use golem_vector::golem::vector::{
-    analytics::{CollectionStats, FieldStats, Guest as AnalyticsGuest, NamespaceStats},
-    collections::{CollectionInfo, Guest as CollectionsGuest, IndexConfig},
-    connection::{ConnectionStatus, Credentials, Guest as ConnectionGuest},
-    namespaces::{Guest as NamespacesGuest, NamespaceInfo},
-    search::{Guest as SearchGuest, SearchQuery},
+use golem_ai_vector::config::with_config_key;
+use golem_ai_vector::durability::{DurableVector, ExtendedVectorProvider};
+use golem_ai_vector::model::{
+    analytics::{CollectionStats, FieldStats, NamespaceStats},
+    collections::{CollectionInfo, IndexConfig},
+    connection::{ConnectionStatus, Credentials},
+    namespaces::NamespaceInfo,
+    search::SearchQuery,
     search_extended::{
-        ContextPair, GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
-        RecommendationStrategy,
+        ContextPair, GroupedSearchResult, RecommendationExample, RecommendationStrategy,
     },
     types::{
         DistanceMetric, FilterExpression, Id, Metadata, MetadataValue, SearchResult, VectorData,
         VectorError, VectorRecord,
     },
-    vectors::{BatchResult, Guest as VectorsGuest, ListResponse},
+    vectors::{BatchResult, ListResponse},
+};
+use golem_ai_vector::{
+    AnalyticsProvider, CollectionProvider, ConnectionProvider, NamespacesProvider,
+    SearchExtendedProvider, SearchProvider, VectorsProvider,
 };
 
 mod client;
 mod conversions;
 
-struct PineconeComponent;
+pub struct Pinecone;
 
-impl PineconeComponent {
+impl Pinecone {
     const API_KEY_ENV_VAR: &'static str = "PINECONE_API_KEY";
     const ENVIRONMENT_ENV_VAR: &'static str = "PINECONE_ENVIRONMENT";
 
@@ -44,13 +47,13 @@ impl PineconeComponent {
             Ok,
         )?;
 
-        let environment = golem_vector::config::get_optional_config(Self::ENVIRONMENT_ENV_VAR);
+        let environment = golem_ai_vector::config::get_optional_config(Self::ENVIRONMENT_ENV_VAR);
 
         Ok(PineconeClient::new(api_key, environment))
     }
 }
 
-impl ExtendedGuest for PineconeComponent {
+impl ExtendedVectorProvider for Pinecone {
     fn connect_internal(
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -62,7 +65,7 @@ impl ExtendedGuest for PineconeComponent {
     }
 }
 
-impl ConnectionGuest for PineconeComponent {
+impl ConnectionProvider for Pinecone {
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -112,7 +115,7 @@ impl ConnectionGuest for PineconeComponent {
     }
 }
 
-impl CollectionsGuest for PineconeComponent {
+impl CollectionProvider for Pinecone {
     fn upsert_collection(
         name: String,
         _description: Option<String>,
@@ -211,7 +214,7 @@ impl CollectionsGuest for PineconeComponent {
     }
 }
 
-impl VectorsGuest for PineconeComponent {
+impl VectorsProvider for Pinecone {
     fn upsert_vectors(
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -502,7 +505,7 @@ impl VectorsGuest for PineconeComponent {
     }
 }
 
-impl SearchGuest for PineconeComponent {
+impl SearchProvider for Pinecone {
     fn search_vectors(
         collection: String,
         query: SearchQuery,
@@ -621,7 +624,7 @@ impl SearchGuest for PineconeComponent {
     }
 }
 
-impl SearchExtendedGuest for PineconeComponent {
+impl SearchExtendedProvider for Pinecone {
     fn recommend_vectors(
         _collection: String,
         _positive: Vec<RecommendationExample>,
@@ -698,7 +701,7 @@ impl SearchExtendedGuest for PineconeComponent {
     }
 }
 
-impl AnalyticsGuest for PineconeComponent {
+impl AnalyticsProvider for Pinecone {
     fn get_collection_stats(
         collection: String,
         namespace: Option<String>,
@@ -766,7 +769,7 @@ impl AnalyticsGuest for PineconeComponent {
     }
 }
 
-impl NamespacesGuest for PineconeComponent {
+impl NamespacesProvider for Pinecone {
     fn upsert_namespace(
         collection: String,
         namespace: String,
@@ -789,7 +792,7 @@ impl NamespacesGuest for PineconeComponent {
             Ok(namespaces) => {
                 let mut namespace_infos = Vec::new();
                 for ns in namespaces.namespaces {
-                    namespace_infos.push(golem_vector::golem::vector::namespaces::NamespaceInfo {
+                    namespace_infos.push(golem_ai_vector::model::namespaces::NamespaceInfo {
                         name: ns.name,
                         collection: collection.clone(),
                         vector_count: ns.record_count,
@@ -832,7 +835,7 @@ impl NamespacesGuest for PineconeComponent {
     }
 
     fn delete_namespace(collection: String, namespace: String) -> Result<(), VectorError> {
-        <Self as VectorsGuest>::delete_namespace(collection, namespace)?;
+        <Self as VectorsProvider>::delete_namespace(collection, namespace)?;
         Ok(())
     }
 
@@ -845,6 +848,4 @@ impl NamespacesGuest for PineconeComponent {
     }
 }
 
-type DurablePineconeComponent = DurableVector<PineconeComponent>;
-
-golem_vector::export_vector!(DurablePineconeComponent with_types_in golem_vector);
+pub type DurablePinecone = DurableVector<Pinecone>;

@@ -6,19 +6,20 @@ use crate::conversions::{
     convert_client_tool_call_to_tool_call, convert_finish_reason, convert_usage, events_to_request,
     process_response,
 };
-use golem_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
-use golem_llm::config::{get_config_key, with_config_key};
-use golem_llm::durability::{DurableLLM, ExtendedGuest};
-use golem_llm::event_source::EventSource;
-use golem_llm::golem::llm::llm::{
-    ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Guest, Response,
+use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
+use golem_ai_llm::config::{get_config_key, with_config_key};
+use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
+use golem_ai_llm::event_source::EventSource;
+use golem_ai_llm::model::{
+    ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Response,
     ResponseMetadata, StreamDelta, StreamEvent,
 };
+use golem_ai_llm::LlmProvider;
 use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
 
-struct GrokChatStream {
+pub struct GrokChatStream {
     stream: RefCell<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
@@ -127,9 +128,9 @@ impl LlmChatStreamState for GrokChatStream {
     }
 }
 
-struct GrokComponent;
+pub struct Grok;
 
-impl GrokComponent {
+impl Grok {
     const ENV_VAR_NAME: &'static str = "XAI_API_KEY";
 
     fn request(client: CompletionsApi, request: CompletionsRequest) -> Result<Response, Error> {
@@ -152,7 +153,7 @@ impl GrokComponent {
     }
 }
 
-impl Guest for GrokComponent {
+impl LlmProvider for Grok {
     type ChatStream = LlmChatStream<GrokChatStream>;
 
     fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
@@ -167,7 +168,7 @@ impl Guest for GrokComponent {
     }
 }
 
-impl ExtendedGuest for GrokComponent {
+impl ExtendedLlmProvider for Grok {
     fn unwrapped_stream(messages: Vec<Event>, config: Config) -> LlmChatStream<GrokChatStream> {
         with_config_key(Self::ENV_VAR_NAME, GrokChatStream::failed, |xai_api_key| {
             let client = CompletionsApi::new(xai_api_key);
@@ -184,6 +185,4 @@ impl ExtendedGuest for GrokComponent {
     }
 }
 
-type DurableGrokComponent = DurableLLM<GrokComponent>;
-
-golem_llm::export_llm!(DurableGrokComponent with_types_in golem_llm);
+pub type DurableGrok = DurableLLM<Grok>;

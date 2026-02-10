@@ -1,4 +1,4 @@
-use crate::golem::stt::types::SttError as WitSttError;
+use crate::model::types::SttError;
 
 use derive_more::From;
 
@@ -81,57 +81,57 @@ impl core::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-impl From<Error> for WitSttError {
+impl From<Error> for SttError {
     fn from(error: Error) -> Self {
         match error {
             Error::APIBadRequest {
                 request_id,
                 provider_error,
-            } => WitSttError::TranscriptionFailed(format!("{request_id}: {provider_error}")),
+            } => SttError::TranscriptionFailed(format!("{request_id}: {provider_error}")),
             Error::APIUnauthorized {
                 request_id,
                 provider_error,
-            } => WitSttError::AccessDenied(format!("{request_id}: {provider_error}")),
+            } => SttError::AccessDenied(format!("{request_id}: {provider_error}")),
             Error::APIForbidden {
                 request_id,
                 provider_error,
-            } => WitSttError::Unauthorized(format!("{request_id}: {provider_error}")),
+            } => SttError::Unauthorized(format!("{request_id}: {provider_error}")),
             Error::APIAccessDenied {
                 request_id,
                 provider_error,
-            } => WitSttError::AccessDenied(format!("{request_id}: {provider_error}")),
+            } => SttError::AccessDenied(format!("{request_id}: {provider_error}")),
             Error::APINotFound {
                 request_id,
                 provider_error,
-            } => WitSttError::UnsupportedOperation(format!("{request_id}: {provider_error}")),
+            } => SttError::UnsupportedOperation(format!("{request_id}: {provider_error}")),
             Error::APIConflict {
                 request_id,
                 provider_error,
-            } => WitSttError::ServiceUnavailable(format!("{request_id}: {provider_error}")),
+            } => SttError::ServiceUnavailable(format!("{request_id}: {provider_error}")),
             Error::APIUnprocessableEntity {
                 request_id,
                 provider_error,
-            } => WitSttError::ServiceUnavailable(format!("{request_id}: {provider_error}")),
+            } => SttError::ServiceUnavailable(format!("{request_id}: {provider_error}")),
             Error::APIRateLimit {
                 request_id,
                 provider_error,
-            } => WitSttError::RateLimited(format!("{request_id}: {provider_error}")),
+            } => SttError::RateLimited(format!("{request_id}: {provider_error}")),
             Error::APIInternalServerError {
                 request_id,
                 provider_error,
-            } => WitSttError::ServiceUnavailable(format!("{request_id}: {provider_error}")),
+            } => SttError::ServiceUnavailable(format!("{request_id}: {provider_error}")),
             Error::APIUnknown {
                 request_id,
                 provider_error,
-            } => WitSttError::InternalError(format!("{request_id}: {provider_error}")),
+            } => SttError::InternalError(format!("{request_id}: {provider_error}")),
             Error::Http(request_id, error) => {
-                WitSttError::InternalError(format!("{request_id}: Internal error: {error}"))
+                SttError::InternalError(format!("{request_id}: Internal error: {error}"))
             }
             Error::EnvVariablesNotSet(reason) => {
-                WitSttError::InternalError(format!("Internal error: {reason}"))
+                SttError::InternalError(format!("Internal error: {reason}"))
             }
             Error::AuthError(reason) => {
-                WitSttError::InternalError(format!("Internal error: {reason}"))
+                SttError::InternalError(format!("Internal error: {reason}"))
             }
         }
     }

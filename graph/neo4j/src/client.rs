@@ -1,5 +1,5 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use golem_graph::golem::graph::errors::GraphError;
+use golem_ai_graph::model::errors::GraphError;
 use golem_wasi_http::{Client, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -211,11 +211,7 @@ impl Neo4jApi {
                     details,
                     err
                 );
-                return Self::map_neo4j_http_status(
-                    status.as_u16(),
-                    &error_msg,
-                    &serde_json::Value::Null,
-                );
+                return Self::map_neo4j_http_status(status.as_u16(), &error_msg, &Value::Null);
             }
         }
 
@@ -435,7 +431,7 @@ impl Neo4jApi {
             }
             "Neo.ClientError.Statement.EntityNotFound" => {
                 if let Some(element_id) =
-                    golem_graph::error::mapping::extract_element_id_from_message(message)
+                    golem_ai_graph::error::mapping::extract_element_id_from_message(message)
                 {
                     GraphError::ElementNotFound(element_id)
                 } else {
@@ -553,8 +549,8 @@ impl Neo4jApi {
             _ => {
                 let enhanced_message = format!("Neo4j error [{code}]: {message}");
                 let mut debug_error_body = error_body.clone();
-                debug_error_body["neo4j_error_code"] = serde_json::Value::String(code.to_string());
-                debug_error_body["neo4j_message"] = serde_json::Value::String(message.to_string());
+                debug_error_body["neo4j_error_code"] = Value::String(code.to_string());
+                debug_error_body["neo4j_message"] = Value::String(message.to_string());
 
                 GraphError::InternalError(format!(
                     "{} | Debug info: {}",

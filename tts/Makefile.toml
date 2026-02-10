@@ -10,14 +10,6 @@ run_task = { name = [
     "build-google",
 ] }
 
-[tasks.build-portable]
-run_task = { name = [
-    "build-aws-portable",
-    "build-deepgram-portable",
-    "build-elevenlabs-portable",
-    "build-google-portable",
-] }
-
 [tasks.release-build]
 run_task = { name = [
     "release-build-aws",
@@ -26,102 +18,37 @@ run_task = { name = [
     "release-build-google",
 ] }
 
-[tasks.release-build-portable]
-run_task = { name = [
-    "release-build-aws-portable",
-    "release-build-deepgram-portable",
-    "release-build-elevenlabs-portable",
-    "release-build-google-portable",
-] }
-
 [tasks.build-aws]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-aws"]
-
-
-[tasks.build-aws-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-aws", "--no-default-features"]
-
+command = "cargo"
+args = ["build", "-p", "golem-ai-tts-aws"]
 
 [tasks.build-deepgram]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-deepgram"]
-
-[tasks.build-deepgram-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-deepgram", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-tts-deepgram"]
 
 [tasks.build-elevenlabs]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-elevenlabs"]
-
-[tasks.build-elevenlabs-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-elevenlabs", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-tts-elevenlabs"]
 
 [tasks.build-google]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-google"]
-
-[tasks.build-google-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-google", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-tts-google"]
 
 [tasks.release-build-aws]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-aws", "--release"]
-
-[tasks.release-build-aws-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-aws", "--release", "--no-default-features"]
-
+command = "cargo"
+args = ["build", "-p", "golem-ai-tts-aws", "--release"]
 
 [tasks.release-build-deepgram]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-deepgram", "--release"]
-
-[tasks.release-build-deepgram-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = [
-    "build",
-    "-p",
-    "golem-tts-deepgram",
-    "--release",
-    "--no-default-features",
-]
+command = "cargo"
+args = ["build", "-p", "golem-ai-tts-deepgram", "--release"]
 
 [tasks.release-build-elevenlabs]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-elevenlabs", "--release"]
-
-[tasks.release-build-elevenlabs-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-elevenlabs", "--release", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-tts-elevenlabs", "--release"]
 
 [tasks.release-build-google]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-google", "--release"]
-
-[tasks.release-build-google-portable]
-install_crate = { crate_name = "cargo-component", version = "0.21.1" }
-command = "cargo-component"
-args = ["build", "-p", "golem-tts-google", "--release", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-tts-google", "--release"]
 
 [tasks.wit-update]
 install_crate = { crate_name = "wit-deps-cli" }
