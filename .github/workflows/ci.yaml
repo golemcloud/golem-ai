@@ -60,7 +60,7 @@ jobs:
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
       - name: Build all
-        run: cargo make build-all
+        run: cargo make build
   build-test-components:
     runs-on: blacksmith-8vcpu-ubuntu-2404
     steps:
@@ -524,5 +524,5 @@ jobs:
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
       - name: Build all components in release
-        run: cargo make release-build-all
+        run: cargo make release-build
 # TODO: publish to crates.io

@@ -12,15 +12,6 @@ run_task = { name = [
     "build-whisper",
 ] }
 
-[tasks.build-portable]
-run_task = { name = [
-    "build-aws-portable",
-    "build-azure-portable",
-    "build-deepgram-portable",
-    "build-google-portable",
-    "build-whisper-portable",
-] }
-
 [tasks.release-build]
 run_task = { name = [
     "release-build-aws",
@@ -30,108 +21,45 @@ run_task = { name = [
     "release-build-whisper",
 ] }
 
-[tasks.release-build-portable]
-run_task = { name = [
-    "release-build-aws-portable",
-    "release-build-azure-portable",
-    "release-build-deepgram-portable",
-    "release-build-google-portable",
-    "release-build-whisper-portable",
-] }
-
 [tasks.build-aws]
 command = "cargo"
 args = ["build", "-p", "golem-ai-stt-aws"]
-
-[tasks.build-aws-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-stt-aws", "--no-default-features"]
 
 [tasks.build-azure]
 command = "cargo"
 args = ["build", "-p", "golem-ai-stt-azure"]
 
-[tasks.build-azure-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-stt-azure", "--no-default-features"]
-
 [tasks.build-deepgram]
 command = "cargo"
 args = ["build", "-p", "golem-ai-stt-deepgram"]
-
-[tasks.build-deepgram-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-stt-deepgram", "--no-default-features"]
 
 [tasks.build-google]
 command = "cargo"
 args = ["build", "-p", "golem-ai-stt-google"]
 
-
-[tasks.build-google-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-stt-google", "--no-default-features"]
-
-
 [tasks.build-whisper]
 command = "cargo"
 args = ["build", "-p", "golem-ai-stt-whisper"]
-
-[tasks.build-whisper-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-stt-whisper", "--no-default-features"]
 
 [tasks.release-build-aws]
 command = "cargo"
 args = ["build", "-p", "golem-ai-stt-aws", "--release"]
 
-[tasks.release-build-aws-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-stt-aws", "--release", "--no-default-features"]
-
 [tasks.release-build-azure]
 command = "cargo"
 args = ["build", "-p", "golem-ai-stt-azure", "--release"]
-
-[tasks.release-build-azure-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-stt-azure", "--release", "--no-default-features"]
 
 [tasks.release-build-deepgram]
 command = "cargo"
 args = ["build", "-p", "golem-ai-stt-deepgram", "--release"]
 
-[tasks.release-build-deepgram-portable]
-command = "cargo"
-args = [
-    "build",
-    "-p",
-    "golem-ai-stt-deepgram",
-    "--release",
-    "--no-default-features",
-]
-
 [tasks.release-build-google]
 command = "cargo"
 args = ["build", "-p", "golem-ai-stt-google", "--release"]
 
-[tasks.release-build-google-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-stt-google", "--release", "--no-default-features"]
-
 [tasks.release-build-whisper]
 command = "cargo"
 args = ["build", "-p", "golem-ai-stt-whisper", "--release"]
-
-[tasks.release-build-whisper-portable]
-command = "cargo"
-args = [
-    "build",
-    "-p",
-    "golem-ai-stt-whisper",
-    "--release",
-    "--no-default-features",
-]
 
 [tasks.build-test-components]
 dependencies = ["build"]

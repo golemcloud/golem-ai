@@ -2197,7 +2197,6 @@ dependencies = [
  "serde_json",
  "url 2.5.4",
  "urlencoding",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2213,7 +2212,6 @@ dependencies = [
  "serde_json",
  "url 2.5.4",
  "urlencoding",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2228,7 +2226,6 @@ dependencies = [
  "serde",
  "serde_json",
  "url 2.5.4",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2244,7 +2241,6 @@ dependencies = [
  "serde_json",
  "url 2.5.4",
  "urlencoding",
- "wasm-bindgen",
 ]
 
 [[package]]

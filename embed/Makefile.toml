@@ -10,14 +10,6 @@ run_task = { name = [
     "build-voyageai",
 ] }
 
-[tasks.build-portable]
-run_task = { name = [
-    "build-openai-portable",
-    "build-cohere-portable",
-    "build-hugging-face-portable",
-    "build-voyageai-portable",
-] }
-
 [tasks.release-build]
 run_task = { name = [
     "release-build-openai",
@@ -26,77 +18,37 @@ run_task = { name = [
     "release-build-voyageai",
 ] }
 
-[tasks.release-build-portable]
-run_task = { name = [
-    "release-build-openai-portable",
-    "release-build-cohere-portable",
-    "release-build-hugging-face-portable",
-    "release-build-voyageai-portable",
-] }
-
 [tasks.build-openai]
 command = "cargo"
 args = ["build", "-p", "golem-ai-embed-openai"]
-
-[tasks.build-openai-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-embed-openai", "--no-default-features"]
 
 [tasks.build-cohere]
 command = "cargo"
 args = ["build", "-p", "golem-ai-embed-cohere"]
 
-[tasks.build-cohere-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-embed-cohere", "--no-default-features"]
-
 [tasks.build-hugging-face]
 command = "cargo"
 args = ["build", "-p", "golem-ai-embed-hugging-face"]
-
-[tasks.build-hugging-face-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-embed-hugging-face", "--no-default-features"]
 
 [tasks.build-voyageai]
 command = "cargo"
 args = ["build", "-p", "golem-ai-embed-voyageai"]
 
-[tasks.build-voyageai-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-embed-voyageai", "--no-default-features"]
-
 [tasks.release-build-openai]
 command = "cargo"
 args = ["build", "-p", "golem-ai-embed-openai", "--release"]
-
-[tasks.release-build-openai-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-embed-openai", "--release", "--no-default-features"]
 
 [tasks.release-build-cohere]
 command = "cargo"
 args = ["build", "-p", "golem-ai-embed-cohere", "--release"]
 
-[tasks.release-build-cohere-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-embed-cohere", "--release", "--no-default-features"]
-
 [tasks.release-build-hugging-face]
 command = "cargo"
 args = ["build", "-p", "golem-ai-embed-hugging-face", "--release"]
 
-[tasks.release-build-hugging-face-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-embed-hugging-face", "--release", "--no-default-features"]
-
 [tasks.release-build-voyageai]
 command = "cargo"
 args = ["build", "-p", "golem-ai-embed-voyageai", "--release"]
-
-[tasks.release-build-voyageai-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-embed-voyageai", "--release", "--no-default-features"]
 
 [tasks.build-test-components]
 dependencies = ["build"]
@@ -114,6 +66,3 @@ golem-cli build --preset hugging-face-debug
 golem-cli clean
 golem-cli build --preset voyageai-debug
 '''
-
-
-

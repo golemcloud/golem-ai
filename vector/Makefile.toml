@@ -10,14 +10,6 @@ run_task = { name = [
     "build-qdrant"
 ] }
 
-[tasks.build-portable]
-run_task = { name = [
-    "build-milvus-portable",
-    "build-pgvector-portable",
-    "build-pinecone-portable",
-    "build-qdrant-portable"
-] }
-
 [tasks.release-build]
 run_task = { name = [
     "release-build-milvus",
@@ -26,88 +18,37 @@ run_task = { name = [
     "release-build-qdrant"
 ] }
 
-[tasks.release-build-portable]
-run_task = { name = [
-    "release-build-milvus-portable",
-    "release-build-pgvector-portable",
-    "release-build-pinecone-portable",
-    "release-build-qdrant-portable"
-] }
-
 [tasks.build-milvus]
 command = "cargo"
 args = ["build", "-p", "golem-ai-vector-milvus"]
-
-[tasks.build-milvus-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-vector-milvus", "--no-default-features"]
-
 
 [tasks.build-pgvector]
 command = "cargo"
 args = ["build", "-p", "golem-ai-vector-pgvector"]
 
-[tasks.build-pgvector-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-vector-pgvector", "--no-default-features"]
-
-
 [tasks.build-pinecone]
 command = "cargo"
 args = ["build", "-p", "golem-ai-vector-pinecone"]
-
-[tasks.build-pinecone-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-vector-pinecone", "--no-default-features"]
 
 [tasks.build-qdrant]
 command = "cargo"
 args = ["build", "-p", "golem-ai-vector-qdrant"]
 
-[tasks.build-qdrant-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-vector-qdrant", "--no-default-features"]
-
-
 [tasks.release-build-milvus]
 command = "cargo"
 args = ["build", "-p", "golem-ai-vector-milvus", "--release"]
-
-[tasks.release-build-milvus-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-vector-milvus", "--release", "--no-default-features"]
-
 
 [tasks.release-build-pgvector]
 command = "cargo"
 args = ["build", "-p", "golem-ai-vector-pgvector", "--release"]
 
-[tasks.release-build-pgvector-portable]
-command = "cargo"
-args = [
-    "build",
-    "-p",
-    "golem-ai-vector-pgvector",
-    "--release",
-    "--no-default-features",
-]
-
-
 [tasks.release-build-pinecone]
 command = "cargo"
 args = ["build", "-p", "golem-ai-vector-pinecone", "--release"]
 
-[tasks.release-build-pinecone-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-vector-pinecone", "--release", "--no-default-features"]
-
 [tasks.release-build-qdrant]
 command = "cargo"
 args = ["build", "-p", "golem-ai-vector-qdrant", "--release"]
-
-[tasks.release-build-qdrant-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-vector-qdrant", "--release", "--no-default-features"]
 
 [tasks.build-test-components]
 dependencies = ["build"]

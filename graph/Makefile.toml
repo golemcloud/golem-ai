@@ -9,13 +9,6 @@ run_task = { name = [
     "build-neo4j",
 ] }
 
-[tasks.build-portable]
-run_task = { name = [
-    "build-arangodb-portable",
-    "build-janusgraph-portable",
-    "build-neo4j-portable",
-] }
-
 [tasks.release-build]
 run_task = { name = [
     "release-build-arangodb",
@@ -23,71 +16,29 @@ run_task = { name = [
     "release-build-neo4j",
 ] }
 
-[tasks.release-build-portable]
-run_task = { name = [
-    "release-build-arangodb-portable",
-    "release-build-janusgraph-portable",
-    "release-build-neo4j-portable",
-] }
-
 [tasks.build-arangodb]
 command = "cargo"
 args = ["build", "-p", "golem-ai-graph-arangodb"]
-
-[tasks.build-arangodb-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-graph-arangodb", "--no-default-features"]
-
 
 [tasks.build-janusgraph]
 command = "cargo"
 args = ["build", "-p", "golem-ai-graph-janusgraph"]
 
-[tasks.build-janusgraph-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-graph-janusgraph", "--no-default-features"]
-
-
 [tasks.build-neo4j]
 command = "cargo"
 args = ["build", "-p", "golem-ai-graph-neo4j"]
-
-[tasks.build-neo4j-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-graph-neo4j", "--no-default-features"]
-
 
 [tasks.release-build-arangodb]
 command = "cargo"
 args = ["build", "-p", "golem-ai-graph-arangodb", "--release"]
 
-[tasks.release-build-arangodb-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-graph-arangodb", "--release", "--no-default-features"]
-
-
 [tasks.release-build-janusgraph]
 command = "cargo"
 args = ["build", "-p", "golem-ai-graph-janusgraph", "--release"]
 
-[tasks.release-build-janusgraph-portable]
-command = "cargo"
-args = [
-    "build",
-    "-p",
-    "golem-ai-graph-janusgraph",
-    "--release",
-    "--no-default-features",
-]
-
-
 [tasks.release-build-neo4j]
 command = "cargo"
 args = ["build", "-p", "golem-ai-graph-neo4j", "--release"]
-
-[tasks.release-build-neo4j-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-graph-neo4j", "--release", "--no-default-features"]
 
 [tasks.build-test-components]
 dependencies = ["build"]

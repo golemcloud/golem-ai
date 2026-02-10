@@ -11,15 +11,6 @@ run_task = { name = [
     "build-typesense",
 ] }
 
-[tasks.build-portable]
-run_task = { name = [
-    "build-algolia-portable",
-    "build-elasticsearch-portable",
-    "build-meilisearch-portable",
-    "build-opensearch-portable",
-    "build-typesense-portable",
-] }
-
 [tasks.release-build]
 run_task = { name = [
     "release-build-algolia",
@@ -29,109 +20,45 @@ run_task = { name = [
     "release-build-typesense",
 ] }
 
-[tasks.release-build-portable]
-run_task = { name = [
-    "release-build-algolia-portable",
-    "release-build-elasticsearch-portable",
-    "release-build-meilisearch-portable",
-    "release-build-opensearch-portable",
-    "release-build-typesense-portable",
-] }
-
 [tasks.build-algolia]
 command = "cargo"
 args = ["build", "-p", "golem-ai-search-algolia"]
-
-
-[tasks.build-algolia-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-search-algolia", "--no-default-features"]
-
 
 [tasks.build-elasticsearch]
 command = "cargo"
 args = ["build", "-p", "golem-ai-search-elasticsearch"]
 
-[tasks.build-elasticsearch-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-search-elasticsearch", "--no-default-features"]
-
 [tasks.build-meilisearch]
 command = "cargo"
 args = ["build", "-p", "golem-ai-search-meilisearch"]
-
-[tasks.build-meilisearch-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-search-meilisearch", "--no-default-features"]
 
 [tasks.build-opensearch]
 command = "cargo"
 args = ["build", "-p", "golem-ai-search-opensearch"]
 
-[tasks.build-opensearch-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-search-opensearch", "--no-default-features"]
-
 [tasks.build-typesense]
 command = "cargo"
 args = ["build", "-p", "golem-ai-search-typesense"]
-
-[tasks.build-typesense-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-search-typesense", "--no-default-features"]
 
 [tasks.release-build-algolia]
 command = "cargo"
 args = ["build", "-p", "golem-ai-search-algolia", "--release"]
 
-[tasks.release-build-algolia-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-search-algolia", "--release", "--no-default-features"]
-
-
 [tasks.release-build-elasticsearch]
 command = "cargo"
 args = ["build", "-p", "golem-ai-search-elasticsearch", "--release"]
-
-[tasks.release-build-elasticsearch-portable]
-command = "cargo"
-args = [
-    "build",
-    "-p",
-    "golem-ai-search-elasticsearch",
-    "--release",
-    "--no-default-features",
-]
 
 [tasks.release-build-meilisearch]
 command = "cargo"
 args = ["build", "-p", "golem-ai-search-meilisearch", "--release"]
 
-[tasks.release-build-meilisearch-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-search-meilisearch", "--release", "--no-default-features"]
-
 [tasks.release-build-opensearch]
 command = "cargo"
 args = ["build", "-p", "golem-ai-search-opensearch", "--release"]
 
-[tasks.release-build-opensearch-portable]
-command = "cargo"
-args = ["build", "-p", "golem-ai-search-opensearch", "--release", "--no-default-features"]
-
 [tasks.release-build-typesense]
 command = "cargo"
 args = ["build", "-p", "golem-ai-search-typesense", "--release"]
-
-[tasks.release-build-typesense-portable]
-command = "cargo"
-args = [
-    "build",
-    "-p",
-    "golem-ai-search-typesense",
-    "--release",
-    "--no-default-features",
-]
 
 [tasks.build-test-components]
 dependencies = ["build"]

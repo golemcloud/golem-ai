@@ -9,110 +9,45 @@ run_task = { name = [
     "build-full"
 ] }
 
-[tasks.build-portable]
-run_task = { name = [
-    "build-javascript-portable",
-    "build-python-portable",
-    "build-full-portable",
-] }
-
 [tasks.release-build]
 run_task = { name = [
-    "release-build-javascript",
-    "release-build-python",
     "release-build-full",
-] }
-
-[tasks.release-build-portable]
-run_task = { name = [
-    "release-build-javascript-portable",
-    "release-build-python-portable",
-    "release-build-full-portable",
 ] }
 
 [tasks.build-javascript]
 script_runner = "@duckscript"
 script = '''
 exec cargo build -p golem-ai-exec --no-default-features --features javascript --features durability
-cp ../target/wasm32-wasip1/debug/golem_ai_exec.wasm ../target/debug/golem_exec_javascript.wasm
-'''
-
-
-[tasks.build-javascript-portable]
-script_runner = "@duckscript"
-script = '''
-exec cargo build -p golem-ai-exec --no-default-features --features javascript
-cp ../target/wasm32-wasip1/debug/golem_ai_exec.wasm ../target/debug/golem_exec_javascript_portable.wasm
 '''
 
 [tasks.build-python]
 script_runner = "@duckscript"
 script = '''
 exec cargo build -p golem-ai-exec --no-default-features --features python --features durability
-cp ../target/wasm32-wasip1/debug/golem_ai_exec.wasm ../target/debug/golem_exec_python.wasm
-'''
-
-[tasks.build-python-portable]
-script_runner = "@duckscript"
-script = '''
-exec cargo build -p golem-ai-exec --no-default-features --features python
-cp ../target/wasm32-wasip1/debug/golem_ai_exec.wasm ../target/debug/golem_exec_python_portable.wasm
 '''
 
 [tasks.build-full]
 script_runner = "@duckscript"
 script = '''
 exec cargo build -p golem-ai-exec
-cp ../target/wasm32-wasip1/debug/golem_ai_exec.wasm ../target/debug/golem_ai_exec.wasm
-'''
-
-[tasks.build-full-portable]
-script_runner = "@duckscript"
-script = '''
-exec cargo build -p golem-ai-exec --no-default-features --features python --features javascript
-cp ../target/wasm32-wasip1/debug/golem_ai_exec.wasm ../target/debug/golem_exec_portable.wasm
 '''
 
 [tasks.release-build-javascript]
 script_runner = "@duckscript"
 script = '''
 exec cargo build -p golem-ai-exec --release --no-default-features --features javascript --features durability
-cp ../target/wasm32-wasip1/release/golem_ai_exec.wasm ../target/release/golem_exec_javascript.wasm
-'''
-
-[tasks.release-build-javascript-portable]
-script_runner = "@duckscript"
-script = '''
-exec cargo build -p golem-ai-exec --release --no-default-features --features javascript
-cp ../target/wasm32-wasip1/release/golem_ai_exec.wasm ../target/release/golem_exec_javascript_portable.wasm
 '''
 
 [tasks.release-build-python]
 script_runner = "@duckscript"
 script = '''
 exec cargo build -p golem-ai-exec --release --no-default-features --features python --features durability
-cp ../target/wasm32-wasip1/release/golem_ai_exec.wasm ../target/release/golem_exec_python.wasm
-'''
-
-[tasks.release-build-python-portable]
-script_runner = "@duckscript"
-script = '''
-exec cargo build -p golem-ai-exec --release --no-default-features --features python
-cp ../target/wasm32-wasip1/release/golem_ai_exec.wasm ../target/release/golem_exec_python_portable.wasm
 '''
 
 [tasks.release-build-full]
 script_runner = "@duckscript"
 script = '''
 exec cargo build -p golem-ai-exec --release
-cp ../target/wasm32-wasip1/release/golem_ai_exec.wasm ../target/release/golem_ai_exec.wasm
-'''
-
-[tasks.release-build-full-portable]
-script_runner = "@duckscript"
-script = '''
-exec cargo build -p golem-ai-exec --release --no-default-features --features python --features javascript
-cp ../target/wasm32-wasip1/release/golem_ai_exec.wasm ../target/release/golem_exec_portable.wasm
 '''
 
 [tasks.build-test-components]
