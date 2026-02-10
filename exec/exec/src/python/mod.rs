@@ -7,7 +7,7 @@ use rustpython::vm::builtins::{PyBaseException, PyBaseExceptionRef, PyStr, PyStr
 use rustpython::vm::{
     extend_class, py_class, Interpreter, PyObjectRef, PyRef, PyResult, Settings, VirtualMachine,
 };
-use rustpython::{vm, InterpreterConfig};
+use rustpython::{vm, InterpreterBuilderExt};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU32;
@@ -274,7 +274,7 @@ impl PythonSession {
                 __restricted_fs.set_cwd(__cwd)
                 "#
             );
-            match vm.run_code_string(scope.clone(), init_script, "<init>".to_string()) {
+            match vm.run_string(scope.clone(), init_script, "<init>".to_string()) {
                 Ok(_) => {}
                 Err(err) => {
                     let err = py_exception_error(vm, &err);
@@ -344,8 +344,7 @@ impl PythonSession {
             Settings::default().with_path(self.module_root.to_string_lossy().to_string());
         settings.ignore_environment = true;
 
-        let config = InterpreterConfig::new().settings(settings).init_stdlib();
-        let interpreter = config.interpreter();
+        let interpreter = Interpreter::builder(settings).init_stdlib().build();
 
         for file in &self.modules {
             let name = &file.name;
