@@ -9,6 +9,7 @@ interface test-llm-api {
   test6: func() -> string;
   test7: func() -> string;
   test8: func() -> string;
+  test9: func() -> string;
 }
 
 interface test-llm-inline-functions {}

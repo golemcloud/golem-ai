@@ -69,6 +69,66 @@ const IMAGE_MODEL: &str = "openrouter/auto";
 #[cfg(feature = "ollama")]
 const IMAGE_MODEL: &str = "gemma3:4b";
 
+#[cfg(feature = "openai")]
+fn provider_passthrough_options() -> Vec<Kv> {
+    vec![
+        Kv {
+            key: "max_output_tokens".to_string(),
+            value: "64".to_string(),
+        },
+        Kv {
+            key: "store".to_string(),
+            value: "false".to_string(),
+        },
+    ]
+}
+
+#[cfg(feature = "anthropic")]
+fn provider_passthrough_options() -> Vec<Kv> {
+    vec![Kv {
+        key: "metadata".to_string(),
+        value: r#"{"user_id":"passthrough-test","session":"golem-ai"}"#.to_string(),
+    }]
+}
+
+#[cfg(feature = "grok")]
+fn provider_passthrough_options() -> Vec<Kv> {
+    vec![Kv {
+        key: "max_completion_tokens".to_string(),
+        value: "64".to_string(),
+    }]
+}
+
+#[cfg(feature = "openrouter")]
+fn provider_passthrough_options() -> Vec<Kv> {
+    vec![
+        Kv {
+            key: "max_tokens".to_string(),
+            value: "64".to_string(),
+        },
+        Kv {
+            key: "models".to_string(),
+            value: "[\"openai/gpt-4o-mini\"]".to_string(),
+        },
+    ]
+}
+
+#[cfg(feature = "ollama")]
+fn provider_passthrough_options() -> Vec<Kv> {
+    vec![Kv {
+        key: "options".to_string(),
+        value: r#"{"use_mlock":true}"#.to_string(),
+    }]
+}
+
+#[cfg(feature = "bedrock")]
+fn provider_passthrough_options() -> Vec<Kv> {
+    vec![Kv {
+        key: "top_k".to_string(),
+        value: "20".to_string(),
+    }]
+}
+
 #[agent_definition]
 pub trait LlmTest {
     fn new(name: String) -> Self;
@@ -81,6 +141,7 @@ pub trait LlmTest {
     async fn test6(&self) -> String;
     fn test7(&self) -> String;
     async fn test8(&self) -> String;
+    fn test9(&self) -> String;
 }
 
 struct LlmTestImpl {
@@ -708,5 +769,58 @@ impl LlmTest for LlmTestImpl {
         }
 
         result
+    }
+
+    fn test9(&self) -> String {
+        let config = Config {
+            model: MODEL.to_string(),
+            temperature: Some(0.1),
+            max_tokens: None,
+            stop_sequences: None,
+            tools: None,
+            tool_choice: None,
+            provider_options: Some(provider_passthrough_options()),
+        };
+
+        println!(
+            "Sending request with passthrough options: {:?}",
+            config.provider_options
+        );
+
+        let response = Provider::send(
+            vec![Event::Message(Message {
+                role: Role::User,
+                name: None,
+                content: vec![ContentPart::Text(
+                    "Reply with the text: passthrough-ok".to_string(),
+                )],
+            })],
+            config,
+        );
+
+        match response {
+            Ok(response) => {
+                let text = response
+                    .content
+                    .into_iter()
+                    .filter_map(|part| match part {
+                        ContentPart::Text(value) => Some(value),
+                        ContentPart::Image(_) => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" ");
+
+                format!(
+                    "content={text}; metadata={:?}; tool_calls={:?}",
+                    response.metadata, response.tool_calls
+                )
+            }
+            Err(error) => format!(
+                "ERROR: {:?} {} ({})",
+                error.code,
+                error.message,
+                error.provider_error_json.unwrap_or_default()
+            ),
+        }
     }
 }

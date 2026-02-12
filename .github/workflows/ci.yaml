@@ -222,6 +222,7 @@ jobs:
           golem agent invoke 'test:llm/llm-test("ollama-1")' test6 | grep -v "ERROR: "
           golem agent invoke 'test:llm/llm-test("ollama-1")' test7 | grep -v "ERROR: "
           golem agent invoke 'test:llm/llm-test("ollama-1")' test8 | grep -v "ERROR: "
+          golem agent invoke 'test:llm/llm-test("ollama-1")' test9 | grep -v "ERROR: "
 
   graph-integration-tests:
     runs-on: ubuntu-latest
