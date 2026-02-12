@@ -3,21 +3,15 @@ use crate::client::{
 };
 use base64::{engine::general_purpose, Engine as _};
 use golem_ai_llm::model::{
-    Config, ContentPart, Error, ErrorCode, Event, FinishReason, ImageDetail, ImageReference,
+    Config, ContentPart, Error, ErrorCode, Event, FinishReason, ImageDetail, ImageReference, Kv,
     Response, ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
 };
 use std::collections::HashMap;
 
 pub fn events_to_request(events: Vec<Event>, config: Config) -> Result<CompletionsRequest, Error> {
-    let options = config
-        .provider_options
-        .map(|options| {
-            options
-                .into_iter()
-                .map(|kv| (kv.key, kv.value))
-                .collect::<HashMap<_, _>>()
-        })
-        .unwrap_or_default();
+    let provider_options = config.provider_options.clone();
+    let options = provider_options_to_string_map(provider_options.clone());
+    let mut additional_params = provider_options_to_json_map(provider_options);
 
     let mut completion_messages = Vec::new();
     for event in events {
@@ -69,39 +63,96 @@ pub fn events_to_request(events: Vec<Event>, config: Config) -> Result<Completio
         tools.push(tool_definition_to_tool(tool)?)
     }
 
+    let frequency_penalty = options
+        .get("frequency_penalty")
+        .and_then(|fp_s| fp_s.parse::<f32>().ok());
+    let presence_penalty = options
+        .get("presence_penalty")
+        .and_then(|pp_s| pp_s.parse::<f32>().ok());
+    let repetition_penalty = options
+        .get("repetition_penalty")
+        .and_then(|rp_s| rp_s.parse::<f32>().ok());
+    let seed = options
+        .get("seed")
+        .and_then(|seed_s| seed_s.parse::<u32>().ok());
+    let stop = config.stop_sequences;
+    let temperature = config.temperature;
+    let tool_choice = config.tool_choice.map(convert_tool_choice);
+    let top_p = options
+        .get("top_p")
+        .and_then(|top_p_s| top_p_s.parse::<f32>().ok());
+    let top_k = options
+        .get("top_k")
+        .and_then(|top_k_s| top_k_s.parse::<f32>().ok());
+    let min_p = options
+        .get("min_p")
+        .and_then(|min_p_s| min_p_s.parse::<f32>().ok());
+    let top_a = options
+        .get("top_a")
+        .and_then(|top_a_s| top_a_s.parse::<f32>().ok());
+
+    if frequency_penalty.is_some() {
+        additional_params.remove("frequency_penalty");
+    }
+    if presence_penalty.is_some() {
+        additional_params.remove("presence_penalty");
+    }
+    if repetition_penalty.is_some() {
+        additional_params.remove("repetition_penalty");
+    }
+    if seed.is_some() {
+        additional_params.remove("seed");
+    }
+    if stop.is_some() {
+        additional_params.remove("stop");
+    }
+    if temperature.is_some() {
+        additional_params.remove("temperature");
+    }
+    if tool_choice.is_some() {
+        additional_params.remove("tool_choice");
+    }
+    if top_p.is_some() {
+        additional_params.remove("top_p");
+    }
+    if top_k.is_some() {
+        additional_params.remove("top_k");
+    }
+    if min_p.is_some() {
+        additional_params.remove("min_p");
+    }
+    if top_a.is_some() {
+        additional_params.remove("top_a");
+    }
+    if !tools.is_empty() {
+        additional_params.remove("tools");
+    }
+    if config.max_tokens.is_some() {
+        additional_params.remove("max_tokens");
+    }
+
+    additional_params.remove("messages");
+    additional_params.remove("model");
+    additional_params.remove("stream");
+
     Ok(CompletionsRequest {
         messages: completion_messages,
         model: config.model,
-        frequency_penalty: options
-            .get("frequency_penalty")
-            .and_then(|fp_s| fp_s.parse::<f32>().ok()),
+        frequency_penalty,
         max_tokens: config.max_tokens,
-        presence_penalty: options
-            .get("presence_penalty")
-            .and_then(|pp_s| pp_s.parse::<f32>().ok()),
-        repetition_penalty: options
-            .get("repetition_penalty")
-            .and_then(|rp_s| rp_s.parse::<f32>().ok()),
-        seed: options
-            .get("seed")
-            .and_then(|seed_s| seed_s.parse::<u32>().ok()),
-        stop: config.stop_sequences,
+        presence_penalty,
+        repetition_penalty,
+        seed,
+        stop,
         stream: Some(false),
-        temperature: config.temperature,
-        tool_choice: config.tool_choice.map(convert_tool_choice),
+        temperature,
+        tool_choice,
         tools,
-        top_p: options
-            .get("top_p")
-            .and_then(|top_p_s| top_p_s.parse::<f32>().ok()),
-        top_k: options
-            .get("top_k")
-            .and_then(|top_k_s| top_k_s.parse::<f32>().ok()),
-        min_p: options
-            .get("min_p")
-            .and_then(|min_p_s| min_p_s.parse::<f32>().ok()),
-        top_a: options
-            .get("top_a")
-            .and_then(|top_a_s| top_a_s.parse::<f32>().ok()),
+        top_p,
+        top_k,
+        min_p,
+        top_a,
+        additional_params,
     })
 }
 
@@ -271,5 +322,83 @@ fn convert_tool_choice(tool_choice: String) -> crate::client::ToolChoice {
         _ => crate::client::ToolChoice::Function(ToolChoiceFunction::Function {
             function: FunctionName { name: tool_choice },
         }),
+    }
+}
+
+fn provider_options_to_string_map(provider_options: Option<Vec<Kv>>) -> HashMap<String, String> {
+    provider_options
+        .unwrap_or_default()
+        .into_iter()
+        .map(|kv| (kv.key, kv.value))
+        .collect::<HashMap<_, _>>()
+}
+
+fn provider_options_to_json_map(
+    provider_options: Option<Vec<Kv>>,
+) -> HashMap<String, serde_json::Value> {
+    provider_options
+        .unwrap_or_default()
+        .into_iter()
+        .map(|kv| (kv.key, parse_provider_option_value(&kv.value)))
+        .collect::<HashMap<_, _>>()
+}
+
+fn parse_provider_option_value(value: &str) -> serde_json::Value {
+    serde_json::from_str(value).unwrap_or_else(|_| serde_json::Value::String(value.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use golem_ai_llm::model::{Config, Kv};
+
+    fn kv(key: &str, value: &str) -> Kv {
+        Kv {
+            key: key.to_string(),
+            value: value.to_string(),
+        }
+    }
+
+    fn base_config(provider_options: Option<Vec<Kv>>) -> Config {
+        Config {
+            model: "openrouter-test".to_string(),
+            temperature: Some(0.2),
+            max_tokens: Some(64),
+            stop_sequences: None,
+            tools: None,
+            tool_choice: None,
+            provider_options,
+        }
+    }
+
+    #[test]
+    fn includes_unmapped_options_in_passthrough_map() {
+        let request = events_to_request(
+            Vec::new(),
+            base_config(Some(vec![
+                kv("frequency_penalty", "0.1"),
+                kv("experimental", "{\"reasoning\":true}"),
+            ])),
+        )
+        .unwrap();
+
+        assert_eq!(request.frequency_penalty, Some(0.1));
+        assert!(!request.additional_params.contains_key("frequency_penalty"));
+        assert_eq!(
+            request.additional_params.get("experimental"),
+            Some(&serde_json::json!({"reasoning": true}))
+        );
+    }
+
+    #[test]
+    fn keeps_failed_typed_parsing_as_passthrough() {
+        let request =
+            events_to_request(Vec::new(), base_config(Some(vec![kv("top_p", "rapid")]))).unwrap();
+
+        assert_eq!(request.top_p, None);
+        assert_eq!(
+            request.additional_params.get("top_p"),
+            Some(&serde_json::json!("rapid"))
+        );
     }
 }

@@ -27,16 +27,7 @@ impl BedrockInput {
         events: Vec<llm::Event>,
     ) -> Result<Self, llm::Error> {
         let (user_messages, system_instructions) = events_to_bedrock_message_groups(events).await?;
-
-        let options = config
-            .provider_options
-            .map(|options| {
-                options
-                    .into_iter()
-                    .map(|kv| (kv.key, Document::String(kv.value)))
-                    .collect::<HashMap<_, _>>()
-            })
-            .unwrap_or_default();
+        let options = provider_options_to_additional_fields(config.provider_options);
 
         Ok(BedrockInput {
             model_id: config.model.clone(),
@@ -46,6 +37,9 @@ impl BedrockInput {
                 .set_stop_sequences(config.stop_sequences.clone())
                 .set_top_p(options.get("top_p").and_then(|v| match v {
                     Document::String(v) => v.parse::<f32>().ok(),
+                    Document::Number(Number::Float(v)) => Some(*v as f32),
+                    Document::Number(Number::NegInt(v)) => Some(*v as f32),
+                    Document::Number(Number::PosInt(v)) => Some(*v as f32),
                     _ => None,
                 }))
                 .build(),
@@ -55,6 +49,31 @@ impl BedrockInput {
             additional_fields: Document::Object(options),
         })
     }
+}
+
+fn provider_options_to_additional_fields(
+    provider_options: Option<Vec<llm::Kv>>,
+) -> HashMap<String, Document> {
+    provider_options_to_json_map(provider_options)
+        .into_iter()
+        .fold(HashMap::new(), |mut acc, (key, value)| {
+            acc.insert(key, serde_json_to_smithy_document(value));
+            acc
+        })
+}
+
+fn provider_options_to_json_map(
+    provider_options: Option<Vec<llm::Kv>>,
+) -> HashMap<String, serde_json::Value> {
+    provider_options
+        .unwrap_or_default()
+        .into_iter()
+        .map(|kv| (kv.key, parse_provider_option_value(&kv.value)))
+        .collect::<HashMap<_, _>>()
+}
+
+fn parse_provider_option_value(value: &str) -> serde_json::Value {
+    serde_json::from_str(value).unwrap_or_else(|_| serde_json::Value::String(value.to_string()))
 }
 
 fn tool_defs_to_bedrock_tool_config(
@@ -619,4 +638,37 @@ pub fn merge_metadata(
         .or(metadata2.provider_metadata_json);
 
     metadata1
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn kv(key: &str, value: &str) -> llm::Kv {
+        llm::Kv {
+            key: key.to_string(),
+            value: value.to_string(),
+        }
+    }
+
+    #[test]
+    fn provider_options_support_non_string_values() {
+        let fields = provider_options_to_additional_fields(Some(vec![
+            kv("top_p", "0.95"),
+            kv("enabled", "true"),
+            kv("metadata", "{\"tier\":\"pro\"}"),
+            kv("tag", "preview"),
+        ]));
+
+        match fields.get("top_p") {
+            Some(Document::Number(Number::Float(value))) => assert!((*value - 0.95).abs() < 0.0001),
+            other => panic!("unexpected top_p value: {other:?}"),
+        }
+        assert!(matches!(fields.get("enabled"), Some(Document::Bool(true))));
+        assert!(matches!(fields.get("metadata"), Some(Document::Object(_))));
+        assert!(matches!(
+            fields.get("tag"),
+            Some(Document::String(value)) if value == "preview"
+        ));
+    }
 }

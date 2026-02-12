@@ -1,4 +1,4 @@
-use std::{fmt::Debug, fs, path::Path};
+use std::{collections::HashMap, fmt::Debug, fs, path::Path};
 
 use base64::{engine::general_purpose, Engine};
 use golem_ai_llm::{
@@ -145,6 +145,8 @@ pub struct OllamaModelOptions {
     pub use_mmap: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub num_thread: Option<i32>,
+    #[serde(flatten, default, skip_serializing_if = "HashMap::is_empty")]
+    pub additional_params: HashMap<String, serde_json::Value>,
 }
 
 /// ChatRequest is parameters for a request to the chat endpoint
@@ -176,6 +178,8 @@ pub struct CompletionsRequest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_alive: Option<String>,
+    #[serde(flatten, default, skip_serializing_if = "HashMap::is_empty")]
+    pub additional_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
