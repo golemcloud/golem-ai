@@ -7,6 +7,7 @@ use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 const BASE_URL: &str = "https://api.anthropic.com";
@@ -84,6 +85,8 @@ pub struct MessagesRequest {
     pub top_k: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f32>,
+    #[serde(flatten, default, skip_serializing_if = "HashMap::is_empty")]
+    pub additional_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

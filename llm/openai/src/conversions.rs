@@ -5,8 +5,8 @@ use crate::client::{
 use base64::{engine::general_purpose, Engine as _};
 use golem_ai_llm::error::error_code_from_status;
 use golem_ai_llm::model::{
-    Config, ContentPart, Error, ErrorCode, Event, ImageDetail, ImageReference, Message, Response,
-    ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
+    Config, ContentPart, Error, ErrorCode, Event, ImageDetail, ImageReference, Kv, Message,
+    Response, ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
 };
 use golem_wasi_http::StatusCode;
 use log::trace;
@@ -18,15 +18,35 @@ pub fn create_request(
     config: Config,
     tools: Vec<Tool>,
 ) -> CreateModelResponseRequest {
-    let options = config
-        .provider_options
-        .map(|options| {
-            options
-                .into_iter()
-                .map(|kv| (kv.key, kv.value))
-                .collect::<HashMap<_, _>>()
-        })
-        .unwrap_or_default();
+    let provider_options = config.provider_options.clone();
+    let options = provider_options_to_string_map(provider_options.clone());
+    let mut additional_params = provider_options_to_json_map(provider_options);
+
+    let top_p = options
+        .get("top_p")
+        .and_then(|top_p_s| top_p_s.parse::<f32>().ok());
+    let user = options.get("user").cloned();
+
+    if top_p.is_some() {
+        additional_params.remove("top_p");
+    }
+    if user.is_some() {
+        additional_params.remove("user");
+    }
+    if config.temperature.is_some() {
+        additional_params.remove("temperature");
+    }
+    if config.max_tokens.is_some() {
+        additional_params.remove("max_output_tokens");
+    }
+    if config.tool_choice.is_some() {
+        additional_params.remove("tool_choice");
+    }
+
+    additional_params.remove("input");
+    additional_params.remove("model");
+    additional_params.remove("tools");
+    additional_params.remove("stream");
 
     CreateModelResponseRequest {
         input: Input::List(items),
@@ -36,12 +56,9 @@ pub fn create_request(
         tools,
         tool_choice: config.tool_choice,
         stream: false,
-        top_p: options
-            .get("top_p")
-            .and_then(|top_p_s| top_p_s.parse::<f32>().ok()),
-        user: options
-            .get("user")
-            .and_then(|user_s| user_s.parse::<String>().ok()),
+        top_p,
+        user,
+        additional_params,
     }
 }
 
@@ -275,5 +292,91 @@ pub fn create_response_metadata(response: &CreateModelResponseResponse) -> Respo
         provider_id: Some(response.id.clone()),
         timestamp: Some(response.created_at.to_string()),
         provider_metadata_json: response.metadata.as_ref().map(|m| m.to_string()),
+    }
+}
+
+fn provider_options_to_string_map(provider_options: Option<Vec<Kv>>) -> HashMap<String, String> {
+    provider_options
+        .unwrap_or_default()
+        .into_iter()
+        .map(|kv| (kv.key, kv.value))
+        .collect::<HashMap<_, _>>()
+}
+
+fn provider_options_to_json_map(
+    provider_options: Option<Vec<Kv>>,
+) -> HashMap<String, serde_json::Value> {
+    provider_options
+        .unwrap_or_default()
+        .into_iter()
+        .map(|kv| (kv.key, parse_provider_option_value(&kv.value)))
+        .collect::<HashMap<_, _>>()
+}
+
+fn parse_provider_option_value(value: &str) -> serde_json::Value {
+    serde_json::from_str(value).unwrap_or_else(|_| serde_json::Value::String(value.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use golem_ai_llm::model::{Config, Kv};
+
+    fn kv(key: &str, value: &str) -> Kv {
+        Kv {
+            key: key.to_string(),
+            value: value.to_string(),
+        }
+    }
+
+    fn base_config(provider_options: Option<Vec<Kv>>) -> Config {
+        Config {
+            model: "gpt-test".to_string(),
+            temperature: Some(0.7),
+            max_tokens: Some(128),
+            stop_sequences: None,
+            tools: None,
+            tool_choice: Some("auto".to_string()),
+            provider_options,
+        }
+    }
+
+    #[test]
+    fn includes_unmapped_provider_options_as_passthrough() {
+        let request = create_request(
+            Vec::new(),
+            base_config(Some(vec![
+                kv("top_p", "0.9"),
+                kv("custom_flag", "true"),
+                kv("custom_payload", "{\"mode\":\"fast\"}"),
+            ])),
+            Vec::new(),
+        );
+
+        assert_eq!(request.top_p, Some(0.9));
+        assert_eq!(
+            request.additional_params.get("custom_flag"),
+            Some(&serde_json::json!(true))
+        );
+        assert_eq!(
+            request.additional_params.get("custom_payload"),
+            Some(&serde_json::json!({"mode":"fast"}))
+        );
+        assert!(!request.additional_params.contains_key("top_p"));
+    }
+
+    #[test]
+    fn keeps_known_option_as_passthrough_when_typed_parse_fails() {
+        let request = create_request(
+            Vec::new(),
+            base_config(Some(vec![kv("top_p", "high")])),
+            Vec::new(),
+        );
+
+        assert_eq!(request.top_p, None);
+        assert_eq!(
+            request.additional_params.get("top_p"),
+            Some(&serde_json::json!("high"))
+        );
     }
 }
