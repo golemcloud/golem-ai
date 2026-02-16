@@ -1,5 +1,0 @@
-package test:helper;
-
-world test-helper {
-  export test:helper-exports/test-helper-api;
-}
