@@ -6,6 +6,7 @@
 manifestVersion: "1.5.0"
 components:
   test:websearch:
+    dir: "."
     templates: rust
     env:
       # GOLEM_WEB_SEARCH_LOG: "trace"

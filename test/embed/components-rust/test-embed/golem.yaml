@@ -6,6 +6,7 @@
 manifestVersion: "1.5.0"
 components:
   test:embed:
+    dir: "."
     templates: rust
 
     env:

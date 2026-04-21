@@ -22,15 +22,8 @@ componentTemplates:
           - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          basedOnCompiledWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          withAgent: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_openai_debug.static.wasm
-        sourceWit: .wit/wit
-        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
-        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_openai_debug.static.wasm
-        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_openai_debug.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_openai_debug.wasm
         clean:
         - src/bindings.rs
 
@@ -44,15 +37,8 @@ componentTemplates:
           - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          basedOnCompiledWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          withAgent: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_cohere_debug.static.wasm
-        sourceWit: .wit/wit
-        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
-        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_cohere_debug.static.wasm
-        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_cohere_debug.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_cohere_debug.wasm
         clean:
         - src/bindings.rs
 
@@ -66,15 +52,8 @@ componentTemplates:
           - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          basedOnCompiledWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          withAgent: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_hugging_face_debug.static.wasm
-        sourceWit: .wit/wit
-        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
-        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_hugging_face_debug.static.wasm
-        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_hugging_face_debug.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_hugging_face_debug.wasm
         clean:
         - src/bindings.rs
 
@@ -88,15 +67,8 @@ componentTemplates:
           - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          basedOnCompiledWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          withAgent: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_voyageai_debug.static.wasm
-        sourceWit: .wit/wit
-        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
-        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_voyageai_debug.static.wasm
-        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_voyageai_debug.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_voyageai_debug.wasm
         clean:
         - src/bindings.rs
 
@@ -111,15 +83,8 @@ componentTemplates:
           - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          basedOnCompiledWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          withAgent: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_openai_release.static.wasm
-        sourceWit: .wit/wit
-        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
-        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_openai_release.static.wasm
-        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_openai_release.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_openai_release.wasm
         clean:
         - src/bindings.rs
 
@@ -133,15 +98,8 @@ componentTemplates:
           - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          basedOnCompiledWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          withAgent: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_cohere_release.static.wasm
-        sourceWit: .wit/wit
-        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
-        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_cohere_release.static.wasm
-        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_cohere_release.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_cohere_release.wasm
         clean:
         - src/bindings.rs
 
@@ -155,15 +113,8 @@ componentTemplates:
           - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          basedOnCompiledWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          withAgent: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_hugging_face_release.static.wasm
-        sourceWit: .wit/wit
-        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
-        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_hugging_face_release.static.wasm
-        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_hugging_face_release.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_hugging_face_release.wasm
         clean:
         - src/bindings.rs
 
@@ -177,15 +128,8 @@ componentTemplates:
           - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        - generateAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          basedOnCompiledWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        - composeAgentWrapper: ../../golem-temp/agents/{{ component_name | to_snake_case }}.wrapper.wasm
-          withAgent: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-          to: ../../golem-temp/agents/{{ component_name | to_snake_case }}_voyageai_release.static.wasm
-        sourceWit: .wit/wit
-        generatedWit: ../../golem-temp/agents/{{ component_name | to_snake_case }}/wit-generated
-        componentWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_voyageai_release.static.wasm
-        linkedWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_voyageai_release.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_voyageai_release.wasm
         clean:
         - src/bindings.rs
 customCommands:

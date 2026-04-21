@@ -6,4 +6,5 @@
 manifestVersion: "1.5.0"
 components:
   test:exec-js:
+    dir: "."
     templates: rust
