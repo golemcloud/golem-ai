@@ -12,7 +12,6 @@ componentTemplates:
     presets:
       # DEBUG PROFILES
       openai-debug:
-        default: true
         files:
         - sourcePath: ../../data/cat.png
           targetPath: /data/cat.png

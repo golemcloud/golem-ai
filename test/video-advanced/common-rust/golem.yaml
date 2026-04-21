@@ -12,7 +12,6 @@ componentTemplates:
     presets:
       # DEBUG PROFILES
       kling-debug:
-        default: true
         files:
         - sourcePath: ../../data/first.png
           targetPath: /data/first.png

@@ -394,7 +394,7 @@ pub fn google_voices_to_language_info(voices: Vec<GoogleVoice>) -> Vec<LanguageI
     }
 
     let mut languages: Vec<LanguageInfo> = language_map.into_values().collect();
-    languages.sort_by(|a, b| b.voice_count.cmp(&a.voice_count));
+    languages.sort_by_key(|b| std::cmp::Reverse(b.voice_count));
     languages
 }
 

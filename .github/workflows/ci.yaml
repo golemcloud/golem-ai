@@ -139,24 +139,24 @@ jobs:
           golem profile config local set-format json
           export GOLEM_PRESET=release
           golem deploy --yes
-          golem agent invoke 'test:exec-js/exec-js-test("test-1")' test01 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-js/exec-js-test("test-2")' test02 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-js/exec-js-test("test-3")' test03 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-js/exec-js-test("test-4")' test04 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-js/exec-js-test("test-5")' test05 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-js/exec-js-test("test-6")' test06 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-js/exec-js-test("test-7")' test07 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-js/exec-js-test("test-8")' test08 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-js/exec-js-test("test-9")' test09 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-js/exec-js-test("test-10")' test10 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-js/exec-js-test("test-11")' test11 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-py/exec-py-test("test-1")' test1 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-py/exec-py-test("test-2")' test2 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-py/exec-py-test("test-3")' test3 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-py/exec-py-test("test-4")' test4 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-py/exec-py-test("test-5")' test5 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-py/exec-py-test("test-6")' test6 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'test:exec-py/exec-py-test("test-7")' test7 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-1")' test01 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-2")' test02 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-3")' test03 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-4")' test04 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-5")' test05 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-6")' test06 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-7")' test07 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-8")' test08 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-9")' test09 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-10")' test10 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-11")' test11 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecPyTest("test-1")' test1 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecPyTest("test-2")' test2 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecPyTest("test-3")' test3 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecPyTest("test-4")' test4 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecPyTest("test-5")' test5 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecPyTest("test-6")' test6 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecPyTest("test-7")' test7 --no-stream | jq -e '(.result_wave[0]=="true")'
 
   ollama-integration-tests:
     runs-on: ubuntu-latest
@@ -213,16 +213,16 @@ jobs:
           cargo make --cwd llm build-ollama
           cd test/llm
           golem deploy --preset ollama-debug --yes
-          golem agent new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 'test:llm/llm-test("ollama-1")'
-          golem agent invoke 'test:llm/llm-test("ollama-1")' test1 | grep -v "ERROR: "
-          golem agent invoke 'test:llm/llm-test("ollama-1")' test2 | grep -v "ERROR: "
-          golem agent invoke 'test:llm/llm-test("ollama-1")' test3 | grep -v "ERROR: "
-          golem agent invoke 'test:llm/llm-test("ollama-1")' test4 | grep -v "ERROR: "
-          golem agent invoke 'test:llm/llm-test("ollama-1")' test5 | grep -v "ERROR: "
-          golem agent invoke 'test:llm/llm-test("ollama-1")' test6 | grep -v "ERROR: "
-          golem agent invoke 'test:llm/llm-test("ollama-1")' test7 | grep -v "ERROR: "
-          golem agent invoke 'test:llm/llm-test("ollama-1")' test8 | grep -v "ERROR: "
-          golem agent invoke 'test:llm/llm-test("ollama-1")' test9 | grep -v "ERROR: "
+          golem agent new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 'LlmTest("ollama-1")'
+          golem agent invoke 'LlmTest("ollama-1")' test1 | grep -v "ERROR: "
+          golem agent invoke 'LlmTest("ollama-1")' test2 | grep -v "ERROR: "
+          golem agent invoke 'LlmTest("ollama-1")' test3 | grep -v "ERROR: "
+          golem agent invoke 'LlmTest("ollama-1")' test4 | grep -v "ERROR: "
+          golem agent invoke 'LlmTest("ollama-1")' test5 | grep -v "ERROR: "
+          golem agent invoke 'LlmTest("ollama-1")' test6 | grep -v "ERROR: "
+          golem agent invoke 'LlmTest("ollama-1")' test7 | grep -v "ERROR: "
+          golem agent invoke 'LlmTest("ollama-1")' test8 | grep -v "ERROR: "
+          golem agent invoke 'LlmTest("ollama-1")' test9 | grep -v "ERROR: "
 
   graph-integration-tests:
     runs-on: ubuntu-latest
@@ -313,42 +313,42 @@ jobs:
 
           echo "Testing ArangoDB integration..."
           golem deploy --preset arangodb-release --yes
-          golem agent new -e ARANGODB_HOST=localhost -e ARANGODB_USER="" -e ARANGODB_PASSWORD="" -e ARANGODB_PORT="8529" -e ARANGODB_DATABASE="test" 'test:graph/graph-test("arangodb-1")'
-          golem agent invoke 'test:graph/graph-test("arangodb-1")' test1 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("arangodb-1")' test2 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("arangodb-1")' test3 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("arangodb-1")' test4 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("arangodb-1")' test5 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("arangodb-1")' test6 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("arangodb-1")' test7 | grep -v "ERROR: "
+          golem agent new -e ARANGODB_HOST=localhost -e ARANGODB_USER="" -e ARANGODB_PASSWORD="" -e ARANGODB_PORT="8529" -e ARANGODB_DATABASE="test" 'GraphTest("arangodb-1")'
+          golem agent invoke 'GraphTest("arangodb-1")' test1 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("arangodb-1")' test2 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("arangodb-1")' test3 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("arangodb-1")' test4 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("arangodb-1")' test5 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("arangodb-1")' test6 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("arangodb-1")' test7 | grep -v "ERROR: "
           echo "ArangoDB tests completed successfully"
           golem clean -P arangodb-release
 
           echo "Testing JanusGraph integration..."
           golem deploy --preset janusgraph-release --yes
           sleep 10
-          golem agent new -e JANUSGRAPH_HOST=localhost -e JANUSGRAPH_USER="" -e JANUSGRAPH_PASSWORD="" -e JANUSGRAPH_PORT="8182" 'test:graph/graph-test("janusgraph-1")'
-          golem agent invoke 'test:graph/graph-test("janusgraph-1")' test1 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("janusgraph-1")' test2 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("janusgraph-1")' test3 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("janusgraph-1")' test4 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("janusgraph-1")' test5 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("janusgraph-1")' test6 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("janusgraph-1")' test7 | grep -v "ERROR: "
+          golem agent new -e JANUSGRAPH_HOST=localhost -e JANUSGRAPH_USER="" -e JANUSGRAPH_PASSWORD="" -e JANUSGRAPH_PORT="8182" 'GraphTest("janusgraph-1")'
+          golem agent invoke 'GraphTest("janusgraph-1")' test1 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("janusgraph-1")' test2 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("janusgraph-1")' test3 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("janusgraph-1")' test4 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("janusgraph-1")' test5 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("janusgraph-1")' test6 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("janusgraph-1")' test7 | grep -v "ERROR: "
           echo "JanusGraph tests completed successfully"
           golem clean -P janusgraph-release
 
           echo "Testing Neo4j integration..."
           golem deploy --preset neo4j-release --yes
           sleep 10
-          golem agent new -e NEO4J_HOST=localhost -e NEO4J_USER=neo4j -e NEO4J_PASSWORD=password -e NEO4J_PORT="7474" -e NEO4J_DATABASE=neo4j 'test:graph/graph-test("neo4j-1")'
-          golem agent invoke 'test:graph/graph-test("neo4j-1")' test1 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("neo4j-1")' test2 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("neo4j-1")' test3 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("neo4j-1")' test4 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("neo4j-1")' test5 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("neo4j-1")' test6 | grep -v "ERROR: "
-          golem agent invoke 'test:graph/graph-test("neo4j-1")' test7 | grep -v "ERROR: "
+          golem agent new -e NEO4J_HOST=localhost -e NEO4J_USER=neo4j -e NEO4J_PASSWORD=password -e NEO4J_PORT="7474" -e NEO4J_DATABASE=neo4j 'GraphTest("neo4j-1")'
+          golem agent invoke 'GraphTest("neo4j-1")' test1 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("neo4j-1")' test2 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("neo4j-1")' test3 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("neo4j-1")' test4 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("neo4j-1")' test5 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("neo4j-1")' test6 | grep -v "ERROR: "
+          golem agent invoke 'GraphTest("neo4j-1")' test7 | grep -v "ERROR: "
           echo "Neo4j tests completed successfully"
           golem clean -P neo4j-release
 
@@ -450,14 +450,14 @@ jobs:
           echo "Testing milvus integration..."
           export GOLEM_PRESET=milvus-release
           golem deploy --yes
-          golem agent new -e MILVUS_DATABASE=default 'test:vector/vector-test("milvus-1")'
-          golem agent invoke 'test:vector/vector-test("milvus-1")' test1 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("milvus-1")' test2 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("milvus-1")' test3 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("milvus-1")' test4 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("milvus-1")' test5 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("milvus-1")' test6 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("milvus-1")' test7 | grep -v "ERROR: "
+          golem agent new -e MILVUS_DATABASE=default 'VectorTest("milvus-1")'
+          golem agent invoke 'VectorTest("milvus-1")' test1 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("milvus-1")' test2 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("milvus-1")' test3 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("milvus-1")' test4 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("milvus-1")' test5 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("milvus-1")' test6 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("milvus-1")' test7 | grep -v "ERROR: "
           echo "Milvus tests completed successfully"
           golem clean
 
@@ -466,14 +466,14 @@ jobs:
           # export GOLEM_PRESET=pgvector-release
           # golem deploy --yes
           # sleep 10
-          # golem agent new -e PGVECTOR_CONNECTION_STRING=postgresql://postgres:mysecretpassword@localhost:3000/mydatabase 'test:vector/vector-test("pgvector-1")'
-          # golem agent invoke 'test:vector/vector-test("pgvector-1")' test1 | grep -v "ERROR: "
-          # golem agent invoke 'test:vector/vector-test("pgvector-1")' test2 | grep -v "ERROR: "
-          # golem agent invoke 'test:vector/vector-test("pgvector-1")' test3 | grep -v "ERROR: "
-          # golem agent invoke 'test:vector/vector-test("pgvector-1")' test4 | grep -v "ERROR: "
-          # golem agent invoke 'test:vector/vector-test("pgvector-1")' test5 | grep -v "ERROR: "
-          # golem agent invoke 'test:vector/vector-test("pgvector-1")' test6 | grep -v "ERROR: "
-          # golem agent invoke 'test:vector/vector-test("pgvector-1")' test7 | grep -v "ERROR: "
+          # golem agent new -e PGVECTOR_CONNECTION_STRING=postgresql://postgres:mysecretpassword@localhost:3000/mydatabase 'VectorTest("pgvector-1")'
+          # golem agent invoke 'VectorTest("pgvector-1")' test1 | grep -v "ERROR: "
+          # golem agent invoke 'VectorTest("pgvector-1")' test2 | grep -v "ERROR: "
+          # golem agent invoke 'VectorTest("pgvector-1")' test3 | grep -v "ERROR: "
+          # golem agent invoke 'VectorTest("pgvector-1")' test4 | grep -v "ERROR: "
+          # golem agent invoke 'VectorTest("pgvector-1")' test5 | grep -v "ERROR: "
+          # golem agent invoke 'VectorTest("pgvector-1")' test6 | grep -v "ERROR: "
+          # golem agent invoke 'VectorTest("pgvector-1")' test7 | grep -v "ERROR: "
           # echo "pgvector tests completed successfully"
           # golem clean
 
@@ -481,14 +481,14 @@ jobs:
           export GOLEM_PRESET=qdrant-release
           golem deploy --yes
           sleep 10
-          golem agent new 'test:vector/vector-test("qdrant-1")'
-          golem agent invoke 'test:vector/vector-test("qdrant-1")' test1 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("qdrant-1")' test2 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("qdrant-1")' test3 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("qdrant-1")' test4 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("qdrant-1")' test5 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("qdrant-1")' test6 | grep -v "ERROR: "
-          golem agent invoke 'test:vector/vector-test("qdrant-1")' test7 | grep -v "ERROR: "
+          golem agent new 'VectorTest("qdrant-1")'
+          golem agent invoke 'VectorTest("qdrant-1")' test1 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("qdrant-1")' test2 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("qdrant-1")' test3 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("qdrant-1")' test4 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("qdrant-1")' test5 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("qdrant-1")' test6 | grep -v "ERROR: "
+          golem agent invoke 'VectorTest("qdrant-1")' test7 | grep -v "ERROR: "
           echo "Qdrant tests completed successfully"
           golem clean
 

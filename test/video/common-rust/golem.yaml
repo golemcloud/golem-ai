@@ -12,7 +12,6 @@ componentTemplates:
     presets:
       # DEBUG PROFILES
       stability-debug:
-        default: true
         files:
         - sourcePath: ../../data/old.png
           targetPath: /data/old.png
