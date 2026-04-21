@@ -1,8 +1,9 @@
 # Schema for IDEA:
-# $schema: https://schema.golem.cloud/app/golem/1.5.0-dev.1/golem.schema.json
+# $schema: https://schema.golem.cloud/app/golem/1.5.0-rc3/golem.schema.json
 # Schema for vscode-yaml:
-# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.5.0-dev.1/golem.schema.json
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.5.0-rc3/golem.schema.json
 
+manifestVersion: "1.5.0"
 components:
   test:stt:
     templates: rust
