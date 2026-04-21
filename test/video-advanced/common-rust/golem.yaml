@@ -9,13 +9,13 @@
 manifestVersion: "1.5.0"
 componentTemplates:
   rust-custom:
+    files:
+    - sourcePath: ../../data/first.png
+      targetPath: /data/first.png
+      permissions: read-only
     presets:
       # DEBUG PROFILES
       kling-debug:
-        files:
-        - sourcePath: ../../data/first.png
-          targetPath: /data/first.png
-          permissions: read-only
         - sourcePath: ../../data/last.png
           targetPath: /data/last.png
           permissions: read-only
@@ -92,10 +92,6 @@ componentTemplates:
 
       # RELEASE PROFILES
       kling-release:
-        files:
-        - sourcePath: ../../data/first.png
-          targetPath: /data/first.png
-          permissions: read-only
         - sourcePath: ../../data/last.png
           targetPath: /data/last.png
           permissions: read-only

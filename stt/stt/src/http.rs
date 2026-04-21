@@ -2,9 +2,7 @@ use std::time::Duration;
 
 use bytes::{Bytes, BytesMut};
 use http::{Request, Response};
-use wstd::http::{
-    error::ErrorCode, Client,
-};
+use wstd::http::{error::ErrorCode, Client};
 
 use crate::{
     retry::{Retry, RetryConfig},
@@ -154,7 +152,9 @@ impl HttpClient for WstdHttpClient {
         let headers = wasi_response.headers().clone();
         let body_bytes = wasi_response.body_mut().contents().await?;
 
-        let mut response = Response::builder().status(status).body(body_bytes.to_vec())?;
+        let mut response = Response::builder()
+            .status(status)
+            .body(body_bytes.to_vec())?;
         *response.headers_mut() = headers;
 
         Ok(response)
