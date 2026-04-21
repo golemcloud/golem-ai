@@ -16,7 +16,5 @@ includes:
 environments:
   local:
     server: local
-    componentPresets: openai-debug
   cloud:
     server: cloud
-    componentPresets: openai-release
