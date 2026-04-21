@@ -281,10 +281,10 @@ async fn get_bytes_from_url(url: &str) -> Result<Vec<u8>, llm::Error> {
     let client = http::Client::new();
 
     let request = http::Request::get(url)
-        .body(wstd::io::empty())
+        .body(http::Body::empty())
         .expect("Valid request should be formed");
 
-    let response = client.send(request).await.map_err(|err| {
+    let mut response = client.send(request).await.map_err(|err| {
         custom_error(
             llm::ErrorCode::InvalidRequest,
             format!("Could not read image bytes from url: {url}, cause: {err}"),
@@ -300,7 +300,7 @@ async fn get_bytes_from_url(url: &str) -> Result<Vec<u8>, llm::Error> {
         ));
     }
 
-    let bytes = response.into_body().bytes().await.map_err(|err| {
+    let bytes = response.body_mut().contents().await.map_err(|err| {
         custom_error(
             llm::ErrorCode::InvalidRequest,
             format!("Could not read image bytes from url: {url}, cause: {err}"),
