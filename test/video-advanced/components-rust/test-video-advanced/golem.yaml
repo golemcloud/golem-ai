@@ -7,7 +7,7 @@ manifestVersion: "1.5.0"
 components:
   test:video-advanced:
     dir: "."
-    templates: rust
+    templates: rust-custom
     env:
       # KLING_ACCESS_KEY: "{{ KLING_ACCESS_KEY }}"
       # KLING_SECRET_KEY: "{{ KLING_SECRET_KEY }}"

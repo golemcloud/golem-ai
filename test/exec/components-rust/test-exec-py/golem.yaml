@@ -7,4 +7,4 @@ manifestVersion: "1.5.0"
 components:
   test:exec-py:
     dir: "."
-    templates: rust
+    templates: rust-custom

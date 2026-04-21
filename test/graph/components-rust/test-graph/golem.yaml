@@ -7,7 +7,7 @@ manifestVersion: "1.5.0"
 components:
   test:graph:
     dir: "."
-    templates: rust
+    templates: rust-custom
 
     env:
       # GRAPH_TEST_HOST: "127.0.0.1"

@@ -7,7 +7,7 @@ manifestVersion: "1.5.0"
 components:
   test:vector:
     dir: "."
-    templates: rust
+    templates: rust-custom
 
     env:
       # VECTOR_TEST_ENDPOINT: "http://127.0.0.1:19530"
