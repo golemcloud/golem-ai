@@ -16,6 +16,7 @@ componentTemplates:
     presets:
       # DEBUG PROFILES
       kling-debug:
+        files:
         - sourcePath: ../../data/last.png
           targetPath: /data/last.png
           permissions: read-only
@@ -92,6 +93,7 @@ componentTemplates:
 
       # RELEASE PROFILES
       kling-release:
+        files:
         - sourcePath: ../../data/last.png
           targetPath: /data/last.png
           permissions: read-only
