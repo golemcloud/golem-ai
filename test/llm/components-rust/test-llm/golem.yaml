@@ -31,3 +31,10 @@ components:
 
       ## Ollama
       # GOLEM_OLLAMA_BASE_URL: "{{ GOLEM_OLLAMA_BASE_URL }}"
+
+agents:
+  LlmTest:
+    files:
+    - sourcePath: ../../data/cat.png
+      targetPath: /data/cat.png
+      permissions: read-only

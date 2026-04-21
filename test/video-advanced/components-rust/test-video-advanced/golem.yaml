@@ -16,3 +16,45 @@ components:
       # VEO_PROJECT_ID: "{{ VEO_PROJECT_ID }}"
       # VEO_CLIENT_EMAIL: "{{ VEO_CLIENT_EMAIL }}"
       # VEO_PRIVATE_KEY: "{{ VEO_PRIVATE_KEY }}"
+
+agents:
+  VideoAdvancedTest:
+    files:
+    - sourcePath: ../../data/first.png
+      targetPath: /data/first.png
+      permissions: read-only
+    presets:
+      kling-debug:
+        files:
+        - sourcePath: ../../data/last.png
+          targetPath: /data/last.png
+          permissions: read-only
+        - sourcePath: ../../data/cameracontrol.jpeg
+          targetPath: /data/cameracontrol.jpeg
+          permissions: read-only
+        - sourcePath: ../../data/single-effect.jpeg
+          targetPath: /data/single-effect.jpeg
+          permissions: read-only
+        - sourcePath: ../../data/multi-image.jpeg
+          targetPath: /data/multi-image.jpeg
+          permissions: read-only
+        - sourcePath: ../../data/audio.wav
+          targetPath: /data/audio.wav
+          permissions: read-only
+      kling-release:
+        files:
+        - sourcePath: ../../data/last.png
+          targetPath: /data/last.png
+          permissions: read-only
+        - sourcePath: ../../data/cameracontrol.jpeg
+          targetPath: /data/cameracontrol.jpeg
+          permissions: read-only
+        - sourcePath: ../../data/single-effect.jpeg
+          targetPath: /data/single-effect.jpeg
+          permissions: read-only
+        - sourcePath: ../../data/multi-image.jpeg
+          targetPath: /data/multi-image.jpeg
+          permissions: read-only
+        - sourcePath: ../../data/audio.wav
+          targetPath: /data/audio.wav
+          permissions: read-only

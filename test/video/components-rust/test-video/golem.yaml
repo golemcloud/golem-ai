@@ -25,3 +25,10 @@ components:
       # VEO_PROJECT_ID: "{{ VEO_PROJECT_ID }}"
       # VEO_CLIENT_EMAIL: "{{ VEO_CLIENT_EMAIL }}"
       # VEO_PRIVATE_KEY: "{{ VEO_PRIVATE_KEY }}"
+
+agents:
+  VideoTest:
+    files:
+    - sourcePath: ../../data/old.png
+      targetPath: /data/old.png
+      permissions: read-only

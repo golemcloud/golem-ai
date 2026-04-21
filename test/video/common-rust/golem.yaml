@@ -12,10 +12,6 @@ componentTemplates:
     presets:
       # DEBUG PROFILES
       stability-debug:
-        files:
-        - sourcePath: ../../data/old.png
-          targetPath: /data/old.png
-          permissions: read-only
         build:
         - command: cargo component build --no-default-features --features stability
           sources:
@@ -31,10 +27,6 @@ componentTemplates:
         - src/bindings.rs
 
       runway-debug:
-        files:
-        - sourcePath: ../../data/old.png
-          targetPath: /data/old.png
-          permissions: read-only
         build:
         - command: cargo component build --no-default-features --features runway
           sources:
@@ -50,10 +42,6 @@ componentTemplates:
         - src/bindings.rs
 
       kling-debug:
-        files:
-        - sourcePath: ../../data/old.png
-          targetPath: /data/old.png
-          permissions: read-only
         build:
         - command: cargo component build --no-default-features --features kling
           sources:
@@ -69,10 +57,6 @@ componentTemplates:
         - src/bindings.rs
 
       veo-debug:
-        files:
-        - sourcePath: ../../data/old.png
-          targetPath: /data/old.png
-          permissions: read-only
         build:
         - command: cargo component build --no-default-features --features veo
           sources:
@@ -89,10 +73,6 @@ componentTemplates:
 
       # RELEASE PROFILES
       stability-release:
-        files:
-        - sourcePath: ../../data/old.png
-          targetPath: /data/old.png
-          permissions: read-only
         build:
         - command: cargo component build --release --no-default-features --features stability
           sources:
@@ -108,10 +88,6 @@ componentTemplates:
         - src/bindings.rs
 
       runway-release:
-        files:
-        - sourcePath: ../../data/old.png
-          targetPath: /data/old.png
-          permissions: read-only
         build:
         - command: cargo component build --release --no-default-features --features runway
           sources:
@@ -127,10 +103,6 @@ componentTemplates:
         - src/bindings.rs
 
       kling-release:
-        files:
-        - sourcePath: ../../data/old.png
-          targetPath: /data/old.png
-          permissions: read-only
         build:
         - command: cargo component build --release --no-default-features --features kling
           sources:
@@ -146,10 +118,6 @@ componentTemplates:
         - src/bindings.rs
 
       veo-release:
-        files:
-        - sourcePath: ../../data/old.png
-          targetPath: /data/old.png
-          permissions: read-only
         build:
         - command: cargo component build --release --no-default-features --features veo
           sources:

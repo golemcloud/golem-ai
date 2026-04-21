@@ -12,25 +12,6 @@ componentTemplates:
     presets:
       # DEBUG PROFILES
       kling-debug:
-        files:
-        - sourcePath: ../../data/first.png
-          targetPath: /data/first.png
-          permissions: read-only
-        - sourcePath: ../../data/last.png
-          targetPath: /data/last.png
-          permissions: read-only
-        - sourcePath: ../../data/cameracontrol.jpeg
-          targetPath: /data/cameracontrol.jpeg
-          permissions: read-only
-        - sourcePath: ../../data/single-effect.jpeg
-          targetPath: /data/single-effect.jpeg
-          permissions: read-only
-        - sourcePath: ../../data/multi-image.jpeg
-          targetPath: /data/multi-image.jpeg
-          permissions: read-only
-        - sourcePath: ../../data/audio.wav
-          targetPath: /data/audio.wav
-          permissions: read-only
         build:
         - command: cargo component build --no-default-features --features kling
           sources:
@@ -46,10 +27,6 @@ componentTemplates:
         - src/bindings.rs
 
       runway-debug:
-        files:
-        - sourcePath: ../../data/first.png
-          targetPath: /data/first.png
-          permissions: read-only
         build:
         - command: cargo component build --no-default-features --features runway
           sources:
@@ -65,10 +42,6 @@ componentTemplates:
         - src/bindings.rs
 
       stability-debug:
-        files:
-        - sourcePath: ../../data/first.png
-          targetPath: /data/first.png
-          permissions: read-only
         build:
         - command: cargo component build --no-default-features --features stability
           sources:
@@ -84,10 +57,6 @@ componentTemplates:
         - src/bindings.rs
 
       veo-debug:
-        files:
-        - sourcePath: ../../data/first.png
-          targetPath: /data/first.png
-          permissions: read-only
         build:
         - command: cargo component build --no-default-features --features veo
           sources:
@@ -104,25 +73,6 @@ componentTemplates:
 
       # RELEASE PROFILES
       kling-release:
-        files:
-        - sourcePath: ../../data/first.png
-          targetPath: /data/first.png
-          permissions: read-only
-        - sourcePath: ../../data/last.png
-          targetPath: /data/last.png
-          permissions: read-only
-        - sourcePath: ../../data/cameracontrol.jpeg
-          targetPath: /data/cameracontrol.jpeg
-          permissions: read-only
-        - sourcePath: ../../data/single-effect.jpeg
-          targetPath: /data/single-effect.jpeg
-          permissions: read-only
-        - sourcePath: ../../data/multi-image.jpeg
-          targetPath: /data/multi-image.jpeg
-          permissions: read-only
-        - sourcePath: ../../data/audio.wav
-          targetPath: /data/audio.wav
-          permissions: read-only
         build:
         - command: cargo component build --release --no-default-features --features kling
           sources:
@@ -138,10 +88,6 @@ componentTemplates:
         - src/bindings.rs
 
       runway-release:
-        files:
-        - sourcePath: ../../data/first.png
-          targetPath: /data/first.png
-          permissions: read-only
         build:
         - command: cargo component build --release --no-default-features --features runway
           sources:
@@ -157,10 +103,6 @@ componentTemplates:
         - src/bindings.rs
 
       stability-release:
-        files:
-        - sourcePath: ../../data/first.png
-          targetPath: /data/first.png
-          permissions: read-only
         build:
         - command: cargo component build --release --no-default-features --features stability
           sources:
@@ -176,10 +118,6 @@ componentTemplates:
         - src/bindings.rs
 
       veo-release:
-        files:
-        - sourcePath: ../../data/first.png
-          targetPath: /data/first.png
-          permissions: read-only
         build:
         - command: cargo component build --release --no-default-features --features veo
           sources:
