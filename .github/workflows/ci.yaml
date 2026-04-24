@@ -526,4 +526,87 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
       - name: Build all components in release
         run: cargo make release-build
-# TODO: publish to crates.io
+      - name: Publish crates to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -e
+
+          # Extract version from tag (strip leading 'v')
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Publishing version: $VERSION"
+
+          # Install cargo-edit for set-version
+          cargo binstall --force cargo-edit --no-confirm
+
+          # Set version on all workspace crates
+          cargo set-version --workspace "$VERSION"
+
+          PUBLISH_FLAGS="--no-verify --allow-dirty"
+
+          # Publish core crates first (no internal deps)
+          echo "Publishing core crates..."
+          for crate in \
+            llm/llm \
+            embed/embed \
+            websearch/websearch \
+            search/search \
+            graph/graph \
+            video/video \
+            exec/exec \
+            stt/stt \
+            tts/tts \
+            vector/vector; do
+            echo "Publishing $crate..."
+            cargo publish -p "$(grep '^name' "$crate/Cargo.toml" | head -1 | sed 's/.*"\(.*\)"/\1/')" $PUBLISH_FLAGS
+            sleep 30
+          done
+
+          # Publish provider crates (depend on core crates)
+          echo "Publishing provider crates..."
+          for crate in \
+            llm/anthropic \
+            llm/bedrock \
+            llm/grok \
+            llm/ollama \
+            llm/openai \
+            llm/openrouter \
+            embed/cohere \
+            embed/hugging-face \
+            embed/openai \
+            embed/voyageai \
+            websearch/brave \
+            websearch/google \
+            websearch/serper \
+            websearch/tavily \
+            search/algolia \
+            search/elasticsearch \
+            search/meilisearch \
+            search/opensearch \
+            search/typesense \
+            graph/arangodb \
+            graph/janusgraph \
+            graph/neo4j \
+            video/kling \
+            video/runway \
+            video/stability \
+            video/veo \
+            stt/aws \
+            stt/azure \
+            stt/deepgram \
+            stt/google \
+            stt/whisper \
+            tts/aws \
+            tts/deepgram \
+            tts/elevenlabs \
+            tts/google \
+            vector/milvus \
+            vector/pgvector \
+            vector/pinecone \
+            vector/qdrant; do
+            echo "Publishing $crate..."
+            cargo publish -p "$(grep '^name' "$crate/Cargo.toml" | head -1 | sed 's/.*"\(.*\)"/\1/')" $PUBLISH_FLAGS
+            sleep 30
+          done
+
+          echo "All crates published successfully!"
