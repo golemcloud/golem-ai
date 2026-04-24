@@ -1,4 +1,4 @@
-use crate::exports::golem::tts::types::{QuotaInfo, QuotaUnit, TtsError};
+use crate::model::types::{QuotaInfo, QuotaUnit, TtsError};
 use golem_wasi_http::StatusCode;
 
 pub fn unsupported(_what: impl AsRef<str>) -> TtsError {

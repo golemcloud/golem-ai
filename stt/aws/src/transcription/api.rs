@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bytes::Bytes;
-use golem_stt::{error::Error, languages::Language, transcription::SttProviderClient};
+use golem_ai_stt::{error::Error, languages::Language, transcription::SttProviderClient};
 
 use log::trace;
 
@@ -270,14 +270,14 @@ impl<S3: S3Service, TC: TranscribeService> TranscribeApi<S3, TC> {
 
                 Ok(transcribe_output)
             } else {
-                Err(golem_stt::error::Error::APIUnknown {
+                Err(golem_ai_stt::error::Error::APIUnknown {
                     request_id: request_id.to_string(),
                     provider_error: "Transcription completed but no transcript file URI found"
                         .to_string(),
                 })
             }
         } else {
-            Err(golem_stt::error::Error::APIUnknown {
+            Err(golem_ai_stt::error::Error::APIUnknown {
                 request_id: request_id.to_string(),
                 provider_error: "Transcription completed but no transcript found".to_string(),
             })
@@ -805,7 +805,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     request_id.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -829,7 +829,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     request_id.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -968,7 +968,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     vocabulary_name.clone(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -986,7 +986,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     vocabulary_name.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -1009,7 +1009,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     vocabulary_name.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -1037,7 +1037,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     transcription_job_name.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -1055,7 +1055,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     transcription_job_name.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -1085,7 +1085,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Err((
                     transcription_job_name.to_string(),
-                    golem_stt::http::Error::Generic("unexpected error".to_string()),
+                    golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
                 )
                     .into()))
         }
@@ -1093,7 +1093,7 @@ mod tests {
         async fn delete_transcription_job(
             &self,
             _transcription_job_name: &str,
-        ) -> Result<(), golem_stt::error::Error> {
+        ) -> Result<(), golem_ai_stt::error::Error> {
             Ok(())
         }
     }

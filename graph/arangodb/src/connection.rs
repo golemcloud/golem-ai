@@ -1,18 +1,25 @@
 use crate::{Graph, Transaction};
-use golem_graph::{
+use golem_ai_graph::{
     durability::ProviderGraph,
-    golem::graph::{
-        connection::{GraphStatistics, GuestGraph},
-        errors::GraphError,
+    model::{
+        connection::GraphStatistics, errors::GraphError,
         transactions::Transaction as TransactionResource,
     },
+    GraphInterface,
 };
 
 impl ProviderGraph for Graph {
     type Transaction = Transaction;
 }
 
-impl GuestGraph for Graph {
+impl GraphInterface for Graph {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn begin_transaction(&self) -> Result<TransactionResource, GraphError> {
         let transaction_id = self.api.begin_dynamic_transaction(false)?;
         let transaction = Transaction::new(self.api.clone(), transaction_id);

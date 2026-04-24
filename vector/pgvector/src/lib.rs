@@ -5,32 +5,35 @@ use crate::conversions::{
     pg_vector_results_to_vector_records, table_info_to_export_collection_info,
     vector_records_to_pgvector_data,
 };
-use golem_vector::config::{with_config_key, with_connection_config_key};
-use golem_vector::durability::{DurableVector, ExtendedGuest};
-use golem_vector::golem::vector::{
-    analytics::{CollectionStats, FieldStats, Guest as AnalyticsGuest},
-    collections::{CollectionInfo, Guest as CollectionsGuest, IndexConfig},
-    connection::{ConnectionStatus, Credentials, Guest as ConnectionGuest},
-    namespaces::{Guest as NamespacesGuest, NamespaceInfo},
-    search::{Guest as SearchGuest, SearchQuery},
+use golem_ai_vector::config::{with_config_key, with_connection_config_key};
+use golem_ai_vector::durability::{DurableVector, ExtendedVectorProvider};
+use golem_ai_vector::model::{
+    analytics::{CollectionStats, FieldStats},
+    collections::{CollectionInfo, IndexConfig},
+    connection::{ConnectionStatus, Credentials},
+    namespaces::NamespaceInfo,
+    search::SearchQuery,
     search_extended::{
-        ContextPair, GroupedSearchResult, Guest as SearchExtendedGuest, RecommendationExample,
-        RecommendationStrategy,
+        ContextPair, GroupedSearchResult, RecommendationExample, RecommendationStrategy,
     },
     types::{
         DistanceMetric, FilterExpression, Id, Metadata, MetadataValue, SearchResult, VectorData,
         VectorError, VectorRecord,
     },
-    vectors::{BatchResult, Guest as VectorsGuest, ListResponse},
+    vectors::{BatchResult, ListResponse},
+};
+use golem_ai_vector::{
+    AnalyticsProvider, CollectionProvider, ConnectionProvider, NamespacesProvider,
+    SearchExtendedProvider, SearchProvider, VectorsProvider,
 };
 use std::collections::HashMap;
 
 mod client;
 mod conversions;
 
-struct PgVectorComponent;
+pub struct PgVector;
 
-impl PgVectorComponent {
+impl PgVector {
     const CONNECTION_STRING_ENV_VAR: &'static str = "PGVECTOR_CONNECTION_STRING";
 
     fn create_client() -> Result<PgVectorClient, VectorError> {
@@ -59,7 +62,7 @@ impl PgVectorComponent {
     }
 }
 
-impl ExtendedGuest for PgVectorComponent {
+impl ExtendedVectorProvider for PgVector {
     fn connect_internal(
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -72,7 +75,7 @@ impl ExtendedGuest for PgVectorComponent {
     }
 }
 
-impl ConnectionGuest for PgVectorComponent {
+impl ConnectionProvider for PgVector {
     fn connect(
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -132,7 +135,7 @@ impl ConnectionGuest for PgVectorComponent {
     }
 }
 
-impl CollectionsGuest for PgVectorComponent {
+impl CollectionProvider for PgVector {
     fn upsert_collection(
         name: String,
         _description: Option<String>,
@@ -212,7 +215,7 @@ impl CollectionsGuest for PgVectorComponent {
     }
 }
 
-impl VectorsGuest for PgVectorComponent {
+impl VectorsProvider for PgVector {
     fn upsert_vectors(
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -434,7 +437,7 @@ impl VectorsGuest for PgVectorComponent {
     }
 }
 
-impl SearchGuest for PgVectorComponent {
+impl SearchProvider for PgVector {
     fn search_vectors(
         collection: String,
         query: SearchQuery,
@@ -540,7 +543,7 @@ impl SearchGuest for PgVectorComponent {
     }
 }
 
-impl SearchExtendedGuest for PgVectorComponent {
+impl SearchExtendedProvider for PgVector {
     fn recommend_vectors(
         _collection: String,
         _positive: Vec<RecommendationExample>,
@@ -677,7 +680,7 @@ impl SearchExtendedGuest for PgVectorComponent {
     }
 }
 
-impl AnalyticsGuest for PgVectorComponent {
+impl AnalyticsProvider for PgVector {
     fn get_collection_stats(
         collection: String,
         _namespace: Option<String>,
@@ -770,7 +773,7 @@ impl AnalyticsGuest for PgVectorComponent {
     }
 }
 
-impl NamespacesGuest for PgVectorComponent {
+impl NamespacesProvider for PgVector {
     fn upsert_namespace(
         _collection: String,
         _namespace: String,
@@ -809,6 +812,4 @@ impl NamespacesGuest for PgVectorComponent {
     }
 }
 
-type DurablePgVectorComponent = DurableVector<PgVectorComponent>;
-
-golem_vector::export_vector!(DurablePgVectorComponent with_types_in golem_vector);
+pub type DurablePgVector = DurableVector<PgVector>;

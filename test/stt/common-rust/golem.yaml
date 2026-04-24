@@ -1,0 +1,167 @@
+# Schema for IDEA:
+# $schema: https://schema.golem.cloud/app/golem/1.5.0-rc3/golem.schema.json
+# Schema for vscode-yaml:
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.5.0-rc3/golem.schema.json
+
+# Field reference: https://learn.golem.cloud/app-manifest#field-reference
+# Creating HTTP APIs: https://learn.golem.cloud/invoke/making-custom-apis
+
+manifestVersion: "1.5.0"
+componentTemplates:
+  rust-custom:
+    presets:
+      # DEBUG PROFILES
+      whisper-debug:
+        default: true
+        build:
+        - command: cargo component build --no-default-features --features whisper
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_whisper_debug.wasm
+        clean:
+        - src/bindings.rs
+
+      aws-debug:
+        build:
+        - command: cargo component build --no-default-features --features aws
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_aws_debug.wasm
+        clean:
+        - src/bindings.rs
+
+      azure-debug:
+        build:
+        - command: cargo component build --no-default-features --features azure
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_azure_debug.wasm
+        clean:
+        - src/bindings.rs
+
+      deepgram-debug:
+        build:
+        - command: cargo component build --no-default-features --features deepgram
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_deepgram_debug.wasm
+        clean:
+        - src/bindings.rs
+
+      google-debug:
+        build:
+        - command: cargo component build --no-default-features --features google
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_google_debug.wasm
+        clean:
+        - src/bindings.rs
+
+      # RELEASE PROFILES
+      whisper-release:
+        build:
+        - command: cargo component build --release --no-default-features --features whisper
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_whisper_release.wasm
+        clean:
+        - src/bindings.rs
+
+      aws-release:
+        build:
+        - command: cargo component build --release --no-default-features --features aws
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_aws_release.wasm
+        clean:
+        - src/bindings.rs
+
+      azure-release:
+        build:
+        - command: cargo component build --release --no-default-features --features azure
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_azure_release.wasm
+        clean:
+        - src/bindings.rs
+
+      deepgram-release:
+        build:
+        - command: cargo component build --release --no-default-features --features deepgram
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_deepgram_release.wasm
+        clean:
+        - src/bindings.rs
+
+      google-release:
+        build:
+        - command: cargo component build --release --no-default-features --features google
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_google_release.wasm
+        clean:
+        - src/bindings.rs
+customCommands:
+  cargo-clean:
+  - command: cargo clean

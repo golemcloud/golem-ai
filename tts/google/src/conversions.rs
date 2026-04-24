@@ -2,12 +2,12 @@ use crate::client::{
     AudioConfig, AudioEncoding, BatchSynthesisParams, SsmlVoiceGender, SynthesisInput,
     SynthesizeSpeechRequest, Voice as GoogleVoice, VoiceSelectionParams,
 };
-use golem_tts::golem::tts::synthesis::{SynthesisOptions, ValidationResult};
-use golem_tts::golem::tts::types::{
+use golem_ai_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_ai_tts::model::types::{
     AudioFormat, SynthesisMetadata, SynthesisResult, TextInput, TextType, TtsError, VoiceGender,
     VoiceQuality, VoiceSettings,
 };
-use golem_tts::golem::tts::voices::{LanguageInfo, VoiceFilter, VoiceInfo};
+use golem_ai_tts::model::voices::{LanguageInfo, VoiceFilter, VoiceInfo};
 
 pub fn estimate_audio_duration(
     audio_data: &[u8],
@@ -251,10 +251,10 @@ pub fn synthesis_options_to_tts_request(
         let params = default_params;
 
         match input.text_type {
-            golem_tts::golem::tts::types::TextType::Plain => {
+            golem_ai_tts::model::types::TextType::Plain => {
                 request.input.text = Some(input.content.clone());
             }
-            golem_tts::golem::tts::types::TextType::Ssml => {
+            golem_ai_tts::model::types::TextType::Ssml => {
                 request.input.ssml = Some(input.content.clone());
             }
         }
@@ -283,10 +283,10 @@ pub fn synthesis_options_to_tts_request(
         let mut request = default_request;
 
         match input.text_type {
-            golem_tts::golem::tts::types::TextType::Plain => {
+            golem_ai_tts::model::types::TextType::Plain => {
                 request.input.text = Some(input.content.clone());
             }
-            golem_tts::golem::tts::types::TextType::Ssml => {
+            golem_ai_tts::model::types::TextType::Ssml => {
                 request.input.ssml = Some(input.content.clone());
             }
         }
@@ -394,7 +394,7 @@ pub fn google_voices_to_language_info(voices: Vec<GoogleVoice>) -> Vec<LanguageI
     }
 
     let mut languages: Vec<LanguageInfo> = language_map.into_values().collect();
-    languages.sort_by(|a, b| b.voice_count.cmp(&a.voice_count));
+    languages.sort_by_key(|b| std::cmp::Reverse(b.voice_count));
     languages
 }
 

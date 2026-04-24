@@ -59,23 +59,24 @@ lto = true
 opt-level = 's'
 
 [workspace.dependencies]
-golem-llm = { path = "llm/llm", version = "0.0.0", default-features = false }
-golem-search = { path = "search/search", version = "0.0.0", default-features = false }
-golem-graph = { path = "graph/graph", version = "0.0.0", default-features = false }
-golem-video = { path = "video/video", version = "0.0.0", default-features = false }
-golem-stt = { path = "stt/stt", version = "0.0.0", default-features = false }
-golem-tts = { path = "tts/tts" , version = "0.0.0" , default-features= false}
-golem-vector = { path = "vector/vector", version = "0.0.0", default-features = false}
-golem-embed = { path = "embed/embed", version = "0.0.0", default-features = false}
+golem-ai-llm = { path = "llm/llm", version = "0.0.0", default-features = false }
+golem-ai-search = { path = "search/search", version = "0.0.0", default-features = false }
+golem-ai-graph = { path = "graph/graph", version = "0.0.0", default-features = false }
+golem-ai-video = { path = "video/video", version = "0.0.0", default-features = false }
+golem-ai-stt = { path = "stt/stt", version = "0.0.0", default-features = false }
+golem-ai-tts = { path = "tts/tts" , version = "0.0.0" , default-features= false}
+golem-ai-vector = { path = "vector/vector", version = "0.0.0", default-features = false}
+golem-ai-embed = { path = "embed/embed", version = "0.0.0", default-features = false}
 futures = "0.3.31"
-golem-rust = "=1.10.3"
-golem-wasi-http = { version = "0.1.0", features = ["json"] }
-log = "0.4.27"
+golem-rust = "=2.0.0"
+golem-wasi-http = { version = "0.2.0", features = ["json"] }
+log = { version = "0.4.29", features = ["kv"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0" }
-wasi = "=0.14.1+wasi-0.2.3"
-wstd = "=0.5.4"
-wit-bindgen-rt = { version = "=0.40.0", features = ["bitflags"] }
+serde_json = { version = "1.0.145" }
+wasi = "=0.14.7+wasi-0.2.4"
+wstd = "=0.6.5"
+wit-bindgen = "=0.53.1"
+wasip2 = "1.0.2"
 base64 = { version = "0.22.1" }
 mime_guess = { version = "2.0.5" }
-url = { version = "2.5.4" }
+url = { version = "2.5.7" }

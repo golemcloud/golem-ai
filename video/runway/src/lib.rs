@@ -7,26 +7,24 @@ use crate::conversion::{
     generate_video_effects, list_available_voices, multi_image_generation, poll_video_generation,
     upscale_video,
 };
-use golem_video::config::with_config_key;
-use golem_video::durability::{DurableVideo, ExtendedGuest};
-use golem_video::exports::golem::video_generation::advanced::{
-    ExtendVideoOptions, GenerateVideoEffectsOptions, Guest as AdvancedGuest,
-    MultImageGenerationOptions,
+use golem_ai_video::config::with_config_key;
+use golem_ai_video::durability::{DurableVideo, ExtendedVideoGenerationProvider};
+use golem_ai_video::model::advanced::{
+    ExtendVideoOptions, GenerateVideoEffectsOptions, MultImageGenerationOptions,
 };
-use golem_video::exports::golem::video_generation::lip_sync::Guest as LipSyncGuest;
-use golem_video::exports::golem::video_generation::types::{
+use golem_ai_video::model::types::{
     AudioSource, BaseVideo, GenerationConfig, LipSyncVideo, MediaInput, VideoError, VideoResult,
     VoiceInfo,
 };
-use golem_video::exports::golem::video_generation::video_generation::Guest as VideoGenerationGuest;
+use golem_ai_video::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 
-struct RunwayComponent;
+pub struct Runway;
 
-impl RunwayComponent {
+impl Runway {
     const ENV_VAR_NAME: &'static str = "RUNWAY_API_KEY";
 }
 
-impl VideoGenerationGuest for RunwayComponent {
+impl VideoGenerationProvider for Runway {
     fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = RunwayApi::new(api_key);
@@ -49,7 +47,7 @@ impl VideoGenerationGuest for RunwayComponent {
     }
 }
 
-impl LipSyncGuest for RunwayComponent {
+impl LipSyncProvider for Runway {
     fn generate_lip_sync(video: LipSyncVideo, audio: AudioSource) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = RunwayApi::new(api_key);
@@ -65,7 +63,7 @@ impl LipSyncGuest for RunwayComponent {
     }
 }
 
-impl AdvancedGuest for RunwayComponent {
+impl AdvancedVideoGenerationProvider for Runway {
     fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
         with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
             let client = RunwayApi::new(api_key);
@@ -114,8 +112,6 @@ impl AdvancedGuest for RunwayComponent {
     }
 }
 
-impl ExtendedGuest for RunwayComponent {}
+impl ExtendedVideoGenerationProvider for Runway {}
 
-type DurableRunwayComponent = DurableVideo<RunwayComponent>;
-
-golem_video::export_video!(DurableRunwayComponent with_types_in golem_video);
+pub type DurableRunway = DurableVideo<Runway>;

@@ -1,8 +1,8 @@
 mod builtin;
 
 use crate::durability::{EmptySnapshot, SessionSnapshot};
-use crate::golem::exec::executor::{Error, ExecResult, File, Language, RunOptions};
-use crate::golem::exec::types::{LanguageKind, StageResult};
+use crate::model::{Error, ExecResult, File, Language, RunOptions};
+use crate::model::{LanguageKind, StageResult};
 use crate::{get_contents_as_string, stage_result_failure};
 use futures::TryFutureExt;
 use rquickjs::loader::{BuiltinLoader, BuiltinResolver};
@@ -12,7 +12,6 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use wstd::future::FutureExt;
-use wstd::runtime::block_on;
 use wstd::time::{Duration, Instant};
 
 fn js_engine_error(err: rquickjs::Error) -> Error {
@@ -24,14 +23,14 @@ static TEMP_DIR_COUNTER: AtomicU32 = AtomicU32::new(0);
 pub struct JavascriptComponent;
 
 impl JavascriptComponent {
-    pub fn run(
+    pub async fn run(
         lang: Language,
         files: Vec<File>,
         snippet: String,
         options: RunOptions,
     ) -> Result<ExecResult, Error> {
         let session = JavaScriptSession::new(lang, files);
-        session.run(snippet, options)
+        session.run(snippet, options).await
     }
 }
 
@@ -124,18 +123,18 @@ impl JavaScriptSession {
         }
     }
 
-    pub fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
+    pub async fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
         ensure_language_is_supported(&self.lang)?;
-        self.ensure_initialized()?;
+        self.ensure_initialized().await?;
 
-        block_on(async { self.run_async(snippet, options).await })
+        self.run_async(snippet, options).await
     }
 
-    fn ensure_initialized(&self) -> Result<(), Error> {
+    async fn ensure_initialized(&self) -> Result<(), Error> {
         let state = self.state.borrow_mut().take();
         match state {
             None => {
-                let state = block_on(async { self.initialize().await })?;
+                let state = self.initialize().await?;
                 *self.state.borrow_mut() = Some(state);
             }
             Some(state) => {

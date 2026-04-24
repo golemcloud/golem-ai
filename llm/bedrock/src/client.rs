@@ -1,8 +1,6 @@
 use crate::async_utils::UnsafeFuture;
 use crate::conversions::converse_output_to_complete_response;
-use crate::conversions::{
-    self, from_converse_sdk_error, from_converse_stream_sdk_error, BedrockInput,
-};
+use crate::conversions::{from_converse_sdk_error, from_converse_stream_sdk_error, BedrockInput};
 use crate::stream::BedrockChatStream;
 use crate::wasi_client::WasiClient;
 use aws_config::BehaviorVersion;
@@ -11,8 +9,8 @@ use aws_sdk_bedrockruntime::config::{AsyncSleep, Sleep};
 use aws_sdk_bedrockruntime::operation::converse::builders::ConverseFluentBuilder;
 use aws_sdk_bedrockruntime::operation::converse_stream::builders::ConverseStreamFluentBuilder;
 use aws_types::region;
-use golem_llm::config::{get_config_key, get_config_key_or_none};
-use golem_llm::golem::llm::llm::{Config, Error, Event, Response};
+use golem_ai_llm::config::{get_config_key, get_config_key_or_none};
+use golem_ai_llm::model::{Config, Error, Event, Response};
 use log::trace;
 use wasi::clocks::monotonic_clock;
 use wstd::runtime::Reactor;
@@ -75,7 +73,7 @@ impl Bedrock {
         }
     }
 
-    fn init_converse(&self, input: conversions::BedrockInput) -> ConverseFluentBuilder {
+    fn init_converse(&self, input: BedrockInput) -> ConverseFluentBuilder {
         self.client
             .converse()
             .model_id(input.model_id)
@@ -86,10 +84,7 @@ impl Bedrock {
             .additional_model_request_fields(input.additional_fields)
     }
 
-    fn init_converse_stream(
-        &self,
-        input: conversions::BedrockInput,
-    ) -> ConverseStreamFluentBuilder {
+    fn init_converse_stream(&self, input: BedrockInput) -> ConverseStreamFluentBuilder {
         self.client
             .converse_stream()
             .model_id(input.model_id)

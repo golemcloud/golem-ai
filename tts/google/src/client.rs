@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose, Engine as _};
-use golem_tts::config::{get_endpoint_config, get_max_retries_config, get_timeout_config};
-use golem_tts::error::{from_reqwest_error, internal_error, tts_error_from_status};
-use golem_tts::golem::tts::types::TtsError;
+use golem_ai_tts::config::{get_endpoint_config, get_max_retries_config, get_timeout_config};
+use golem_ai_tts::error::{from_reqwest_error, internal_error, tts_error_from_status};
+use golem_ai_tts::model::types::TtsError;
 use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;

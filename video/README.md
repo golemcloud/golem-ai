@@ -1,25 +1,19 @@
 # golem-video
 
-WebAssembly Components providing a unified API for various video generation providers.
+Rust libraries providing a unified API for various video generation providers, to be used with Golem.
 
 ## Versions
 
-Each video provider has two versions: **Default** (with Golem-specific durability features) and **Portable** (no Golem dependencies).
+There are 4 published libraries for each release:
 
-There are 8 published WASM files for each release:
+| Name                       | Description                                                                                |
+|----------------------------|--------------------------------------------------------------------------------------------|
+| `golem-ai-video-veo`       | Video implementation for Google Veo, using custom Golem specific durability features |
+| `golem-ai-video-stability` | Video implementation for Stability AI, using custom Golem specific durability features |
+| `golem-ai-video-kling`     | Video implementation for Kling, using custom Golem specific durability features |
+| `golem-ai-video-runway`    | Video implementation for Runway ML, using custom Golem specific durability features |
 
-| Name                                 | Description                                                                                |
-|--------------------------------------|--------------------------------------------------------------------------------------------|
-| `golem-video-veo.wasm`              | Video implementation for Google Veo, using custom Golem specific durability features |
-| `golem-video-stability.wasm`        | Video implementation for Stability AI, using custom Golem specific durability features |
-| `golem-video-kling.wasm`            | Video implementation for Kling, using custom Golem specific durability features |
-| `golem-video-runway.wasm`           | Video implementation for Runway ML, using custom Golem specific durability features |
-| `golem-video-veo-portable.wasm`     | Video implementation for Google Veo, with no Golem specific dependencies |
-| `golem-video-stability-portable.wasm` | Video implementation for Stability AI, with no Golem specific dependencies |
-| `golem-video-kling-portable.wasm`   | Video implementation for Kling, with no Golem specific dependencies |
-| `golem-video-runway-portable.wasm`  | Video implementation for Runway ML, with no Golem specific dependencies |
-
-Every component **exports** the same `golem:video` interface, [defined here](wit/golem-video.wit).
+Every library **exports** the same `golem:video` interface.
 
 ## Usage
 

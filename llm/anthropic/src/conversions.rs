@@ -3,22 +3,16 @@ use crate::client::{
     MessagesResponse, StopReason, Tool, ToolChoice,
 };
 use base64::{engine::general_purpose, Engine as _};
-use golem_llm::golem::llm::llm::{
+use golem_ai_llm::model::{
     Config, ContentPart, Error, ErrorCode, Event, FinishReason, ImageReference, ImageSource,
-    ImageUrl, Response, ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
+    ImageUrl, Kv, Response, ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
 };
 use std::collections::HashMap;
 
 pub fn events_to_request(events: Vec<Event>, config: Config) -> Result<MessagesRequest, Error> {
-    let options = config
-        .provider_options
-        .map(|options| {
-            options
-                .into_iter()
-                .map(|kv| (kv.key, kv.value))
-                .collect::<HashMap<_, _>>()
-        })
-        .unwrap_or_default();
+    let provider_options = config.provider_options.clone();
+    let options = provider_options_to_string_map(provider_options.clone());
+    let mut additional_params = provider_options_to_json_map(provider_options);
 
     let (user_messages, system_messages) = events_to_messages_and_system_messages(events);
 
@@ -35,27 +29,62 @@ pub fn events_to_request(events: Vec<Event>, config: Config) -> Result<MessagesR
         })
         .transpose()?;
 
+    let metadata = options
+        .get("user_id")
+        .map(|user_id| MessagesRequestMetadata {
+            user_id: Some(user_id.to_string()),
+        });
+    let stop_sequences = config.stop_sequences;
+    let temperature = config.temperature;
+    let top_k = options
+        .get("top_k")
+        .and_then(|top_k_s| top_k_s.parse::<u32>().ok());
+    let top_p = options
+        .get("top_p")
+        .and_then(|top_p_s| top_p_s.parse::<f32>().ok());
+
+    if metadata.is_some() {
+        additional_params.remove("user_id");
+    }
+    if stop_sequences.is_some() {
+        additional_params.remove("stop_sequences");
+    }
+    if temperature.is_some() {
+        additional_params.remove("temperature");
+    }
+    if tool_choice.is_some() {
+        additional_params.remove("tool_choice");
+    }
+    if tools.is_some() {
+        additional_params.remove("tools");
+    }
+    if top_k.is_some() {
+        additional_params.remove("top_k");
+    }
+    if top_p.is_some() {
+        additional_params.remove("top_p");
+    }
+
+    additional_params.remove("max_tokens");
+    additional_params.remove("messages");
+    additional_params.remove("model");
+    additional_params.remove("stream");
+    additional_params.remove("system");
+
     Ok(MessagesRequest {
         max_tokens: config.max_tokens.unwrap_or(4096),
         messages: user_messages,
         model: config.model,
-        metadata: options
-            .get("user_id")
-            .map(|user_id| MessagesRequestMetadata {
-                user_id: Some(user_id.to_string()),
-            }),
-        stop_sequences: config.stop_sequences,
+        metadata,
+        stop_sequences,
         stream: false,
         system: system_messages,
-        temperature: config.temperature,
+        temperature,
         tool_choice,
         tools,
-        top_k: options
-            .get("top_k")
-            .and_then(|top_k_s| top_k_s.parse::<u32>().ok()),
-        top_p: options
-            .get("top_p")
-            .and_then(|top_p_s| top_p_s.parse::<f32>().ok()),
+        top_k,
+        top_p,
+        additional_params,
     })
 }
 
@@ -299,5 +328,90 @@ fn tool_definition_to_tool(tool: ToolDefinition) -> Result<Tool, Error> {
             message: format!("Failed to parse tool parameters for {}: {error}", tool.name),
             provider_error_json: None,
         }),
+    }
+}
+
+fn provider_options_to_string_map(provider_options: Option<Vec<Kv>>) -> HashMap<String, String> {
+    provider_options
+        .unwrap_or_default()
+        .into_iter()
+        .map(|kv| (kv.key, kv.value))
+        .collect::<HashMap<_, _>>()
+}
+
+fn provider_options_to_json_map(
+    provider_options: Option<Vec<Kv>>,
+) -> HashMap<String, serde_json::Value> {
+    provider_options
+        .unwrap_or_default()
+        .into_iter()
+        .map(|kv| (kv.key, parse_provider_option_value(&kv.value)))
+        .collect::<HashMap<_, _>>()
+}
+
+fn parse_provider_option_value(value: &str) -> serde_json::Value {
+    serde_json::from_str(value).unwrap_or_else(|_| serde_json::Value::String(value.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use golem_ai_llm::model::{Config, Kv};
+
+    fn kv(key: &str, value: &str) -> Kv {
+        Kv {
+            key: key.to_string(),
+            value: value.to_string(),
+        }
+    }
+
+    fn base_config(provider_options: Option<Vec<Kv>>) -> Config {
+        Config {
+            model: "claude-test".to_string(),
+            temperature: Some(0.5),
+            max_tokens: Some(128),
+            stop_sequences: None,
+            tools: None,
+            tool_choice: None,
+            provider_options,
+        }
+    }
+
+    #[test]
+    fn forwards_unmapped_provider_options() {
+        let request = events_to_request(
+            Vec::new(),
+            base_config(Some(vec![
+                kv("user_id", "u1"),
+                kv("top_k", "50"),
+                kv("custom_mode", "\"json\""),
+            ])),
+        )
+        .unwrap();
+
+        assert_eq!(
+            request.metadata.and_then(|metadata| metadata.user_id),
+            Some("u1".to_string())
+        );
+        assert_eq!(request.top_k, Some(50));
+        assert_eq!(
+            request.additional_params.get("custom_mode"),
+            Some(&serde_json::json!("json"))
+        );
+        assert!(!request.additional_params.contains_key("user_id"));
+        assert!(!request.additional_params.contains_key("top_k"));
+    }
+
+    #[test]
+    fn keeps_known_option_when_typed_parse_fails() {
+        let request =
+            events_to_request(Vec::new(), base_config(Some(vec![kv("top_p", "adaptive")])))
+                .unwrap();
+
+        assert_eq!(request.top_p, None);
+        assert_eq!(
+            request.additional_params.get("top_p"),
+            Some(&serde_json::json!("adaptive"))
+        );
     }
 }

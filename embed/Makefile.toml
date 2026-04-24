@@ -10,14 +10,6 @@ run_task = { name = [
     "build-voyageai",
 ] }
 
-[tasks.build-portable]
-run_task = { name = [
-    "build-openai-portable",
-    "build-cohere-portable",
-    "build-hugging-face-portable",
-    "build-voyageai-portable",
-] }
-
 [tasks.release-build]
 run_task = { name = [
     "release-build-openai",
@@ -26,116 +18,37 @@ run_task = { name = [
     "release-build-voyageai",
 ] }
 
-[tasks.release-build-portable]
-run_task = { name = [
-    "release-build-openai-portable",
-    "release-build-cohere-portable",
-    "release-build-hugging-face-portable",
-    "release-build-voyageai-portable",
-] }
-
 [tasks.build-openai]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-openai"]
-
-[tasks.build-openai-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-openai", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-embed-openai"]
 
 [tasks.build-cohere]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-cohere"]
-
-[tasks.build-cohere-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-cohere", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-embed-cohere"]
 
 [tasks.build-hugging-face]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-hugging-face"]
-
-[tasks.build-hugging-face-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-hugging-face", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-embed-hugging-face"]
 
 [tasks.build-voyageai]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-voyageai"]
-
-[tasks.build-voyageai-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-voyageai", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-embed-voyageai"]
 
 [tasks.release-build-openai]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-openai", "--release"]
-
-[tasks.release-build-openai-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-openai", "--release", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-embed-openai", "--release"]
 
 [tasks.release-build-cohere]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-cohere", "--release"]
-
-[tasks.release-build-cohere-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-cohere", "--release", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-embed-cohere", "--release"]
 
 [tasks.release-build-hugging-face]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-hugging-face", "--release"]
-
-[tasks.release-build-hugging-face-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-hugging-face", "--release", "--no-default-features"]
+command = "cargo"
+args = ["build", "-p", "golem-ai-embed-hugging-face", "--release"]
 
 [tasks.release-build-voyageai]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-voyageai", "--release"]
-
-[tasks.release-build-voyageai-portable]
-install_crate = { crate_name = "cargo-component", version = "0.20.0" }
-command = "cargo-component"
-args = ["build", "-p", "golem-embed-voyageai", "--release", "--no-default-features"]
-
-[tasks.wit-update]
-install_crate = { crate_name = "wit-deps-cli" }
-command = "wit-deps"
-args = ["update"]
-
-[tasks.wit]
-dependencies = ["wit-update"]
-
-script_runner = "@duckscript"
-script = """
-modules = array embed openai cohere hugging-face voyageai ../test/embed
-
-for module in ${modules}
-    rm -r ${module}/wit/deps
-    mkdir ${module}/wit/deps/golem-embed
-    cp wit/golem-embed.wit ${module}/wit/deps/golem-embed/golem-embed.wit
-    cp wit/deps/wasi:io ${module}/wit/deps
-
-    echo "Copied WIT for module embed::${module}"
-end
-
-"""
+command = "cargo"
+args = ["build", "-p", "golem-ai-embed-voyageai", "--release"]
 
 [tasks.build-test-components]
 dependencies = ["build"]
@@ -153,6 +66,3 @@ golem-cli build --preset hugging-face-debug
 golem-cli clean
 golem-cli build --preset voyageai-debug
 '''
-
-
-

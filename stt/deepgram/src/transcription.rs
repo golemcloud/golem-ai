@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use bytes::Bytes;
-use golem_stt::{http::HttpClient, languages::Language, transcription::SttProviderClient};
+use golem_ai_stt::{http::HttpClient, languages::Language, transcription::SttProviderClient};
 use http::{header::CONTENT_TYPE, Method, Request, StatusCode};
 use log::trace;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use golem_stt::error::Error;
+use golem_ai_stt::error::Error;
 
 const DEEPGRAM_SUPPORTED_LANGUAGES: [Language; 56] = [
     Language::new("multi", "Multilingual", "Multi"),
@@ -257,7 +257,7 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
         let mut url = Url::parse(&self.endpoint).map_err(|e| {
             Error::Http(
                 request_id.clone(),
-                golem_stt::http::Error::Generic(format!("Failed to parse uri: {e}")),
+                golem_ai_stt::http::Error::Generic(format!("Failed to parse uri: {e}")),
             )
         })?;
 
@@ -271,7 +271,9 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             .header(CONTENT_TYPE, mime_type)
             .header("Authorization", &self.deepgram_api_token)
             .body(request.audio)
-            .map_err(|e| Error::Http(request_id.clone(), golem_stt::http::Error::HttpError(e)))?;
+            .map_err(|e| {
+                Error::Http(request_id.clone(), golem_ai_stt::http::Error::HttpError(e))
+            })?;
 
         let response = self
             .http_client
@@ -284,7 +286,7 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
                 serde_json::from_slice(response.body()).map_err(|e| {
                     Error::Http(
                         request_id.clone(),
-                        golem_stt::http::Error::Generic(format!(
+                        golem_ai_stt::http::Error::Generic(format!(
                             "Failed to deserialize response: {e}"
                         )),
                     )
@@ -300,7 +302,7 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             let provider_error = String::from_utf8(response.body().to_vec()).map_err(|e| {
                 Error::Http(
                     request_id.clone(),
-                    golem_stt::http::Error::Generic(format!(
+                    golem_ai_stt::http::Error::Generic(format!(
                         "Failed to parse response as UTF-8: {e}",
                     )),
                 )
@@ -424,7 +426,7 @@ mod tests {
     const TEST_ENDPOINT: &str = "https://example.com/v1/listen";
 
     struct MockHttpClient {
-        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_stt::http::Error>>>,
+        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_ai_stt::http::Error>>>,
         pub captured_requests: RefCell<Vec<Request<Bytes>>>,
     }
 
@@ -467,14 +469,11 @@ mod tests {
         async fn execute(
             &self,
             request: Request<Bytes>,
-        ) -> Result<Response<Vec<u8>>, golem_stt::http::Error> {
+        ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
-            self.responses
-                .borrow_mut()
-                .pop_front()
-                .unwrap_or(Err(golem_stt::http::Error::Generic(
-                    "unexpected error".to_string(),
-                )))
+            self.responses.borrow_mut().pop_front().unwrap_or(Err(
+                golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
+            ))
         }
     }
 

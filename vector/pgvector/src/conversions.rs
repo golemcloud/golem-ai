@@ -3,16 +3,16 @@ use crate::client::{
     SearchResult as PgSearchResult, TableColumn, VectorData as PgVectorData,
     VectorResult as PgVectorResult,
 };
-use golem_rust::bindings::golem::rdbms::postgres::DbValue;
-use golem_vector::golem::vector::search::SearchQuery;
-use golem_vector::golem::vector::types::{
+use golem_ai_vector::model::search::SearchQuery;
+use golem_ai_vector::model::types::{
     DistanceMetric, FilterCondition, FilterExpression, FilterOperator, MetadataValue, SearchResult,
     VectorData, VectorError, VectorRecord,
 };
-use golem_vector::golem::vector::{
+use golem_ai_vector::model::{
     analytics::CollectionStats as ExportCollectionStats,
     collections::CollectionInfo as ExportCollectionInfo,
 };
+use golem_rust::bindings::golem::rdbms::postgres::DbValue;
 use std::collections::HashMap;
 
 pub fn string_value_to_db_value(value: &str, column_type: &str) -> Result<DbValue, VectorError> {
@@ -161,7 +161,7 @@ pub fn vector_records_to_pgvector_data(
 pub fn create_table_request_from_collection_info(
     name: String,
     dimension: u32,
-    metadata: Option<&golem_vector::golem::vector::types::Metadata>,
+    metadata: Option<&golem_ai_vector::model::types::Metadata>,
 ) -> CreateTableRequest {
     let mut metadata_columns = HashMap::new();
 
@@ -309,7 +309,7 @@ pub fn count_response_to_export_stats(
 // helper functions
 
 fn metadata_to_string_map(
-    metadata: &golem_vector::golem::vector::types::Metadata,
+    metadata: &golem_ai_vector::model::types::Metadata,
 ) -> Result<HashMap<String, String>, VectorError> {
     let mut map = HashMap::new();
 
@@ -336,7 +336,7 @@ fn metadata_to_string_map(
 
 fn string_map_to_metadata(
     map: &HashMap<String, String>,
-) -> golem_vector::golem::vector::types::Metadata {
+) -> golem_ai_vector::model::types::Metadata {
     let mut metadata = Vec::new();
 
     for (key, value) in map {

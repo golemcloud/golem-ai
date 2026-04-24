@@ -1,42 +1,135 @@
 # Schema for IDEA:
-# $schema: https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
-# Schema for vscode-yaml
-# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
+# $schema: https://schema.golem.cloud/app/golem/1.5.0-rc3/golem.schema.json
+# Schema for vscode-yaml:
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.5.0-rc3/golem.schema.json
 
-# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
+# Field reference: https://learn.golem.cloud/app-manifest#field-reference
+# Creating HTTP APIs: https://learn.golem.cloud/invoke/making-custom-apis
 
+manifestVersion: "1.5.0"
 componentTemplates:
-  rust:
+  rust-custom:
     presets:
-      debug:
+      # DEBUG PROFILES
+      openai-debug:
         default: true
         build:
-        - command: cargo component build
+        - command: cargo component build --no-default-features --features openai
           sources:
           - src
-          - wit-generated
           - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
         componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
-        linkedWasm: ../../golem-temp/components/{{ component_name | to_snake_case }}_debug.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_openai_debug.wasm
         clean:
         - src/bindings.rs
-      release:
+
+      cohere-debug:
         build:
-        - command: cargo component build --release
+        - command: cargo component build --no-default-features --features cohere
           sources:
           - src
-          - wit-generated
           - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_cohere_debug.wasm
+        clean:
+        - src/bindings.rs
+
+      hugging-face-debug:
+        build:
+        - command: cargo component build --no-default-features --features hugging-face
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_hugging_face_debug.wasm
+        clean:
+        - src/bindings.rs
+
+      voyageai-debug:
+        build:
+        - command: cargo component build --no-default-features --features voyageai
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/debug/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_voyageai_debug.wasm
+        clean:
+        - src/bindings.rs
+
+      # RELEASE PROFILES
+      openai-release:
+        build:
+        - command: cargo component build --release --no-default-features --features openai
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
           targets:
           - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
         componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
-        linkedWasm: ../../golem-temp/components/{{ component_name | to_snake_case }}_release.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_openai_release.wasm
+        clean:
+        - src/bindings.rs
+
+      cohere-release:
+        build:
+        - command: cargo component build --release --no-default-features --features cohere
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_cohere_release.wasm
+        clean:
+        - src/bindings.rs
+
+      hugging-face-release:
+        build:
+        - command: cargo component build --release --no-default-features --features hugging-face
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_hugging_face_release.wasm
+        clean:
+        - src/bindings.rs
+
+      voyageai-release:
+        build:
+        - command: cargo component build --release --no-default-features --features voyageai
+          sources:
+          - src
+          - ../../common-rust
+          - Cargo.toml
+          - ../../Cargo.toml
+          targets:
+          - ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        componentWasm: ../../target/wasm32-wasip1/release/{{ component_name | to_snake_case }}.wasm
+        outputWasm: ../../golem-temp/agents/{{ component_name | to_snake_case }}_voyageai_release.wasm
         clean:
         - src/bindings.rs
 customCommands:

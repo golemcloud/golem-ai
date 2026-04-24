@@ -1,4 +1,4 @@
-use crate::golem::exec::types::Error;
+use crate::model::Error;
 use futures::future::AbortHandle;
 use rquickjs::function::Args;
 use rquickjs::{CatchResultExt, Ctx, JsLifetime, Persistent, Value};

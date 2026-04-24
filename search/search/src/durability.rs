@@ -1,5 +1,5 @@
-use crate::golem::search::core::Guest;
-use crate::golem::search::types::{IndexName, SearchHit, SearchQuery};
+use crate::model::{IndexName, SearchHit, SearchQuery};
+use crate::SearchProvider;
 use golem_rust::golem_wasm::Pollable;
 use std::marker::PhantomData;
 
@@ -7,7 +7,7 @@ pub struct DurableSearch<Impl> {
     phantom: PhantomData<Impl>,
 }
 
-pub trait ExtendedGuest: Guest + 'static {
+pub trait ExtendedSearchProvider: SearchProvider + 'static {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream;
 
     /// Creates the retry query with the original query and any partial results received.
@@ -33,15 +33,15 @@ pub trait ExtendedGuest: Guest + 'static {
 /// When the durability feature flag is off, wrapping with `DurableSearch` is just a passthrough
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
-    use crate::durability::{DurableSearch, ExtendedGuest};
-    use crate::golem::search::core::{Guest, SearchStream};
-    use crate::golem::search::types::{
+    use crate::durability::{DurableSearch, ExtendedSearchProvider};
+    use crate::init_logging;
+    use crate::model::{
         CreateIndexOptions, Doc, DocumentId, IndexName, Schema, SearchError, SearchQuery,
         SearchResults,
     };
-    use crate::init_logging;
+    use crate::model::{Guest, SearchStream};
 
-    impl<Impl: ExtendedGuest> Guest for DurableSearch<Impl> {
+    impl<Impl: ExtendedSearchProvider> Guest for DurableSearch<Impl> {
         type SearchStream = Impl::SearchStream;
 
         fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -111,12 +111,12 @@ mod passthrough_impl {
 
 #[cfg(feature = "durability")]
 mod durable_impl {
-    use crate::durability::{DurableSearch, ExtendedGuest};
-    use crate::golem::search::core::{CreateIndexOptions, Guest, GuestSearchStream, SearchStream};
-    use crate::golem::search::types::{
+    use crate::durability::{DurableSearch, ExtendedSearchProvider};
+    use crate::model::{CreateIndexOptions, SearchStream};
+    use crate::model::{
         Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
     };
-    use crate::init_logging;
+    use crate::{init_logging, SearchProvider, SearchStreamInterface};
     use golem_rust::bindings::golem::durability::durability::{
         DurableFunctionType, LazyInitializedPollable,
     };
@@ -219,14 +219,14 @@ mod durable_impl {
         schema: Schema,
     }
 
-    impl<Impl: ExtendedGuest> Guest for DurableSearch<Impl> {
+    impl<Impl: ExtendedSearchProvider> SearchProvider for DurableSearch<Impl> {
         type SearchStream = DurableSearchStream<Impl>;
 
         fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "create_index",
                 DurableFunctionType::WriteRemote,
             );
@@ -244,7 +244,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "delete_index",
                 DurableFunctionType::WriteRemote,
             );
@@ -264,7 +264,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<ListIndexesOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "list_indexes",
                 DurableFunctionType::ReadRemote,
             );
@@ -286,7 +286,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "upsert",
                 DurableFunctionType::WriteRemote,
             );
@@ -306,7 +306,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "upsert_many",
                 DurableFunctionType::WriteRemote,
             );
@@ -326,7 +326,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "delete",
                 DurableFunctionType::WriteRemote,
             );
@@ -346,7 +346,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "delete_many",
                 DurableFunctionType::WriteRemote,
             );
@@ -366,7 +366,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<GetDocOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "get",
                 DurableFunctionType::ReadRemote,
             );
@@ -386,7 +386,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<SearchOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "search",
                 DurableFunctionType::ReadRemote,
             );
@@ -412,7 +412,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, UnusedError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "stream_search",
                 DurableFunctionType::ReadRemote,
             );
@@ -437,7 +437,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<GetSchemaOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "get_schema",
                 DurableFunctionType::ReadRemote,
             );
@@ -459,7 +459,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "update_schema",
                 DurableFunctionType::WriteRemote,
             );
@@ -488,7 +488,7 @@ mod durable_impl {
     /// When reaching the end of the replay mode, if the replayed stream was not finished yet,
     /// the retry query implemented in `ExtendedGuest` is used to create a new Search response
     /// stream and continue the search seamlessly.
-    enum DurableSearchStreamState<Impl: ExtendedGuest> {
+    enum DurableSearchStreamState<Impl: ExtendedSearchProvider> {
         Live {
             stream: Impl::SearchStream,
             pollables: Vec<LazyInitializedPollable>,
@@ -502,12 +502,12 @@ mod durable_impl {
         },
     }
 
-    pub struct DurableSearchStream<Impl: ExtendedGuest> {
+    pub struct DurableSearchStream<Impl: ExtendedSearchProvider> {
         state: RefCell<Option<DurableSearchStreamState<Impl>>>,
         subscription: RefCell<Option<Pollable>>,
     }
 
-    impl<Impl: ExtendedGuest> DurableSearchStream<Impl> {
+    impl<Impl: ExtendedSearchProvider> DurableSearchStream<Impl> {
         fn live(stream: Impl::SearchStream) -> Self {
             Self {
                 state: RefCell::new(Some(DurableSearchStreamState::Live {
@@ -548,7 +548,7 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> Drop for DurableSearchStream<Impl> {
+    impl<Impl: ExtendedSearchProvider> Drop for DurableSearchStream<Impl> {
         fn drop(&mut self) {
             let _ = self.subscription.take();
             match self.state.take() {
@@ -569,10 +569,18 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> GuestSearchStream for DurableSearchStream<Impl> {
+    impl<Impl: ExtendedSearchProvider> SearchStreamInterface for DurableSearchStream<Impl> {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
         fn get_next(&self) -> Option<Vec<SearchHit>> {
             let durability = Durability::<Option<Vec<SearchHit>>, UnusedError>::new(
-                "golem_search",
+                "golem_ai_search",
                 "get_next",
                 DurableFunctionType::ReadRemote,
             );
@@ -600,7 +608,7 @@ mod durable_impl {
 
                             let (stream, first_live_result) =
                                 with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                    let stream = <Impl as ExtendedGuest>::unwrapped_stream(
+                                    let stream = <Impl as ExtendedSearchProvider>::unwrapped_stream(
                                         index.clone(),
                                         extended_query,
                                     );

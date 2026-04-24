@@ -2,13 +2,13 @@ use crate::client::{
     CreateVoiceRequest, ListVoicesParams, Model, TextToSpeechParams, TextToSpeechRequest,
     Voice as ElevenLabsVoice, VoiceSettings as ElevenLabsVoiceSettings,
 };
-use golem_tts::golem::tts::advanced::{AgeCategory, AudioSample, VoiceDesignParams};
-use golem_tts::golem::tts::synthesis::{SynthesisOptions, ValidationResult};
-use golem_tts::golem::tts::types::{
+use golem_ai_tts::model::advanced::{AgeCategory, AudioSample, VoiceDesignParams};
+use golem_ai_tts::model::synthesis::{SynthesisOptions, ValidationResult};
+use golem_ai_tts::model::types::{
     AudioFormat, SynthesisMetadata, SynthesisResult, TextInput, TextType, TtsError, VoiceGender,
     VoiceQuality, VoiceSettings,
 };
-use golem_tts::golem::tts::voices::{LanguageInfo, VoiceFilter, VoiceInfo};
+use golem_ai_tts::model::voices::{LanguageInfo, VoiceFilter, VoiceInfo};
 use log::info;
 
 pub fn estimate_audio_duration(audio_data: &[u8], _sample_rate: u32) -> f32 {
@@ -524,7 +524,7 @@ pub fn models_to_language_info(models: Vec<Model>) -> Vec<LanguageInfo> {
     }
 
     let mut languages: Vec<LanguageInfo> = language_map.into_values().collect();
-    languages.sort_by(|a, b| b.voice_count.cmp(&a.voice_count));
+    languages.sort_by_key(|b| std::cmp::Reverse(b.voice_count));
     languages
 }
 
@@ -1078,7 +1078,7 @@ mod tests {
 
     #[test]
     fn test_validate_voice_settings() {
-        use golem_tts::golem::tts::types::VoiceSettings;
+        use golem_ai_tts::model::types::VoiceSettings;
 
         let settings = VoiceSettings {
             speed: Some(1.0),

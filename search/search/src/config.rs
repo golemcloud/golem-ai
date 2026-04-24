@@ -1,4 +1,4 @@
-use crate::golem::search::types::SearchError;
+use crate::model::SearchError;
 use std::ffi::OsStr;
 
 pub fn with_config_key<R>(

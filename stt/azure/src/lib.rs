@@ -1,17 +1,17 @@
 use std::time::Duration;
 
 use futures_concurrency::future::Join;
-use golem_stt::durability::{DurableStt, ExtendedGuest};
-use golem_stt::guest::{SttTranscriptionGuest, SttTranscriptionRequest};
-use golem_stt::transcription::SttProviderClient;
+use golem_ai_stt::durability::{DurableStt, ExtendedSttProvider};
+use golem_ai_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
+use golem_ai_stt::transcription::SttProviderClient;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 use wstd::runtime::block_on;
 
 mod transcription;
 
-use golem_stt::error::Error as SttError;
-use golem_stt::golem::stt::types::{
+use golem_ai_stt::error::Error as SttError;
+use golem_ai_stt::model::types::{
     AudioFormat as WitAudioFormat, SttError as WitSttError, TimingInfo as WitTimingInfo,
     TranscriptionChannel as WitTranscriptionChannel,
     TranscriptionMetadata as WitTranscriptionMetadata,
@@ -19,16 +19,16 @@ use golem_stt::golem::stt::types::{
     WordSegment as WitWordSegment,
 };
 
-use golem_stt::http::WstdHttpClient;
-use golem_stt::LOGGING_STATE;
+use golem_ai_stt::http::WstdHttpClient;
+use golem_ai_stt::{LanguageProvider, LOGGING_STATE};
 
-use golem_stt::golem::stt::transcription::{
+use golem_ai_stt::model::transcription::{
     FailedTranscription as WitFailedTranscription,
     MultiTranscriptionResult as WitMultiTranscriptionResult,
     TranscribeOptions as WitTranscribeOptions,
 };
 
-use golem_stt::golem::stt::languages::{Guest as LanguageGuest, LanguageInfo};
+use golem_ai_stt::model::languages::LanguageInfo;
 use transcription::{
     AudioConfig, AudioFormat, DiarizationConfig, FastTranscriptionApi, ProfanityFilterMode,
     TranscriptionConfig, TranscriptionRequest, TranscriptionResponse,
@@ -36,10 +36,9 @@ use transcription::{
 
 static API_CLIENT: OnceCell<FastTranscriptionApi<WstdHttpClient>> = OnceCell::new();
 
-#[allow(unused)]
-struct SttComponent;
+pub struct AzureStt;
 
-impl SttComponent {
+impl AzureStt {
     fn create_or_get_client() -> Result<&'static FastTranscriptionApi<WstdHttpClient>, SttError> {
         API_CLIENT.get_or_try_init(|| {
             let region = std::env::var("AZURE_REGION").map_err(|err| {
@@ -63,7 +62,7 @@ impl SttComponent {
     }
 }
 
-impl LanguageGuest for SttComponent {
+impl LanguageProvider for AzureStt {
     fn list_languages() -> Result<Vec<LanguageInfo>, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -79,7 +78,7 @@ impl LanguageGuest for SttComponent {
     }
 }
 
-impl SttTranscriptionGuest for SttComponent {
+impl SttTranscriptionProvider for AzureStt {
     fn transcribe(req: SttTranscriptionRequest) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
@@ -292,8 +291,6 @@ impl From<TranscriptionResponse> for WitTranscriptionResult {
     }
 }
 
-impl ExtendedGuest for SttComponent {}
+impl ExtendedSttProvider for AzureStt {}
 
-type DurableDeepgramComponent = DurableStt<SttComponent>;
-
-golem_stt::export_stt!(DurableDeepgramComponent with_types_in golem_stt);
+pub type DurableAzureStt = DurableStt<AzureStt>;

@@ -3,12 +3,12 @@ mod conversions;
 
 use crate::client::GoogleSearchApi;
 use crate::conversions::{params_to_request, response_to_results, validate_search_params};
-use golem_web_search::durability::Durablewebsearch;
-use golem_web_search::durability::ExtendedwebsearchGuest;
-use golem_web_search::golem::web_search::web_search::{
-    Guest, GuestSearchSession, SearchError, SearchMetadata, SearchParams, SearchResult,
-    SearchSession,
+use golem_ai_web_search::durability::DurableWebSearch;
+use golem_ai_web_search::durability::ExtendedWebSearchProvider;
+use golem_ai_web_search::model::web_search::{
+    SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
+use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
 use std::cell::RefCell;
 
 /// Start index for google search api pagination (which is 1-index based)
@@ -51,7 +51,7 @@ impl GoogleSearch {
         }
 
         let current_start = self.next_page_start_index.unwrap_or(INITIAL_START_INDEX);
-        let request = crate::conversions::params_to_request(&self.params, current_start)?;
+        let request = params_to_request(&self.params, current_start)?;
         let response = self.client.search(request)?;
 
         let (results, metadata) = response_to_results(&response, &self.params, self.current_page);
@@ -69,7 +69,7 @@ impl GoogleSearch {
 }
 
 // Create a wrapper that implements GuestSearchSession properly
-struct GoogleSearchSession(RefCell<GoogleSearch>);
+pub struct GoogleSearchSession(RefCell<GoogleSearch>);
 
 impl GoogleSearchSession {
     fn new(search: GoogleSearch) -> Self {
@@ -77,7 +77,15 @@ impl GoogleSearchSession {
     }
 }
 
-impl GuestSearchSession for GoogleSearchSession {
+impl SearchSessionInterface for GoogleSearchSession {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn next_page(&self) -> Result<Vec<SearchResult>, SearchError> {
         let mut search = self.0.borrow_mut();
         search.next_page()
@@ -89,9 +97,9 @@ impl GuestSearchSession for GoogleSearchSession {
     }
 }
 
-struct GoogleCustomSearchComponent;
+pub struct GoogleCustomSearch;
 
-impl GoogleCustomSearchComponent {
+impl GoogleCustomSearch {
     const API_KEY_VAR: &'static str = "GOOGLE_API_KEY";
     const SEARCH_ENGINE_ID_VAR: &'static str = "GOOGLE_SEARCH_ENGINE_ID";
 
@@ -132,7 +140,7 @@ impl GoogleCustomSearchComponent {
     }
 }
 
-impl Guest for GoogleCustomSearchComponent {
+impl WebSearchProvider for GoogleCustomSearch {
     type SearchSession = GoogleSearchSession;
 
     fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
@@ -149,7 +157,7 @@ impl Guest for GoogleCustomSearchComponent {
     }
 }
 
-impl ExtendedwebsearchGuest for GoogleCustomSearchComponent {
+impl ExtendedWebSearchProvider for GoogleCustomSearch {
     type ReplayState = GoogleReplayState;
 
     fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
@@ -185,5 +193,4 @@ impl ExtendedwebsearchGuest for GoogleCustomSearchComponent {
     }
 }
 
-type DurableGoogleComponent = Durablewebsearch<GoogleCustomSearchComponent>;
-golem_web_search::export_websearch!(DurableGoogleComponent with_types_in golem_web_search);
+pub type DurableGoogleCustomSearch = DurableWebSearch<GoogleCustomSearch>;

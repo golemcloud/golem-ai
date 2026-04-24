@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use chrono::Utc;
-use golem_stt::runtime::AsyncRuntime;
+use golem_ai_stt::runtime::AsyncRuntime;
 
 use http::{Request, StatusCode};
 use log::trace;
@@ -361,21 +361,23 @@ pub trait TranscribeService {
         vocabulary_name: String,
         language_code: String,
         phrases: Vec<String>,
-    ) -> Result<CreateVocabularyResponse, golem_stt::error::Error>;
+    ) -> Result<CreateVocabularyResponse, golem_ai_stt::error::Error>;
 
     async fn get_vocabulary(
         &self,
         vocabulary_name: &str,
-    ) -> Result<GetVocabularyResponse, golem_stt::error::Error>;
+    ) -> Result<GetVocabularyResponse, golem_ai_stt::error::Error>;
 
     async fn wait_for_vocabulary_ready(
         &self,
         request_id: &str,
         max_wait_time: Duration,
-    ) -> Result<(), golem_stt::error::Error>;
+    ) -> Result<(), golem_ai_stt::error::Error>;
 
-    async fn delete_vocabulary(&self, vocabulary_name: &str)
-        -> Result<(), golem_stt::error::Error>;
+    async fn delete_vocabulary(
+        &self,
+        vocabulary_name: &str,
+    ) -> Result<(), golem_ai_stt::error::Error>;
 
     async fn start_transcription_job(
         &self,
@@ -384,32 +386,32 @@ pub trait TranscribeService {
         audio_config: &AudioConfig,
         transcription_config: Option<&TranscriptionConfig>,
         vocabulary_name: Option<&str>,
-    ) -> Result<StartTranscriptionJobResponse, golem_stt::error::Error>;
+    ) -> Result<StartTranscriptionJobResponse, golem_ai_stt::error::Error>;
 
     async fn delete_transcription_job(
         &self,
         transcription_job_name: &str,
-    ) -> Result<(), golem_stt::error::Error>;
+    ) -> Result<(), golem_ai_stt::error::Error>;
 
     async fn get_transcription_job(
         &self,
         transcription_job_name: &str,
-    ) -> Result<GetTranscriptionJobResponse, golem_stt::error::Error>;
+    ) -> Result<GetTranscriptionJobResponse, golem_ai_stt::error::Error>;
 
     async fn wait_for_transcription_job_completion(
         &self,
         transcription_job_name: &str,
         max_wait_time: Duration,
-    ) -> Result<GetTranscriptionJobResponse, golem_stt::error::Error>;
+    ) -> Result<GetTranscriptionJobResponse, golem_ai_stt::error::Error>;
 
     async fn download_transcript_json(
         &self,
         transcription_job_name: &str,
         transcript_uri: &str,
-    ) -> Result<TranscribeOutput, golem_stt::error::Error>;
+    ) -> Result<TranscribeOutput, golem_ai_stt::error::Error>;
 }
 
-pub struct TranscribeClient<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> {
+pub struct TranscribeClient<HC: golem_ai_stt::http::HttpClient, RT: AsyncRuntime> {
     http_client: HC,
     signer: AwsSignatureV4,
     runtime: RT,
@@ -428,7 +430,7 @@ impl<'de> serde::Deserialize<'de> for EmptyResponse {
     }
 }
 
-impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, RT> {
+impl<HC: golem_ai_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, RT> {
     pub fn new(
         access_key: String,
         secret_key: String,
@@ -449,7 +451,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, RT>
         request_body: &R,
         request_id: String,
         operation_name: &str,
-    ) -> Result<T, golem_stt::error::Error>
+    ) -> Result<T, golem_ai_stt::error::Error>
     where
         T: for<'de> serde::Deserialize<'de>,
         R: serde::Serialize,
@@ -463,7 +465,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, RT>
         let json_body = serde_json::to_string(request_body).map_err(|e| {
             (
                 request_id.clone(),
-                golem_stt::http::Error::Generic(format!("Failed to serialize request: {e}")),
+                golem_ai_stt::http::Error::Generic(format!("Failed to serialize request: {e}")),
             )
         })?;
 
@@ -475,7 +477,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, RT>
             .header("Content-Type", "application/x-amz-json-1.1")
             .header("X-Amz-Target", target)
             .body(json_bytes)
-            .map_err(|e| (request_id.clone(), golem_stt::http::Error::HttpError(e)))?;
+            .map_err(|e| (request_id.clone(), golem_ai_stt::http::Error::HttpError(e)))?;
 
         let signed_request = self
             .signer
@@ -483,7 +485,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, RT>
             .map_err(|err| {
                 (
                     request_id.clone(),
-                    golem_stt::http::Error::Generic(format!("Failed to sign request: {err}")),
+                    golem_ai_stt::http::Error::Generic(format!("Failed to sign request: {err}")),
                 )
             })?;
 
@@ -499,9 +501,9 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, RT>
             let transcribe_response: T = serde_json::from_slice(response.body()).map_err(|e| {
                 (
                     request_id.clone(),
-                    golem_stt::http::Error::Generic(
-                        format!("Failed to deserialize response: {e}",),
-                    ),
+                    golem_ai_stt::http::Error::Generic(format!(
+                        "Failed to deserialize response: {e}",
+                    )),
                 )
             })?;
 
@@ -513,18 +515,18 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, RT>
             let status = response.status();
 
             match status {
-                StatusCode::BAD_REQUEST => Err(golem_stt::error::Error::APIBadRequest {
+                StatusCode::BAD_REQUEST => Err(golem_ai_stt::error::Error::APIBadRequest {
                     request_id,
                     provider_error: format!(
                         "Transcribe {operation_name} bad request: {error_body}"
                     ),
                 }),
-                StatusCode::FORBIDDEN => Err(golem_stt::error::Error::APIForbidden {
+                StatusCode::FORBIDDEN => Err(golem_ai_stt::error::Error::APIForbidden {
                     request_id,
                     provider_error: format!("Transcribe {operation_name} forbidden: {error_body}"),
                 }),
                 StatusCode::INTERNAL_SERVER_ERROR => {
-                    Err(golem_stt::error::Error::APIInternalServerError {
+                    Err(golem_ai_stt::error::Error::APIInternalServerError {
                         request_id,
                         provider_error: format!(
                             "Transcribe {operation_name} server error: {error_body}",
@@ -532,14 +534,14 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, RT>
                     })
                 }
                 StatusCode::SERVICE_UNAVAILABLE => {
-                    Err(golem_stt::error::Error::APIInternalServerError {
+                    Err(golem_ai_stt::error::Error::APIInternalServerError {
                         request_id,
                         provider_error: format!(
                             "Transcribe {operation_name} service unavailable: {error_body}",
                         ),
                     })
                 }
-                _ => Err(golem_stt::error::Error::APIUnknown {
+                _ => Err(golem_ai_stt::error::Error::APIUnknown {
                     request_id,
                     provider_error: format!(
                         "Transcribe {operation_name} unknown error ({status}): {error_body}"
@@ -549,7 +551,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeClient<HC, RT>
         }
     }
 }
-impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
+impl<HC: golem_ai_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
     for TranscribeClient<HC, RT>
 {
     async fn create_vocabulary(
@@ -557,7 +559,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
         vocabulary_name: String,
         language_code: String,
         phrases: Vec<String>,
-    ) -> Result<CreateVocabularyResponse, golem_stt::error::Error> {
+    ) -> Result<CreateVocabularyResponse, golem_ai_stt::error::Error> {
         let request_body = CreateVocabularyRequest {
             vocabulary_name: vocabulary_name.clone(),
             language_code,
@@ -579,7 +581,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
     async fn get_vocabulary(
         &self,
         vocabulary_name: &str,
-    ) -> Result<GetVocabularyResponse, golem_stt::error::Error> {
+    ) -> Result<GetVocabularyResponse, golem_ai_stt::error::Error> {
         let request_body = GetVocabularyRequest {
             vocabulary_name: vocabulary_name.to_string(),
         };
@@ -597,13 +599,13 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
         &self,
         vocabulary_name: &str,
         max_wait_time: Duration,
-    ) -> Result<(), golem_stt::error::Error> {
+    ) -> Result<(), golem_ai_stt::error::Error> {
         let start_time = std::time::Instant::now();
         let poll_interval = Duration::from_secs(10);
 
         loop {
             if start_time.elapsed() > max_wait_time {
-                return Err(golem_stt::error::Error::APIBadRequest {
+                return Err(golem_ai_stt::error::Error::APIBadRequest {
                     request_id: vocabulary_name.to_string(),
                     provider_error: "Vocabulary creation timed out".to_string(),
                 });
@@ -616,7 +618,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
             match res.vocabulary_state.as_str() {
                 "READY" => return Ok(()),
                 "FAILED" => {
-                    return Err(golem_stt::error::Error::APIBadRequest {
+                    return Err(golem_ai_stt::error::Error::APIBadRequest {
                         request_id: vocabulary_name.to_string(),
                         provider_error: format!(
                             "Vocabulary creation failed: {}",
@@ -627,7 +629,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
                 }
                 "PENDING" => {}
                 other => {
-                    return Err(golem_stt::error::Error::APIBadRequest {
+                    return Err(golem_ai_stt::error::Error::APIBadRequest {
                         request_id: vocabulary_name.to_string(),
                         provider_error: format!("Unexpected vocabulary state: {other}"),
                     });
@@ -639,7 +641,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
     async fn delete_vocabulary(
         &self,
         vocabulary_name: &str,
-    ) -> Result<(), golem_stt::error::Error> {
+    ) -> Result<(), golem_ai_stt::error::Error> {
         let request_body = DeleteVocabularyRequest {
             vocabulary_name: vocabulary_name.to_string(),
         };
@@ -663,7 +665,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
         audio_config: &AudioConfig,
         transcription_config: Option<&TranscriptionConfig>,
         vocabulary_name: Option<&str>,
-    ) -> Result<StartTranscriptionJobResponse, golem_stt::error::Error> {
+    ) -> Result<StartTranscriptionJobResponse, golem_ai_stt::error::Error> {
         let mut request_body = StartTranscriptionJobRequest {
             transcription_job_name: transcription_job_name.to_string(),
             media: Media {
@@ -742,7 +744,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
     async fn delete_transcription_job(
         &self,
         transcription_job_name: &str,
-    ) -> Result<(), golem_stt::error::Error> {
+    ) -> Result<(), golem_ai_stt::error::Error> {
         let request_body = DeleteTranscriptionJobRequest {
             transcription_job_name: transcription_job_name.to_string(),
         };
@@ -762,7 +764,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
     async fn get_transcription_job(
         &self,
         transcription_job_name: &str,
-    ) -> Result<GetTranscriptionJobResponse, golem_stt::error::Error> {
+    ) -> Result<GetTranscriptionJobResponse, golem_ai_stt::error::Error> {
         let request_body = GetTranscriptionJobRequest {
             transcription_job_name: transcription_job_name.to_string(),
         };
@@ -780,13 +782,13 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
         &self,
         transcription_job_name: &str,
         max_wait_time: Duration,
-    ) -> Result<GetTranscriptionJobResponse, golem_stt::error::Error> {
+    ) -> Result<GetTranscriptionJobResponse, golem_ai_stt::error::Error> {
         let start_time = std::time::Instant::now();
         let poll_interval = Duration::from_secs(10);
 
         loop {
             if start_time.elapsed() > max_wait_time {
-                return Err(golem_stt::error::Error::APIBadRequest {
+                return Err(golem_ai_stt::error::Error::APIBadRequest {
                     request_id: transcription_job_name.to_string(),
                     provider_error: "Transcription job timed out".to_string(),
                 });
@@ -803,7 +805,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
                 }
                 "FAILED" => {
                     trace!("tracription job {transcription_job_name} failed");
-                    return Err(golem_stt::error::Error::APIBadRequest {
+                    return Err(golem_ai_stt::error::Error::APIBadRequest {
                         request_id: transcription_job_name.to_string(),
                         provider_error: format!(
                             "Transcription job failed: {}",
@@ -818,7 +820,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
                     trace!("transcription job {transcription_job_name} waiting for completion");
                 }
                 other => {
-                    return Err(golem_stt::error::Error::APIBadRequest {
+                    return Err(golem_ai_stt::error::Error::APIBadRequest {
                         request_id: transcription_job_name.to_string(),
                         provider_error: format!("Unexpected transcription job status: {other}"),
                     });
@@ -831,7 +833,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
         &self,
         transcription_job_name: &str,
         transcript_uri: &str,
-    ) -> Result<TranscribeOutput, golem_stt::error::Error> {
+    ) -> Result<TranscribeOutput, golem_ai_stt::error::Error> {
         let request = http::Request::builder()
             .method("GET")
             .uri(transcript_uri)
@@ -840,7 +842,7 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
             .map_err(|e| {
                 (
                     transcription_job_name.to_string(),
-                    golem_stt::http::Error::HttpError(e),
+                    golem_ai_stt::http::Error::HttpError(e),
                 )
             })?;
 
@@ -853,9 +855,9 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
         if response.status().is_success() {
             let transcript_json: TranscribeOutput = serde_json::from_slice(response.body())
                 .map_err(|e| {
-                    golem_stt::error::Error::Http(
+                    golem_ai_stt::error::Error::Http(
                         transcription_job_name.to_string(),
-                        golem_stt::http::Error::Generic(format!(
+                        golem_ai_stt::http::Error::Generic(format!(
                             "Failed to deserialize response: {e}",
                         )),
                     )
@@ -871,23 +873,23 @@ impl<HC: golem_stt::http::HttpClient, RT: AsyncRuntime> TranscribeService
 
             // Map HTTP status codes based on S3 GET object behavior for transcript download
             match status {
-                StatusCode::BAD_REQUEST => Err(golem_stt::error::Error::APIBadRequest {
+                StatusCode::BAD_REQUEST => Err(golem_ai_stt::error::Error::APIBadRequest {
                     request_id,
                     provider_error: format!("Transcript download bad request: {error_body}"),
                 }),
-                StatusCode::FORBIDDEN => Err(golem_stt::error::Error::APIForbidden {
+                StatusCode::FORBIDDEN => Err(golem_ai_stt::error::Error::APIForbidden {
                     request_id,
                     provider_error: format!("Transcript download forbidden (expired URL or insufficient permissions): {error_body}"),
                 }),
-                StatusCode::NOT_FOUND => Err(golem_stt::error::Error::APINotFound {
+                StatusCode::NOT_FOUND => Err(golem_ai_stt::error::Error::APINotFound {
                     request_id,
                     provider_error: format!("Transcript file not found: {error_body}"),
                 }),
-                s if s.is_server_error() => Err(golem_stt::error::Error::APIInternalServerError {
+                s if s.is_server_error() => Err(golem_ai_stt::error::Error::APIInternalServerError {
                     request_id,
                     provider_error: format!("Transcript download server error ({status}): {error_body}"),
                 }),
-                _ => Err(golem_stt::error::Error::APIUnknown {
+                _ => Err(golem_ai_stt::error::Error::APIUnknown {
                     request_id,
                     provider_error: format!("Transcript download unknown error ({status}): {error_body}"),
                 }),
@@ -906,11 +908,11 @@ mod tests {
     use crate::transcription::request::{AudioFormat, DiarizationConfig};
 
     use super::*;
-    use golem_stt::http::HttpClient;
+    use golem_ai_stt::http::HttpClient;
     use http::{Request, Response, StatusCode};
 
     struct MockHttpClient {
-        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_stt::http::Error>>>,
+        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_ai_stt::http::Error>>>,
         pub captured_requests: RefCell<Vec<Request<Bytes>>>,
     }
 
@@ -953,14 +955,11 @@ mod tests {
         async fn execute(
             &self,
             request: Request<Bytes>,
-        ) -> Result<Response<Vec<u8>>, golem_stt::http::Error> {
+        ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
-            self.responses
-                .borrow_mut()
-                .pop_front()
-                .unwrap_or(Err(golem_stt::http::Error::Generic(
-                    "unexpected error".to_string(),
-                )))
+            self.responses.borrow_mut().pop_front().unwrap_or(Err(
+                golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
+            ))
         }
     }
 
@@ -980,7 +979,7 @@ mod tests {
         }
     }
 
-    impl golem_stt::runtime::AsyncRuntime for MockRuntime {
+    impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
         async fn sleep(&self, duration: Duration) {
             self.sleep_calls.borrow_mut().push(duration);
         }
@@ -1966,7 +1965,7 @@ mod tests {
         assert!(result.is_err());
         let error = result.unwrap_err();
         match error {
-            golem_stt::error::Error::APIBadRequest {
+            golem_ai_stt::error::Error::APIBadRequest {
                 request_id,
                 provider_error,
             } => {
@@ -2015,7 +2014,7 @@ mod tests {
             }
         }
 
-        impl golem_stt::runtime::AsyncRuntime for MockRuntime {
+        impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
             async fn sleep(&self, duration: Duration) {
                 // Simulate time passing
                 let mut elapsed = self.elapsed_time.borrow_mut();
@@ -2048,7 +2047,7 @@ mod tests {
         assert!(result.is_err());
         let error = result.unwrap_err();
         match error {
-            golem_stt::error::Error::APIBadRequest {
+            golem_ai_stt::error::Error::APIBadRequest {
                 request_id,
                 provider_error,
             } => {
@@ -2229,7 +2228,7 @@ mod tests {
         assert!(result.is_err());
         let error = result.unwrap_err();
         match error {
-            golem_stt::error::Error::APIBadRequest {
+            golem_ai_stt::error::Error::APIBadRequest {
                 request_id,
                 provider_error,
             } => {
@@ -2285,7 +2284,7 @@ mod tests {
             }
         }
 
-        impl golem_stt::runtime::AsyncRuntime for MockRuntime {
+        impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
             async fn sleep(&self, duration: Duration) {
                 // Simulate time passing
                 let mut elapsed = self.elapsed_time.borrow_mut();
@@ -2318,7 +2317,7 @@ mod tests {
         assert!(result.is_err());
         let error = result.unwrap_err();
         match error {
-            golem_stt::error::Error::APIBadRequest {
+            golem_ai_stt::error::Error::APIBadRequest {
                 request_id,
                 provider_error,
             } => {

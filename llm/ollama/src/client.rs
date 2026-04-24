@@ -1,10 +1,10 @@
-use std::{fmt::Debug, fs, path::Path};
+use std::{collections::HashMap, fmt::Debug, fs, path::Path};
 
 use base64::{engine::general_purpose, Engine};
-use golem_llm::{
+use golem_ai_llm::{
     error::{error_code_from_status, from_event_source_error},
     event_source::EventSource,
-    golem::llm::llm::ErrorCode,
+    model::ErrorCode,
 };
 use golem_wasi_http::{
     header::{HeaderMap, HeaderValue, CONTENT_TYPE},
@@ -12,7 +12,7 @@ use golem_wasi_http::{
 };
 use log::trace;
 
-use golem_llm::golem::llm::llm::Error;
+use golem_ai_llm::model::Error;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
@@ -145,6 +145,8 @@ pub struct OllamaModelOptions {
     pub use_mmap: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub num_thread: Option<i32>,
+    #[serde(flatten, default, skip_serializing_if = "HashMap::is_empty")]
+    pub additional_params: HashMap<String, serde_json::Value>,
 }
 
 /// ChatRequest is parameters for a request to the chat endpoint
@@ -176,6 +178,8 @@ pub struct CompletionsRequest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_alive: Option<String>,
+    #[serde(flatten, default, skip_serializing_if = "HashMap::is_empty")]
+    pub additional_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

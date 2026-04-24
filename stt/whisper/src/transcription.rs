@@ -1,13 +1,13 @@
 use bytes::Bytes;
-use golem_stt::{
+use golem_ai_stt::{
     http::{HttpClient, MultipartBuilder},
     transcription::SttProviderClient,
 };
 use log::trace;
 use serde::{Deserialize, Serialize};
 
-use golem_stt::error::Error;
-use golem_stt::languages::Language;
+use golem_ai_stt::error::Error;
+use golem_ai_stt::languages::Language;
 use http::{Method, Request, StatusCode};
 
 const BASE_URL: &str = "https://api.openai.com/v1/audio/transcriptions";
@@ -204,7 +204,9 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             .header("Authorization", &self.openai_api_token)
             .header("Content-Type", content_type)
             .body(body)
-            .map_err(|e| Error::Http(request_id.clone(), golem_stt::http::Error::HttpError(e)))?;
+            .map_err(|e| {
+                Error::Http(request_id.clone(), golem_ai_stt::http::Error::HttpError(e))
+            })?;
 
         let response = self
             .http_client
@@ -220,7 +222,7 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
                 serde_json::from_slice(response.body()).map_err(|e| {
                     Error::Http(
                         request_id.clone(),
-                        golem_stt::http::Error::Generic(format!(
+                        golem_ai_stt::http::Error::Generic(format!(
                             "Failed to deserialize response: {e}"
                         )),
                     )
@@ -235,7 +237,7 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             let provider_error = String::from_utf8(response.body().to_vec()).map_err(|e| {
                 Error::Http(
                     request_id.clone(),
-                    golem_stt::http::Error::Generic(format!(
+                    golem_ai_stt::http::Error::Generic(format!(
                         "Failed to parse response as UTF-8: {e}"
                     )),
                 )
@@ -368,7 +370,7 @@ mod tests {
     const TEST_API_KEY: &str = "test-api-key";
 
     struct MockHttpClient {
-        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_stt::http::Error>>>,
+        pub responses: RefCell<VecDeque<Result<Response<Vec<u8>>, golem_ai_stt::http::Error>>>,
         pub captured_requests: RefCell<Vec<Request<Bytes>>>,
     }
 
@@ -411,14 +413,11 @@ mod tests {
         async fn execute(
             &self,
             request: Request<Bytes>,
-        ) -> Result<Response<Vec<u8>>, golem_stt::http::Error> {
+        ) -> Result<Response<Vec<u8>>, golem_ai_stt::http::Error> {
             self.captured_requests.borrow_mut().push(request);
-            self.responses
-                .borrow_mut()
-                .pop_front()
-                .unwrap_or(Err(golem_stt::http::Error::Generic(
-                    "unexpected error".to_string(),
-                )))
+            self.responses.borrow_mut().pop_front().unwrap_or(Err(
+                golem_ai_stt::http::Error::Generic("unexpected error".to_string()),
+            ))
         }
     }
 

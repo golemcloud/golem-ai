@@ -1,12 +1,13 @@
-use golem_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
-use golem_llm::event_source::EventSource;
-use golem_llm::golem::llm::llm::Error;
+use golem_ai_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
+use golem_ai_llm::event_source::EventSource;
+use golem_ai_llm::model::Error;
 use golem_wasi_http::header::HeaderValue;
 use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 const BASE_URL: &str = "https://api.anthropic.com";
@@ -84,6 +85,8 @@ pub struct MessagesRequest {
     pub top_k: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f32>,
+    #[serde(flatten, default, skip_serializing_if = "HashMap::is_empty")]
+    pub additional_params: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -3,37 +3,25 @@ name = "test_video_advanced"
 version = "0.0.1"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
 [features]
 default = ["kling"]
-kling = []
-
-[package.metadata]
-
-[package.metadata.component]
-
-[package.metadata.component.target]
-path = "wit-generated"
-
-[package.metadata.component.target.dependencies]
-"wasi:io" = { path = "wit-generated/deps/io" }
-"wasi:clocks" = { path = "wit-generated/deps/clocks" }
-"golem:rpc" = { path = "wit-generated/deps/golem-rpc" }
-"golem:video-generation" = { path = "wit-generated/deps/golem-video" }
-"test:helper-client" = { path = "wit-generated/deps/test_helper-client" }
-"test:video-advanced-exports" = { path = "wit-generated/deps/test_video-advanced-exports" }
-
-[package.metadata.component.bindings]
-
-[package.metadata.component.bindings.with]
-"wasi:io/poll@0.2.3" = "golem_rust::golem_wasm::wasi::io::poll"
-"wasi:clocks/wall-clock@0.2.3" = "golem_rust::golem_wasm::wasi::clocks::wall_clock"
-"golem:rpc/types@0.2.2" = "golem_rust::golem_wasm::golem_rpc_0_2_x::types"
-
-[lib]
-path = "src/lib.rs"
-crate-type = ["cdylib"]
-required-features = []
+kling = ["golem-ai-video-kling"]
+runway = ["golem-ai-video-runway"]
+stability = ["golem-ai-video-stability"]
+veo = ["golem-ai-video-veo"]
 
 [dependencies]
 golem-rust = { workspace = true }
-wit-bindgen-rt = { workspace = true }
+golem-ai-video = { path = "../../../../video/video" }
+golem-ai-video-kling = { path = "../../../../video/kling", optional = true }
+golem-ai-video-runway = { path = "../../../../video/runway", optional = true }
+golem-ai-video-stability = { path = "../../../../video/stability", optional = true }
+golem-ai-video-veo = { path = "../../../../video/veo", optional = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wstd = { workspace = true }

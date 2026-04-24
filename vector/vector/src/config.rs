@@ -1,4 +1,4 @@
-use crate::golem::vector::types::VectorError;
+use crate::model::types::VectorError;
 use std::ffi::OsStr;
 
 pub fn with_config_key<R>(
@@ -44,21 +44,17 @@ pub fn with_config_keys<R>(keys: &[&str], callback: impl FnOnce(Vec<String>) -> 
 }
 
 pub fn with_connection_config_key(
-    metadata: &Option<crate::golem::vector::types::Metadata>,
+    metadata: &Option<crate::model::types::Metadata>,
     key: &str,
 ) -> Option<String> {
     if let Some(metadata_list) = metadata {
         for (k, v) in metadata_list {
             if k == key {
                 return match v {
-                    crate::golem::vector::types::MetadataValue::StringVal(s) => Some(s.clone()),
-                    crate::golem::vector::types::MetadataValue::NumberVal(n) => Some(n.to_string()),
-                    crate::golem::vector::types::MetadataValue::IntegerVal(i) => {
-                        Some(i.to_string())
-                    }
-                    crate::golem::vector::types::MetadataValue::BooleanVal(b) => {
-                        Some(b.to_string())
-                    }
+                    crate::model::types::MetadataValue::StringVal(s) => Some(s.clone()),
+                    crate::model::types::MetadataValue::NumberVal(n) => Some(n.to_string()),
+                    crate::model::types::MetadataValue::IntegerVal(i) => Some(i.to_string()),
+                    crate::model::types::MetadataValue::BooleanVal(b) => Some(b.to_string()),
                     _ => None,
                 };
             }

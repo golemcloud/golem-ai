@@ -1,4 +1,4 @@
-use crate::golem::graph::{
+use crate::model::{
     errors::GraphError,
     types::{ComparisonOperator, FilterCondition, PropertyValue, SortSpec},
 };

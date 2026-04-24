@@ -1,4 +1,4 @@
-use crate::exports::golem::video_generation::types::VideoError;
+use crate::model::types::VideoError;
 use golem_wasi_http::StatusCode;
 
 /// Creates a `VideoError` value representing invalid input

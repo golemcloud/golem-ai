@@ -1,9 +1,9 @@
 use crate::conversions::{
     distance_metric_to_pgvector_operator, string_to_distance_metric, string_value_to_db_value,
 };
+use golem_ai_vector::config::get_max_retries_config;
+use golem_ai_vector::model::types::VectorError;
 use golem_rust::bindings::golem::rdbms::postgres::{DbConnection, DbResult, DbValue};
-use golem_vector::config::get_max_retries_config;
-use golem_vector::golem::vector::types::VectorError;
 use log::trace;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -1,27 +1,20 @@
 # golem-stt
 
-WebAssembly Components providing a unified API for various Speech-to-Text (STT) providers.
+Rust libraries providing a unified API for various Speech-to-Text (STT) providers, to be used with Golem.
 
 ## Versions
 
-Each STT provider has two versions: **Default** (with Golem-specific durability features) and **Portable** (no Golem dependencies).
+There are 5 published libraries for each release:
 
-There are 10 published WASM files for each release:
+| Name                    | Description                                                                                |
+|-------------------------|--------------------------------------------------------------------------------------------|
+| `golem-ai-stt-aws`      | STT implementation for AWS Transcribe, using custom Golem specific durability features |
+| `golem-ai-stt-azure`    | STT implementation for Azure Speech Services, using custom Golem specific durability features |
+| `golem-ai-stt-deepgram` | STT implementation for Deepgram, using custom Golem specific durability features |
+| `golem-ai-stt-google`   | STT implementation for Google Cloud Speech-to-Text, using custom Golem specific durability features |
+| `golem-ai-stt-whisper`  | STT implementation for OpenAI Whisper, using custom Golem specific durability features |
 
-| Name                                 | Description                                                                                |
-|--------------------------------------|--------------------------------------------------------------------------------------------|
-| `golem-stt-aws.wasm`                | STT implementation for AWS Transcribe, using custom Golem specific durability features |
-| `golem-stt-azure.wasm`              | STT implementation for Azure Speech Services, using custom Golem specific durability features |
-| `golem-stt-deepgram.wasm`           | STT implementation for Deepgram, using custom Golem specific durability features |
-| `golem-stt-google.wasm`             | STT implementation for Google Cloud Speech-to-Text, using custom Golem specific durability features |
-| `golem-stt-whisper.wasm`            | STT implementation for OpenAI Whisper, using custom Golem specific durability features |
-| `golem-stt-aws-portable.wasm`       | STT implementation for AWS Transcribe, with no Golem specific dependencies |
-| `golem-stt-azure-portable.wasm`     | STT implementation for Azure Speech Services, with no Golem specific dependencies |
-| `golem-stt-deepgram-portable.wasm`  | STT implementation for Deepgram, with no Golem specific dependencies |
-| `golem-stt-google-portable.wasm`    | STT implementation for Google Cloud Speech-to-Text, with no Golem specific dependencies |
-| `golem-stt-whisper-portable.wasm`   | STT implementation for OpenAI Whisper, with no Golem specific dependencies |
-
-Every component **exports** the same `golem:stt` interface, [defined here](wit/golem-stt.wit).
+Every library **exports** the same `golem:stt` interface.
 
 ## Usage
 

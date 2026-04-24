@@ -1,28 +1,19 @@
 # golem-embed
 
-WebAssembly Components providing a unified API for various AI embedding and reranking providers.
+Rust libraries providing a unified API for various AI embedding and reranking providers, to be used with Golem.
 
 ## Versions
 
-There are 8 published WASM files for each release:
+There are 4 published libraries for each release:
 
-| Name                                      | Description                                                                                |
-|-------------------------------------------|--------------------------------------------------------------------------------------------|
-| `golem-embed-openai.wasm`                 | Embedding implementation for OpenAI, using custom Golem specific durability features      |
-| `golem-embed-cohere.wasm`                 | Embedding implementation for Cohere, using custom Golem specific durability features      |
-| `golem-embed-hugging-face.wasm`           | Embedding implementation for Hugging Face, using custom Golem specific durability features|
-| `golem-embed-voyageai.wasm`               | Embedding implementation for VoyageAI, using custom Golem specific durability features    |
-| `golem-embed-openai-portable.wasm`        | Embedding implementation for OpenAI, with no Golem specific dependencies.                 |
-| `golem-embed-cohere-portable.wasm`        | Embedding implementation for Cohere, with no Golem specific dependencies.                 |
-| `golem-embed-hugging-face-portable.wasm`  | Embedding implementation for Hugging Face, with no Golem specific dependencies.           |
-| `golem-embed-voyageai-portable.wasm`      | Embedding implementation for VoyageAI, with no Golem specific dependencies.               |
+| Name                       | Description                                                                                |
+|----------------------------|--------------------------------------------------------------------------------------------|
+| `golem-ai-embed-openai`    | Embedding implementation for OpenAI, using custom Golem specific durability features      |
+| `golem-ai-embed-cohere`    | Embedding implementation for Cohere, using custom Golem specific durability features      |
+| `golem-ai-embed-hugging-face` | Embedding implementation for Hugging Face, using custom Golem specific durability features|
+| `golem-ai-embed-voyageai`     | Embedding implementation for VoyageAI, using custom Golem specific durability features    |
 
-Every component **exports** the same `golem:embed` interface, [defined here](wit/golem-embed.wit).
-
-The `-portable` versions only depend on `wasi:io`, `wasi:http` and `wasi:logging`.
-
-The default versions also depend on [Golem's host API](https://learn.golem.cloud/golem-host-functions) to implement
-advanced durability related features.
+Every library **exports** the same `golem:embed` interface.
 
 ## Provider Capabilities
 
@@ -56,66 +47,10 @@ with the underlying embedding provider.
 
 The easiest way to get started is to use one of the predefined **templates** Golem provides.
 
-**NOT AVAILABLE YET**
+#### Using a dependency
 
-#### Using a component dependency
-
-To existing Golem applications the `golem-embed` WASM components can be added as a **binary dependency**.
-
-**NOT AVAILABLE YET**
-
-#### Integrating the composing step to the build
-
-Currently it is necessary to manually add the [`wac`](https://github.com/bytecodealliance/wac) tool call to the
-application manifest to link with the selected embedding implementation. The `test` directory of this repository shows an
-example of this.
-
-The summary of the steps to be done, assuming the component was created with `golem-cli component new rust my:example`:
-
-1. Copy the `profiles` section from `common-rust/golem.yaml` to the component's `golem.yaml` file (for example in
-   `components-rust/my-example/golem.yaml`) so it can be customized.
-2. Add a second **build step** after the `cargo component build` which is calling `wac` to compose with the selected (
-   and downloaded) `golem-embed` binary. See the example below.
-3. Modify the `componentWasm` field to point to the composed WASM file.
-4. Add the `golem-embed.wit` file (from this repository) to the application's root `wit/deps/golem:embed` directory.
-5. Import `golem-embed.wit` in your component's WIT file: `import golem:embed/embed@1.0.0;'
-
-Example app manifest build section:
-
-```yaml
-components:
-  my:example:
-    presets:
-      debug:
-        build:
-          - command: cargo component build
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/debug/my_example.wasm
-          - command: wac plug --plug ../../golem_embed_openai.wasm ../../target/wasm32-wasip1/debug/my_example.wasm -o ../../target/wasm32-wasip1/debug/my_example_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/my_example.wasm
-              - ../../golem_embed_openai.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/my_example_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/my_example_plugged.wasm
-        linkedWasm: ../../golem-temp/components/my_example_debug.wasm
-        clean:
-          - src/bindings.rs
-```
-
-### Using without Golem
-
-To use the embedding provider components in a WebAssembly project independent of Golem you need to do the following:
-
-1. Download one of the `-portable.wasm` versions
-2. Download the `golem-embed.wit` WIT package and import it
-3. Use [`wac`](https://github.com/bytecodealliance/wac) to compose your component with the selected embedding implementation.
+To existing Golem applications the `golem-ai-embed` libraries can be added as a **dependency**
+in the `Cargo.toml` file.
 
 ## Examples
 
@@ -173,15 +108,12 @@ Some of the important tasks are:
 
 | Command                             | Description                                                                                            |
 |-------------------------------------|--------------------------------------------------------------------------------------------------------|
-| `cargo make build`                  | Build all components with Golem bindings in Debug                                                      |
-| `cargo make release-build`          | Build all components with Golem bindings in Release                                                    |
-| `cargo make build-portable`         | Build all components with no Golem bindings in Debug                                                   |
-| `cargo make release-build-portable` | Build all components with no Golem bindings in Release                                                 |
+| `cargo make build`                  | Build all libraries in Debug                                                                           |
+| `cargo make release-build`          | Build all libraries in Release                                                                         |
 | `cargo make unit-tests`             | Run all unit tests                                                                                     |
 | `cargo make check`                  | Checks formatting and Clippy rules                                                                     |
 | `cargo make fix`                    | Fixes formatting and Clippy rules                                                                      |
-| `cargo make wit`                    | To be used after editing the `wit/golem-embed.wit` file - distributes the changes to all wit directories |
 
-The `test` directory contains a **Golem application** for testing various features of the embedding components.
+The `test` directory contains a **Golem application** for testing various features of the embedding libraries.
 Check [the Golem documentation](https://learn.golem.cloud/quickstart) to learn how to install Golem and `golem-cli` to
 run these tests.

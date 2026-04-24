@@ -1,328 +1,40 @@
 # Schema for IDEA:
-# $schema: https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
-# Schema for vscode-yaml
-# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.1.1/golem.schema.json
+# $schema: https://schema.golem.cloud/app/golem/1.5.0-rc3/golem.schema.json
+# Schema for vscode-yaml:
+# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.5.0-rc3/golem.schema.json
 
-# See https://learn.golem.cloud/docs/app-manifest#field-reference for field reference
-
+manifestVersion: "1.5.0"
 components:
   test:llm:
-    presets:
-      # DEBUG PROFILES
-      openai-debug:
-        default: true
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features openai
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_openai.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_openai.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_openai_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_openai_debug.wasm
-        clean:
-          - src/bindings.rs
+    dir: "."
+    templates: rust-custom
+    env:
+      # GOLEM_LLM_LOG: "trace"
 
-      bedrock-debug:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features bedrock
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_bedrock.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_bedrock_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_bedrock.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_bedrock_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_bedrock_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_bedrock_debug.wasm
-        clean:
-          - src/bindings.rs
+      ## OpenAI
+      # OPENAI_API_KEY: "{{ OPENAI_API_KEY }}"
 
-      anthropic-debug:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features anthropic
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_anthropic.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_anthropic_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_anthropic.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_anthropic_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_anthropic_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_anthropic_debug.wasm
-        clean:
-          - src/bindings.rs
+      ## Anthropic
+      # ANTHROPIC_API_KEY: "{{ ANTHROPIC_API_KEY }}"
 
-      grok-debug:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features grok
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_grok.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_grok_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_grok.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_grok_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_grok_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_grok_debug.wasm
-        clean:
-          - src/bindings.rs
+      ## Amazon Bedrock
+      # AWS_ACCESS_KEY_ID: "{{ AWS_ACCESS_KEY_ID }}"
+      # AWS_REGION: "{{ AWS_REGION }}"
+      # AWS_SECRET_ACCESS_KEY: "{{ AWS_SECRET_ACCESS_KEY }}"
+      # AWS_SESSION_TOKEN: "{{ AWS_SESSION_TOKEN }}"
 
-      openrouter-debug:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features openrouter
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_openrouter.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_openrouter_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_openrouter.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_openrouter_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_openrouter_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_openrouter_debug.wasm
-        clean:
-          - src/bindings.rs
-          
-      ollama-debug:
-        files:
-        - sourcePath: ../../data/cat.png
-          targetPath: /data/cat.png
-          permissions: read-only
-        build:
-          - command: cargo component build --no-default-features --features ollama
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/debug/golem_llm_ollama.wasm ../../target/wasm32-wasip1/debug/test_llm.wasm -o ../../target/wasm32-wasip1/debug/test_ollama_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/debug/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/debug/golem_llm_ollama.wasm
-            targets:
-              - ../../target/wasm32-wasip1/debug/test_ollama_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/debug/test_ollama_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_ollama_debug.wasm
-        clean:
-          - src/bindings.rs
+      ## Grok
+      # XAI_API_KEY: "{{ XAI_API_KEY }}"
 
-      # RELEASE PROFILES
-      openai-release:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features openai
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_openai.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_openai_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_openai.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_openai_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_openai_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_openai_release.wasm
-        clean:
-          - src/bindings.rs
+      ## OpenRouter
+      # OPENROUTER_API_KEY: "{{ OPENROUTER_API_KEY }}"
 
-      bedrock-release:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features bedrock
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_bedrock.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_bedrock_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_bedrock.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_bedrock_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_bedrock_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_bedrock_release.wasm
-        clean:
-          - src/bindings.rs
+      ## Ollama
+      # GOLEM_OLLAMA_BASE_URL: "{{ GOLEM_OLLAMA_BASE_URL }}"
 
-      anthropic-release:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features anthropic
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_anthropic.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_anthropic_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_anthropic.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_anthropic_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_anthropic_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_anthropic_release.wasm
-        clean:
-          - src/bindings.rs
-
-      grok-release:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features grok
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_grok.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_grok_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_grok.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_grok_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_grok_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_grok_release.wasm
-        clean:
-          - src/bindings.rs
-
-      openrouter-release:
-        files:
-          - sourcePath: ../../data/cat.png
-            targetPath: /data/cat.png
-            permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features openrouter
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_openrouter.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_openrouter_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_openrouter.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_openrouter_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_openrouter_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_openrouter_release.wasm
-        clean:
-          - src/bindings.rs
-
-      ollama-release:
-        files:
-        - sourcePath: ../../data/cat.png
-          targetPath: /data/cat.png
-          permissions: read-only
-        build:
-          - command: cargo component build --release --no-default-features --features ollama
-            sources:
-              - src
-              - wit-generated
-              - ../../common-rust
-            targets:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-          - command: wac plug --plug ../../../../target/wasm32-wasip1/release/golem_llm_ollama.wasm ../../target/wasm32-wasip1/release/test_llm.wasm -o ../../target/wasm32-wasip1/release/test_ollama_plugged.wasm
-            sources:
-              - ../../target/wasm32-wasip1/release/test_llm.wasm
-              - ../../../../target/wasm32-wasip1/release/golem_llm_ollama.wasm
-            targets:
-              - ../../target/wasm32-wasip1/release/test_ollama_plugged.wasm
-        sourceWit: wit
-        generatedWit: wit-generated
-        componentWasm: ../../target/wasm32-wasip1/release/test_ollama_plugged.wasm
-        linkedWasm: ../../golem-temp/components/test_ollama_release.wasm
-        clean:
-          - src/bindings.rs
-
-    dependencies:
-      - target: test:helper
-        type: wasm-rpc
+agents:
+  LlmTest:
+    files:
+    - sourcePath: ../../data/cat.png
+      targetPath: /data/cat.png
+      permissions: read-only

@@ -4,21 +4,20 @@ use crate::conversions::{
     create_retry_query, doc_to_algolia_object, schema_to_algolia_settings,
     search_query_to_algolia_query,
 };
-use golem_rust::golem_wasm::Pollable;
-use golem_search::config::with_config_keys;
-use golem_search::durability::{DurableSearch, ExtendedGuest};
-use golem_search::golem::search::core::{
-    CreateIndexOptions, Guest, GuestSearchStream, SearchStream,
-};
-use golem_search::golem::search::types::{
+use golem_ai_search::config::with_config_keys;
+use golem_ai_search::durability::{DurableSearch, ExtendedSearchProvider};
+use golem_ai_search::model::{CreateIndexOptions, SearchStream};
+use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
+use golem_ai_search::{SearchProvider, SearchStreamInterface};
+use golem_rust::golem_wasm::Pollable;
 use std::cell::{Cell, RefCell};
 
 mod client;
 mod conversions;
 
-struct AlgoliaSearchStream {
+pub struct AlgoliaSearchStream {
     client: AlgoliaSearchApi,
     index_name: String,
     query: SearchQuery,
@@ -44,7 +43,15 @@ impl AlgoliaSearchStream {
     }
 }
 
-impl GuestSearchStream for AlgoliaSearchStream {
+impl SearchStreamInterface for AlgoliaSearchStream {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn get_next(&self) -> Option<Vec<SearchHit>> {
         if self.finished.get() {
             return Some(vec![]);
@@ -91,9 +98,9 @@ impl GuestSearchStream for AlgoliaSearchStream {
     }
 }
 
-struct AlgoliaComponent;
+pub struct Algolia;
 
-impl AlgoliaComponent {
+impl Algolia {
     const APPLICATION_ID_ENV_VAR: &'static str = "ALGOLIA_APPLICATION_ID";
     const API_KEY_ENV_VAR: &'static str = "ALGOLIA_API_KEY";
 
@@ -116,7 +123,7 @@ impl AlgoliaComponent {
     }
 }
 
-impl Guest for AlgoliaComponent {
+impl SearchProvider for Algolia {
     type SearchStream = AlgoliaSearchStream;
 
     fn create_index(_options: CreateIndexOptions) -> Result<(), SearchError> {
@@ -247,7 +254,7 @@ impl Guest for AlgoliaComponent {
     }
 }
 
-impl ExtendedGuest for AlgoliaComponent {
+impl ExtendedSearchProvider for Algolia {
     fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
         let client = Self::create_client()
             .unwrap_or_else(|_| AlgoliaSearchApi::new("dummy".to_string(), "dummy".to_string()));
@@ -264,6 +271,4 @@ impl ExtendedGuest for AlgoliaComponent {
     }
 }
 
-type DurableAlgoliaComponent = DurableSearch<AlgoliaComponent>;
-
-golem_search::export_search!(DurableAlgoliaComponent with_types_in golem_search);
+pub type DurableAlgolia = DurableSearch<Algolia>;

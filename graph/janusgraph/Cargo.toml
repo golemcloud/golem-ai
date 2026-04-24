@@ -1,22 +1,21 @@
 [package]
-name = "golem-graph-janusgraph"
+name = "golem-ai-graph-janusgraph"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://golem.cloud"
-repository = "https://github.com/golemcloud/golem-llm"
-description = "WebAssembly component for working with JanusGraph APIs, with special support for Golem Cloud"
+repository = "https://github.com/golemcloud/golem-ai"
+description = "Library for working with JanusGraph APIs on Golem Cloud"
 
 [lib]
 path = "src/lib.rs"
-crate-type = ["cdylib"]
 
 [features]
 default = ["durability"]
-durability = ["golem-rust/durability", "golem-graph/durability"]
+durability = ["golem-rust/durability", "golem-ai-graph/durability"]
 
 [dependencies]
-golem-graph = {workspace = true }
+golem-ai-graph = { workspace = true }
 
 base64 = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
@@ -26,25 +25,3 @@ log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = "1.17.0"
-wit-bindgen-rt = { workspace = true }
-
-[package.metadata.component]
-package = "golem:graph-janusgraph"
-
-[package.metadata.component.bindings]
-generate_unused_types = true
-
-[package.metadata.component.bindings.with]
-"golem:graph/errors@1.0.0" = "golem_graph::golem::graph::errors"
-"golem:graph/types@1.0.0" = "golem_graph::golem::graph::types"
-"golem:graph/connection@1.0.0" = "golem_graph::golem::graph::connection"
-"golem:graph/transactions@1.0.0" = "golem_graph::golem::graph::transactions"
-"golem:graph/schema@1.0.0" = "golem_graph::golem::graph::schema"
-
-
-[package.metadata.component.target]
-path = "wit"
-
-[package.metadata.component.target.dependencies]
-"golem:graph" = { path = "wit/deps/golem-graph" }
-"wasi:io" = { path = "wit/deps/wasi:io"} 

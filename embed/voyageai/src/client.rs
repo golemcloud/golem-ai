@@ -1,8 +1,8 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use golem_embed::{
+use golem_ai_embed::{
     error::{error_code_from_status, from_reqwest_error},
-    golem::embed::embed::Error,
+    model::Error,
 };
 use golem_wasi_http::{Client, Method, Response};
 use log::trace;

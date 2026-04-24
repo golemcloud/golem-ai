@@ -1,4 +1,4 @@
-use crate::golem::graph::connection::ConnectionConfig;
+use crate::model::connection::ConnectionConfig;
 use std::env;
 
 /// Retrieves a configuration value from an environment variable, checking the provider_config first.

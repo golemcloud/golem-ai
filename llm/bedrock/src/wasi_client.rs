@@ -8,7 +8,7 @@ use aws_smithy_runtime_api::{
     http::{Headers, Response, StatusCode},
 };
 use aws_smithy_types::body::SdkBody;
-use wstd::http::{self, Method};
+use wstd::http::{self, Body, Method};
 
 use crate::async_utils::UnsafeFuture;
 
@@ -66,10 +66,12 @@ impl WasiConnector {
     async fn handle(
         &self,
         request: config::http::HttpRequest,
-    ) -> Result<http::Response<http::body::IncomingBody>, ConnectorError> {
+    ) -> Result<http::Response<Body>, ConnectorError> {
         let method = Method::from_bytes(request.method().as_bytes()).expect("Valid http method");
         let url = request.uri().to_owned();
         let parts = request.into_parts();
+
+        let body_bytes = sdk_body_to_vec(parts.body);
 
         let mut request = http::Request::builder().uri(url).method(method);
 
@@ -78,7 +80,7 @@ impl WasiConnector {
         }
 
         let request = request
-            .body(BodyReader::new(parts.body))
+            .body(body_bytes)
             .expect("Valid request should be formed");
 
         self.0
@@ -100,15 +102,15 @@ impl HttpConnector for SharedWasiConnector {
             let headers_map = response.headers().clone();
             let extensions = response.extensions().clone();
 
-            let body = response
+            let body_bytes = response
                 .into_body()
-                .bytes()
+                .contents()
                 .await
                 .map(|body| {
                     if body.is_empty() {
                         SdkBody::empty()
                     } else {
-                        SdkBody::from(body)
+                        SdkBody::from(body.to_vec())
                     }
                 })
                 .map_err(|e| ConnectorError::other(e.into(), None))?;
@@ -122,7 +124,7 @@ impl HttpConnector for SharedWasiConnector {
                 }
             }
 
-            let mut sdk_response = Response::new(status_code, body);
+            let mut sdk_response = Response::new(status_code, body_bytes);
             *sdk_response.headers_mut() = headers;
             sdk_response.add_extension(extensions);
 
@@ -133,54 +135,6 @@ impl HttpConnector for SharedWasiConnector {
     }
 }
 
-struct BodyReader {
-    body: SdkBody,
-    position: usize,
-}
-
-impl From<SdkBody> for BodyReader {
-    fn from(value: SdkBody) -> Self {
-        Self::new(value)
-    }
-}
-
-impl BodyReader {
-    fn new(body: SdkBody) -> Self {
-        Self { body, position: 0 }
-    }
-}
-
-impl http::Body for BodyReader {
-    fn len(&self) -> Option<usize> {
-        let body_bytes = self.body.bytes();
-
-        match body_bytes {
-            Some(bytes) => {
-                let total_length = bytes.len();
-
-                Some(total_length - self.position)
-            }
-            None => None,
-        }
-    }
-}
-
-impl wstd::io::AsyncRead for BodyReader {
-    async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let body_bytes = self.body.bytes();
-
-        match body_bytes {
-            Some(bytes) => {
-                if self.position >= bytes.len() {
-                    return Ok(0); // EOF
-                }
-                let remaining = &bytes[self.position..];
-                let amt = std::cmp::min(buf.len(), remaining.len());
-                buf[..amt].copy_from_slice(&remaining[..amt]);
-                self.position += amt;
-                Ok(amt)
-            }
-            None => Ok(0),
-        }
-    }
+fn sdk_body_to_vec(body: SdkBody) -> Vec<u8> {
+    body.bytes().map(|b| b.to_vec()).unwrap_or_default()
 }

@@ -1,5 +1,5 @@
 use crate::error::internal_error;
-use crate::exports::golem::video_generation::types::{RawBytes, VideoError};
+use crate::model::types::{RawBytes, VideoError};
 use mime_guess::from_path;
 
 /// Downloads an image from a URL and returns the bytes with mime type

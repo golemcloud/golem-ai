@@ -7,7 +7,7 @@ use aws_sdk_bedrockruntime::types::{
     SystemContentBlock, Tool, ToolConfiguration, ToolInputSchema, ToolSpecification, ToolUseBlock,
 };
 use aws_smithy_types::{Document, Number};
-use golem_llm::golem::llm::llm;
+use golem_ai_llm::model as llm;
 use std::collections::HashMap;
 use wstd::http;
 
@@ -18,7 +18,7 @@ pub struct BedrockInput {
     pub messages: Vec<bedrock::types::Message>,
     pub inference_configuration: InferenceConfiguration,
     pub tools: Option<ToolConfiguration>,
-    pub additional_fields: aws_smithy_types::Document,
+    pub additional_fields: Document,
 }
 
 impl BedrockInput {
@@ -27,16 +27,7 @@ impl BedrockInput {
         events: Vec<llm::Event>,
     ) -> Result<Self, llm::Error> {
         let (user_messages, system_instructions) = events_to_bedrock_message_groups(events).await?;
-
-        let options = config
-            .provider_options
-            .map(|options| {
-                options
-                    .into_iter()
-                    .map(|kv| (kv.key, Document::String(kv.value)))
-                    .collect::<HashMap<_, _>>()
-            })
-            .unwrap_or_default();
+        let options = provider_options_to_additional_fields(config.provider_options);
 
         Ok(BedrockInput {
             model_id: config.model.clone(),
@@ -46,6 +37,9 @@ impl BedrockInput {
                 .set_stop_sequences(config.stop_sequences.clone())
                 .set_top_p(options.get("top_p").and_then(|v| match v {
                     Document::String(v) => v.parse::<f32>().ok(),
+                    Document::Number(Number::Float(v)) => Some(*v as f32),
+                    Document::Number(Number::NegInt(v)) => Some(*v as f32),
+                    Document::Number(Number::PosInt(v)) => Some(*v as f32),
                     _ => None,
                 }))
                 .build(),
@@ -55,6 +49,31 @@ impl BedrockInput {
             additional_fields: Document::Object(options),
         })
     }
+}
+
+fn provider_options_to_additional_fields(
+    provider_options: Option<Vec<llm::Kv>>,
+) -> HashMap<String, Document> {
+    provider_options_to_json_map(provider_options)
+        .into_iter()
+        .fold(HashMap::new(), |mut acc, (key, value)| {
+            acc.insert(key, serde_json_to_smithy_document(value));
+            acc
+        })
+}
+
+fn provider_options_to_json_map(
+    provider_options: Option<Vec<llm::Kv>>,
+) -> HashMap<String, serde_json::Value> {
+    provider_options
+        .unwrap_or_default()
+        .into_iter()
+        .map(|kv| (kv.key, parse_provider_option_value(&kv.value)))
+        .collect::<HashMap<_, _>>()
+}
+
+fn parse_provider_option_value(value: &str) -> serde_json::Value {
+    serde_json::from_str(value).unwrap_or_else(|_| serde_json::Value::String(value.to_string()))
 }
 
 fn tool_defs_to_bedrock_tool_config(
@@ -262,10 +281,10 @@ async fn get_bytes_from_url(url: &str) -> Result<Vec<u8>, llm::Error> {
     let client = http::Client::new();
 
     let request = http::Request::get(url)
-        .body(wstd::io::empty())
+        .body(http::Body::empty())
         .expect("Valid request should be formed");
 
-    let response = client.send(request).await.map_err(|err| {
+    let mut response = client.send(request).await.map_err(|err| {
         custom_error(
             llm::ErrorCode::InvalidRequest,
             format!("Could not read image bytes from url: {url}, cause: {err}"),
@@ -281,7 +300,7 @@ async fn get_bytes_from_url(url: &str) -> Result<Vec<u8>, llm::Error> {
         ));
     }
 
-    let bytes = response.into_body().bytes().await.map_err(|err| {
+    let bytes = response.body_mut().contents().await.map_err(|err| {
         custom_error(
             llm::ErrorCode::InvalidRequest,
             format!("Could not read image bytes from url: {url}, cause: {err}"),
@@ -407,7 +426,7 @@ fn bedrock_stop_reason_to_finish_reason(reason: &bedrock::types::StopReason) -> 
     }
 }
 
-fn bedrock_image_to_llm_content_part(block: bedrock::types::ImageBlock) -> llm::ContentPart {
+fn bedrock_image_to_llm_content_part(block: ImageBlock) -> llm::ContentPart {
     let mime_type = format!("image/{}", block.format.as_str());
 
     let reference = match block.source {
@@ -619,4 +638,37 @@ pub fn merge_metadata(
         .or(metadata2.provider_metadata_json);
 
     metadata1
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn kv(key: &str, value: &str) -> llm::Kv {
+        llm::Kv {
+            key: key.to_string(),
+            value: value.to_string(),
+        }
+    }
+
+    #[test]
+    fn provider_options_support_non_string_values() {
+        let fields = provider_options_to_additional_fields(Some(vec![
+            kv("top_p", "0.95"),
+            kv("enabled", "true"),
+            kv("metadata", "{\"tier\":\"pro\"}"),
+            kv("tag", "preview"),
+        ]));
+
+        match fields.get("top_p") {
+            Some(Document::Number(Number::Float(value))) => assert!((*value - 0.95).abs() < 0.0001),
+            other => panic!("unexpected top_p value: {other:?}"),
+        }
+        assert!(matches!(fields.get("enabled"), Some(Document::Bool(true))));
+        assert!(matches!(fields.get("metadata"), Some(Document::Object(_))));
+        assert!(matches!(
+            fields.get("tag"),
+            Some(Document::String(value)) if value == "preview"
+        ));
+    }
 }

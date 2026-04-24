@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use golem_stt::error::Error as SttError;
-use golem_stt::{http::WstdHttpClient, runtime::WasiAsyncRuntime};
+use golem_ai_stt::error::Error as SttError;
+use golem_ai_stt::{http::WstdHttpClient, runtime::WasiAsyncRuntime};
 
 use crate::transcription::{gcp_auth::GcpAuth, ServiceAccountKey};
 

@@ -1,20 +1,42 @@
 pub mod config;
 pub mod durability;
 pub mod error;
+pub mod model;
 pub mod utils;
 
-wit_bindgen::generate!({
-    path: "../wit",
-    world: "video-library",
-    generate_all,
-    generate_unused_types: true,
-    additional_derives: [PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue],
-    pub_export_macro: true,
-});
-
-pub use __export_video_library_impl as export_video;
+use crate::model::advanced::{
+    BaseVideo, ExtendVideoOptions, GenerateVideoEffectsOptions, MultImageGenerationOptions,
+};
+use crate::model::lip_sync::{AudioSource, LipSyncVideo, VoiceInfo};
+use crate::model::video_generation::{GenerationConfig, MediaInput, VideoError, VideoResult};
 use std::cell::RefCell;
 use std::str::FromStr;
+
+pub trait VideoGenerationProvider {
+    fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError>;
+    fn poll(job_id: String) -> Result<VideoResult, VideoError>;
+    fn cancel(job_id: String) -> Result<String, VideoError>;
+}
+
+pub trait LipSyncProvider {
+    fn generate_lip_sync(
+        video: LipSyncVideo,
+        audio: AudioSource,
+    ) -> Result<String, model::lip_sync::VideoError>;
+    fn list_voices(language: Option<String>)
+        -> Result<Vec<VoiceInfo>, model::lip_sync::VideoError>;
+}
+
+pub trait AdvancedVideoGenerationProvider {
+    fn extend_video(options: ExtendVideoOptions) -> Result<String, model::advanced::VideoError>;
+    fn upscale_video(input: BaseVideo) -> Result<String, model::advanced::VideoError>;
+    fn generate_video_effects(
+        options: GenerateVideoEffectsOptions,
+    ) -> Result<String, model::advanced::VideoError>;
+    fn multi_image_generation(
+        options: MultImageGenerationOptions,
+    ) -> Result<String, model::advanced::VideoError>;
+}
 
 pub struct LoggingState {
     logging_initialized: bool,

@@ -1,0 +1,7 @@
+{
+  "kind": "AddMetadataMarkerHash",
+  "id": "test:llm",
+  "hashInput": "test:llm",
+  "hashHex": "74d67678da529d9acc989cb58db3b2400a013aaa9c56593af811acdaec93ec2c",
+  "success": true
+}

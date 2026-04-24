@@ -1,40 +1,33 @@
-use crate::exports::golem::tts::advanced::Guest as AdvancedGuest;
 #[allow(unused_imports)]
-use crate::exports::golem::tts::advanced::{
+use crate::model::advanced::{
     AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
     PronunciationLexicon, VoiceDesignParams,
 };
-use crate::exports::golem::tts::streaming::Guest as StreamingGuest;
 #[allow(unused_imports)]
-use crate::exports::golem::tts::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
-use crate::exports::golem::tts::synthesis::Guest as SynthesisGuest;
+use crate::model::synthesis::{SynthesisOptions, ValidationResult};
 #[allow(unused_imports)]
-use crate::exports::golem::tts::synthesis::{SynthesisOptions, ValidationResult};
-#[allow(unused_imports)]
-use crate::exports::golem::tts::types::{
+use crate::model::types::{
     AudioChunk, AudioConfig, AudioEffects, AudioFormat, LanguageCode, SynthesisResult, TextInput,
     TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
-use crate::exports::golem::tts::voices::Guest as VoicesGuest;
 #[allow(unused_imports)]
-use crate::exports::golem::tts::voices::{
-    LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults,
-};
+use crate::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use crate::{AdvancedTtsProvider, StreamingVoiceProvider, SynthesizeProvider, VoiceProvider};
 use std::marker::PhantomData;
 
 pub struct DurableTts<Impl> {
     phantom: PhantomData<Impl>,
 }
-pub trait ExtendedGuest:
-    VoicesGuest + SynthesisGuest + StreamingGuest + AdvancedGuest + 'static
+pub trait ExtendedTtsProvider:
+    VoiceProvider + StreamingVoiceProvider + SynthesizeProvider + AdvancedTtsProvider + 'static
 {
     fn unwrapped_synthesis_stream(
-        voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+        voice: crate::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream;
 
     fn unwrapped_voice_conversion_stream(
-        target_voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+        target_voice: crate::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream;
 
@@ -50,29 +43,25 @@ pub trait ExtendedGuest:
 /// When the durability feature flag is off, wrapping with `DurableTts` is just a passthrough
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
-    use crate::durability::{DurableTts, ExtendedGuest};
-    use crate::exports::golem::tts::advanced::Guest as AdvancedGuest;
-    use crate::exports::golem::tts::advanced::{
+    use crate::durability::{DurableTts, ExtendedTtsProvider};
+    use crate::init_logging;
+    use crate::model::advanced::Guest as AdvancedGuest;
+    use crate::model::advanced::{
         AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
         PronunciationLexicon, VoiceDesignParams,
     };
-    use crate::exports::golem::tts::streaming::Guest as StreamingGuest;
-    use crate::exports::golem::tts::streaming::{
-        StreamStatus, SynthesisStream, VoiceConversionStream,
-    };
-    use crate::exports::golem::tts::synthesis::Guest as SynthesisGuest;
-    use crate::exports::golem::tts::synthesis::{SynthesisOptions, ValidationResult};
-    use crate::exports::golem::tts::types::{
+    use crate::model::streaming::Guest as StreamingGuest;
+    use crate::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
+    use crate::model::synthesis::Guest as SynthesisGuest;
+    use crate::model::synthesis::{SynthesisOptions, ValidationResult};
+    use crate::model::types::{
         AudioChunk, AudioConfig, AudioEffects, AudioFormat, LanguageCode, SynthesisResult,
         TextInput, TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
     };
-    use crate::exports::golem::tts::voices::Guest as VoicesGuest;
-    use crate::exports::golem::tts::voices::{
-        LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults,
-    };
-    use crate::init_logging;
+    use crate::model::voices::Guest as VoicesGuest;
+    use crate::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
 
-    impl<Impl: ExtendedGuest> VoicesGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> VoicesGuest for DurableTts<Impl> {
         type Voice = Impl::Voice;
         type VoiceResults = Impl::VoiceResults;
 
@@ -97,10 +86,10 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> SynthesisGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> SynthesisGuest for DurableTts<Impl> {
         fn synthesize(
             input: TextInput,
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisResult, TtsError> {
             init_logging();
@@ -109,7 +98,7 @@ mod passthrough_impl {
 
         fn synthesize_batch(
             inputs: Vec<TextInput>,
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<Vec<SynthesisResult>, TtsError> {
             init_logging();
@@ -118,7 +107,7 @@ mod passthrough_impl {
 
         fn get_timing_marks(
             input: TextInput,
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
         ) -> Result<Vec<TimingInfo>, TtsError> {
             init_logging();
             Impl::get_timing_marks(input, voice)
@@ -126,19 +115,19 @@ mod passthrough_impl {
 
         fn validate_input(
             input: TextInput,
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
         ) -> Result<ValidationResult, TtsError> {
             init_logging();
             Impl::validate_input(input, voice)
         }
     }
 
-    impl<Impl: ExtendedGuest> StreamingGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> StreamingGuest for DurableTts<Impl> {
         type SynthesisStream = Impl::SynthesisStream;
         type VoiceConversionStream = Impl::VoiceConversionStream;
 
         fn create_stream(
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisStream, TtsError> {
             init_logging();
@@ -146,7 +135,7 @@ mod passthrough_impl {
         }
 
         fn create_voice_conversion_stream(
-            target_voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            target_voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<VoiceConversionStream, TtsError> {
             init_logging();
@@ -154,7 +143,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> AdvancedGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> AdvancedGuest for DurableTts<Impl> {
         type PronunciationLexicon = Impl::PronunciationLexicon;
         type LongFormOperation = Impl::LongFormOperation;
 
@@ -177,7 +166,7 @@ mod passthrough_impl {
 
         fn convert_voice(
             input_audio: Vec<u8>,
-            target_voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            target_voice: crate::model::voices::VoiceBorrow<'_>,
             preserve_timing: Option<bool>,
         ) -> Result<Vec<u8>, TtsError> {
             init_logging();
@@ -204,7 +193,7 @@ mod passthrough_impl {
 
         fn synthesize_long_form(
             content: String,
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
             output_location: String,
             chapter_breaks: Option<Vec<u32>>,
         ) -> Result<LongFormOperation, TtsError> {
@@ -219,35 +208,29 @@ mod passthrough_impl {
 /// the `golem-rust` helper library.
 #[cfg(feature = "durability")]
 mod durable_impl {
-    use crate::durability::{DurableTts, ExtendedGuest};
-    use crate::exports::golem::tts::advanced::Guest as AdvancedGuest;
-    use crate::exports::golem::tts::streaming::GuestVoiceConversionStream;
-    use crate::exports::golem::tts::voices::GuestVoiceResults;
+    use crate::durability::{DurableTts, ExtendedTtsProvider};
 
     #[allow(unused_imports)]
-    use crate::exports::golem::tts::advanced::{
+    use crate::model::advanced::{
         AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
         PronunciationLexicon, VoiceDesignParams,
     };
-    use crate::exports::golem::tts::advanced::{GuestLongFormOperation, GuestPronunciationLexicon};
-    use crate::exports::golem::tts::streaming::Guest as StreamingGuest;
     #[allow(unused_imports)]
-    use crate::exports::golem::tts::streaming::{
-        StreamStatus, SynthesisStream, VoiceConversionStream,
-    };
-    use crate::exports::golem::tts::synthesis::Guest as SynthesisGuest;
-    use crate::exports::golem::tts::synthesis::{SynthesisOptions, ValidationResult};
+    use crate::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
+
+    use crate::model::synthesis::{SynthesisOptions, ValidationResult};
     #[allow(unused_imports)]
-    use crate::exports::golem::tts::types::{
+    use crate::model::types::{
         AudioChunk, AudioConfig, AudioEffects, AudioFormat, LanguageCode, SynthesisResult,
         TextInput, TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
     };
-    use crate::exports::golem::tts::voices::Guest as VoicesGuest;
-    use crate::exports::golem::tts::voices::GuestVoice;
-    use crate::exports::golem::tts::voices::{
-        LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults,
+
+    use crate::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+    use crate::{
+        init_logging, AdvancedTtsProvider, LongFormOperationInterface,
+        PronunciationLexiconInterface, StreamingVoiceProvider, SynthesizeProvider,
+        VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
     };
-    use crate::init_logging;
     use golem_rust::bindings::golem::durability::durability::{
         DurableFunctionType, LazyInitializedPollable,
     };
@@ -478,7 +461,7 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> VoicesGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> VoiceProvider for DurableTts<Impl> {
         type Voice = Impl::Voice;
         type VoiceResults = Impl::VoiceResults;
 
@@ -486,7 +469,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<VoiceResultsOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "list_voices",
                 DurableFunctionType::WriteRemote,
             );
@@ -523,7 +506,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<VoiceOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "get_voice",
                 DurableFunctionType::WriteRemote,
             );
@@ -592,7 +575,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<VoiceInfoListOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "search_voices",
                 DurableFunctionType::WriteRemote,
             );
@@ -613,7 +596,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<LanguageInfoListOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "list_languages",
                 DurableFunctionType::WriteRemote,
             );
@@ -631,16 +614,16 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> SynthesisGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> SynthesizeProvider for DurableTts<Impl> {
         fn synthesize(
             input: TextInput,
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisResult, TtsError> {
             init_logging();
 
             let durability = Durability::<SynthesisResultOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "synthesize",
                 DurableFunctionType::WriteRemote,
             );
@@ -659,13 +642,13 @@ mod durable_impl {
 
         fn synthesize_batch(
             inputs: Vec<TextInput>,
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<Vec<SynthesisResult>, TtsError> {
             init_logging();
 
             let durability = Durability::<SynthesisResultListOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "synthesize_batch",
                 DurableFunctionType::WriteRemote,
             );
@@ -684,12 +667,12 @@ mod durable_impl {
 
         fn get_timing_marks(
             input: TextInput,
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
         ) -> Result<Vec<TimingInfo>, TtsError> {
             init_logging();
 
             let durability = Durability::<TimingInfoListOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "get_timing_marks",
                 DurableFunctionType::WriteRemote,
             );
@@ -708,12 +691,12 @@ mod durable_impl {
 
         fn validate_input(
             input: TextInput,
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
         ) -> Result<ValidationResult, TtsError> {
             init_logging();
 
             let durability = Durability::<ValidationResultOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "validate_input",
                 DurableFunctionType::WriteRemote,
             );
@@ -731,12 +714,12 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> StreamingGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> StreamingVoiceProvider for DurableTts<Impl> {
         type SynthesisStream = Impl::SynthesisStream;
         type VoiceConversionStream = Impl::VoiceConversionStream;
 
         fn create_stream(
-            voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisStream, TtsError> {
             init_logging();
@@ -744,7 +727,7 @@ mod durable_impl {
         }
 
         fn create_voice_conversion_stream(
-            target_voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            target_voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<VoiceConversionStream, TtsError> {
             init_logging();
@@ -753,7 +736,7 @@ mod durable_impl {
     }
 
     #[allow(dead_code)]
-    enum DurableVoiceConversionStreamState<Impl: ExtendedGuest> {
+    enum DurableVoiceConversionStreamState<Impl: ExtendedTtsProvider> {
         Live {
             stream: Impl::VoiceConversionStream,
             pollables: Vec<LazyInitializedPollable>,
@@ -768,12 +751,12 @@ mod durable_impl {
     }
 
     #[allow(dead_code)]
-    pub struct DurableVoiceConversionStream<Impl: ExtendedGuest> {
+    pub struct DurableVoiceConversionStream<Impl: ExtendedTtsProvider> {
         state: RefCell<Option<DurableVoiceConversionStreamState<Impl>>>,
         subscription: RefCell<Option<Pollable>>,
     }
 
-    impl<Impl: ExtendedGuest> Drop for DurableVoiceConversionStream<Impl> {
+    impl<Impl: ExtendedTtsProvider> Drop for DurableVoiceConversionStream<Impl> {
         fn drop(&mut self) {
             let _ = self.subscription.take();
             match self.state.take() {
@@ -794,10 +777,19 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> GuestVoiceConversionStream for DurableVoiceConversionStream<Impl> {
+    impl<Impl: ExtendedTtsProvider> VoiceConversionStreamInterface
+        for DurableVoiceConversionStream<Impl>
+    {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
         fn send_audio(&self, audio_data: Vec<u8>) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_conversion_stream_send_audio",
                 DurableFunctionType::WriteRemote,
             );
@@ -825,7 +817,7 @@ mod durable_impl {
 
         fn receive_converted(&self) -> Result<Option<AudioChunk>, TtsError> {
             let durability = Durability::<Option<AudioChunk>, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_conversion_stream_receive_converted",
                 DurableFunctionType::ReadRemote,
             );
@@ -854,7 +846,7 @@ mod durable_impl {
 
         fn finish(&self) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_conversion_stream_finish",
                 DurableFunctionType::WriteRemote,
             );
@@ -894,14 +886,14 @@ mod durable_impl {
         }
     }
 
-    pub struct DurableVoiceResults<Impl: ExtendedGuest> {
+    pub struct DurableVoiceResults<Impl: ExtendedTtsProvider> {
         filter: Option<VoiceFilter>,
         cached_voices: Option<Vec<VoiceInfo>>,
         _phantom: PhantomData<Impl>,
     }
 
     #[allow(dead_code)]
-    impl<Impl: ExtendedGuest> DurableVoiceResults<Impl> {
+    impl<Impl: ExtendedTtsProvider> DurableVoiceResults<Impl> {
         fn new(filter: Option<VoiceFilter>) -> Self {
             Self {
                 filter,
@@ -919,14 +911,21 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> GuestVoiceResults for DurableVoiceResults<Impl> {
+    impl<Impl: ExtendedTtsProvider> VoiceResultsInterface for DurableVoiceResults<Impl> {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
         fn has_more(&self) -> bool {
             if self.cached_voices.is_some() {
                 return false;
             }
 
             let durability = Durability::<bool, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_results_has_more",
                 DurableFunctionType::WriteRemote,
             );
@@ -950,7 +949,7 @@ mod durable_impl {
             }
 
             let durability = Durability::<VoiceInfoListOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_results_get_next",
                 DurableFunctionType::WriteRemote,
             );
@@ -976,7 +975,7 @@ mod durable_impl {
             }
 
             let durability = Durability::<Option<u32>, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_results_get_total_count",
                 DurableFunctionType::WriteRemote,
             );
@@ -1012,7 +1011,7 @@ mod durable_impl {
         _phantom: PhantomData<Impl>,
     }
 
-    impl<Impl: ExtendedGuest> DurableVoice<Impl> {
+    impl<Impl: ExtendedTtsProvider> DurableVoice<Impl> {
         #[allow(clippy::too_many_arguments)]
         #[allow(dead_code)]
         pub fn new(
@@ -1045,7 +1044,14 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> GuestVoice for DurableVoice<Impl> {
+    impl<Impl: ExtendedTtsProvider> VoiceInterface for DurableVoice<Impl> {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
         fn get_id(&self) -> String {
             self.id.clone()
         }
@@ -1092,7 +1098,7 @@ mod durable_impl {
 
         fn update_settings(&self, settings: VoiceSettings) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_update_settings",
                 DurableFunctionType::WriteRemote,
             );
@@ -1108,7 +1114,7 @@ mod durable_impl {
 
         fn delete(&self) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_delete",
                 DurableFunctionType::WriteRemote,
             );
@@ -1122,7 +1128,7 @@ mod durable_impl {
 
         fn clone(&self) -> Result<Voice, TtsError> {
             let durability = Durability::<NoOutput, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_clone",
                 DurableFunctionType::ReadRemote,
             );
@@ -1164,7 +1170,7 @@ mod durable_impl {
 
         fn preview(&self, text: String) -> Result<Vec<u8>, TtsError> {
             let durability = Durability::<AudioDataOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "voice_preview",
                 DurableFunctionType::ReadRemote,
             );
@@ -1198,7 +1204,7 @@ mod durable_impl {
         _phantom: PhantomData<Impl>,
     }
 
-    impl<Impl: ExtendedGuest> DurablePronunciationLexicon<Impl> {
+    impl<Impl: ExtendedTtsProvider> DurablePronunciationLexicon<Impl> {
         pub fn new(
             name: String,
             language: LanguageCode,
@@ -1213,7 +1219,16 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> GuestPronunciationLexicon for DurablePronunciationLexicon<Impl> {
+    impl<Impl: ExtendedTtsProvider> PronunciationLexiconInterface
+        for DurablePronunciationLexicon<Impl>
+    {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
         fn get_name(&self) -> String {
             self.name.clone()
         }
@@ -1224,7 +1239,7 @@ mod durable_impl {
 
         fn get_entry_count(&self) -> u32 {
             let durability = Durability::<u32, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "pronunciation_lexicon_get_entry_count",
                 DurableFunctionType::ReadRemote,
             );
@@ -1240,7 +1255,7 @@ mod durable_impl {
 
         fn add_entry(&self, word: String, pronunciation: String) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "pronunciation_lexicon_add_entry",
                 DurableFunctionType::WriteRemote,
             );
@@ -1271,7 +1286,7 @@ mod durable_impl {
 
         fn remove_entry(&self, word: String) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "pronunciation_lexicon_remove_entry",
                 DurableFunctionType::WriteRemote,
             );
@@ -1287,7 +1302,7 @@ mod durable_impl {
 
         fn export_content(&self) -> Result<String, TtsError> {
             let durability = Durability::<String, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "pronunciation_lexicon_export_content",
                 DurableFunctionType::ReadRemote,
             );
@@ -1309,7 +1324,7 @@ mod durable_impl {
         _phantom: PhantomData<Impl>,
     }
 
-    impl<Impl: ExtendedGuest> DurableLongFormOperation<Impl> {
+    impl<Impl: ExtendedTtsProvider> DurableLongFormOperation<Impl> {
         pub fn new(
             content: String,
             output_location: String,
@@ -1324,10 +1339,17 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> GuestLongFormOperation for DurableLongFormOperation<Impl> {
+    impl<Impl: ExtendedTtsProvider> LongFormOperationInterface for DurableLongFormOperation<Impl> {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
         fn get_status(&self) -> OperationStatus {
             let durability = Durability::<OperationStatus, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "long_form_operation_get_status",
                 DurableFunctionType::ReadRemote,
             );
@@ -1343,7 +1365,7 @@ mod durable_impl {
 
         fn get_progress(&self) -> f32 {
             let durability = Durability::<f32, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "long_form_operation_get_progress",
                 DurableFunctionType::ReadRemote,
             );
@@ -1357,7 +1379,7 @@ mod durable_impl {
 
         fn cancel(&self) -> Result<(), TtsError> {
             let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "long_form_operation_cancel",
                 DurableFunctionType::WriteRemote,
             );
@@ -1371,7 +1393,7 @@ mod durable_impl {
 
         fn get_result(&self) -> Result<LongFormResult, TtsError> {
             let durability = Durability::<LongFormResult, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "long_form_operation_get_result",
                 DurableFunctionType::ReadRemote,
             );
@@ -1380,7 +1402,7 @@ mod durable_impl {
                     output_location: self.output_location.clone(),
                     total_duration: 60.0,
                     chapter_durations: None,
-                    metadata: crate::exports::golem::tts::types::SynthesisMetadata {
+                    metadata: crate::model::types::SynthesisMetadata {
                         duration_seconds: 60.0,
                         character_count: self.content.len() as u32,
                         word_count: self.content.split_whitespace().count() as u32,
@@ -1396,7 +1418,7 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest> AdvancedGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> AdvancedTtsProvider for DurableTts<Impl> {
         type PronunciationLexicon = DurablePronunciationLexicon<Impl>;
         type LongFormOperation = DurableLongFormOperation<Impl>;
 
@@ -1408,7 +1430,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<VoiceOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "create_voice_clone",
                 DurableFunctionType::WriteRemote,
             );
@@ -1497,7 +1519,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<VoiceOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "design_voice",
                 DurableFunctionType::WriteRemote,
             );
@@ -1577,13 +1599,13 @@ mod durable_impl {
 
         fn convert_voice(
             input_audio: Vec<u8>,
-            target_voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            target_voice: crate::model::voices::VoiceBorrow<'_>,
             preserve_timing: Option<bool>,
         ) -> Result<Vec<u8>, TtsError> {
             init_logging();
 
             let durability = Durability::<AudioDataOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "convert_voice",
                 DurableFunctionType::WriteRemote,
             );
@@ -1615,7 +1637,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<AudioDataOutput, TtsError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "generate_sound_effect",
                 DurableFunctionType::WriteRemote,
             );
@@ -1651,7 +1673,7 @@ mod durable_impl {
             init_logging();
 
             let durability = Durability::<PronunciationLexiconOutput, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "create_lexicon",
                 DurableFunctionType::WriteRemote,
             );
@@ -1692,14 +1714,14 @@ mod durable_impl {
 
         fn synthesize_long_form(
             content: String,
-            _voice: crate::exports::golem::tts::voices::VoiceBorrow<'_>,
+            _voice: crate::model::voices::VoiceBorrow<'_>,
             output_location: String,
             chapter_breaks: Option<Vec<u32>>,
         ) -> Result<LongFormOperation, TtsError> {
             init_logging();
 
             let durability = Durability::<LongFormOperationOutput, UnusedError>::new(
-                "golem_tts",
+                "golem_ai_tts",
                 "synthesize_long_form",
                 DurableFunctionType::WriteRemote,
             );
@@ -1742,9 +1764,7 @@ mod durable_impl {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use crate::exports::golem::tts::types::{
-            AudioEffects, AudioFormat, TextType, VoiceGender, VoiceQuality,
-        };
+        use crate::model::types::{AudioEffects, AudioFormat, TextType, VoiceGender, VoiceQuality};
         use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
 
         fn roundtrip_test<T>(value: T) -> T
@@ -2019,7 +2039,7 @@ mod durable_impl {
 
         #[test]
         fn synthesis_result_output_roundtrip() {
-            use crate::exports::golem::tts::types::SynthesisMetadata;
+            use crate::model::types::SynthesisMetadata;
 
             roundtrip_test(SynthesisResultOutput {
                 result: SynthesisResult {
@@ -2038,7 +2058,7 @@ mod durable_impl {
 
         #[test]
         fn timing_info_list_output_roundtrip() {
-            use crate::exports::golem::tts::types::TimingMarkType;
+            use crate::model::types::TimingMarkType;
 
             roundtrip_test(TimingInfoListOutput {
                 timing: vec![

@@ -1,37 +1,37 @@
 pub mod config;
 pub mod durability;
 pub mod error;
+pub mod model;
 pub mod types;
 
-wit_bindgen::generate!({
-    path: "../wit",
-    world: "websearch-library",
-    generate_all,
-    generate_unused_types: true,
-    additional_derives: [
-        PartialEq,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
-        Clone,
-    ],
-    pub_export_macro: true,
-});
-
-// Export the generated bindings properly
-pub use crate::exports::golem;
-pub use __export_websearch_library_impl as export_websearch;
-
+use crate::model::web_search::{
+    SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
+};
 use std::cell::RefCell;
 use std::str::FromStr;
 
-/// Internal state for configuring WASI log levels during runtime.
+pub trait SearchSessionInterface: 'static {
+    fn as_any(&self) -> &dyn std::any::Any;
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+    fn next_page(&self) -> Result<Vec<SearchResult>, SearchError>;
+    fn get_metadata(&self) -> Option<SearchMetadata>;
+}
+
+pub trait WebSearchProvider {
+    type SearchSession: SearchSessionInterface;
+
+    fn start_search(params: SearchParams) -> Result<SearchSession, SearchError>;
+    fn search_once(
+        params: SearchParams,
+    ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError>;
+}
+
 struct LoggingState {
     logging_initialized: bool,
 }
 
 impl LoggingState {
-    /// Initializes WASI logging based on the `GOLEM_WEB_SEARCH_LOG` environment variable.
-    pub fn init(&mut self) {
+    fn init(&mut self) {
         if !self.logging_initialized {
             let _ = wasi_logger::Logger::install();
             let max_level = log::LevelFilter::from_str(

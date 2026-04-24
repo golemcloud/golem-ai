@@ -1,6 +1,6 @@
-use golem_search::config::{get_max_retries_config, get_timeout_config};
-use golem_search::error::{from_reqwest_error, internal_error, search_error_from_status};
-use golem_search::golem::search::types::SearchError;
+use golem_ai_search::config::{get_max_retries_config, get_timeout_config};
+use golem_ai_search::error::{from_reqwest_error, internal_error, search_error_from_status};
+use golem_ai_search::model::SearchError;
 use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
@@ -226,38 +226,30 @@ impl OpenSearchApi {
             match operation() {
                 Ok(response) => {
                     match response.status().as_u16() {
-                        429 => {
+                        429 if attempt < self.max_retries => {
                             // Rate limited - should retry with longer delay
-                            if attempt < self.max_retries {
-                                let delay = Self::calculate_backoff_delay(attempt, true);
-                                trace!(
-                                    "Rate limited (429), retrying in {:?} (attempt {}/{})",
-                                    delay,
-                                    attempt + 1,
-                                    self.max_retries + 1
-                                );
-                                std::thread::sleep(delay);
-                                continue;
-                            } else {
-                                return Ok(response);
-                            }
+                            let delay = Self::calculate_backoff_delay(attempt, true);
+                            trace!(
+                                "Rate limited (429), retrying in {:?} (attempt {}/{})",
+                                delay,
+                                attempt + 1,
+                                self.max_retries + 1
+                            );
+                            std::thread::sleep(delay);
+                            continue;
                         }
-                        502..=504 => {
+                        502..=504 if attempt < self.max_retries => {
                             // Server errors - should retry
-                            if attempt < self.max_retries {
-                                let delay = Self::calculate_backoff_delay(attempt, false);
-                                trace!(
-                                    "Server error ({}), retrying in {:?} (attempt {}/{})",
-                                    response.status().as_u16(),
-                                    delay,
-                                    attempt + 1,
-                                    self.max_retries + 1
-                                );
-                                std::thread::sleep(delay);
-                                continue;
-                            } else {
-                                return Ok(response);
-                            }
+                            let delay = Self::calculate_backoff_delay(attempt, false);
+                            trace!(
+                                "Server error ({}), retrying in {:?} (attempt {}/{})",
+                                response.status().as_u16(),
+                                delay,
+                                attempt + 1,
+                                self.max_retries + 1
+                            );
+                            std::thread::sleep(delay);
+                            continue;
                         }
                         _ => return Ok(response),
                     }
