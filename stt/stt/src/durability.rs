@@ -109,9 +109,7 @@ mod durable_impl {
     };
     use crate::model::types::SttError;
     use crate::{LanguageProvider, TranscriptionProvider, LOGGING_STATE};
-    use golem_rust::{
-        with_persistence_level_async, FromValueAndType, IntoValue, PersistenceLevel,
-    };
+    use golem_rust::{with_persistence_level_async, FromValueAndType, IntoValue, PersistenceLevel};
 
     impl<Impl: ExtendedSttProvider> TranscriptionProvider for DurableStt<Impl> {
         async fn transcribe(
@@ -196,11 +194,11 @@ mod durable_impl {
                     )
                     .collect();
 
-                let result = with_persistence_level_async(
-                    PersistenceLevel::PersistNothing,
-                    || async move { Impl::transcribe_many(stt_requests).await },
-                )
-                .await;
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
+                        Impl::transcribe_many(stt_requests).await
+                    })
+                    .await;
 
                 // Reconstruct original requests for persistence
                 let orig_requests_copy: Vec<TranscriptionRequest> = requests_with_bytes
