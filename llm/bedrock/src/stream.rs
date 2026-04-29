@@ -5,7 +5,7 @@ use aws_sdk_bedrockruntime::{
     types::error::ConverseStreamOutputError,
 };
 use golem_ai_llm::{model as llm, ChatStreamInterface};
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
 
 type BedrockEventSource =
     EventReceiver<bedrock::types::ConverseStreamOutput, ConverseStreamOutputError>;
@@ -33,10 +33,6 @@ impl BedrockChatStream {
         }
     }
 
-    fn stream_mut(&self) -> RefMut<'_, Option<BedrockEventSource>> {
-        self.stream.borrow_mut()
-    }
-
     fn failure(&self) -> &Option<llm::Error> {
         &self.failure
     }
@@ -49,12 +45,18 @@ impl BedrockChatStream {
         *self.finished.borrow_mut() = true;
     }
     async fn get_single_event(&self) -> Option<Result<llm::StreamEvent, llm::Error>> {
-        // Borrow the inner stream, do the async recv, then release.
-        let maybe_token = if let Some(stream) = self.stream_mut().as_mut() {
-            Some(stream.recv().await)
-        } else {
-            None
+        // Take the stream out of the RefCell so we don't hold a borrow across .await,
+        // then put it back. Single-threaded WASM means no one else can observe the
+        // momentarily-empty slot.
+        let taken_stream = self.stream.borrow_mut().take();
+        let (maybe_token, stream_back) = match taken_stream {
+            Some(mut stream) => {
+                let token = stream.recv().await;
+                (Some(token), Some(stream))
+            }
+            None => (None, None),
         };
+        *self.stream.borrow_mut() = stream_back;
 
         match maybe_token {
             Some(token) => {
