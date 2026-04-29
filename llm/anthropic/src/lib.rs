@@ -278,20 +278,23 @@ impl Anthropic {
 impl LlmProvider for Anthropic {
     type ChatStream = LlmChatStream<AnthropicChatStream>;
 
-    fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
         let anthropic_api_key = get_config_key(Self::ENV_VAR_NAME)?;
         let client = MessagesApi::new(anthropic_api_key);
         let request = events_to_request(events, config)?;
         Self::request(client, request)
     }
 
-    fn stream(events: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(events, config))
+    async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for Anthropic {
-    fn unwrapped_stream(events: Vec<Event>, config: Config) -> LlmChatStream<AnthropicChatStream> {
+    async fn unwrapped_stream(
+        events: Vec<Event>,
+        config: Config,
+    ) -> LlmChatStream<AnthropicChatStream> {
         with_config_key(
             Self::ENV_VAR_NAME,
             AnthropicChatStream::failed,

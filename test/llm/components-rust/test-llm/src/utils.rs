@@ -1,7 +1,7 @@
 use golem_ai_llm::model::*;
 
-pub fn consume_next_event(stream: &ChatStream) -> Option<String> {
-    let events = stream.get_next();
+pub async fn consume_next_event(stream: &ChatStream) -> Option<String> {
+    let events = stream.get_next().await;
 
     if events.is_empty() {
         return None;

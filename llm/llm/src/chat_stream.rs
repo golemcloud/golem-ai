@@ -1,6 +1,7 @@
 use crate::event_source::{Event, EventSource, MessageEvent};
 use crate::model::{Error, ErrorCode, StreamEvent};
 use crate::ChatStreamInterface;
+use async_trait::async_trait;
 use golem_rust::golem_wasm::Pollable;
 use std::cell::{Ref, RefMut};
 use std::task::Poll;
@@ -32,8 +33,9 @@ impl<T: LlmChatStreamState> LlmChatStream<T> {
     }
 }
 
+#[async_trait(?Send)]
 impl<T: LlmChatStreamState> ChatStreamInterface for LlmChatStream<T> {
-    fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>> {
+    async fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>> {
         if self.implementation.is_finished() {
             return Some(vec![]);
         }
@@ -96,11 +98,11 @@ impl<T: LlmChatStreamState> ChatStreamInterface for LlmChatStream<T> {
         }
     }
 
-    fn get_next(&self) -> Vec<Result<StreamEvent, Error>> {
+    async fn get_next(&self) -> Vec<Result<StreamEvent, Error>> {
         let pollable = self.subscribe();
         loop {
             pollable.block();
-            if let Some(events) = self.poll_next() {
+            if let Some(events) = self.poll_next().await {
                 return events;
             }
         }

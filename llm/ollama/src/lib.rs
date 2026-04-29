@@ -209,19 +209,22 @@ impl Ollama {
 impl LlmProvider for Ollama {
     type ChatStream = LlmChatStream<OllamaChatStream>;
 
-    fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
         let client = OllamaApi::new(config.model.clone());
         let events = events_to_request(events, config)?;
         Self::request(&client, events)
     }
 
-    fn stream(events: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(events, config))
+    async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for Ollama {
-    fn unwrapped_stream(events: Vec<Event>, config: Config) -> LlmChatStream<OllamaChatStream> {
+    async fn unwrapped_stream(
+        events: Vec<Event>,
+        config: Config,
+    ) -> LlmChatStream<OllamaChatStream> {
         let client = OllamaApi::new(config.model.clone());
         match events_to_request(events, config) {
             Ok(request) => Self::streaming_request(&client, request),

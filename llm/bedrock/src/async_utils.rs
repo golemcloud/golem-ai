@@ -1,20 +1,4 @@
 use std::future::Future;
-use wstd::runtime;
-
-pub fn get_async_runtime() -> AsyncRuntime {
-    AsyncRuntime
-}
-
-pub struct AsyncRuntime;
-
-impl AsyncRuntime {
-    pub fn block_on<F>(self, f: F) -> F::Output
-    where
-        F: Future,
-    {
-        runtime::block_on(f)
-    }
-}
 
 #[derive(Clone)]
 pub struct UnsafeFuture<Fut> {

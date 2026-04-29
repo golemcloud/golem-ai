@@ -8,21 +8,27 @@ pub mod model;
 pub mod event_source;
 
 use crate::model::{ChatStream, Config, Error, Event, Response, StreamEvent};
+use async_trait::async_trait;
 use std::cell::RefCell;
 use std::str::FromStr;
 
+#[allow(async_fn_in_trait)]
 pub trait LlmProvider {
     type ChatStream: ChatStreamInterface;
 
-    fn send(events: Vec<Event>, config: Config) -> Result<Response, Error>;
+    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error>;
 
-    fn stream(events: Vec<Event>, config: Config) -> ChatStream;
+    async fn stream(events: Vec<Event>, config: Config) -> ChatStream;
 }
 
+/// `ChatStreamInterface` is used as `Box<dyn ChatStreamInterface>` inside `ChatStream`, so its
+/// async methods have to go through the `#[async_trait]` macro (boxed futures) to remain
+/// dyn-compatible. `?Send` because WASM is single-threaded.
+#[async_trait(?Send)]
 pub trait ChatStreamInterface: 'static {
-    fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>>;
+    async fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>>;
 
-    fn get_next(&self) -> Vec<Result<StreamEvent, Error>>;
+    async fn get_next(&self) -> Vec<Result<StreamEvent, Error>>;
 
     fn as_any(&self) -> &dyn std::any::Any;
 
