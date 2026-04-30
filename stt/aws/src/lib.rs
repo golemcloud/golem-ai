@@ -31,7 +31,6 @@ use futures_concurrency::future::Join;
 use golem_ai_stt::model::languages::LanguageInfo;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
-use wstd::runtime::block_on;
 
 mod transcription;
 
@@ -90,89 +89,70 @@ impl LanguageProvider for AwsStt {
 }
 
 impl SttTranscriptionProvider for AwsStt {
-    fn transcribe(req: SttTranscriptionRequest) -> Result<WitTranscriptionResult, WitSttError> {
+    async fn transcribe(
+        req: SttTranscriptionRequest,
+    ) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        block_on(async {
-            let api_client = Self::create_or_get_client()?;
-
-            let api_response = api_client.transcribe_audio(req.try_into()?).await?;
-
-            Ok(api_response.into())
-        })
+        let api_client = Self::create_or_get_client()?;
+        let api_response = api_client.transcribe_audio(req.try_into()?).await?;
+        Ok(api_response.into())
     }
 
-    fn transcribe_many(
+    async fn transcribe_many(
         wit_requests: Vec<SttTranscriptionRequest>,
     ) -> Result<WitMultiTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        block_on(async {
-            let api_client = Self::create_or_get_client()?;
+        let api_client = Self::create_or_get_client()?;
 
-            let mut successes: Vec<WitTranscriptionResult> = Vec::new();
-            let mut failures: Vec<WitFailedTranscription> = Vec::new();
+        let mut successes: Vec<WitTranscriptionResult> = Vec::new();
+        let mut failures: Vec<WitFailedTranscription> = Vec::new();
 
-            let requests: Vec<_> = wit_requests
+        let requests: Vec<_> = wit_requests
+            .into_iter()
+            .map(|wr| (wr.request_id.clone(), TranscriptionRequest::try_from(wr)))
+            .filter_map(|(id, res)| match res {
+                Ok(req) => Some(req),
+                Err(err) => {
+                    failures.push(WitFailedTranscription {
+                        request_id: id,
+                        error: err,
+                    });
+                    None
+                }
+            })
+            .collect();
+
+        for chunk in requests.into_iter().chunks(32).into_iter() {
+            let req_vec: Vec<_> = chunk.collect();
+
+            let futures = req_vec
                 .into_iter()
-                .map(|wr| (wr.request_id.clone(), TranscriptionRequest::try_from(wr)))
-                .filter_map(|(id, res)| match res {
-                    Ok(req) => Some(req),
+                .map(|request| api_client.transcribe_audio(request))
+                .collect::<Vec<_>>();
+
+            trace!("waiting for transcription jobs to complete");
+            let results = futures.join().await;
+            trace!("transcription job completed");
+
+            for res in results {
+                match res {
+                    Ok(resp) => successes.push(resp.into()),
                     Err(err) => {
+                        trace!("transcription request failed, error {err}");
                         failures.push(WitFailedTranscription {
-                            request_id: id,
-                            error: err,
-                        });
-                        None
-                    }
-                })
-                .collect();
-
-            // Might need to enable this if https://github.com/golemcloud/golem/issues/1865 does not get fixed
-            // for request in requests {
-            //     let res = api_client.transcribe_audio(request).await; // returns a Result<TranscriptionResponse, TranscriptionError>
-            //     match res {
-            //         Ok(resp) => successes.push(resp.into()),
-            //         Err(err) => {
-            //             trace!("transcription request failed, error {err}");
-            //             failures.push(WitFailedTranscription {
-            //                 request_id: err.request_id().to_string(),
-            //                 error: WitSttError::from(err),
-            //             });
-            //         }
-            //     }
-            // }
-
-            for chunk in requests.into_iter().chunks(32).into_iter() {
-                let req_vec: Vec<_> = chunk.collect();
-
-                let futures = req_vec
-                    .into_iter()
-                    .map(|request| api_client.transcribe_audio(request))
-                    .collect::<Vec<_>>();
-
-                trace!("waiting for transcription jobs to complete");
-                let results = futures.join().await;
-                trace!("transcription job completed");
-
-                for res in results {
-                    match res {
-                        Ok(resp) => successes.push(resp.into()),
-                        Err(err) => {
-                            trace!("transcription request failed, error {err}");
-                            failures.push(WitFailedTranscription {
-                                request_id: err.request_id().to_string(),
-                                error: WitSttError::from(err),
-                            })
-                        }
+                            request_id: err.request_id().to_string(),
+                            error: WitSttError::from(err),
+                        })
                     }
                 }
             }
+        }
 
-            Ok(WitMultiTranscriptionResult {
-                successes,
-                failures,
-            })
+        Ok(WitMultiTranscriptionResult {
+            successes,
+            failures,
         })
     }
 }

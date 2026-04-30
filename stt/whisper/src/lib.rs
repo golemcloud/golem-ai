@@ -30,7 +30,6 @@ use transcription::{
     AudioConfig, AudioFormat, TranscriptionConfig, TranscriptionRequest, TranscriptionResponse,
     TranscriptionsApi,
 };
-use wstd::runtime::block_on;
 
 mod transcription;
 
@@ -72,68 +71,64 @@ impl LanguageProvider for WhisperStt {
 }
 
 impl SttTranscriptionProvider for WhisperStt {
-    fn transcribe(req: SttTranscriptionRequest) -> Result<WitTranscriptionResult, WitSttError> {
+    async fn transcribe(
+        req: SttTranscriptionRequest,
+    ) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        block_on(async {
-            let api_client = Self::create_or_get_client()?;
-
-            let api_response = api_client.transcribe_audio(req.try_into()?).await?;
-
-            Ok(api_response.into())
-        })
+        let api_client = Self::create_or_get_client()?;
+        let api_response = api_client.transcribe_audio(req.try_into()?).await?;
+        Ok(api_response.into())
     }
 
-    fn transcribe_many(
+    async fn transcribe_many(
         wit_requests: Vec<SttTranscriptionRequest>,
     ) -> Result<WitMultiTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        block_on(async {
-            let api_client = Self::create_or_get_client()?;
-            let mut successes: Vec<WitTranscriptionResult> = Vec::new();
-            let mut failures: Vec<WitFailedTranscription> = Vec::new();
+        let api_client = Self::create_or_get_client()?;
+        let mut successes: Vec<WitTranscriptionResult> = Vec::new();
+        let mut failures: Vec<WitFailedTranscription> = Vec::new();
 
-            let requests: Vec<_> = wit_requests
+        let requests: Vec<_> = wit_requests
+            .into_iter()
+            .map(|wr| (wr.request_id.clone(), TranscriptionRequest::try_from(wr)))
+            .filter_map(|(id, res)| match res {
+                Ok(req) => Some(req),
+                Err(err) => {
+                    failures.push(WitFailedTranscription {
+                        request_id: id,
+                        error: err,
+                    });
+                    None
+                }
+            })
+            .collect();
+
+        for chunk in requests.into_iter().chunks(16).into_iter() {
+            let req_vec: Vec<_> = chunk.collect();
+
+            let futures = req_vec
                 .into_iter()
-                .map(|wr| (wr.request_id.clone(), TranscriptionRequest::try_from(wr)))
-                .filter_map(|(id, res)| match res {
-                    Ok(req) => Some(req),
-                    Err(err) => {
-                        failures.push(WitFailedTranscription {
-                            request_id: id,
-                            error: err,
-                        });
-                        None
-                    }
-                })
-                .collect();
+                .map(|request| api_client.transcribe_audio(request))
+                .collect::<Vec<_>>();
 
-            for chunk in requests.into_iter().chunks(16).into_iter() {
-                let req_vec: Vec<_> = chunk.collect();
+            let results = futures.join().await;
 
-                let futures = req_vec
-                    .into_iter()
-                    .map(|request| api_client.transcribe_audio(request))
-                    .collect::<Vec<_>>();
-
-                let results = futures.join().await;
-
-                for res in results {
-                    match res {
-                        Ok(resp) => successes.push(resp.into()),
-                        Err(err) => failures.push(WitFailedTranscription {
-                            request_id: err.request_id().to_string(),
-                            error: WitSttError::from(err),
-                        }),
-                    }
+            for res in results {
+                match res {
+                    Ok(resp) => successes.push(resp.into()),
+                    Err(err) => failures.push(WitFailedTranscription {
+                        request_id: err.request_id().to_string(),
+                        error: WitSttError::from(err),
+                    }),
                 }
             }
+        }
 
-            Ok(WitMultiTranscriptionResult {
-                successes,
-                failures,
-            })
+        Ok(WitMultiTranscriptionResult {
+            successes,
+            failures,
         })
     }
 }
@@ -163,7 +158,7 @@ impl TryFrom<WitTranscribeOptions> for TranscriptionConfig {
             .map(|c| c.phrases.into_iter().map(|p| p.value).join(", "));
 
         if let Some(ref language_code) = options.language {
-            if transcription::is_supported_language(language_code) {
+            if !transcription::is_supported_language(language_code) {
                 return Err(WitSttError::UnsupportedLanguage(language_code.to_owned()));
             }
         }

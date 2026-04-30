@@ -20,8 +20,8 @@ type Provider = golem_ai_stt_google::DurableGoogleStt;
 #[agent_definition]
 pub trait SttTest {
     fn new(name: String) -> Self;
-    fn test_transcribe(&self) -> Result<String, String>;
-    fn test_transcribe_many(&self) -> Result<String, String>;
+    async fn test_transcribe(&self) -> Result<String, String>;
+    async fn test_transcribe_many(&self) -> Result<String, String>;
     fn test_list_supported_languages(&self) -> Result<String, String>;
 }
 
@@ -35,7 +35,7 @@ impl SttTest for SttTestImpl {
         Self { _name: name }
     }
 
-    fn test_transcribe(&self) -> Result<String, String> {
+    async fn test_transcribe(&self) -> Result<String, String> {
         let file_path = "/samples/jfk.mp3";
         let audio_bytes = read_file_to_bytes(file_path).expect("Should work");
 
@@ -50,13 +50,13 @@ impl SttTest for SttTestImpl {
             options: None,
         };
 
-        match Provider::transcribe(request) {
+        match Provider::transcribe(request).await {
             Ok(res) => Ok(format!("{res:?}")),
             Err(err) => Err(format!("error: {err:?}")),
         }
     }
 
-    fn test_transcribe_many(&self) -> Result<String, String> {
+    async fn test_transcribe_many(&self) -> Result<String, String> {
         let file_path_1 = "/samples/jfk.mp3";
         let file_path_2 = "/samples/mm1.wav";
 
@@ -85,7 +85,7 @@ impl SttTest for SttTestImpl {
             options: None,
         };
 
-        match Provider::transcribe_many(vec![request_1, request_2]) {
+        match Provider::transcribe_many(vec![request_1, request_2]).await {
             Ok(res) => {
                 let successes: Vec<_> = res.successes.iter().map(|tr| format!("{tr:?}")).collect();
                 let failures: Vec<_> = res.failures.iter().map(|tr| format!("{tr:?}")).collect();

@@ -19,10 +19,11 @@ pub trait LanguageProvider {
     fn list_languages() -> Result<Vec<LanguageInfo>, model::languages::SttError>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait TranscriptionProvider {
-    fn transcribe(request: TranscriptionRequest) -> Result<TranscriptionResult, SttError>;
+    async fn transcribe(request: TranscriptionRequest) -> Result<TranscriptionResult, SttError>;
 
-    fn transcribe_many(
+    async fn transcribe_many(
         requests: Vec<TranscriptionRequest>,
     ) -> Result<MultiTranscriptionResult, SttError>;
 }
