@@ -9,37 +9,25 @@ pub struct DurableStt<Impl> {
 
 pub trait ExtendedSttProvider: SttTranscriptionProvider + LanguageProvider + 'static {}
 
+/// When the durability feature flag is off, `DurableStt<Impl>` is a transparent wrapper that
+/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use bytes::Bytes;
 
-    use crate::model::golem::stt::languages::{
-        Guest as WitLanguageGuest, LanguageInfo as WitLanguageInfo,
-    };
-
     use crate::durability::{DurableStt, ExtendedSttProvider};
-    use crate::model::golem::stt::transcription::{
-        Guest as WitTranscriptionGuest, MultiTranscriptionResult as WitMultiTranscriptionResult,
-        TranscriptionRequest as WitTranscriptionRequest,
-    };
-
-    use crate::model::golem::stt::types::{
-        SttError, TranscriptionResult as WitTranscriptionResult,
-    };
-
     use crate::guest::SttTranscriptionRequest;
+    use crate::model::languages::LanguageInfo;
+    use crate::model::transcription::{
+        MultiTranscriptionResult, TranscriptionRequest, TranscriptionResult,
+    };
     use crate::model::types::SttError;
-    use crate::LOGGING_STATE;
-    use golem_rust::{FromValueAndType, IntoValue};
-    use wstd::runtime::block_on;
+    use crate::{LanguageProvider, TranscriptionProvider, LOGGING_STATE};
 
-    // When used as a standalone WASM component (no `durability` feature), the WIT `Guest`
-    // exports are synchronous. This is the only safe place to introduce a `block_on` — a
-    // component exported this way is not running inside an outer async executor.
-    impl<Impl: ExtendedSttProvider> WitTranscriptionGuest for DurableStt<Impl> {
-        fn transcribe(
-            request: WitTranscriptionRequest,
-        ) -> Result<WitTranscriptionResult, SttError> {
+    impl<Impl: ExtendedSttProvider> TranscriptionProvider for DurableStt<Impl> {
+        async fn transcribe(
+            request: TranscriptionRequest,
+        ) -> Result<TranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
 
             let request = SttTranscriptionRequest {
@@ -49,12 +37,12 @@ mod passthrough_impl {
                 options: request.options,
             };
 
-            block_on(Impl::transcribe(request))
+            Impl::transcribe(request).await
         }
 
-        fn transcribe_many(
-            requests: Vec<WitTranscriptionRequest>,
-        ) -> Result<WitMultiTranscriptionResult, SttError> {
+        async fn transcribe_many(
+            requests: Vec<TranscriptionRequest>,
+        ) -> Result<MultiTranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
 
             let stt_requests: Vec<SttTranscriptionRequest> = requests
@@ -67,29 +55,13 @@ mod passthrough_impl {
                 })
                 .collect();
 
-            block_on(Impl::transcribe_many(stt_requests))
+            Impl::transcribe_many(stt_requests).await
         }
     }
 
-    impl<Impl: ExtendedSttProvider> WitLanguageGuest for DurableStt<Impl> {
-        fn list_languages() -> Result<Vec<WitLanguageInfo>, SttError> {
+    impl<Impl: ExtendedSttProvider> LanguageProvider for DurableStt<Impl> {
+        fn list_languages() -> Result<Vec<LanguageInfo>, SttError> {
             Impl::list_languages()
-        }
-    }
-
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
-    struct TranscribeInput {
-        request: WitTranscriptionRequest,
-    }
-
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
-    struct TranscribeManyInput {
-        requests: Vec<WitTranscriptionRequest>,
-    }
-
-    impl From<&SttError> for SttError {
-        fn from(error: &SttError) -> Self {
-            error.clone()
         }
     }
 }
