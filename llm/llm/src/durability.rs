@@ -9,7 +9,9 @@ pub struct DurableLLM<Impl> {
     phantom: PhantomData<Impl>,
 }
 
-/// Trait to be implemented in addition to the LLM `Guest` trait when wrapping it with `DurableLLM`.
+/// Trait implemented by provider crates in addition to `LlmProvider`, providing the hooks that
+/// `DurableLLM` needs for durable replay (constructing a raw `ChatStream`, subscribing a
+/// pollable, and producing a retry prompt from the partial streamed response).
 #[allow(async_fn_in_trait)]
 pub trait ExtendedLlmProvider: LlmProvider + 'static {
     /// Creates an instance of the LLM specific `ChatStream` without wrapping it in a `Resource`
@@ -73,30 +75,26 @@ pub trait ExtendedLlmProvider: LlmProvider + 'static {
     fn subscribe(stream: &Self::ChatStream) -> Pollable;
 }
 
-/// When the durability feature flag is off, wrapping with `DurableLLM` is just a passthrough.
-/// The WIT `Guest` exports are synchronous, so we wrap the async provider calls in `block_on` at
-/// the WIT boundary. This path is for standalone WASM components that are not running inside an
-/// agent's outer `block_on`, so a single `block_on` here is safe.
+/// When the durability feature flag is off, `DurableLLM<Impl>` is a transparent wrapper that
+/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::{DurableLLM, ExtendedLlmProvider};
     use crate::init_logging;
-    use crate::model::{
-        ChatStream, Config, Error, Event, Guest, Message, Response, ToolCall, ToolResult,
-    };
-    use wstd::runtime::block_on;
+    use crate::model::{ChatStream, Config, Error, Event, Response};
+    use crate::LlmProvider;
 
-    impl<Impl: ExtendedLlmProvider> Guest for DurableLLM<Impl> {
+    impl<Impl: ExtendedLlmProvider> LlmProvider for DurableLLM<Impl> {
         type ChatStream = Impl::ChatStream;
 
-        fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+        async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
             init_logging();
-            block_on(Impl::send(events, config))
+            Impl::send(events, config).await
         }
 
-        fn stream(events: Vec<Event>, config: Config) -> ChatStream {
+        async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
             init_logging();
-            block_on(Impl::stream(events, config))
+            Impl::stream(events, config).await
         }
     }
 }
