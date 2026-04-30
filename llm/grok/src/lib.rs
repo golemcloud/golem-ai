@@ -156,20 +156,23 @@ impl Grok {
 impl LlmProvider for Grok {
     type ChatStream = LlmChatStream<GrokChatStream>;
 
-    fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
         let xai_api_key = get_config_key(Self::ENV_VAR_NAME)?;
         let client = CompletionsApi::new(xai_api_key);
         let request = events_to_request(events, config)?;
         Self::request(client, request)
     }
 
-    fn stream(messages: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(messages, config))
+    async fn stream(messages: Vec<Event>, config: Config) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(messages, config).await)
     }
 }
 
 impl ExtendedLlmProvider for Grok {
-    fn unwrapped_stream(messages: Vec<Event>, config: Config) -> LlmChatStream<GrokChatStream> {
+    async fn unwrapped_stream(
+        messages: Vec<Event>,
+        config: Config,
+    ) -> LlmChatStream<GrokChatStream> {
         with_config_key(Self::ENV_VAR_NAME, GrokChatStream::failed, |xai_api_key| {
             let client = CompletionsApi::new(xai_api_key);
 

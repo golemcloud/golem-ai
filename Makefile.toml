@@ -83,7 +83,7 @@ end
 # Maintenance tasks
 [tasks.check]
 description = "Runs rustfmt and clippy checks without applying any fix"
-dependencies = ["check-clippy", "check-rustfmt"]
+dependencies = ["check-clippy", "check-clippy-no-default-features", "check-rustfmt"]
 
 [tasks.check-rustfmt]
 description = "Runs rustfmt checks without applying any fix"
@@ -96,6 +96,32 @@ description = "Runs clippy checks without applying any fix"
 install_crate = "clippy"
 command = "cargo"
 args = ["clippy", "--all-targets", "--", "--no-deps", "-Dwarnings"]
+
+[tasks.check-clippy-no-default-features]
+description = "Runs clippy with --no-default-features to catch breakage in the durability-off code path. Scoped to the llm crates for now; other crates still have stale passthrough paths that need the same cleanup before they can be included here."
+install_crate = "clippy"
+command = "cargo"
+args = [
+    "clippy",
+    "-p",
+    "golem-ai-llm",
+    "-p",
+    "golem-ai-llm-openai",
+    "-p",
+    "golem-ai-llm-anthropic",
+    "-p",
+    "golem-ai-llm-grok",
+    "-p",
+    "golem-ai-llm-ollama",
+    "-p",
+    "golem-ai-llm-openrouter",
+    "-p",
+    "golem-ai-llm-bedrock",
+    "--no-default-features",
+    "--",
+    "--no-deps",
+    "-Dwarnings",
+]
 
 [tasks.fix]
 description = "Runs rustfmt and clippy checks and applies fixes"

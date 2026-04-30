@@ -9,10 +9,13 @@ pub struct DurableLLM<Impl> {
     phantom: PhantomData<Impl>,
 }
 
-/// Trait to be implemented in addition to the LLM `Guest` trait when wrapping it with `DurableLLM`.
+/// Trait implemented by provider crates in addition to `LlmProvider`, providing the hooks that
+/// `DurableLLM` needs for durable replay (constructing a raw `ChatStream`, subscribing a
+/// pollable, and producing a retry prompt from the partial streamed response).
+#[allow(async_fn_in_trait)]
 pub trait ExtendedLlmProvider: LlmProvider + 'static {
     /// Creates an instance of the LLM specific `ChatStream` without wrapping it in a `Resource`
-    fn unwrapped_stream(events: Vec<Event>, config: Config) -> Self::ChatStream;
+    async fn unwrapped_stream(events: Vec<Event>, config: Config) -> Self::ChatStream;
 
     /// Creates the retry prompt with a combination of the original events, and the partially received
     /// streaming responses. There is a default implementation here, but it can be overridden with provider-specific
@@ -72,26 +75,26 @@ pub trait ExtendedLlmProvider: LlmProvider + 'static {
     fn subscribe(stream: &Self::ChatStream) -> Pollable;
 }
 
-/// When the durability feature flag is off, wrapping with `DurableLLM` is just a passthrough
+/// When the durability feature flag is off, `DurableLLM<Impl>` is a transparent wrapper that
+/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::{DurableLLM, ExtendedLlmProvider};
     use crate::init_logging;
-    use crate::model::{
-        ChatStream, Config, Error, Event, Guest, Message, Response, ToolCall, ToolResult,
-    };
+    use crate::model::{ChatStream, Config, Error, Event, Response};
+    use crate::LlmProvider;
 
-    impl<Impl: ExtendedLlmProvider> Guest for DurableLLM<Impl> {
+    impl<Impl: ExtendedLlmProvider> LlmProvider for DurableLLM<Impl> {
         type ChatStream = Impl::ChatStream;
 
-        fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+        async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
             init_logging();
-            Impl::send(events, config)
+            Impl::send(events, config).await
         }
 
-        fn stream(events: Vec<Event>, config: Config) -> ChatStream {
+        async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
             init_logging();
-            Impl::stream(events, config)
+            Impl::stream(events, config).await
         }
     }
 }
@@ -109,19 +112,23 @@ mod durable_impl {
     use crate::durability::{DurableLLM, ExtendedLlmProvider};
     use crate::model::{ChatStream, Config, Error, Event, Response, StreamDelta, StreamEvent};
     use crate::{init_logging, ChatStreamInterface, LlmProvider};
+    use async_trait::async_trait;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     #[cfg(not(feature = "nopoll"))]
     use golem_rust::bindings::golem::durability::durability::LazyInitializedPollable;
     use golem_rust::durability::Durability;
     use golem_rust::golem_wasm::Pollable;
-    use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
+    use golem_rust::{
+        with_persistence_level, with_persistence_level_async, FromValueAndType, IntoValue,
+        PersistenceLevel,
+    };
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};
 
     impl<Impl: ExtendedLlmProvider> LlmProvider for DurableLLM<Impl> {
         type ChatStream = DurableChatStream<Impl>;
 
-        fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+        async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
             init_logging();
 
             let durability = Durability::<Response, Error>::new(
@@ -130,9 +137,13 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::send(events.clone(), config.clone())
-                });
+                let events_clone = events.clone();
+                let config_clone = config.clone();
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
+                        Impl::send(events_clone, config_clone).await
+                    })
+                    .await;
                 durability.persist_serializable(SendInput { events, config }, result.clone());
                 result
             } else {
@@ -140,7 +151,7 @@ mod durable_impl {
             }
         }
 
-        fn stream(events: Vec<Event>, config: Config) -> ChatStream {
+        async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
             init_logging();
 
             let durability = Durability::<NoOutput, UnusedError>::new(
@@ -149,12 +160,19 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    ChatStream::new(DurableChatStream::<Impl>::live(Impl::unwrapped_stream(
-                        events.clone(),
-                        config.clone(),
-                    )))
-                });
+                let events_clone = events.clone();
+                let config_clone = config.clone();
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
+                        ChatStream::new(DurableChatStream::<Impl>::live(
+                            <Impl as ExtendedLlmProvider>::unwrapped_stream(
+                                events_clone,
+                                config_clone,
+                            )
+                            .await,
+                        ))
+                    })
+                    .await;
                 let _ = durability.persist_infallible(SendInput { events, config }, NoOutput);
                 result
             } else {
@@ -275,8 +293,9 @@ mod durable_impl {
         }
     }
 
+    #[async_trait(?Send)]
     impl<Impl: ExtendedLlmProvider> ChatStreamInterface for DurableChatStream<Impl> {
-        fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>> {
+        async fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>> {
             let durability =
                 Durability::<Option<Vec<Result<StreamEvent, Error>>>, UnusedError>::new(
                     "golem_ai_llm",
@@ -284,15 +303,32 @@ mod durable_impl {
                     DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let mut state = self.state.borrow_mut();
-                let (result, new_live_stream) = match &*state {
-                    Some(DurableChatStreamState::Live { stream, .. }) => {
-                        let result =
-                            with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                stream.poll_next()
-                            });
+                // Take the state out of the RefCell so we don't hold a borrow across .await.
+                // We always put a state back before returning.
+                let taken_state = self.state.borrow_mut().take();
+                let (result, next_state) = match taken_state {
+                    Some(DurableChatStreamState::Live {
+                        stream,
+                        #[cfg(not(feature = "nopoll"))]
+                        pollables,
+                    }) => {
+                        let (stream, result) = with_persistence_level_async(
+                            PersistenceLevel::PersistNothing,
+                            || async move {
+                                let result = stream.poll_next().await;
+                                (stream, result)
+                            },
+                        )
+                        .await;
                         durability.persist_infallible(NoInput, result.clone());
-                        (result, None)
+                        (
+                            result,
+                            DurableChatStreamState::Live {
+                                stream,
+                                #[cfg(not(feature = "nopoll"))]
+                                pollables,
+                            },
+                        )
                     }
                     Some(DurableChatStreamState::Replay {
                         config,
@@ -302,50 +338,71 @@ mod durable_impl {
                         partial_result,
                         finished,
                     }) => {
-                        if *finished {
-                            (None, None)
+                        if finished {
+                            (
+                                None,
+                                DurableChatStreamState::Replay {
+                                    config,
+                                    original_events,
+                                    #[cfg(not(feature = "nopoll"))]
+                                    pollables,
+                                    partial_result,
+                                    finished,
+                                },
+                            )
                         } else {
                             let extended_events =
-                                Impl::retry_prompt(original_events, partial_result);
+                                Impl::retry_prompt(&original_events, &partial_result);
 
-                            let (stream, first_live_result) =
-                                with_persistence_level(PersistenceLevel::PersistNothing, || {
+                            #[cfg(not(feature = "nopoll"))]
+                            let (stream, first_live_result, pollables) =
+                                with_persistence_level_async(
+                                    PersistenceLevel::PersistNothing,
+                                    || async move {
+                                        let stream =
+                                            <Impl as ExtendedLlmProvider>::unwrapped_stream(
+                                                extended_events,
+                                                config,
+                                            )
+                                            .await;
+                                        for lazy_initialized_pollable in &pollables {
+                                            lazy_initialized_pollable.set(Impl::subscribe(&stream));
+                                        }
+                                        let next = stream.poll_next().await;
+                                        (stream, next, pollables)
+                                    },
+                                )
+                                .await;
+                            #[cfg(feature = "nopoll")]
+                            let (stream, first_live_result) = with_persistence_level_async(
+                                PersistenceLevel::PersistNothing,
+                                || async move {
                                     let stream = <Impl as ExtendedLlmProvider>::unwrapped_stream(
                                         extended_events,
-                                        config.clone(),
-                                    );
-                                    #[cfg(not(feature = "nopoll"))]
-                                    for lazy_initialized_pollable in pollables {
-                                        lazy_initialized_pollable.set(Impl::subscribe(&stream));
-                                    }
-
-                                    let next = stream.poll_next();
+                                        config,
+                                    )
+                                    .await;
+                                    let next = stream.poll_next().await;
                                     (stream, next)
-                                });
+                                },
+                            )
+                            .await;
+
                             durability.persist_infallible(NoInput, first_live_result.clone());
-                            (first_live_result, Some(stream))
+                            (
+                                first_live_result,
+                                DurableChatStreamState::Live {
+                                    stream,
+                                    #[cfg(not(feature = "nopoll"))]
+                                    pollables,
+                                },
+                            )
                         }
                     }
-                    None => {
-                        unreachable!()
-                    }
+                    None => unreachable!(),
                 };
 
-                if let Some(stream) = new_live_stream {
-                    #[cfg(not(feature = "nopoll"))]
-                    let pollables = match state.take() {
-                        Some(DurableChatStreamState::Live { pollables, .. }) => pollables,
-                        Some(DurableChatStreamState::Replay { pollables, .. }) => pollables,
-                        None => {
-                            unreachable!()
-                        }
-                    };
-                    *state = Some(DurableChatStreamState::Live {
-                        stream,
-                        #[cfg(not(feature = "nopoll"))]
-                        pollables,
-                    });
-                }
+                *self.state.borrow_mut() = Some(next_state);
 
                 result
             } else {
@@ -388,19 +445,22 @@ mod durable_impl {
             }
         }
 
-        fn get_next(&self) -> Vec<Result<StreamEvent, Error>> {
-            #[cfg(not(feature = "nopoll"))]
-            let mut subscription = self.subscription.borrow_mut();
-            #[cfg(not(feature = "nopoll"))]
-            if subscription.is_none() {
-                *subscription = Some(self.subscribe());
-            }
-            #[cfg(not(feature = "nopoll"))]
-            let subscription = subscription.as_mut().unwrap();
+        async fn get_next(&self) -> Vec<Result<StreamEvent, Error>> {
             loop {
+                // Acquire and release the subscription borrow within the loop body so we
+                // never hold a RefCell borrow across the .await on `poll_next`.
                 #[cfg(not(feature = "nopoll"))]
-                subscription.block();
-                if let Some(events) = self.poll_next() {
+                {
+                    let mut subscription = self.subscription.borrow_mut();
+                    if subscription.is_none() {
+                        *subscription = Some(self.subscribe());
+                    }
+                    subscription
+                        .as_ref()
+                        .expect("subscription just initialized")
+                        .block();
+                }
+                if let Some(events) = self.poll_next().await {
                     return events;
                 }
             }
