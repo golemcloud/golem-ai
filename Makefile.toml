@@ -83,7 +83,12 @@ end
 # Maintenance tasks
 [tasks.check]
 description = "Runs rustfmt and clippy checks without applying any fix"
-dependencies = ["check-clippy", "check-rustfmt"]
+dependencies = [
+    "check-clippy",
+    "check-clippy-no-default-features",
+    "check-clippy-no-default-features-exec",
+    "check-rustfmt",
+]
 
 [tasks.check-rustfmt]
 description = "Runs rustfmt checks without applying any fix"
@@ -96,6 +101,63 @@ description = "Runs clippy checks without applying any fix"
 install_crate = "clippy"
 command = "cargo"
 args = ["clippy", "--all-targets", "--", "--no-deps", "-Dwarnings"]
+
+[tasks.check-clippy-no-default-features]
+description = "Runs clippy with --no-default-features across the workspace. The `stt` and `llm` crate families are excluded because their passthrough-path fix lives in separate PRs; drop the --exclude flags once those merge. The `exec` crate has non-durability feature requirements and is handled by check-clippy-no-default-features-exec."
+install_crate = "clippy"
+command = "cargo"
+args = [
+    "clippy",
+    "--workspace",
+    "--no-default-features",
+    "--exclude",
+    "golem-ai-stt",
+    "--exclude",
+    "golem-ai-stt-whisper",
+    "--exclude",
+    "golem-ai-stt-aws",
+    "--exclude",
+    "golem-ai-stt-azure",
+    "--exclude",
+    "golem-ai-stt-deepgram",
+    "--exclude",
+    "golem-ai-stt-google",
+    "--exclude",
+    "golem-ai-llm",
+    "--exclude",
+    "golem-ai-llm-openai",
+    "--exclude",
+    "golem-ai-llm-anthropic",
+    "--exclude",
+    "golem-ai-llm-grok",
+    "--exclude",
+    "golem-ai-llm-ollama",
+    "--exclude",
+    "golem-ai-llm-openrouter",
+    "--exclude",
+    "golem-ai-llm-bedrock",
+    "--exclude",
+    "golem-ai-exec",
+    "--",
+    "--no-deps",
+    "-Dwarnings",
+]
+
+[tasks.check-clippy-no-default-features-exec]
+description = "Runs clippy on golem-ai-exec with --no-default-features --features 'javascript python'. The `exec` crate's non-durability features (javascript, python) are required for meaningful compilation; bundling everything into a single --no-default-features check disables them too and produces unrelated dead-code warnings."
+install_crate = "clippy"
+command = "cargo"
+args = [
+    "clippy",
+    "-p",
+    "golem-ai-exec",
+    "--no-default-features",
+    "--features",
+    "javascript python",
+    "--",
+    "--no-deps",
+    "-Dwarnings",
+]
 
 [tasks.fix]
 description = "Runs rustfmt and clippy checks and applies fixes"

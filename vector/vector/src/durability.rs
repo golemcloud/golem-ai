@@ -20,13 +20,18 @@ impl<T: ExtendedVectorProvider> FuncProvider for T {
     type FilterFunc = crate::model::types::FilterExpression;
 }
 
-/// When the durability feature flag is off, wrapping with `DurableVector` is just a passthrough
+/// When the durability feature flag is off, `DurableVector<Impl>` is a transparent wrapper that
+/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use super::*;
     use crate::init_logging;
+    use crate::{
+        AnalyticsProvider, CollectionProvider, ConnectionProvider, NamespacesProvider,
+        SearchExtendedProvider, SearchProvider, VectorsProvider,
+    };
 
-    impl<Impl: ExtendedVectorProvider + ConnectionGuest> ConnectionGuest for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider + ConnectionProvider> ConnectionProvider for DurableVector<Impl> {
         fn connect(
             endpoint: String,
             credentials: Option<crate::model::connection::Credentials>,
@@ -59,7 +64,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + CollectionsGuest> CollectionsGuest for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider + CollectionProvider> CollectionProvider for DurableVector<Impl> {
         fn upsert_collection(
             name: String,
             description: Option<String>,
@@ -104,7 +109,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + VectorsGuest> VectorsGuest for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider + VectorsProvider> VectorsProvider for DurableVector<Impl> {
         fn upsert_vectors(
             collection: String,
             vectors: Vec<crate::model::types::VectorRecord>,
@@ -217,7 +222,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + SearchGuest> SearchGuest for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider + SearchProvider> SearchProvider for DurableVector<Impl> {
         fn search_vectors(
             collection: String,
             query: crate::model::search::SearchQuery,
@@ -279,7 +284,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + SearchExtendedGuest> SearchExtendedGuest
+    impl<Impl: ExtendedVectorProvider + SearchExtendedProvider> SearchExtendedProvider
         for DurableVector<Impl>
     {
         fn recommend_vectors(
@@ -392,7 +397,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + AnalyticsGuest> AnalyticsGuest for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider + AnalyticsProvider> AnalyticsProvider for DurableVector<Impl> {
         fn get_collection_stats(
             collection: String,
             namespace: Option<String>,
@@ -421,7 +426,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + NamespacesGuest> NamespacesGuest for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider + NamespacesProvider> NamespacesProvider for DurableVector<Impl> {
         fn upsert_namespace(
             collection: String,
             namespace: String,
@@ -455,11 +460,6 @@ mod passthrough_impl {
             init_logging();
             Impl::namespace_exists(collection, namespace)
         }
-    }
-
-    impl<Impl: ExtendedVectorProvider> crate::model::types::Guest for DurableVector<Impl> {
-        type MetadataFunc = crate::model::types::MetadataValue;
-        type FilterFunc = crate::model::types::FilterExpression;
     }
 }
 

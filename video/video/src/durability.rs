@@ -1,8 +1,3 @@
-#[allow(unused_imports)]
-use crate::model::types::{
-    AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo, MediaInput,
-    VideoError, VideoResult, VoiceInfo,
-};
 use crate::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 use std::marker::PhantomData;
 
@@ -11,28 +6,28 @@ pub struct DurableVideo<Impl> {
     phantom: PhantomData<Impl>,
 }
 
-/// Trait to be implemented in addition to the Video `Guest` traits when wrapping it with `DurableVideo`.
+/// Trait implemented by provider crates in addition to the three native Video provider traits
+/// so `DurableVideo` can be parameterised by a single type that supplies all of them.
 pub trait ExtendedVideoGenerationProvider:
     VideoGenerationProvider + LipSyncProvider + AdvancedVideoGenerationProvider + 'static
 {
 }
 
-/// When the durability feature flag is off, wrapping with `DurableVideo` is just a passthrough
+/// When the durability feature flag is off, `DurableVideo<Impl>` is a transparent wrapper that
+/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::{DurableVideo, ExtendedVideoGenerationProvider};
     use crate::model::advanced::{
-        ExtendVideoOptions, GenerateVideoEffectsOptions, Guest as AdvancedGuest,
-        MultImageGenerationOptions,
+        ExtendVideoOptions, GenerateVideoEffectsOptions, MultImageGenerationOptions,
     };
-    use crate::model::lip_sync::Guest as LipSyncGuest;
     use crate::model::types::{
-        AudioSource, BaseVideo, EffectType, GenerationConfig, InputImage, Kv, LipSyncVideo,
-        MediaInput, VideoError, VideoResult, VoiceInfo,
+        AudioSource, BaseVideo, GenerationConfig, LipSyncVideo, MediaInput, VideoError,
+        VideoResult, VoiceInfo,
     };
-    use crate::model::video_generation::Guest as VideoGenerationGuest;
+    use crate::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 
-    impl<Impl: ExtendedVideoGenerationProvider> VideoGenerationGuest for DurableVideo<Impl> {
+    impl<Impl: ExtendedVideoGenerationProvider> VideoGenerationProvider for DurableVideo<Impl> {
         fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
             Impl::generate(input, config)
         }
@@ -46,7 +41,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedVideoGenerationProvider> LipSyncGuest for DurableVideo<Impl> {
+    impl<Impl: ExtendedVideoGenerationProvider> LipSyncProvider for DurableVideo<Impl> {
         fn generate_lip_sync(
             video: LipSyncVideo,
             audio: AudioSource,
@@ -59,7 +54,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedVideoGenerationProvider> AdvancedGuest for DurableVideo<Impl> {
+    impl<Impl: ExtendedVideoGenerationProvider> AdvancedVideoGenerationProvider for DurableVideo<Impl> {
         fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
             Impl::extend_video(options)
         }

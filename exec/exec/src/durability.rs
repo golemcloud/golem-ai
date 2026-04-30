@@ -20,22 +20,26 @@ pub trait SessionSnapshot<Session> {
 #[derive(Debug, Clone, IntoValue, FromValueAndType)]
 pub struct EmptySnapshot {}
 
-/// When the durability feature flag is off, wrapping with `DurableLLM` is just a passthrough
+/// When the durability feature flag is off, `DurableExec<Impl>` is a transparent wrapper that
+/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::DurableExec;
-    use crate::golem::exec::executor::{Error, ExecResult, File, Guest, Language, RunOptions};
+    use crate::model::{Error, ExecResult, File, Language, RunOptions};
+    use crate::ExecutionProvider;
+    use async_trait::async_trait;
 
-    impl<Impl: Guest> Guest for DurableExec<Impl> {
+    #[async_trait(?Send)]
+    impl<Impl: ExecutionProvider + 'static> ExecutionProvider for DurableExec<Impl> {
         type Session = Impl::Session;
 
-        fn run(
+        async fn run(
             lang: Language,
             modules: Vec<File>,
             snippet: String,
             options: RunOptions,
         ) -> Result<ExecResult, Error> {
-            Impl::run(lang, modules, snippet, options)
+            Impl::run(lang, modules, snippet, options).await
         }
     }
 }

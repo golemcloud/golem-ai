@@ -30,18 +30,19 @@ pub trait ExtendedSearchProvider: SearchProvider + 'static {
     fn subscribe(stream: &Self::SearchStream) -> Pollable;
 }
 
-/// When the durability feature flag is off, wrapping with `DurableSearch` is just a passthrough
+/// When the durability feature flag is off, `DurableSearch<Impl>` is a transparent wrapper that
+/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::{DurableSearch, ExtendedSearchProvider};
     use crate::init_logging;
     use crate::model::{
         CreateIndexOptions, Doc, DocumentId, IndexName, Schema, SearchError, SearchQuery,
-        SearchResults,
+        SearchResults, SearchStream,
     };
-    use crate::model::{Guest, SearchStream};
+    use crate::SearchProvider;
 
-    impl<Impl: ExtendedSearchProvider> Guest for DurableSearch<Impl> {
+    impl<Impl: ExtendedSearchProvider> SearchProvider for DurableSearch<Impl> {
         type SearchStream = Impl::SearchStream;
 
         fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {

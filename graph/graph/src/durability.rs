@@ -2,7 +2,6 @@ use crate::model::{
     connection::{self, ConnectionConfig},
     errors::GraphError,
     schema::SchemaManager,
-    transactions::{self},
 };
 use crate::{GraphInterface, TransactionInterface};
 use std::marker::PhantomData;
@@ -27,13 +26,15 @@ pub trait ProviderGraph: GraphInterface {
     type Transaction: TransactionInterface;
 }
 
-/// When the durability feature flag is off, wrapping with `DurableGraph` is just a passthrough
+/// When the durability feature flag is off, `DurableGraph<Impl>` is a transparent wrapper that
+/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use super::*;
     use crate::init_logging;
+    use crate::{GraphProvider, SchemaManagerProvider, TransactionProvider};
 
-    impl<Impl: ExtendedGuest> connection::Guest for DurableGraph<Impl>
+    impl<Impl: ExtendedGuest> GraphProvider for DurableGraph<Impl>
     where
         Impl::Graph: ProviderGraph + 'static,
     {
@@ -46,14 +47,14 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedGuest + TransactionGuest> TransactionGuest for DurableGraph<Impl>
+    impl<Impl: ExtendedGuest + TransactionProvider> TransactionProvider for DurableGraph<Impl>
     where
         Impl::Graph: ProviderGraph + 'static,
     {
         type Transaction = Impl::Transaction;
     }
 
-    impl<Impl: ExtendedGuest + SchemaGuest> SchemaGuest for DurableGraph<Impl>
+    impl<Impl: ExtendedGuest + SchemaManagerProvider> SchemaManagerProvider for DurableGraph<Impl>
     where
         Impl::Graph: ProviderGraph + 'static,
     {
@@ -71,14 +72,14 @@ mod passthrough_impl {
 #[cfg(feature = "durability")]
 mod durable_impl {
     use super::*;
-    use crate::durability::transactions::CreateVertexOptions;
     use crate::model::connection::GraphStatistics;
+    use crate::model::transactions;
     use crate::model::transactions::{
-        CreateEdgeOptions, Edge, ElementId, ExecuteQueryOptions, FindAllPathsOptions,
-        FindEdgesOptions, FindShortestPathOptions, FindVerticesOptions, GetAdjacentVerticesOptions,
-        GetConnectedEdgesOptions, GetNeighborhoodOptions, GetVerticesAtDistanceOptions, Path,
-        PathExistsOptions, QueryExecutionResult, Subgraph, UpdateEdgeOptions, UpdateVertexOptions,
-        Vertex,
+        CreateEdgeOptions, CreateVertexOptions, Edge, ElementId, ExecuteQueryOptions,
+        FindAllPathsOptions, FindEdgesOptions, FindShortestPathOptions, FindVerticesOptions,
+        GetAdjacentVerticesOptions, GetConnectedEdgesOptions, GetNeighborhoodOptions,
+        GetVerticesAtDistanceOptions, Path, PathExistsOptions, QueryExecutionResult, Subgraph,
+        UpdateEdgeOptions, UpdateVertexOptions, Vertex,
     };
     use crate::{
         init_logging, GraphInterface, GraphProvider, SchemaManagerProvider, TransactionInterface,

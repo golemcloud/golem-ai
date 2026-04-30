@@ -9,13 +9,13 @@ pub struct DurableEmbed<Impl> {
 /// Trait to be implemented in addition to the embed `EmbeddingProvider` trait when wrapping it with durability.
 pub trait ExtendedEmbeddingProvider: EmbeddingProvider + 'static {}
 
-/// When the durability feature flag is off, wrapping with `DurableEmbed` is just a passthrough
+/// When the durability feature flag is off, `DurableEmbed<Impl>` is a transparent wrapper that
+/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::{DurableEmbed, ExtendedEmbeddingProvider};
-    use crate::golem::embed::embed::{
-        Config, ContentPart, EmbeddingProvider, EmbeddingResponse, Error, RerankResponse,
-    };
+    use crate::model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse};
+    use crate::EmbeddingProvider;
 
     impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
         fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
