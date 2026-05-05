@@ -1743,6 +1743,7 @@ dependencies = [
  "aws-types",
  "base64 0.22.1",
  "bytes",
+ "futures",
  "golem-ai-llm",
  "golem-rust",
  "indoc",

@@ -124,6 +124,7 @@ mod durable_impl {
     };
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};
+    use std::rc::Rc;
 
     impl<Impl: ExtendedLlmProvider> LlmProvider for DurableLLM<Impl> {
         type ChatStream = DurableChatStream<Impl>;
@@ -202,7 +203,7 @@ mod durable_impl {
     /// stream and continue the response seamlessly.
     enum DurableChatStreamState<Impl: ExtendedLlmProvider> {
         Live {
-            stream: Impl::ChatStream,
+            stream: Rc<Impl::ChatStream>,
             #[cfg(not(feature = "nopoll"))]
             pollables: Vec<LazyInitializedPollable>,
         },
@@ -213,23 +214,36 @@ mod durable_impl {
             pollables: Vec<LazyInitializedPollable>,
             partial_result: Vec<StreamDelta>,
             finished: bool,
+            continuation_started: bool,
         },
     }
 
     pub struct DurableChatStream<Impl: ExtendedLlmProvider> {
         state: RefCell<Option<DurableChatStreamState<Impl>>>,
         subscription: RefCell<Option<Pollable>>,
+        starting_replay_continuation: RefCell<bool>,
+    }
+
+    struct ReplayContinuationGuard<'a> {
+        in_progress: &'a RefCell<bool>,
+    }
+
+    impl Drop for ReplayContinuationGuard<'_> {
+        fn drop(&mut self) {
+            *self.in_progress.borrow_mut() = false;
+        }
     }
 
     impl<Impl: ExtendedLlmProvider> DurableChatStream<Impl> {
         fn live(stream: Impl::ChatStream) -> Self {
             Self {
                 state: RefCell::new(Some(DurableChatStreamState::Live {
-                    stream,
+                    stream: Rc::new(stream),
                     #[cfg(not(feature = "nopoll"))]
                     pollables: Vec::new(),
                 })),
                 subscription: RefCell::new(None),
+                starting_replay_continuation: RefCell::new(false),
             }
         }
 
@@ -242,15 +256,32 @@ mod durable_impl {
                     pollables: Vec::new(),
                     partial_result: Vec::new(),
                     finished: false,
+                    continuation_started: false,
                 })),
                 subscription: RefCell::new(None),
+                starting_replay_continuation: RefCell::new(false),
             }
         }
+
+        fn begin_replay_continuation(&self) -> Option<ReplayContinuationGuard<'_>> {
+            let mut in_progress = self.starting_replay_continuation.borrow_mut();
+            if *in_progress {
+                None
+            } else {
+                *in_progress = true;
+                Some(ReplayContinuationGuard {
+                    in_progress: &self.starting_replay_continuation,
+                })
+            }
+        }
+
         #[cfg(not(feature = "nopoll"))]
         fn subscribe(&self) -> Pollable {
             let mut state = self.state.borrow_mut();
             match &mut *state {
-                Some(DurableChatStreamState::Live { stream, .. }) => Impl::subscribe(stream),
+                Some(DurableChatStreamState::Live { stream, .. }) => {
+                    Impl::subscribe(stream.as_ref())
+                }
                 Some(DurableChatStreamState::Replay { pollables, .. }) => {
                     let lazy_pollable = LazyInitializedPollable::new();
                     let pollable = lazy_pollable.subscribe();
@@ -293,121 +324,190 @@ mod durable_impl {
         }
     }
 
+    async fn poll_live_stream<Impl: ExtendedLlmProvider>(
+        stream: Rc<Impl::ChatStream>,
+    ) -> Option<Vec<Result<StreamEvent, Error>>> {
+        with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
+            stream.poll_next().await
+        })
+        .await
+    }
+
+    fn public_poll_result_from_persisted(
+        result: PersistedPollResult,
+    ) -> Option<Vec<Result<StreamEvent, Error>>> {
+        match result {
+            PersistedPollResult::Pending => None,
+            PersistedPollResult::Events(events) => Some(events),
+            PersistedPollResult::Terminal => Some(vec![]),
+            PersistedPollResult::StartedReplayContinuation(result) => result,
+        }
+    }
+
+    fn persisted_poll_result_from_public(
+        result: Option<Vec<Result<StreamEvent, Error>>>,
+    ) -> PersistedPollResult {
+        match result {
+            None => PersistedPollResult::Pending,
+            Some(events) if events.is_empty() => PersistedPollResult::Terminal,
+            Some(events) => PersistedPollResult::Events(events),
+        }
+    }
+
+    fn update_replay_progress(
+        result: Option<&[Result<StreamEvent, Error>]>,
+        partial_result: &mut Vec<StreamDelta>,
+        finished: &mut bool,
+    ) {
+        if let Some(result) = result {
+            if result.is_empty() {
+                *finished = true;
+                return;
+            }
+
+            for event in result {
+                match event {
+                    Ok(StreamEvent::Delta(delta)) => {
+                        partial_result.push(delta.clone());
+                    }
+                    Ok(StreamEvent::Finish(_)) | Err(_) => {
+                        *finished = true;
+                    }
+                }
+            }
+        }
+    }
+
     #[async_trait(?Send)]
     impl<Impl: ExtendedLlmProvider> ChatStreamInterface for DurableChatStream<Impl> {
         async fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>> {
-            let durability =
-                Durability::<Option<Vec<Result<StreamEvent, Error>>>, UnusedError>::new(
-                    "golem_ai_llm",
-                    "poll_next",
-                    DurableFunctionType::ReadRemote,
-                );
+            let durability = Durability::<PersistedPollResult, UnusedError>::new(
+                "golem_ai_llm",
+                "poll_next",
+                DurableFunctionType::ReadRemote,
+            );
             if durability.is_live() {
-                // Take the state out of the RefCell so we don't hold a borrow across .await.
-                // We always put a state back before returning.
-                let taken_state = self.state.borrow_mut().take();
-                let (result, next_state) = match taken_state {
-                    Some(DurableChatStreamState::Live {
-                        stream,
-                        #[cfg(not(feature = "nopoll"))]
-                        pollables,
-                    }) => {
-                        let (stream, result) = with_persistence_level_async(
+                enum PollAction<Impl: ExtendedLlmProvider> {
+                    PollLive(Rc<Impl::ChatStream>),
+                    StartReplayContinuation {
+                        config: Config,
+                        extended_events: Vec<Event>,
+                        continuation_already_started: bool,
+                    },
+                    FinishedReplay,
+                }
+
+                let action = {
+                    let state = self.state.borrow();
+                    match &*state {
+                        Some(DurableChatStreamState::Live { stream, .. }) => {
+                            PollAction::<Impl>::PollLive(Rc::clone(stream))
+                        }
+                        Some(DurableChatStreamState::Replay {
+                            config,
+                            original_events,
+                            partial_result,
+                            finished,
+                            continuation_started,
+                            ..
+                        }) => {
+                            if *finished {
+                                PollAction::<Impl>::FinishedReplay
+                            } else {
+                                PollAction::<Impl>::StartReplayContinuation {
+                                    config: config.clone(),
+                                    extended_events: Impl::retry_prompt(
+                                        original_events,
+                                        partial_result,
+                                    ),
+                                    continuation_already_started: *continuation_started,
+                                }
+                            }
+                        }
+                        None => unreachable!(),
+                    }
+                };
+
+                match action {
+                    PollAction::PollLive(stream) => {
+                        let result = poll_live_stream::<Impl>(stream).await;
+                        let persisted_result = persisted_poll_result_from_public(result);
+                        durability.persist_infallible(NoInput, persisted_result.clone());
+                        public_poll_result_from_persisted(persisted_result)
+                    }
+                    PollAction::FinishedReplay => {
+                        let persisted_result = PersistedPollResult::Terminal;
+                        durability.persist_infallible(NoInput, persisted_result.clone());
+                        public_poll_result_from_persisted(persisted_result)
+                    }
+                    PollAction::StartReplayContinuation {
+                        config,
+                        extended_events,
+                        continuation_already_started,
+                    } => {
+                        let Some(_guard) = self.begin_replay_continuation() else {
+                            return None;
+                        };
+
+                        let stream = with_persistence_level_async(
                             PersistenceLevel::PersistNothing,
                             || async move {
-                                let result = stream.poll_next().await;
-                                (stream, result)
+                                <Impl as ExtendedLlmProvider>::unwrapped_stream(
+                                    extended_events,
+                                    config,
+                                )
+                                .await
                             },
                         )
                         .await;
-                        durability.persist_infallible(NoInput, result.clone());
-                        (
-                            result,
-                            DurableChatStreamState::Live {
-                                stream,
-                                #[cfg(not(feature = "nopoll"))]
-                                pollables,
-                            },
-                        )
-                    }
-                    Some(DurableChatStreamState::Replay {
-                        config,
-                        original_events,
-                        #[cfg(not(feature = "nopoll"))]
-                        pollables,
-                        partial_result,
-                        finished,
-                    }) => {
-                        if finished {
-                            (
-                                None,
-                                DurableChatStreamState::Replay {
-                                    config,
-                                    original_events,
+                        let stream = Rc::new(stream);
+
+                        let stream_to_poll = {
+                            let mut state = self.state.borrow_mut();
+                            match &mut *state {
+                                Some(DurableChatStreamState::Replay {
                                     #[cfg(not(feature = "nopoll"))]
                                     pollables,
-                                    partial_result,
-                                    finished,
-                                },
-                            )
+                                    ..
+                                }) => {
+                                    #[cfg(not(feature = "nopoll"))]
+                                    for lazy_initialized_pollable in pollables.iter() {
+                                        lazy_initialized_pollable
+                                            .set(Impl::subscribe(stream.as_ref()));
+                                    }
+
+                                    #[cfg(not(feature = "nopoll"))]
+                                    let pollables = std::mem::take(pollables);
+
+                                    *state = Some(DurableChatStreamState::Live {
+                                        stream: Rc::clone(&stream),
+                                        #[cfg(not(feature = "nopoll"))]
+                                        pollables,
+                                    });
+                                    Rc::clone(&stream)
+                                }
+                                Some(DurableChatStreamState::Live { stream, .. }) => {
+                                    // Another caller completed the transition while this
+                                    // async call was suspended. Keep that state intact and
+                                    // poll the stream already stored there.
+                                    Rc::clone(stream)
+                                }
+                                None => unreachable!(),
+                            }
+                        };
+
+                        let result = poll_live_stream::<Impl>(stream_to_poll).await;
+                        let persisted_result = if continuation_already_started {
+                            persisted_poll_result_from_public(result)
                         } else {
-                            let extended_events =
-                                Impl::retry_prompt(&original_events, &partial_result);
-
-                            #[cfg(not(feature = "nopoll"))]
-                            let (stream, first_live_result, pollables) =
-                                with_persistence_level_async(
-                                    PersistenceLevel::PersistNothing,
-                                    || async move {
-                                        let stream =
-                                            <Impl as ExtendedLlmProvider>::unwrapped_stream(
-                                                extended_events,
-                                                config,
-                                            )
-                                            .await;
-                                        for lazy_initialized_pollable in &pollables {
-                                            lazy_initialized_pollable.set(Impl::subscribe(&stream));
-                                        }
-                                        let next = stream.poll_next().await;
-                                        (stream, next, pollables)
-                                    },
-                                )
-                                .await;
-                            #[cfg(feature = "nopoll")]
-                            let (stream, first_live_result) = with_persistence_level_async(
-                                PersistenceLevel::PersistNothing,
-                                || async move {
-                                    let stream = <Impl as ExtendedLlmProvider>::unwrapped_stream(
-                                        extended_events,
-                                        config,
-                                    )
-                                    .await;
-                                    let next = stream.poll_next().await;
-                                    (stream, next)
-                                },
-                            )
-                            .await;
-
-                            durability.persist_infallible(NoInput, first_live_result.clone());
-                            (
-                                first_live_result,
-                                DurableChatStreamState::Live {
-                                    stream,
-                                    #[cfg(not(feature = "nopoll"))]
-                                    pollables,
-                                },
-                            )
-                        }
+                            PersistedPollResult::StartedReplayContinuation(result)
+                        };
+                        durability.persist_infallible(NoInput, persisted_result.clone());
+                        public_poll_result_from_persisted(persisted_result)
                     }
-                    None => unreachable!(),
-                };
-
-                *self.state.borrow_mut() = Some(next_state);
-
-                result
+                }
             } else {
-                let result: Option<Vec<Result<StreamEvent, Error>>> =
-                    durability.replay_infallible();
+                let persisted_result: PersistedPollResult = durability.replay_infallible();
                 let mut state = self.state.borrow_mut();
                 match &mut *state {
                     Some(DurableChatStreamState::Live { .. }) => {
@@ -416,32 +516,26 @@ mod durable_impl {
                     Some(DurableChatStreamState::Replay {
                         partial_result,
                         finished,
+                        continuation_started,
                         ..
-                    }) => match &result {
-                        Some(result) => {
-                            for event in result {
-                                match event {
-                                    Ok(StreamEvent::Delta(delta)) => {
-                                        partial_result.push(delta.clone());
-                                    }
-                                    Ok(StreamEvent::Finish(_)) => {
-                                        *finished = true;
-                                    }
-                                    Err(_) => {
-                                        *finished = true;
-                                    }
-                                }
-                            }
+                    }) => match &persisted_result {
+                        PersistedPollResult::Pending => {}
+                        PersistedPollResult::Terminal => {
+                            *finished = true;
                         }
-                        None => {
-                            // NOP
+                        PersistedPollResult::Events(result) => {
+                            update_replay_progress(Some(result), partial_result, finished);
+                        }
+                        PersistedPollResult::StartedReplayContinuation(result) => {
+                            *continuation_started = true;
+                            update_replay_progress(result.as_deref(), partial_result, finished);
                         }
                     },
                     None => {
                         unreachable!()
                     }
                 }
-                result
+                public_poll_result_from_persisted(persisted_result)
             }
         }
 
@@ -486,6 +580,14 @@ mod durable_impl {
 
     #[derive(Debug, Clone, FromValueAndType, IntoValue)]
     struct NoOutput;
+
+    #[derive(Debug, Clone, FromValueAndType, IntoValue)]
+    enum PersistedPollResult {
+        Pending,
+        Events(Vec<Result<StreamEvent, Error>>),
+        Terminal,
+        StartedReplayContinuation(Option<Vec<Result<StreamEvent, Error>>>),
+    }
 
     #[derive(Debug, FromValueAndType, IntoValue)]
     struct UnusedError;
