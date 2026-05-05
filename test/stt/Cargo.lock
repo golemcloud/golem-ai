@@ -555,9 +555,9 @@ dependencies = [
 
 [[package]]
 name = "golem-rust"
-version = "2.0.0-dev.8"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec4188bacbe44825cbd3da6c01c9915350377d97d32bc7737f7abb59c39a5986"
+checksum = "3ea024a64286f601153573384530faa23b665b628b81eb27b2c204b0e93d6141"
 dependencies = [
  "async-trait",
  "ctor",
@@ -577,9 +577,9 @@ dependencies = [
 
 [[package]]
 name = "golem-rust-macro"
-version = "2.0.0-dev.8"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa2dd6dece3e268292cbf75320bb64ee5911b8ab7dc3bd9a52e0fa1e10c43449"
+checksum = "3d01cd51a38737e1431ede857b99cc2955731c02960f56663d0c830541d72170"
 dependencies = [
  "heck 0.5.0",
  "humantime",
