@@ -217,20 +217,20 @@ impl OpenAI {
 impl LlmProvider for OpenAI {
     type ChatStream = LlmChatStream<OpenAIChatStream>;
 
-    fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
         let openai_api_key = get_config_key(Self::ENV_VAR_NAME)?;
         let client = ResponsesApi::new(openai_api_key);
         let items = events_to_input_items(events);
         Self::request(client, items, config)
     }
 
-    fn stream(events: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(events, config))
+    async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for OpenAI {
-    fn unwrapped_stream(events: Vec<Event>, config: Config) -> Self::ChatStream {
+    async fn unwrapped_stream(events: Vec<Event>, config: Config) -> Self::ChatStream {
         with_config_key(
             Self::ENV_VAR_NAME,
             OpenAIChatStream::failed,

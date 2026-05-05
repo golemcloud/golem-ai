@@ -103,39 +103,13 @@ command = "cargo"
 args = ["clippy", "--all-targets", "--", "--no-deps", "-Dwarnings"]
 
 [tasks.check-clippy-no-default-features]
-description = "Runs clippy with --no-default-features across the workspace. The `stt` and `llm` crate families are excluded because their passthrough-path fix lives in separate PRs; drop the --exclude flags once those merge. The `exec` crate has non-durability feature requirements and is handled by check-clippy-no-default-features-exec."
+description = "Runs clippy with --no-default-features across the workspace. The `exec` crate has non-durability feature requirements and is handled by check-clippy-no-default-features-exec."
 install_crate = "clippy"
 command = "cargo"
 args = [
     "clippy",
     "--workspace",
     "--no-default-features",
-    "--exclude",
-    "golem-ai-stt",
-    "--exclude",
-    "golem-ai-stt-whisper",
-    "--exclude",
-    "golem-ai-stt-aws",
-    "--exclude",
-    "golem-ai-stt-azure",
-    "--exclude",
-    "golem-ai-stt-deepgram",
-    "--exclude",
-    "golem-ai-stt-google",
-    "--exclude",
-    "golem-ai-llm",
-    "--exclude",
-    "golem-ai-llm-openai",
-    "--exclude",
-    "golem-ai-llm-anthropic",
-    "--exclude",
-    "golem-ai-llm-grok",
-    "--exclude",
-    "golem-ai-llm-ollama",
-    "--exclude",
-    "golem-ai-llm-openrouter",
-    "--exclude",
-    "golem-ai-llm-bedrock",
     "--exclude",
     "golem-ai-exec",
     "--",

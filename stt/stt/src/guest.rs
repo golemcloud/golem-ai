@@ -9,9 +9,10 @@ pub struct SttTranscriptionRequest {
     pub options: Option<TranscribeOptions>,
 }
 
+#[allow(async_fn_in_trait)]
 pub trait SttTranscriptionProvider {
-    fn transcribe(req: SttTranscriptionRequest) -> Result<TranscriptionResult, SttError>;
-    fn transcribe_many(
+    async fn transcribe(req: SttTranscriptionRequest) -> Result<TranscriptionResult, SttError>;
+    async fn transcribe_many(
         wit_requests: Vec<SttTranscriptionRequest>,
     ) -> Result<MultiTranscriptionResult, SttError>;
 }

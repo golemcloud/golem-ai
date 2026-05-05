@@ -260,20 +260,23 @@ impl OpenRouter {
 impl LlmProvider for OpenRouter {
     type ChatStream = LlmChatStream<OpenRouterChatStream>;
 
-    fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
         let openrouter_api_key = get_config_key(Self::ENV_VAR_NAME)?;
         let client = CompletionsApi::new(openrouter_api_key);
         let request = events_to_request(events, config)?;
         Self::request(client, request)
     }
 
-    fn stream(events: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(events, config))
+    async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for OpenRouter {
-    fn unwrapped_stream(events: Vec<Event>, config: Config) -> LlmChatStream<OpenRouterChatStream> {
+    async fn unwrapped_stream(
+        events: Vec<Event>,
+        config: Config,
+    ) -> LlmChatStream<OpenRouterChatStream> {
         with_config_key(
             Self::ENV_VAR_NAME,
             OpenRouterChatStream::failed,

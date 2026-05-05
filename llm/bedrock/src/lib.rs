@@ -1,4 +1,3 @@
-use async_utils::get_async_runtime;
 use client::Bedrock as BedrockClient;
 use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::model::{
@@ -20,32 +19,22 @@ pub struct Bedrock;
 impl LlmProvider for Bedrock {
     type ChatStream = BedrockChatStream;
 
-    fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
-        let runtime = get_async_runtime();
-
-        runtime.block_on(async {
-            let client = get_bedrock_client().await?;
-            client.converse(events, config).await
-        })
+    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+        let client = get_bedrock_client().await?;
+        client.converse(events, config).await
     }
 
-    fn stream(events: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(events, config))
+    async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for Bedrock {
-    fn unwrapped_stream(messages: Vec<Event>, config: Config) -> Self::ChatStream {
-        let runtime = get_async_runtime();
-
-        runtime.block_on(async {
-            let bedrock = get_bedrock_client().await;
-
-            match bedrock {
-                Ok(client) => client.converse_stream(messages, config).await,
-                Err(err) => BedrockChatStream::failed(err),
-            }
-        })
+    async fn unwrapped_stream(messages: Vec<Event>, config: Config) -> Self::ChatStream {
+        match get_bedrock_client().await {
+            Ok(client) => client.converse_stream(messages, config).await,
+            Err(err) => BedrockChatStream::failed(err),
+        }
     }
 
     fn retry_prompt(
