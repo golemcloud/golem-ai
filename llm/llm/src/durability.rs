@@ -445,9 +445,7 @@ mod durable_impl {
                         extended_events,
                         continuation_already_started,
                     } => {
-                        let Some(_guard) = self.begin_replay_continuation() else {
-                            return None;
-                        };
+                        let _guard = self.begin_replay_continuation()?;
 
                         let stream = with_persistence_level_async(
                             PersistenceLevel::PersistNothing,
