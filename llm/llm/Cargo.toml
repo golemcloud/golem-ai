@@ -11,6 +11,7 @@ description = "Library for working with LLM APIs on Golem Cloud"
 path = "src/lib.rs"
 
 [dependencies]
+async-trait = "0.1.89"
 golem-rust = { workspace = true }
 
 golem-wasi-http = { workspace = true }

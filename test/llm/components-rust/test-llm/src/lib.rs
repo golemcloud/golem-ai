@@ -133,15 +133,15 @@ fn provider_passthrough_options() -> Vec<Kv> {
 pub trait LlmTest {
     fn new(name: String) -> Self;
 
-    fn test1(&self) -> String;
-    fn test2(&self) -> String;
-    fn test3(&self) -> String;
-    fn test4(&self) -> String;
-    fn test5(&self) -> String;
+    async fn test1(&self) -> String;
+    async fn test2(&self) -> String;
+    async fn test3(&self) -> String;
+    async fn test4(&self) -> String;
+    async fn test5(&self) -> String;
     async fn test6(&self) -> String;
-    fn test7(&self) -> String;
+    async fn test7(&self) -> String;
     async fn test8(&self) -> String;
-    fn test9(&self) -> String;
+    async fn test9(&self) -> String;
 }
 
 struct LlmTestImpl {
@@ -154,7 +154,7 @@ impl LlmTest for LlmTestImpl {
         Self { _name: name }
     }
 
-    fn test1(&self) -> String {
+    async fn test1(&self) -> String {
         let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
@@ -176,7 +176,8 @@ impl LlmTest for LlmTestImpl {
                 )],
             })],
             config,
-        );
+        )
+        .await;
         println!("Response: {:?}", response);
 
         match response {
@@ -214,7 +215,7 @@ impl LlmTest for LlmTestImpl {
         }
     }
 
-    fn test2(&self) -> String {
+    async fn test2(&self) -> String {
         let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
@@ -257,7 +258,7 @@ impl LlmTest for LlmTestImpl {
         }));
 
         println!("Sending request to LLM...");
-        let response1 = Provider::send(events.clone(), config.clone());
+        let response1 = Provider::send(events.clone(), config.clone()).await;
         let tool_request = match response1 {
             Ok(response) => {
                 events.push(Event::Response(response.clone()));
@@ -276,17 +277,15 @@ impl LlmTest for LlmTestImpl {
 
         if !tool_request.is_empty() {
             for call in tool_request {
-                events.push(Event::ToolResults(vec![ToolResult::Success(
-                    ToolSuccess {
-                        id: call.id,
-                        name: call.name,
-                        result_json: r#"{ "value": 6 }"#.to_string(),
-                        execution_time_ms: None,
-                    },
-                )]));
+                events.push(Event::ToolResults(vec![ToolResult::Success(ToolSuccess {
+                    id: call.id,
+                    name: call.name,
+                    result_json: r#"{ "value": 6 }"#.to_string(),
+                    execution_time_ms: None,
+                })]));
             }
 
-            let response2 = Provider::send(events, config);
+            let response2 = Provider::send(events, config).await;
 
             match response2 {
                 Ok(response) => {
@@ -306,7 +305,7 @@ impl LlmTest for LlmTestImpl {
         }
     }
 
-    fn test3(&self) -> String {
+    async fn test3(&self) -> String {
         let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
@@ -328,12 +327,13 @@ impl LlmTest for LlmTestImpl {
                 )],
             })],
             config,
-        );
+        )
+        .await;
 
         let mut result = String::new();
 
         loop {
-            let events = stream.get_next();
+            let events = stream.get_next().await;
             if events.is_empty() {
                 break;
             }
@@ -363,7 +363,7 @@ impl LlmTest for LlmTestImpl {
         result
     }
 
-    fn test4(&self) -> String {
+    async fn test4(&self) -> String {
         let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
@@ -406,12 +406,13 @@ impl LlmTest for LlmTestImpl {
                 content: input,
             })],
             config,
-        );
+        )
+        .await;
 
         let mut result = String::new();
 
         loop {
-            let events = stream.get_next();
+            let events = stream.get_next().await;
 
             if events.is_empty() {
                 break;
@@ -443,7 +444,7 @@ impl LlmTest for LlmTestImpl {
         result
     }
 
-    fn test5(&self) -> String {
+    async fn test5(&self) -> String {
         let config = Config {
             model: IMAGE_MODEL.to_string(),
             temperature: None,
@@ -478,7 +479,8 @@ impl LlmTest for LlmTestImpl {
                 }),
             ],
             config,
-        );
+        )
+        .await;
         println!("Response: {:?}", response);
 
         match response {
@@ -538,7 +540,8 @@ impl LlmTest for LlmTestImpl {
                 )],
             })],
             config,
-        );
+        )
+        .await;
 
         let mut result = String::new();
 
@@ -546,7 +549,7 @@ impl LlmTest for LlmTestImpl {
         let mut round = 0;
 
         loop {
-            let events = stream.get_next();
+            let events = stream.get_next().await;
 
             if events.is_empty() {
                 break;
@@ -611,7 +614,7 @@ impl LlmTest for LlmTestImpl {
         result
     }
 
-    fn test7(&self) -> String {
+    async fn test7(&self) -> String {
         use std::fs::File;
         use std::io::Read;
 
@@ -655,7 +658,8 @@ impl LlmTest for LlmTestImpl {
                 ],
             })],
             config,
-        );
+        )
+        .await;
         println!("Response: {:?}", response);
 
         match response {
@@ -712,17 +716,12 @@ impl LlmTest for LlmTestImpl {
             )],
         })];
 
-        let stream = Provider::stream(events.clone(), config.clone());
+        let stream = Provider::stream(events.clone(), config.clone()).await;
 
         let mut result = String::new();
 
-        loop {
-            match utils::consume_next_event(&stream) {
-                Some(delta) => {
-                    result.push_str(&delta);
-                }
-                None => break,
-            }
+        while let Some(delta) = utils::consume_next_event(&stream).await {
+            result.push_str(&delta);
         }
 
         events.push(Event::Message(Message {
@@ -734,27 +733,20 @@ impl LlmTest for LlmTestImpl {
         events.push(Event::Message(Message {
             role: Role::User,
             name: Some("vigoo".to_string()),
-            content: vec![ContentPart::Text(
-                "Can you write one for me?".to_string(),
-            )],
+            content: vec![ContentPart::Text("Can you write one for me?".to_string())],
         }));
 
         println!("Message: {events:?}");
 
-        let stream = Provider::stream(events, config);
+        let stream = Provider::stream(events, config).await;
 
         let mut result = String::new();
 
         let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
         let mut round = 0;
 
-        loop {
-            match utils::consume_next_event(&stream) {
-                Some(delta) => {
-                    result.push_str(&delta);
-                }
-                None => break,
-            }
+        while let Some(delta) = utils::consume_next_event(&stream).await {
+            result.push_str(&delta);
 
             if round == 2 {
                 let _guard = mark_atomic_operation();
@@ -771,7 +763,7 @@ impl LlmTest for LlmTestImpl {
         result
     }
 
-    fn test9(&self) -> String {
+    async fn test9(&self) -> String {
         let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.1),
@@ -796,7 +788,8 @@ impl LlmTest for LlmTestImpl {
                 )],
             })],
             config,
-        );
+        )
+        .await;
 
         match response {
             Ok(response) => {
