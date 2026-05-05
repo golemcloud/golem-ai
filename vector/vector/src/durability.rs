@@ -20,6 +20,11 @@ impl<T: ExtendedVectorProvider> FuncProvider for T {
     type FilterFunc = crate::model::types::FilterExpression;
 }
 
+impl<Impl: ExtendedVectorProvider> FuncProvider for DurableVector<Impl> {
+    type MetadataFunc = crate::model::types::MetadataValue;
+    type FilterFunc = crate::model::types::FilterExpression;
+}
+
 /// When the durability feature flag is off, `DurableVector<Impl>` is a transparent wrapper that
 /// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
@@ -1822,11 +1827,6 @@ mod durable_impl {
         field: String,
         limit: Option<u32>,
         namespace: Option<String>,
-    }
-
-    impl<Impl: ExtendedVectorProvider> FuncProvider for DurableVector<Impl> {
-        type MetadataFunc = crate::model::types::MetadataValue;
-        type FilterFunc = crate::model::types::FilterExpression;
     }
 }
 
