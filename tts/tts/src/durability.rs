@@ -40,28 +40,22 @@ pub trait ExtendedTtsProvider:
     ) -> golem_rust::golem_wasm::Pollable;
 }
 
-/// When the durability feature flag is off, wrapping with `DurableTts` is just a passthrough
+/// When the durability feature flag is off, `DurableTts<Impl>` is a transparent wrapper that
+/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "durability"))]
 mod passthrough_impl {
     use crate::durability::{DurableTts, ExtendedTtsProvider};
     use crate::init_logging;
-    use crate::model::advanced::Guest as AdvancedGuest;
     use crate::model::advanced::{
-        AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
-        PronunciationLexicon, VoiceDesignParams,
+        AudioSample, LongFormOperation, PronunciationEntry, PronunciationLexicon, VoiceDesignParams,
     };
-    use crate::model::streaming::Guest as StreamingGuest;
-    use crate::model::streaming::{StreamStatus, SynthesisStream, VoiceConversionStream};
-    use crate::model::synthesis::Guest as SynthesisGuest;
+    use crate::model::streaming::{SynthesisStream, VoiceConversionStream};
     use crate::model::synthesis::{SynthesisOptions, ValidationResult};
-    use crate::model::types::{
-        AudioChunk, AudioConfig, AudioEffects, AudioFormat, LanguageCode, SynthesisResult,
-        TextInput, TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
-    };
-    use crate::model::voices::Guest as VoicesGuest;
+    use crate::model::types::{LanguageCode, SynthesisResult, TextInput, TimingInfo, TtsError};
     use crate::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+    use crate::{AdvancedTtsProvider, StreamingVoiceProvider, SynthesizeProvider, VoiceProvider};
 
-    impl<Impl: ExtendedTtsProvider> VoicesGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> VoiceProvider for DurableTts<Impl> {
         type Voice = Impl::Voice;
         type VoiceResults = Impl::VoiceResults;
 
@@ -86,7 +80,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedTtsProvider> SynthesisGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> SynthesizeProvider for DurableTts<Impl> {
         fn synthesize(
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
@@ -122,7 +116,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedTtsProvider> StreamingGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> StreamingVoiceProvider for DurableTts<Impl> {
         type SynthesisStream = Impl::SynthesisStream;
         type VoiceConversionStream = Impl::VoiceConversionStream;
 
@@ -143,7 +137,7 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedTtsProvider> AdvancedGuest for DurableTts<Impl> {
+    impl<Impl: ExtendedTtsProvider> AdvancedTtsProvider for DurableTts<Impl> {
         type PronunciationLexicon = Impl::PronunciationLexicon;
         type LongFormOperation = Impl::LongFormOperation;
 
