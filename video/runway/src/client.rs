@@ -111,7 +111,10 @@ impl RunwayApi {
             .default_headers(golem_wasi_http::header::HeaderMap::new())
             .build()
             .expect("Failed to initialize HTTP client");
-        Self { api_key: config.api_key.clone(), client }
+        Self {
+            api_key: config.api_key.clone(),
+            client,
+        }
     }
 
     pub fn generate_video(

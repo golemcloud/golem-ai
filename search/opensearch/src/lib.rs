@@ -198,9 +198,7 @@ impl SearchProvider for OpenSearch {
         Ok(())
     }
 
-    fn list_indexes(
-        provider_config: Self::ProviderConfig,
-    ) -> Result<Vec<IndexName>, SearchError> {
+    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
         let client = OpenSearchApi::new(&provider_config);
         let indices = client.list_indices()?;
         Ok(indices.into_iter().map(|idx| idx.index).collect())

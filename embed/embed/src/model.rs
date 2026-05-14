@@ -1,5 +1,8 @@
 #[repr(u8)]
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum TaskType {
     RetrievalQuery,
@@ -13,7 +16,10 @@ pub enum TaskType {
 }
 
 #[repr(u8)]
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum OutputFormat {
     FloatArray,
@@ -22,7 +28,10 @@ pub enum OutputFormat {
 }
 
 #[repr(u8)]
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum OutputDtype {
     FloatArray,
@@ -33,7 +42,10 @@ pub enum OutputDtype {
 }
 
 #[repr(u8)]
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum ErrorCode {
     InvalidRequest,
@@ -46,27 +58,39 @@ pub enum ErrorCode {
     Unknown,
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImageUrl {
     pub url: String,
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ContentPart {
     Text(String),
     Image(ImageUrl),
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Kv {
     pub key: String,
     pub value: String,
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Config {
     pub model: Option<String>,
@@ -79,14 +103,20 @@ pub struct Config {
     pub provider_options: Vec<Kv>,
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Usage {
     pub input_tokens: Option<u32>,
     pub total_tokens: Option<u32>,
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum VectorData {
     Float(Vec<f32>),
@@ -97,14 +127,20 @@ pub enum VectorData {
     Base64(String),
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Embedding {
     pub index: u32,
     pub vector: VectorData,
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct EmbeddingResponse {
     pub embeddings: Vec<Embedding>,
@@ -113,7 +149,10 @@ pub struct EmbeddingResponse {
     pub provider_metadata_json: Option<String>,
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct RerankResult {
     pub index: u32,
@@ -121,7 +160,10 @@ pub struct RerankResult {
     pub document: Option<String>,
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct RerankResponse {
     pub results: Vec<RerankResult>,
@@ -130,7 +172,10 @@ pub struct RerankResponse {
     pub provider_metadata_json: Option<String>,
 }
 
-#[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Error {
     pub code: ErrorCode,

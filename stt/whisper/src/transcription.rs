@@ -201,7 +201,10 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
         let req = Request::builder()
             .method(Method::POST)
             .uri(BASE_URL)
-            .header("Authorization", format!("Bearer {}", self.openai_api_key.get()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.openai_api_key.get()),
+            )
             .header("Content-Type", content_type)
             .body(body)
             .map_err(|e| {
@@ -463,7 +466,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY) }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+            },
+            mock_client,
+        );
 
         let audio_bytes = "fake audio data".into();
 
@@ -529,7 +537,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY) }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+            },
+            mock_client,
+        );
 
         let audio_bytes = Bytes::from("fake audio data");
 
@@ -675,7 +688,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY) }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+            },
+            mock_client,
+        );
 
         let audio_bytes = Bytes::from("fake audio data for words test");
 
@@ -746,7 +764,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY) }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+            },
+            mock_client,
+        );
 
         let audio_bytes = "fake audio data".into();
 
@@ -796,7 +819,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain("invalid_key") }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain("invalid_key"),
+            },
+            mock_client,
+        );
 
         let audio_bytes = "fake audio data".into();
 
@@ -845,7 +873,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY) }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+            },
+            mock_client,
+        );
 
         let audio_bytes = "fake audio data".into();
 
@@ -894,7 +927,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY) }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+            },
+            mock_client,
+        );
 
         let audio_bytes = "fake audio data".into();
 
@@ -943,7 +981,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY) }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+            },
+            mock_client,
+        );
 
         let audio_bytes = "fake large audio data".into();
 
@@ -992,7 +1035,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY) }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+            },
+            mock_client,
+        );
 
         let audio_bytes = "fake audio data".into();
 
@@ -1041,7 +1089,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY) }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+            },
+            mock_client,
+        );
 
         let audio_bytes = "fake audio data".into();
 
@@ -1090,7 +1143,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = TranscriptionsApi::new(&crate::config::WhisperConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY) }, mock_client);
+        let api = TranscriptionsApi::new(
+            &crate::config::WhisperConfig {
+                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+            },
+            mock_client,
+        );
 
         let audio_bytes = "fake audio data".into();
 

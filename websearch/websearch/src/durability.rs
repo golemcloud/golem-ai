@@ -164,11 +164,8 @@ mod durable_impl {
                 }
             } else {
                 let replay_state = durability.replay::<Impl::ReplayState, SearchError>()?;
-                let session = DurableSearchSession::<Impl>::replay(
-                    provider_config,
-                    replay_state,
-                    params,
-                )?;
+                let session =
+                    DurableSearchSession::<Impl>::replay(provider_config, replay_state, params)?;
                 Ok(SearchSession::new(session))
             }
         }

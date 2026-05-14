@@ -43,9 +43,7 @@ pub trait ExtendedTtsProvider:
         options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream;
 
-    fn subscribe_synthesis_stream(
-        stream: &Self::SynthesisStream,
-    ) -> crate::wasi_compat::Pollable;
+    fn subscribe_synthesis_stream(stream: &Self::SynthesisStream) -> crate::wasi_compat::Pollable;
 
     fn subscribe_voice_conversion_stream(
         stream: &Self::VoiceConversionStream,
@@ -271,6 +269,7 @@ mod durable_impl {
     };
 
     use crate::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+    use crate::wasi_compat::Pollable;
     use crate::{
         init_logging, AdvancedTtsProvider, LongFormOperationInterface,
         PronunciationLexiconInterface, StreamingVoiceProvider, SynthesizeProvider,
@@ -280,7 +279,6 @@ mod durable_impl {
         DurableFunctionType, LazyInitializedPollable,
     };
     use golem_rust::durability::Durability;
-    use crate::wasi_compat::Pollable;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};
@@ -733,12 +731,8 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::synthesize_batch(
-                    provider_config,
-                    inputs.clone(),
-                    voice,
-                    options.clone(),
-                );
+                let result =
+                    Impl::synthesize_batch(provider_config, inputs.clone(), voice, options.clone());
                 let result = result.map(|r| SynthesisResultListOutput { results: r });
                 // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
@@ -1387,8 +1381,7 @@ mod durable_impl {
                 let word_for_call = word.clone();
                 let pronunciation_for_call = pronunciation.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let lexicon =
-                        Impl::create_lexicon(provider_config, name, language, entries)?;
+                    let lexicon = Impl::create_lexicon(provider_config, name, language, entries)?;
                     let guest = lexicon.get::<Impl::PronunciationLexicon>();
                     guest.add_entry(word_for_call, pronunciation_for_call)
                 });

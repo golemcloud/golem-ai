@@ -141,9 +141,7 @@ impl CollectionProvider for PgVector {
         }
     }
 
-    fn list_collections(
-        provider_config: Self::ProviderConfig,
-    ) -> Result<Vec<String>, VectorError> {
+    fn list_collections(provider_config: Self::ProviderConfig) -> Result<Vec<String>, VectorError> {
         let client = PgVectorClient::new(&provider_config);
 
         match client.list_tables() {
@@ -318,7 +316,14 @@ impl VectorsProvider for PgVector {
         _merge_metadata: Option<bool>,
     ) -> Result<(), VectorError> {
         if let Some(vector_data) = vector {
-            Self::upsert_vector(provider_config, collection, id, vector_data, metadata, namespace)
+            Self::upsert_vector(
+                provider_config,
+                collection,
+                id,
+                vector_data,
+                metadata,
+                namespace,
+            )
         } else {
             Err(VectorError::InvalidParams(
                 "Vector data is required for update".to_string(),

@@ -23,7 +23,10 @@ impl CompletionsApi {
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
-        Self { api_key: config.api_key.clone(), client }
+        Self {
+            api_key: config.api_key.clone(),
+            client,
+        }
     }
 
     pub fn send_messages(&self, request: CompletionsRequest) -> Result<CompletionsResponse, Error> {

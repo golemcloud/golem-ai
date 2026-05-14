@@ -18,8 +18,8 @@ use golem_ai_llm::LlmProvider;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
 
-pub mod config;
 mod client;
+pub mod config;
 mod conversions;
 
 pub use config::OpenAiConfig;

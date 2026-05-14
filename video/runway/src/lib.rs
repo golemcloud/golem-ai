@@ -44,10 +44,7 @@ impl VideoGenerationProvider for Runway {
         poll_video_generation(&client, job_id)
     }
 
-    fn cancel(
-        provider_config: Self::ProviderConfig,
-        job_id: String,
-    ) -> Result<String, VideoError> {
+    fn cancel(provider_config: Self::ProviderConfig, job_id: String) -> Result<String, VideoError> {
         let client = RunwayApi::new(&provider_config);
         cancel_video_generation(&client, job_id)
     }

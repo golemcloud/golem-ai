@@ -38,9 +38,7 @@ pub use config::WhisperHostConfig;
 pub struct WhisperStt;
 
 impl WhisperStt {
-    fn create_client(
-        config: &WhisperConfig,
-    ) -> TranscriptionsApi<WstdHttpClient> {
+    fn create_client(config: &WhisperConfig) -> TranscriptionsApi<WstdHttpClient> {
         TranscriptionsApi::new(
             config,
             WstdHttpClient::new_with_timeout(Duration::from_secs(60), Duration::from_secs(600)),

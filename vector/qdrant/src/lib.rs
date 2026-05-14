@@ -184,9 +184,7 @@ impl CollectionProvider for Qdrant {
         }
     }
 
-    fn list_collections(
-        provider_config: Self::ProviderConfig,
-    ) -> Result<Vec<String>, VectorError> {
+    fn list_collections(provider_config: Self::ProviderConfig) -> Result<Vec<String>, VectorError> {
         let client = QdrantClient::new(&provider_config);
 
         match client.list_collections() {
@@ -371,7 +369,14 @@ impl VectorsProvider for Qdrant {
         merge_metadata: Option<bool>,
     ) -> Result<(), VectorError> {
         if let Some(vector_data) = vector {
-            Self::upsert_vector(provider_config, collection, id, vector_data, metadata, namespace)
+            Self::upsert_vector(
+                provider_config,
+                collection,
+                id,
+                vector_data,
+                metadata,
+                namespace,
+            )
         } else {
             let current = Self::get_vector(
                 provider_config.clone(),

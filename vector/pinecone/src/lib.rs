@@ -149,9 +149,7 @@ impl CollectionProvider for Pinecone {
         }
     }
 
-    fn list_collections(
-        provider_config: Self::ProviderConfig,
-    ) -> Result<Vec<String>, VectorError> {
+    fn list_collections(provider_config: Self::ProviderConfig) -> Result<Vec<String>, VectorError> {
         let client = PineconeClient::new(&provider_config);
 
         match client.list_indexes() {
@@ -313,7 +311,14 @@ impl VectorsProvider for Pinecone {
         _merge_metadata: Option<bool>,
     ) -> Result<(), VectorError> {
         if let Some(vector_data) = vector {
-            Self::upsert_vector(provider_config, collection, id, vector_data, metadata, namespace)
+            Self::upsert_vector(
+                provider_config,
+                collection,
+                id,
+                vector_data,
+                metadata,
+                namespace,
+            )
         } else {
             Err(VectorError::InvalidParams(
                 "Vector data is required for update".to_string(),

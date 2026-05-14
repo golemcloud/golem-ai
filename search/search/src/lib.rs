@@ -35,9 +35,7 @@ pub trait SearchProvider {
         provider_config: Self::ProviderConfig,
         name: IndexName,
     ) -> Result<(), SearchError>;
-    fn list_indexes(
-        provider_config: Self::ProviderConfig,
-    ) -> Result<Vec<IndexName>, SearchError>;
+    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError>;
     fn upsert(
         provider_config: Self::ProviderConfig,
         index: IndexName,

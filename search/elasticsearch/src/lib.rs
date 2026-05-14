@@ -217,9 +217,7 @@ impl SearchProvider for Elasticsearch {
         client.delete_index(&name)
     }
 
-    fn list_indexes(
-        provider_config: Self::ProviderConfig,
-    ) -> Result<Vec<IndexName>, SearchError> {
+    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
         let client = ElasticsearchApi::new(&provider_config);
         match client.list_indices() {
             Ok(indices) => Ok(indices.into_iter().map(|idx| idx.index).collect()),

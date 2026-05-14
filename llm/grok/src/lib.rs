@@ -1,5 +1,5 @@
-pub mod config;
 mod client;
+pub mod config;
 mod conversions;
 
 use crate::client::{ChatCompletionChunk, CompletionsApi, CompletionsRequest, StreamOptions};

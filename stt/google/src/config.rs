@@ -73,7 +73,9 @@ impl GoogleConfig {
             (
                 Some(get_config_key(PROJECT_ID_ENV_VAR)?),
                 Some(get_config_key(CLIENT_EMAIL_ENV_VAR)?),
-                Some(SecretSource::from_plain(get_config_key(PRIVATE_KEY_ENV_VAR)?)),
+                Some(SecretSource::from_plain(get_config_key(
+                    PRIVATE_KEY_ENV_VAR,
+                )?)),
             )
         };
 

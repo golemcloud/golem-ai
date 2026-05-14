@@ -1,6 +1,6 @@
-pub mod config;
 mod async_utils;
 mod client;
+pub mod config;
 mod conversions;
 mod stream;
 mod wasi_client;

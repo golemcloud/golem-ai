@@ -439,8 +439,7 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_many(provider_config, index.clone(), ids.clone())
-                        .map(|_| NoOutput)
+                    Impl::delete_many(provider_config, index.clone(), ids.clone()).map(|_| NoOutput)
                 });
                 // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability

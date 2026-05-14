@@ -56,9 +56,7 @@ pub trait CollectionProvider {
         index_config: Option<IndexConfig>,
         metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError>;
-    fn list_collections(
-        provider_config: Self::ProviderConfig,
-    ) -> Result<Vec<String>, VectorError>;
+    fn list_collections(provider_config: Self::ProviderConfig) -> Result<Vec<String>, VectorError>;
     fn get_collection(
         provider_config: Self::ProviderConfig,
         name: String,
@@ -388,6 +386,7 @@ pub trait VectorsProvider {
         collection: String,
         namespace: String,
     ) -> Result<u32, model::vectors::VectorError>;
+    #[allow(clippy::too_many_arguments)]
     fn list_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,

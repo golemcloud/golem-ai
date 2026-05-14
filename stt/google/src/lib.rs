@@ -61,9 +61,7 @@ impl GoogleStt {
             config.application_credentials_path.as_deref()
         {
             let bytes = read_file_to_bytes(creds_json_file).map_err(|err| {
-                WitSttError::InternalError(format!(
-                    "Failed to read Google credentials file: {err}"
-                ))
+                WitSttError::InternalError(format!("Failed to read Google credentials file: {err}"))
             })?;
             serde_json::from_slice::<ServiceAccountKey>(&bytes).map_err(|err| {
                 WitSttError::InternalError(format!("Failed to parse Google credentials: {err}"))
@@ -85,8 +83,12 @@ impl GoogleStt {
             ServiceAccountKey::new(project_id, client_email, private_key)
         };
 
-        SpeechToTextApi::live(config.bucket_name.clone(), service_acc_key, config.location.clone())
-            .map_err(WitSttError::from)
+        SpeechToTextApi::live(
+            config.bucket_name.clone(),
+            service_acc_key,
+            config.location.clone(),
+        )
+        .map_err(WitSttError::from)
     }
 }
 

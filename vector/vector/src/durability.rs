@@ -63,7 +63,13 @@ mod passthrough_impl {
             options: Option<crate::model::types::Metadata>,
         ) -> Result<(), VectorError> {
             init_logging();
-            Impl::connect_internal(provider_config, &endpoint, &credentials, &timeout_ms, &options)
+            Impl::connect_internal(
+                provider_config,
+                &endpoint,
+                &credentials,
+                &timeout_ms,
+                &options,
+            )
         }
 
         fn disconnect(provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
@@ -1817,11 +1823,7 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_namespace(
-                        provider_config,
-                        collection.clone(),
-                        namespace.clone(),
-                    )
+                    Impl::get_namespace(provider_config, collection.clone(), namespace.clone())
                 });
                 durability.persist((collection, namespace), result)
             } else {
@@ -1869,11 +1871,7 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::namespace_exists(
-                        provider_config,
-                        collection.clone(),
-                        namespace.clone(),
-                    )
+                    Impl::namespace_exists(provider_config, collection.clone(), namespace.clone())
                 });
                 durability.persist((collection, namespace), result)
             } else {

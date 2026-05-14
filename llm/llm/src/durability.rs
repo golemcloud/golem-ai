@@ -124,12 +124,12 @@ mod passthrough_impl {
 mod durable_impl {
     use crate::durability::{DurableLLM, ExtendedLlmProvider};
     use crate::model::{ChatStream, Config, Error, Event, Response, StreamDelta, StreamEvent};
+    use crate::wasi_compat::Pollable;
     use crate::{init_logging, ChatStreamInterface, LlmProvider};
     use async_trait::async_trait;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     #[cfg(not(feature = "nopoll"))]
     use golem_rust::bindings::golem::durability::durability::LazyInitializedPollable;
-    use crate::wasi_compat::Pollable;
     use golem_rust::durability::Durability;
     use golem_rust::{
         with_persistence_level, with_persistence_level_async, FromValueAndType, IntoValue,

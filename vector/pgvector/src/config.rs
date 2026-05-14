@@ -29,9 +29,7 @@ impl PgvectorConfig {
     /// not set.
     pub fn from_env() -> Result<Self, VectorError> {
         Ok(Self {
-            connection_string: SecretSource::from_plain(get_config_key(
-                CONNECTION_STRING_ENV_VAR,
-            )?),
+            connection_string: SecretSource::from_plain(get_config_key(CONNECTION_STRING_ENV_VAR)?),
         })
     }
 }

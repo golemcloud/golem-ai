@@ -44,14 +44,11 @@ impl AwsConfig {
     /// `AWS_SESSION_TOKEN` is optional.
     pub fn from_env() -> Result<Self, TtsError> {
         Ok(Self {
-            access_key_id: SecretSource::from_plain(validate_config_key(
-                ACCESS_KEY_ID_ENV_VAR,
-            )?),
+            access_key_id: SecretSource::from_plain(validate_config_key(ACCESS_KEY_ID_ENV_VAR)?),
             secret_access_key: SecretSource::from_plain(validate_config_key(
                 SECRET_ACCESS_KEY_ENV_VAR,
             )?),
-            session_token: get_optional_config(SESSION_TOKEN_ENV_VAR)
-                .map(SecretSource::from_plain),
+            session_token: get_optional_config(SESSION_TOKEN_ENV_VAR).map(SecretSource::from_plain),
             region: get_optional_config(REGION_ENV_VAR)
                 .unwrap_or_else(|| DEFAULT_REGION.to_string()),
         })

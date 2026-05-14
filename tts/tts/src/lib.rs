@@ -49,9 +49,8 @@ pub trait VoiceProvider {
         provider_config: Self::ProviderConfig,
         filter: Option<VoiceFilter>,
     ) -> Result<Vec<VoiceInfo>, TtsError>;
-    fn list_languages(
-        provider_config: Self::ProviderConfig,
-    ) -> Result<Vec<LanguageInfo>, TtsError>;
+    fn list_languages(provider_config: Self::ProviderConfig)
+        -> Result<Vec<LanguageInfo>, TtsError>;
 }
 
 pub trait SynthesisStreamInterface: 'static {

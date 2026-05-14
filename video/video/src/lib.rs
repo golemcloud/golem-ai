@@ -27,10 +27,7 @@ pub trait VideoGenerationProvider {
         provider_config: Self::ProviderConfig,
         job_id: String,
     ) -> Result<VideoResult, VideoError>;
-    fn cancel(
-        provider_config: Self::ProviderConfig,
-        job_id: String,
-    ) -> Result<String, VideoError>;
+    fn cancel(provider_config: Self::ProviderConfig, job_id: String) -> Result<String, VideoError>;
 }
 
 pub trait LipSyncProvider {

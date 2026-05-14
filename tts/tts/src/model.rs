@@ -2,7 +2,10 @@ pub mod types {
     pub type LanguageCode = String;
 
     #[repr(u8)]
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum QuotaUnit {
         Characters,
@@ -11,7 +14,10 @@ pub mod types {
         Credits,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct QuotaInfo {
         pub used: u32,
@@ -20,7 +26,10 @@ pub mod types {
         pub unit: QuotaUnit,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum TtsError {
         InvalidText(String),
@@ -54,7 +63,10 @@ pub mod types {
     impl std::error::Error for TtsError {}
 
     #[repr(u8)]
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum VoiceGender {
         Male,
@@ -63,7 +75,10 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum VoiceQuality {
         Standard,
@@ -73,7 +88,10 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum TextType {
         Plain,
@@ -81,7 +99,10 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum AudioFormat {
         Mp3,
@@ -94,7 +115,10 @@ pub mod types {
         Alaw,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct AudioConfig {
         pub format: AudioFormat,
@@ -103,7 +127,10 @@ pub mod types {
         pub channels: Option<u8>,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct VoiceSettings {
         pub speed: Option<f32>,
@@ -115,7 +142,10 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum AudioEffects {
         TelephoneQuality,
@@ -127,7 +157,10 @@ pub mod types {
         TrebleBoost,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct TextInput {
         pub content: String,
@@ -135,7 +168,10 @@ pub mod types {
         pub language: Option<LanguageCode>,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SynthesisMetadata {
         pub duration_seconds: f32,
@@ -146,7 +182,10 @@ pub mod types {
         pub provider_info: Option<String>,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SynthesisResult {
         pub audio_data: Vec<u8>,
@@ -154,7 +193,10 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum TimingMarkType {
         Word,
@@ -164,7 +206,10 @@ pub mod types {
         Viseme,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct TimingInfo {
         pub start_time_seconds: f32,
@@ -173,7 +218,10 @@ pub mod types {
         pub mark_type: Option<TimingMarkType>,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct AudioChunk {
         pub data: Vec<u8>,
@@ -193,7 +241,10 @@ pub mod voices {
     pub type AudioFormat = super::types::AudioFormat;
     pub type VoiceSettings = super::types::VoiceSettings;
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct VoiceFilter {
         pub language: Option<LanguageCode>,
@@ -204,7 +255,10 @@ pub mod voices {
         pub search_query: Option<String>,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct VoiceInfo {
         pub id: String,
@@ -222,7 +276,10 @@ pub mod voices {
         pub use_cases: Vec<String>,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct LanguageInfo {
         pub code: LanguageCode,
@@ -348,7 +405,10 @@ pub mod synthesis {
     pub type Voice = super::voices::Voice;
     pub type VoiceBorrow<'a> = super::voices::VoiceBorrow<'a>;
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SynthesisContext {
         pub previous_text: Option<String>,
@@ -358,7 +418,10 @@ pub mod synthesis {
         pub speaking_style: Option<String>,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SynthesisOptions {
         pub audio_config: Option<AudioConfig>,
@@ -371,7 +434,10 @@ pub mod synthesis {
         pub context: Option<SynthesisContext>,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct ValidationResult {
         pub is_valid: bool,
@@ -396,7 +462,10 @@ pub mod streaming {
     pub type SynthesisOptions = super::synthesis::SynthesisOptions;
 
     #[repr(u8)]
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum StreamStatus {
         Ready,
@@ -498,7 +567,10 @@ pub mod advanced {
     pub type Voice = super::voices::Voice;
     pub type VoiceBorrow<'a> = super::voices::VoiceBorrow<'a>;
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct AudioSample {
         pub data: Vec<u8>,
@@ -507,7 +579,10 @@ pub mod advanced {
     }
 
     #[repr(u8)]
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum AgeCategory {
         Child,
@@ -516,7 +591,10 @@ pub mod advanced {
         Elderly,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct VoiceDesignParams {
         pub gender: VoiceGender,
@@ -526,7 +604,10 @@ pub mod advanced {
         pub reference_voice: Option<String>,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct PronunciationEntry {
         pub word: String,
@@ -535,7 +616,10 @@ pub mod advanced {
     }
 
     #[repr(u8)]
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum OperationStatus {
         Pending,
@@ -545,7 +629,10 @@ pub mod advanced {
         Cancelled,
     }
 
-    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct LongFormResult {
         pub output_location: String,

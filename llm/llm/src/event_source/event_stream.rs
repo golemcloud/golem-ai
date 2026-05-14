@@ -1,8 +1,8 @@
 use crate::event_source::parser::{is_bom, is_lf, line, RawEventLine};
 use crate::event_source::utf8_stream::Utf8Stream;
 use crate::event_source::MessageEvent;
-use core::time::Duration;
 use crate::wasi_compat::{InputStream, Pollable, StreamError};
+use core::time::Duration;
 use log::trace;
 use std::task::Poll;
 

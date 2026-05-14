@@ -81,14 +81,14 @@ impl ArangoDbConfig {
         let host = env_with_fallback(HOST_ENV_VAR, "ARANGODB_HOST").ok_or_else(|| {
             GraphError::ConnectionFailed(format!("Missing config key: {HOST_ENV_VAR}"))
         })?;
-        let port = env_with_fallback(PORT_ENV_VAR, "ARANGODB_PORT")
-            .and_then(|p| p.parse().ok());
+        let port = env_with_fallback(PORT_ENV_VAR, "ARANGODB_PORT").and_then(|p| p.parse().ok());
         let username = env_with_fallback(USER_ENV_VAR, "ARANGODB_USER").ok_or_else(|| {
             GraphError::ConnectionFailed(format!("Missing config key: {USER_ENV_VAR}"))
         })?;
-        let password = env_with_fallback(PASSWORD_ENV_VAR, "ARANGODB_PASSWORD").ok_or_else(
-            || GraphError::ConnectionFailed(format!("Missing config key: {PASSWORD_ENV_VAR}")),
-        )?;
+        let password =
+            env_with_fallback(PASSWORD_ENV_VAR, "ARANGODB_PASSWORD").ok_or_else(|| {
+                GraphError::ConnectionFailed(format!("Missing config key: {PASSWORD_ENV_VAR}"))
+            })?;
         let database = env_with_fallback(DATABASE_ENV_VAR, "ARANGODB_DATABASE");
 
         Ok(Self {

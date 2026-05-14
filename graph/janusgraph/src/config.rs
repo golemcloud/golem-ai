@@ -77,7 +77,9 @@ impl JanusGraphConfig {
         })?;
         let port = env::var(PORT_ENV_VAR).ok().and_then(|p| p.parse().ok());
         let username = env::var(USER_ENV_VAR).ok().map(SecretSource::from_plain);
-        let password = env::var(PASSWORD_ENV_VAR).ok().map(SecretSource::from_plain);
+        let password = env::var(PASSWORD_ENV_VAR)
+            .ok()
+            .map(SecretSource::from_plain);
 
         Ok(Self {
             host,

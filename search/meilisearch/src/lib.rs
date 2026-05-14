@@ -154,9 +154,7 @@ impl SearchProvider for Meilisearch {
         Ok(())
     }
 
-    fn list_indexes(
-        provider_config: Self::ProviderConfig,
-    ) -> Result<Vec<IndexName>, SearchError> {
+    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
         let client = MeilisearchApi::new(&provider_config);
 
         let response = client.list_indexes()?;
