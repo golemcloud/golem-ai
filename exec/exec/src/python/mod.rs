@@ -1,3 +1,4 @@
+#[cfg(feature = "golem")]
 use crate::durability::{EmptySnapshot, SessionSnapshot};
 use crate::model::{Error, ExecResult, File, Language, RunOptions};
 use crate::model::{LanguageKind, StageResult};
@@ -375,6 +376,7 @@ impl PythonSession {
     }
 }
 
+#[cfg(feature = "golem")]
 impl SessionSnapshot<PythonSession> for PythonSession {
     type Snapshot = EmptySnapshot;
 

@@ -7,20 +7,24 @@ use crate::conversions::{
     process_model_response, tool_defs_to_tools,
 };
 use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
-use golem_ai_llm::config::{get_config_key, with_config_key};
 use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::event_source::EventSource;
 use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, Response, StreamDelta, StreamEvent,
     ToolCall,
 };
+use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::LlmProvider;
-use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
 
+pub mod config;
 mod client;
 mod conversions;
+
+pub use config::OpenAiConfig;
+#[cfg(feature = "golem")]
+pub use config::OpenAiHostConfig;
 
 pub struct OpenAIChatStream {
     stream: RefCell<Option<EventSource>>,
@@ -182,8 +186,6 @@ impl LlmChatStreamState for OpenAIChatStream {
 pub struct OpenAI;
 
 impl OpenAI {
-    const ENV_VAR_NAME: &'static str = "OPENAI_API_KEY";
-
     fn request(
         client: ResponsesApi,
         items: Vec<InputItem>,
@@ -216,30 +218,36 @@ impl OpenAI {
 
 impl LlmProvider for OpenAI {
     type ChatStream = LlmChatStream<OpenAIChatStream>;
+    type ProviderConfig = OpenAiConfig;
 
-    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
-        let openai_api_key = get_config_key(Self::ENV_VAR_NAME)?;
-        let client = ResponsesApi::new(openai_api_key);
+    async fn send(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> Result<Response, Error> {
+        let client = ResponsesApi::new(&provider_config);
         let items = events_to_input_items(events);
         Self::request(client, items, config)
     }
 
-    async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(events, config).await)
+    async fn stream(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(provider_config, events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for OpenAI {
-    async fn unwrapped_stream(events: Vec<Event>, config: Config) -> Self::ChatStream {
-        with_config_key(
-            Self::ENV_VAR_NAME,
-            OpenAIChatStream::failed,
-            |openai_api_key| {
-                let client = ResponsesApi::new(openai_api_key);
-                let items = events_to_input_items(events);
-                Self::streaming_request(client, items, config)
-            },
-        )
+    async fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> Self::ChatStream {
+        let client = ResponsesApi::new(&provider_config);
+        let items = events_to_input_items(events);
+        Self::streaming_request(client, items, config)
     }
 
     fn subscribe(stream: &Self::ChatStream) -> Pollable {

@@ -1,4 +1,5 @@
-use golem_ai_vector::config::{get_max_retries_config, get_timeout_config};
+use crate::config::QdrantConfig;
+use golem_ai_vector::config::{get_max_retries_config, get_timeout_config, SecretSource};
 use golem_ai_vector::model::types::VectorError;
 use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
@@ -14,11 +15,11 @@ use std::time::Duration;
 pub struct QdrantClient {
     client: Client,
     base_url: String,
-    api_key: Option<String>,
+    api_key: Option<SecretSource>,
 }
 
 impl QdrantClient {
-    pub fn new(url: String, api_key: Option<String>) -> Self {
+    pub fn new(config: &QdrantConfig) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(get_timeout_config()))
             .build()
@@ -26,8 +27,8 @@ impl QdrantClient {
 
         Self {
             client,
-            base_url: url.trim_end_matches('/').to_string(),
-            api_key,
+            base_url: config.url.trim_end_matches('/').to_string(),
+            api_key: config.api_key.clone(),
         }
     }
 
@@ -36,7 +37,10 @@ impl QdrantClient {
         let mut req = self.client.request(method, &url);
 
         if let Some(api_key) = &self.api_key {
-            req = req.header("api-key", api_key);
+            // Resolve the secret right before each outgoing request so
+            // host-side secret rotation takes effect immediately.
+            let key_value = api_key.get();
+            req = req.header("api-key", key_value);
         }
 
         req.header("Content-Type", "application/json")

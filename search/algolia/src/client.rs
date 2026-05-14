@@ -74,13 +74,15 @@ pub struct IndexSettings {
 pub struct AlgoliaSearchApi {
     client: Client,
     application_id: String,
-    api_key: String,
+    api_key: golem_ai_search::config::SecretSource,
     search_url: String,
     write_url: String,
 }
 
 impl AlgoliaSearchApi {
-    pub fn new(application_id: String, api_key: String) -> Self {
+    pub fn new(config: &crate::config::AlgoliaConfig) -> Self {
+        let application_id = config.application_id.clone();
+        let api_key = config.api_key.clone();
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
@@ -101,7 +103,7 @@ impl AlgoliaSearchApi {
         self.client
             .request(method, url)
             .header("X-Algolia-Application-Id", &self.application_id)
-            .header("X-Algolia-API-Key", &self.api_key)
+            .header("X-Algolia-API-Key", self.api_key.get())
             .header("Content-Type", "application/json")
     }
 

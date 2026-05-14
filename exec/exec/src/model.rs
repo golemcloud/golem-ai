@@ -1,54 +1,54 @@
 use crate::ExecutionSession;
 
 #[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    golem_rust::FromValueAndType,
-    golem_rust::IntoValue,
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
 )]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum LanguageKind {
     Javascript,
     Python,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Language {
     pub kind: LanguageKind,
     pub version: Option<String>,
 }
 
 #[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    golem_rust::FromValueAndType,
-    golem_rust::IntoValue,
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
 )]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Encoding {
     Utf8,
     Base64,
     Hex,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct File {
     pub name: String,
     pub content: Vec<u8>,
     pub encoding: Option<Encoding>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Limits {
     pub time_ms: Option<u64>,
     pub memory_bytes: Option<u64>,
@@ -56,7 +56,11 @@ pub struct Limits {
     pub max_processes: Option<u32>,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct StageResult {
     pub stdout: String,
     pub stderr: String,
@@ -64,7 +68,11 @@ pub struct StageResult {
     pub signal: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ExecResult {
     pub compile: Option<StageResult>,
     pub run: StageResult,
@@ -72,7 +80,11 @@ pub struct ExecResult {
     pub memory_bytes: Option<u64>,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Error {
     UnsupportedLanguage,
     CompilationFailed(StageResult),
@@ -90,7 +102,11 @@ impl core::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RunOptions {
     pub stdin: Option<String>,
     pub args: Option<Vec<String>>,

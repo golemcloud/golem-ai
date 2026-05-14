@@ -20,8 +20,18 @@ pub trait SearchSessionInterface: 'static {
 pub trait WebSearchProvider {
     type SearchSession: SearchSessionInterface;
 
-    fn start_search(params: SearchParams) -> Result<SearchSession, SearchError>;
+    /// Provider-specific configuration (API keys, etc.) that the caller
+    /// resolves once and passes in. Each provider crate defines its own
+    /// concrete config type; see e.g. `golem_ai_web_search_brave::BraveConfig`.
+    type ProviderConfig: Clone + 'static;
+
+    fn start_search(
+        provider_config: Self::ProviderConfig,
+        params: SearchParams,
+    ) -> Result<SearchSession, SearchError>;
+
     fn search_once(
+        provider_config: Self::ProviderConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError>;
 }

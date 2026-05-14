@@ -1,6 +1,6 @@
 use crate::model::{IndexName, SearchHit, SearchQuery};
+use crate::wasi_compat::Pollable;
 use crate::SearchProvider;
-use golem_rust::golem_wasm::Pollable;
 use std::marker::PhantomData;
 
 pub struct DurableSearch<Impl> {
@@ -8,7 +8,11 @@ pub struct DurableSearch<Impl> {
 }
 
 pub trait ExtendedSearchProvider: SearchProvider + 'static {
-    fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream;
+    fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Self::SearchStream;
 
     /// Creates the retry query with the original query and any partial results received.
     /// There is a default implementation here, but it can be overridden with provider-specific
@@ -32,7 +36,7 @@ pub trait ExtendedSearchProvider: SearchProvider + 'static {
 
 /// When the durability feature flag is off, `DurableSearch<Impl>` is a transparent wrapper that
 /// forwards every call to the inner provider without any oplog persistence.
-#[cfg(not(feature = "durability"))]
+#[cfg(not(feature = "golem"))]
 mod passthrough_impl {
     use crate::durability::{DurableSearch, ExtendedSearchProvider};
     use crate::init_logging;
@@ -44,85 +48,135 @@ mod passthrough_impl {
 
     impl<Impl: ExtendedSearchProvider> SearchProvider for DurableSearch<Impl> {
         type SearchStream = Impl::SearchStream;
+        type ProviderConfig = Impl::ProviderConfig;
 
-        fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
+        fn create_index(
+            provider_config: Self::ProviderConfig,
+            options: CreateIndexOptions,
+        ) -> Result<(), SearchError> {
             init_logging();
-            Impl::create_index(options)
+            Impl::create_index(provider_config, options)
         }
 
-        fn delete_index(name: IndexName) -> Result<(), SearchError> {
+        fn delete_index(
+            provider_config: Self::ProviderConfig,
+            name: IndexName,
+        ) -> Result<(), SearchError> {
             init_logging();
-            Impl::delete_index(name)
+            Impl::delete_index(provider_config, name)
         }
 
-        fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
+        fn list_indexes(
+            provider_config: Self::ProviderConfig,
+        ) -> Result<Vec<IndexName>, SearchError> {
             init_logging();
-            Impl::list_indexes()
+            Impl::list_indexes(provider_config)
         }
 
-        fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
+        fn upsert(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            doc: Doc,
+        ) -> Result<(), SearchError> {
             init_logging();
-            Impl::upsert(index, doc)
+            Impl::upsert(provider_config, index, doc)
         }
 
-        fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
+        fn upsert_many(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            docs: Vec<Doc>,
+        ) -> Result<(), SearchError> {
             init_logging();
-            Impl::upsert_many(index, docs)
+            Impl::upsert_many(provider_config, index, docs)
         }
 
-        fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
+        fn delete(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            id: DocumentId,
+        ) -> Result<(), SearchError> {
             init_logging();
-            Impl::delete(index, id)
+            Impl::delete(provider_config, index, id)
         }
 
-        fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
+        fn delete_many(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            ids: Vec<DocumentId>,
+        ) -> Result<(), SearchError> {
             init_logging();
-            Impl::delete_many(index, ids)
+            Impl::delete_many(provider_config, index, ids)
         }
 
-        fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
+        fn get(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            id: DocumentId,
+        ) -> Result<Option<Doc>, SearchError> {
             init_logging();
-            Impl::get(index, id)
+            Impl::get(provider_config, index, id)
         }
 
-        fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
+        fn search(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            query: SearchQuery,
+        ) -> Result<SearchResults, SearchError> {
             init_logging();
-            Impl::search(index, query)
+            Impl::search(provider_config, index, query)
         }
 
         fn stream_search(
+            provider_config: Self::ProviderConfig,
             index: IndexName,
             query: SearchQuery,
         ) -> Result<SearchStream, SearchError> {
             init_logging();
-            Impl::stream_search(index, query)
+            Impl::stream_search(provider_config, index, query)
         }
 
-        fn get_schema(index: IndexName) -> Result<Schema, SearchError> {
+        fn get_schema(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+        ) -> Result<Schema, SearchError> {
             init_logging();
-            Impl::get_schema(index)
+            Impl::get_schema(provider_config, index)
         }
 
-        fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError> {
+        fn update_schema(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            schema: Schema,
+        ) -> Result<(), SearchError> {
             init_logging();
-            Impl::update_schema(index, schema)
+            Impl::update_schema(provider_config, index, schema)
         }
     }
 }
 
-#[cfg(feature = "durability")]
+/// When the durability feature flag is on, wrapping with `DurableSearch` adds custom durability
+/// on top of the provider-specific search implementation using Golem's special host functions and
+/// the `golem-rust` helper library.
+///
+/// The `provider_config` is intentionally **not** persisted in the input payloads because it
+/// can carry secrets (API keys etc.). Instead, every replay path expects the caller to supply
+/// a fresh `provider_config`. For the streaming case, the `provider_config` is captured inside
+/// the `DurableSearchStream` so that subsequent stream-continuation HTTP calls can re-resolve
+/// any contained secrets right before each request.
+#[cfg(feature = "golem")]
 mod durable_impl {
     use crate::durability::{DurableSearch, ExtendedSearchProvider};
     use crate::model::{CreateIndexOptions, SearchStream};
     use crate::model::{
         Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
     };
+    use crate::wasi_compat::Pollable;
     use crate::{init_logging, SearchProvider, SearchStreamInterface};
     use golem_rust::bindings::golem::durability::durability::{
         DurableFunctionType, LazyInitializedPollable,
     };
     use golem_rust::durability::Durability;
-    use golem_rust::golem_wasm::Pollable;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};
@@ -222,8 +276,12 @@ mod durable_impl {
 
     impl<Impl: ExtendedSearchProvider> SearchProvider for DurableSearch<Impl> {
         type SearchStream = DurableSearchStream<Impl>;
+        type ProviderConfig = Impl::ProviderConfig;
 
-        fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
+        fn create_index(
+            provider_config: Self::ProviderConfig,
+            options: CreateIndexOptions,
+        ) -> Result<(), SearchError> {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
@@ -233,15 +291,20 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::create_index(options.clone()).map(|()| NoOutput)
+                    Impl::create_index(provider_config, options.clone()).map(|()| NoOutput)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(options, result).map(|_: NoOutput| ())
             } else {
                 durability.replay().map(|_: NoOutput| ())
             }
         }
 
-        fn delete_index(name: IndexName) -> Result<(), SearchError> {
+        fn delete_index(
+            provider_config: Self::ProviderConfig,
+            name: IndexName,
+        ) -> Result<(), SearchError> {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
@@ -251,8 +314,9 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_index(name.clone()).map(|()| NoOutput)
+                    Impl::delete_index(provider_config, name.clone()).map(|()| NoOutput)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(DeleteIndexInput { name }, result)
                     .map(|_: NoOutput| ())
@@ -261,7 +325,9 @@ mod durable_impl {
             }
         }
 
-        fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
+        fn list_indexes(
+            provider_config: Self::ProviderConfig,
+        ) -> Result<Vec<IndexName>, SearchError> {
             init_logging();
 
             let durability = Durability::<ListIndexesOutput, SearchError>::new(
@@ -271,7 +337,7 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::list_indexes().map(|names| ListIndexesOutput { names })
+                    Impl::list_indexes(provider_config).map(|names| ListIndexesOutput { names })
                 });
                 durability
                     .persist(NoInput, result)
@@ -283,7 +349,11 @@ mod durable_impl {
             }
         }
 
-        fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
+        fn upsert(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            doc: Doc,
+        ) -> Result<(), SearchError> {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
@@ -293,8 +363,9 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert(index.clone(), doc.clone()).map(|()| NoOutput)
+                    Impl::upsert(provider_config, index.clone(), doc.clone()).map(|()| NoOutput)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(UpsertInput { index, doc }, result)
                     .map(|_: NoOutput| ())
@@ -303,7 +374,11 @@ mod durable_impl {
             }
         }
 
-        fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
+        fn upsert_many(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            docs: Vec<Doc>,
+        ) -> Result<(), SearchError> {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
@@ -313,8 +388,10 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert_many(index.clone(), docs.clone()).map(|_| NoOutput)
+                    Impl::upsert_many(provider_config, index.clone(), docs.clone())
+                        .map(|_| NoOutput)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(UpsertManyInput { index, docs }, result)
                     .map(|_: NoOutput| ())
@@ -323,7 +400,11 @@ mod durable_impl {
             }
         }
 
-        fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
+        fn delete(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            id: DocumentId,
+        ) -> Result<(), SearchError> {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
@@ -333,8 +414,9 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete(index.clone(), id.clone()).map(|()| NoOutput)
+                    Impl::delete(provider_config, index.clone(), id.clone()).map(|()| NoOutput)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(DeleteInput { index, id }, result)
                     .map(|_: NoOutput| ())
@@ -343,7 +425,11 @@ mod durable_impl {
             }
         }
 
-        fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
+        fn delete_many(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            ids: Vec<DocumentId>,
+        ) -> Result<(), SearchError> {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
@@ -353,8 +439,10 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_many(index.clone(), ids.clone()).map(|_| NoOutput)
+                    Impl::delete_many(provider_config, index.clone(), ids.clone())
+                        .map(|_| NoOutput)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(DeleteManyInput { index, ids }, result)
                     .map(|_: NoOutput| ())
@@ -363,7 +451,11 @@ mod durable_impl {
             }
         }
 
-        fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
+        fn get(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            id: DocumentId,
+        ) -> Result<Option<Doc>, SearchError> {
             init_logging();
 
             let durability = Durability::<GetDocOutput, SearchError>::new(
@@ -373,8 +465,10 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get(index.clone(), id.clone()).map(|doc| GetDocOutput { doc })
+                    Impl::get(provider_config, index.clone(), id.clone())
+                        .map(|doc| GetDocOutput { doc })
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(GetInput { index, id }, result)
                     .map(|result| result.doc)
@@ -383,7 +477,11 @@ mod durable_impl {
             }
         }
 
-        fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
+        fn search(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            query: SearchQuery,
+        ) -> Result<SearchResults, SearchError> {
             init_logging();
 
             let durability = Durability::<SearchOutput, SearchError>::new(
@@ -393,9 +491,10 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::search(index.clone(), query.clone())
+                    Impl::search(provider_config, index.clone(), query.clone())
                         .map(|results| SearchOutput { results })
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(SearchInput { index, query }, result)
                     .map(|result| result.results)
@@ -407,6 +506,7 @@ mod durable_impl {
         }
 
         fn stream_search(
+            provider_config: Self::ProviderConfig,
             index: IndexName,
             query: SearchQuery,
         ) -> Result<SearchStream, SearchError> {
@@ -418,23 +518,34 @@ mod durable_impl {
                 DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
+                let provider_config_for_stream = provider_config.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    SearchStream::new(DurableSearchStream::<Impl>::live(Impl::unwrapped_stream(
-                        index.clone(),
-                        query.clone(),
-                    )))
+                    SearchStream::new(DurableSearchStream::<Impl>::live(
+                        provider_config_for_stream.clone(),
+                        Impl::unwrapped_stream(
+                            provider_config_for_stream,
+                            index.clone(),
+                            query.clone(),
+                        ),
+                    ))
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 let _ = durability.persist_infallible(StreamSearchInput { index, query }, NoOutput);
                 Ok(result)
             } else {
                 let _: NoOutput = durability.replay_infallible();
                 Ok(SearchStream::new(DurableSearchStream::<Impl>::replay(
-                    index, query,
+                    provider_config,
+                    index,
+                    query,
                 )))
             }
         }
 
-        fn get_schema(index: IndexName) -> Result<Schema, SearchError> {
+        fn get_schema(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+        ) -> Result<Schema, SearchError> {
             init_logging();
 
             let durability = Durability::<GetSchemaOutput, SearchError>::new(
@@ -444,8 +555,10 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_schema(index.clone()).map(|schema| GetSchemaOutput { schema })
+                    Impl::get_schema(provider_config, index.clone())
+                        .map(|schema| GetSchemaOutput { schema })
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(GetSchemaInput { index }, result)
                     .map(|schema| schema.schema)
@@ -456,7 +569,11 @@ mod durable_impl {
             }
         }
 
-        fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError> {
+        fn update_schema(
+            provider_config: Self::ProviderConfig,
+            index: IndexName,
+            schema: Schema,
+        ) -> Result<(), SearchError> {
             init_logging();
 
             let durability = Durability::<NoOutput, SearchError>::new(
@@ -466,8 +583,10 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::update_schema(index.clone(), schema.clone()).map(|()| NoOutput)
+                    Impl::update_schema(provider_config, index.clone(), schema.clone())
+                        .map(|()| NoOutput)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(UpdateSchemaInput { index, schema }, result)
                     .map(|_: NoOutput| ())
@@ -487,8 +606,10 @@ mod durable_impl {
     /// happens.
     ///
     /// When reaching the end of the replay mode, if the replayed stream was not finished yet,
-    /// the retry query implemented in `ExtendedGuest` is used to create a new Search response
-    /// stream and continue the search seamlessly.
+    /// the retry query implemented in `ExtendedSearchProvider` is used to create a new Search
+    /// response stream and continue the search seamlessly. The `provider_config` (which carries
+    /// any secrets) is kept inside this struct so that subsequent live requests can re-resolve
+    /// those secrets immediately before each HTTP call.
     enum DurableSearchStreamState<Impl: ExtendedSearchProvider> {
         Live {
             stream: Impl::SearchStream,
@@ -504,13 +625,15 @@ mod durable_impl {
     }
 
     pub struct DurableSearchStream<Impl: ExtendedSearchProvider> {
+        provider_config: Impl::ProviderConfig,
         state: RefCell<Option<DurableSearchStreamState<Impl>>>,
         subscription: RefCell<Option<Pollable>>,
     }
 
     impl<Impl: ExtendedSearchProvider> DurableSearchStream<Impl> {
-        fn live(stream: Impl::SearchStream) -> Self {
+        fn live(provider_config: Impl::ProviderConfig, stream: Impl::SearchStream) -> Self {
             Self {
+                provider_config,
                 state: RefCell::new(Some(DurableSearchStreamState::Live {
                     stream,
                     pollables: Vec::new(),
@@ -519,8 +642,13 @@ mod durable_impl {
             }
         }
 
-        fn replay(index: IndexName, query: SearchQuery) -> Self {
+        fn replay(
+            provider_config: Impl::ProviderConfig,
+            index: IndexName,
+            query: SearchQuery,
+        ) -> Self {
             Self {
+                provider_config,
                 state: RefCell::new(Some(DurableSearchStreamState::Replay {
                     index,
                     query: Box::new(query),
@@ -610,6 +738,7 @@ mod durable_impl {
                             let (stream, first_live_result) =
                                 with_persistence_level(PersistenceLevel::PersistNothing, || {
                                     let stream = <Impl as ExtendedSearchProvider>::unwrapped_stream(
+                                        self.provider_config.clone(),
                                         index.clone(),
                                         extended_query,
                                     );

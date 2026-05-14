@@ -1,5 +1,9 @@
 pub mod types {
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum VideoError {
         InvalidInput(String),
         UnsupportedFeature(String),
@@ -18,85 +22,119 @@ pub mod types {
     impl std::error::Error for VideoError {}
 
     #[repr(u8)]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        Eq,
-        Ord,
-        PartialEq,
-        PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum ImageRole {
         First,
         Last,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct RawBytes {
         pub bytes: Vec<u8>,
         pub mime_type: String,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum MediaData {
         Url(String),
         Bytes(RawBytes),
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct InputImage {
         pub data: MediaData,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Reference {
         pub data: InputImage,
         pub prompt: Option<String>,
         pub role: Option<ImageRole>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct BaseVideo {
         pub data: MediaData,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum MediaInput {
         Text(String),
         Image(Reference),
         Video(BaseVideo),
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Narration {
         pub data: MediaData,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct StaticMask {
         pub mask: InputImage,
     }
 
-    #[derive(
-        Clone, Copy, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Position {
         pub x: u32,
         pub y: u32,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct DynamicMask {
         pub mask: InputImage,
         pub trajectories: Vec<Position>,
     }
 
-    #[derive(
-        Clone, Copy, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct CameraConfig {
         pub horizontal: f32,
         pub vertical: f32,
@@ -106,7 +144,11 @@ pub mod types {
         pub roll: f32,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum CameraMovement {
         Simple(CameraConfig),
         DownBack,
@@ -116,17 +158,11 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        Eq,
-        Ord,
-        PartialEq,
-        PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum AspectRatio {
         Square,
         Portrait,
@@ -135,17 +171,11 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        Eq,
-        Ord,
-        PartialEq,
-        PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum Resolution {
         Sd,
         Hd,
@@ -153,13 +183,21 @@ pub mod types {
         Uhd,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Kv {
         pub key: String,
         pub value: String,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct GenerationConfig {
         pub negative_prompt: Option<String>,
         pub seed: Option<u64>,
@@ -178,7 +216,11 @@ pub mod types {
         pub camera_control: Option<CameraMovement>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Video {
         pub uri: Option<String>,
         pub base64_bytes: Option<Vec<u8>>,
@@ -190,7 +232,11 @@ pub mod types {
         pub generation_id: Option<String>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum JobStatus {
         Pending,
         Running,
@@ -198,30 +244,32 @@ pub mod types {
         Failed(String),
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct VideoResult {
         pub status: JobStatus,
         pub videos: Option<Vec<Video>>,
     }
 
     #[repr(u8)]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        Eq,
-        Ord,
-        PartialEq,
-        PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum VoiceLanguage {
         En,
         Zh,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct TextToSpeech {
         pub text: String,
         pub voice_id: String,
@@ -229,13 +277,21 @@ pub mod types {
         pub speed: f32,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum AudioSource {
         FromText(TextToSpeech),
         FromAudio(Narration),
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct VoiceInfo {
         pub voice_id: String,
         pub name: String,
@@ -244,17 +300,11 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        Eq,
-        Ord,
-        PartialEq,
-        PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum SingleImageEffects {
         Bloombloom,
         Dizzydizzy,
@@ -266,36 +316,42 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        Eq,
-        Ord,
-        PartialEq,
-        PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum DualImageEffects {
         Hug,
         Kiss,
         HeartGesture,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct DualEffect {
         pub effect: DualImageEffects,
         pub second_image: InputImage,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum EffectType {
         Single(SingleImageEffects),
         Dual(DualEffect),
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum LipSyncVideo {
         Video(BaseVideo),
         VideoId(String),
@@ -325,7 +381,11 @@ pub mod advanced {
     pub type InputImage = super::types::InputImage;
     pub type EffectType = super::types::EffectType;
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct ExtendVideoOptions {
         pub video_id: String,
         pub prompt: Option<String>,
@@ -334,7 +394,11 @@ pub mod advanced {
         pub provider_options: Option<Vec<Kv>>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct GenerateVideoEffectsOptions {
         pub input: InputImage,
         pub effect: EffectType,
@@ -343,7 +407,11 @@ pub mod advanced {
         pub mode: Option<String>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct MultImageGenerationOptions {
         pub input_images: Vec<InputImage>,
         pub prompt: Option<String>,

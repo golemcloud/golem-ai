@@ -1,4 +1,7 @@
-use golem_ai_tts::config::{get_endpoint_config, get_max_retries_config, get_timeout_config};
+use crate::config::ElevenLabsConfig;
+use golem_ai_tts::config::{
+    get_endpoint_config, get_max_retries_config, get_timeout_config, SecretSource,
+};
 use golem_ai_tts::error::{from_reqwest_error, internal_error, tts_error_from_status};
 use golem_ai_tts::model::types::TtsError;
 use golem_wasi_http::{Client, Method, RequestBuilder, Response};
@@ -47,18 +50,25 @@ pub struct QuotaInfo {
 }
 
 /// The ElevenLabs TTS API client
+///
+/// The API key is intentionally stored as a [`SecretSource`] (not as a
+/// resolved `String`) so that the secret value is fetched fresh from
+/// its source — which in golem mode is the agent host — right before
+/// each outgoing HTTP request. This is what lets host-side secret
+/// rotation take effect on the very next request.
+///
 /// Based on https://elevenlabs.io/docs/api-reference/
 #[derive(Clone)]
 pub struct ElevenLabsTtsApi {
     client: Client,
-    api_key: String,
+    api_key: SecretSource,
     base_url: String,
     rate_limit_config: RateLimitConfig,
     model_version: String,
 }
 
 impl ElevenLabsTtsApi {
-    pub fn new(api_key: String, model_version: String) -> Self {
+    pub fn new(config: &ElevenLabsConfig) -> Self {
         let timeout_secs = get_timeout_config();
         let client = Client::builder()
             .timeout(Duration::from_secs(timeout_secs))
@@ -68,18 +78,21 @@ impl ElevenLabsTtsApi {
         let base_url = get_endpoint_config("https://api.elevenlabs.io");
 
         Self {
-            api_key,
+            api_key: config.api_key.clone(),
             client,
             base_url,
             rate_limit_config: RateLimitConfig::default(),
-            model_version,
+            model_version: config.model_version.clone(),
         }
     }
 
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.api_key.get();
         self.client
             .request(method, url)
-            .header("xi-api-key", &self.api_key)
+            .header("xi-api-key", api_key)
     }
 
     pub fn get_model_version(&self) -> &str {
@@ -597,10 +610,13 @@ impl ElevenLabsTtsApi {
         form_data.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
 
         let response = self.execute_with_retry(|| {
+            // Resolve the API key right before issuing the request so that
+            // hot-rotated host secrets take effect on the next request.
+            let api_key = self.api_key.get();
             let request = self
                 .client
                 .post(&url)
-                .header("xi-api-key", &self.api_key)
+                .header("xi-api-key", api_key)
                 .header(
                     "Content-Type",
                     format!("multipart/form-data; boundary={}", boundary),

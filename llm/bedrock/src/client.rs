@@ -1,4 +1,5 @@
 use crate::async_utils::UnsafeFuture;
+use crate::config::BedrockConfig;
 use crate::conversions::converse_output_to_complete_response;
 use crate::conversions::{from_converse_sdk_error, from_converse_stream_sdk_error, BedrockInput};
 use crate::stream::BedrockChatStream;
@@ -9,7 +10,6 @@ use aws_sdk_bedrockruntime::config::{AsyncSleep, Sleep};
 use aws_sdk_bedrockruntime::operation::converse::builders::ConverseFluentBuilder;
 use aws_sdk_bedrockruntime::operation::converse_stream::builders::ConverseStreamFluentBuilder;
 use aws_types::region;
-use golem_ai_llm::config::{get_config_key, get_config_key_or_none};
 use golem_ai_llm::model::{Config, Error, Event, Response};
 use log::trace;
 use wasi::clocks::monotonic_clock;
@@ -21,13 +21,35 @@ pub struct Bedrock {
 }
 
 impl Bedrock {
-    pub async fn new() -> Result<Self, Error> {
-        let environment = BedrockEnvironment::load_from_env()?;
+    /// Builds a new Bedrock SDK client from the supplied
+    /// [`BedrockConfig`].
+    ///
+    /// The credential [`SecretSource`](golem_ai_llm::config::SecretSource)s
+    /// are resolved here, immediately before the AWS SDK client is
+    /// constructed. The returned `bedrock::Client` then captures the
+    /// resolved credentials internally for its own lifetime.
+    ///
+    /// This is fine because every top-level provider call
+    /// (`LlmProvider::send` / `LlmProvider::stream`) constructs a fresh
+    /// [`Bedrock`] instance, so each top-level call re-resolves the
+    /// secrets via `SecretSource::get()`. This satisfies the
+    /// per-request hot-rotation contract.
+    pub async fn new(config: &BedrockConfig) -> Result<Self, Error> {
+        let access_key_id = config.access_key_id.get();
+        let secret_access_key = config.secret_access_key.get();
+        let session_token = config.session_token.as_ref().map(|s| s.get());
+        let region_str = config.region.clone();
 
         let sdk_config = aws_config::defaults(BehaviorVersion::latest())
-            .region(environment.aws_region())
+            .region(region::Region::new(region_str))
             .http_client(WasiClient::new())
-            .credentials_provider(environment.aws_credentials())
+            .credentials_provider(bedrock::config::Credentials::new(
+                access_key_id,
+                secret_access_key,
+                session_token,
+                None,
+                "llm-bedrock",
+            ))
             .sleep_impl(WasiSleep::new())
             .load()
             .await;
@@ -93,39 +115,6 @@ impl Bedrock {
             .inference_config(input.inference_configuration)
             .set_tool_config(input.tools)
             .additional_model_request_fields(input.additional_fields)
-    }
-}
-
-#[derive(Debug)]
-pub struct BedrockEnvironment {
-    access_key_id: String,
-    region: String,
-    secret_access_key: String,
-    session_token: Option<String>,
-}
-
-impl BedrockEnvironment {
-    pub fn load_from_env() -> Result<Self, Error> {
-        Ok(Self {
-            access_key_id: get_config_key("AWS_ACCESS_KEY_ID")?,
-            region: get_config_key("AWS_REGION")?,
-            secret_access_key: get_config_key("AWS_SECRET_ACCESS_KEY")?,
-            session_token: get_config_key_or_none("AWS_SESSION_TOKEN"),
-        })
-    }
-
-    fn aws_region(&self) -> region::Region {
-        region::Region::new(self.region.clone())
-    }
-
-    fn aws_credentials(&self) -> bedrock::config::Credentials {
-        bedrock::config::Credentials::new(
-            self.access_key_id.clone(),
-            self.secret_access_key.clone(),
-            self.session_token.clone(),
-            None,
-            "llm-bedrock",
-        )
     }
 }
 

@@ -11,12 +11,12 @@ description = "Library for working with Brave Search APIs on Golem Cloud"
 path = "src/lib.rs"
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability", "golem-ai-web-search/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-ai-web-search/golem"]
 
 [dependencies]
 golem-ai-web-search = { path = "../websearch", version = "0.0.0", default-features = false }
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 golem-wasi-http = { workspace = true, features = ["json"] }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

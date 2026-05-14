@@ -33,6 +33,28 @@ const PROVIDER: &str = "qdrant";
 const PROVIDER: &str = "pgvector";
 
 #[cfg(feature = "milvus")]
+fn provider_config() -> golem_ai_vector_milvus::MilvusConfig {
+    golem_ai_vector_milvus::MilvusConfig::from_env()
+        .expect("failed to load Milvus config from env")
+}
+#[cfg(feature = "pinecone")]
+fn provider_config() -> golem_ai_vector_pinecone::PineconeConfig {
+    golem_ai_vector_pinecone::PineconeConfig::from_env()
+        .expect("failed to load Pinecone config from env")
+}
+#[cfg(feature = "qdrant")]
+fn provider_config() -> golem_ai_vector_qdrant::QdrantConfig {
+    golem_ai_vector_qdrant::QdrantConfig::from_env()
+        .expect("failed to load Qdrant config from env")
+}
+#[cfg(feature = "pgvector")]
+fn provider_config() -> golem_ai_vector_pgvector::PgvectorConfig {
+    golem_ai_vector_pgvector::PgvectorConfig::from_env()
+        .expect("failed to load Pgvector config from env")
+}
+
+
+#[cfg(feature = "milvus")]
 const TEST_ENDPOINT: &str = "http://127.0.0.1:19530";
 #[cfg(feature = "milvus")]
 const TEST_DATABASE: &str = "default";
@@ -179,12 +201,12 @@ impl VectorTest for VectorTestImpl {
 
         println!("Connecting to vector database at: {}", endpoint);
 
-        match Provider::connect(endpoint.clone(), credentials.clone(), Some(5000), options) {
+        match Provider::connect(provider_config(), endpoint.clone(), credentials.clone(), Some(5000), options) {
             Ok(_) => results.push("✓ Successfully connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
 
-        match Provider::get_connection_status() {
+        match Provider::get_connection_status(provider_config()) {
             Ok(status) => {
                 results.push(format!(
                     "✓ Connection status: connected={}, provider={:?}",
@@ -214,6 +236,7 @@ impl VectorTest for VectorTestImpl {
         ];
 
         match Provider::upsert_collection(
+            provider_config(),
             collection_name.clone(),
             Some("Test collection for basic operations".to_string()),
             128,
@@ -228,14 +251,14 @@ impl VectorTest for VectorTestImpl {
             Err(error) => return format!("✗ Collection creation failed: {:?}", error),
         };
 
-        match Provider::list_collections() {
+        match Provider::list_collections(provider_config()) {
             Ok(list) => {
                 results.push(format!("✓ Listed {} collections", list.len()));
             }
             Err(error) => return format!("✗ Failed to list collections: {:?}", error),
         };
 
-        match Provider::collection_exists(collection_name.clone()) {
+        match Provider::collection_exists(provider_config(), collection_name.clone()) {
             Ok(exists) => {
                 results.push(format!("✓ Collection exists check: {}", exists));
             }
@@ -243,6 +266,7 @@ impl VectorTest for VectorTestImpl {
         };
 
         match Provider::test_connection(
+            provider_config(),
             endpoint,
             get_test_credentials(),
             Some(5000),
@@ -254,7 +278,7 @@ impl VectorTest for VectorTestImpl {
             Err(error) => return format!("✗ Connection test failed: {:?}", error),
         };
 
-        match Provider::disconnect() {
+        match Provider::disconnect(provider_config()) {
             Ok(_) => results.push("✓ Successfully disconnected".to_string()),
             Err(error) => results.push(format!("⚠ Disconnect failed: {:?}", error)),
         };
@@ -273,7 +297,7 @@ impl VectorTest for VectorTestImpl {
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(endpoint, credentials, Some(5000), options) {
+        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -287,6 +311,7 @@ impl VectorTest for VectorTestImpl {
         };
 
         match Provider::upsert_collection(
+            provider_config(),
             collection_name.clone(),
             None,
             dimensions,
@@ -307,7 +332,7 @@ impl VectorTest for VectorTestImpl {
             create_test_vector("3", dimensions),
         ];
 
-        match Provider::upsert_vectors(collection_name.clone(), test_vectors, None) {
+        match Provider::upsert_vectors(provider_config(), collection_name.clone(), test_vectors, None) {
             Ok(result) => {
                 results.push(format!("✓ Upserted {} vectors", result.success_count));
                 std::thread::sleep(std::time::Duration::from_secs(4));
@@ -317,6 +342,7 @@ impl VectorTest for VectorTestImpl {
 
         let vector_ids = vec!["1".to_string(), "2".to_string(), "3".to_string()];
         match Provider::get_vectors(
+            provider_config(),
             collection_name.clone(),
             vector_ids,
             None,
@@ -329,7 +355,7 @@ impl VectorTest for VectorTestImpl {
             Err(error) => return format!("✗ Vector retrieval failed: {:?}", error),
         };
 
-        match Provider::get_vector(collection_name.clone(), "1".to_string(), None) {
+        match Provider::get_vector(provider_config(), collection_name.clone(), "1".to_string(), None) {
             Ok(Some(vector)) => {
                 results.push(format!("✓ Retrieved single vector: {}", vector.id));
             }
@@ -355,6 +381,7 @@ impl VectorTest for VectorTestImpl {
         );
 
         match Provider::update_vector(
+            provider_config(),
             collection_name.clone(),
             "1".to_string(),
             Some(update_vector),
@@ -366,7 +393,7 @@ impl VectorTest for VectorTestImpl {
             Err(error) => return format!("✗ Vector update failed: {:?}", error),
         }
 
-        match Provider::count_vectors(collection_name.clone(), None, None) {
+        match Provider::count_vectors(provider_config(), collection_name.clone(), None, None) {
             Ok(count) => {
                 results.push(format!("✓ Vector count: {}", count));
             }
@@ -374,6 +401,7 @@ impl VectorTest for VectorTestImpl {
         };
 
         match Provider::delete_vectors(
+            provider_config(),
             collection_name.clone(),
             vec!["3".to_string()],
             None,
@@ -384,7 +412,7 @@ impl VectorTest for VectorTestImpl {
             Err(error) => return format!("✗ Vector deletion failed: {:?}", error),
         };
 
-        let _ = Provider::disconnect();
+        let _ = Provider::disconnect(provider_config());
 
         results.join("\n")
     }
@@ -400,7 +428,7 @@ impl VectorTest for VectorTestImpl {
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(endpoint, credentials, Some(5000), options) {
+        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -414,6 +442,7 @@ impl VectorTest for VectorTestImpl {
         };
 
         match Provider::upsert_collection(
+            provider_config(),
             collection_name.clone(),
             None,
             dimensions,
@@ -432,7 +461,7 @@ impl VectorTest for VectorTestImpl {
             .map(|i| create_test_vector(&i.to_string(), dimensions))
             .collect::<Vec<_>>();
 
-        match Provider::upsert_vectors(collection_name.clone(), test_vectors, None) {
+        match Provider::upsert_vectors(provider_config(), collection_name.clone(), test_vectors, None) {
             Ok(_) => {
                 results.push("✓ Inserted 10 test vectors".to_string());
                 std::thread::sleep(std::time::Duration::from_secs(4));
@@ -444,6 +473,7 @@ impl VectorTest for VectorTestImpl {
         let search_query = SearchQuery::Vector(VectorData::Dense(query_vector));
 
         match Provider::search_vectors(
+            provider_config(),
             collection_name.clone(),
             search_query,
             5,
@@ -466,6 +496,7 @@ impl VectorTest for VectorTestImpl {
 
         let query_vector2 = create_query_vector(dimensions);
         match Provider::find_similar(
+            provider_config(),
             collection_name.clone(),
             VectorData::Dense(query_vector2),
             3,
@@ -486,6 +517,7 @@ impl VectorTest for VectorTestImpl {
         ];
 
         match Provider::batch_search(
+            provider_config(),
             collection_name.clone(),
             batch_queries,
             3,
@@ -504,7 +536,7 @@ impl VectorTest for VectorTestImpl {
             Err(error) => return format!("✗ Batch search failed: {:?}", error),
         };
 
-        let _ = Provider::disconnect();
+        let _ = Provider::disconnect(provider_config());
 
         results.join("\n")
     }
@@ -520,7 +552,7 @@ impl VectorTest for VectorTestImpl {
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(endpoint, credentials, Some(5000), options) {
+        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -534,6 +566,7 @@ impl VectorTest for VectorTestImpl {
         };
 
         match Provider::upsert_collection(
+            provider_config(),
             collection_name.clone(),
             None,
             dimensions,
@@ -581,7 +614,7 @@ impl VectorTest for VectorTestImpl {
             });
         }
 
-        match Provider::upsert_vectors(collection_name.clone(), test_vectors, None) {
+        match Provider::upsert_vectors(provider_config(), collection_name.clone(), test_vectors, None) {
             Ok(_) => {
                 results.push("✓ Inserted 20 vectors with metadata".to_string());
                 std::thread::sleep(std::time::Duration::from_secs(4));
@@ -596,6 +629,7 @@ impl VectorTest for VectorTestImpl {
         });
 
         match Provider::search_vectors(
+            provider_config(),
             collection_name.clone(),
             SearchQuery::Vector(VectorData::Dense(create_query_vector(dimensions))),
             5,
@@ -631,6 +665,7 @@ impl VectorTest for VectorTestImpl {
         };
 
         match Provider::list_vectors(
+            provider_config(),
             collection_name.clone(),
             None,
             Some(list_filter),
@@ -660,7 +695,7 @@ impl VectorTest for VectorTestImpl {
             value: MetadataValue::IntegerVal(15),
         });
 
-        match Provider::delete_by_filter(collection_name.clone(), delete_filter, None) {
+        match Provider::delete_by_filter(provider_config(), collection_name.clone(), delete_filter, None) {
             Ok(count) => {
                 results.push(format!(
                     "✓ Deleted {} vectors by filter (index > 15)",
@@ -670,7 +705,7 @@ impl VectorTest for VectorTestImpl {
             Err(error) => return format!("✗ Delete by filter failed: {:?}", error),
         };
 
-        let _ = Provider::disconnect();
+        let _ = Provider::disconnect(provider_config());
 
         results.join("\n")
     }
@@ -686,7 +721,7 @@ impl VectorTest for VectorTestImpl {
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(endpoint, credentials, Some(5000), options) {
+        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -700,6 +735,7 @@ impl VectorTest for VectorTestImpl {
         };
 
         match Provider::upsert_collection(
+            provider_config(),
             collection_name.clone(),
             None,
             dimensions,
@@ -718,7 +754,7 @@ impl VectorTest for VectorTestImpl {
             .map(|i| create_test_vector(&i.to_string(), dimensions))
             .collect::<Vec<_>>();
 
-        match Provider::upsert_vectors(collection_name.clone(), test_vectors, None) {
+        match Provider::upsert_vectors(provider_config(), collection_name.clone(), test_vectors, None) {
             Ok(_) => {
                 results.push("✓ Inserted 15 test vectors".to_string());
                 std::thread::sleep(std::time::Duration::from_secs(4));
@@ -733,6 +769,7 @@ impl VectorTest for VectorTestImpl {
         let negative_examples = vec![RecommendationExample::VectorId("10".to_string())];
 
         match Provider::recommend_vectors(
+            provider_config(),
             collection_name.clone(),
             positive_examples,
             Some(negative_examples),
@@ -763,6 +800,7 @@ impl VectorTest for VectorTestImpl {
         }];
 
         match Provider::discover_vectors(
+            provider_config(),
             collection_name.clone(),
             None,
             context_pairs,
@@ -789,6 +827,7 @@ impl VectorTest for VectorTestImpl {
         let query_vector = VectorData::Dense(create_query_vector(dimensions));
 
         match Provider::search_range(
+            provider_config(),
             collection_name.clone(),
             query_vector,
             Some(0.1),
@@ -811,6 +850,7 @@ impl VectorTest for VectorTestImpl {
         }
 
         match Provider::search_text(
+            provider_config(),
             collection_name.clone(),
             "test query".to_string(),
             5,
@@ -828,7 +868,7 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        let _ = Provider::disconnect();
+        let _ = Provider::disconnect(provider_config());
 
         results.join("\n")
     }
@@ -844,7 +884,7 @@ impl VectorTest for VectorTestImpl {
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(endpoint, credentials, Some(5000), options) {
+        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -858,6 +898,7 @@ impl VectorTest for VectorTestImpl {
         };
 
         match Provider::upsert_collection(
+            provider_config(),
             collection_name.clone(),
             None,
             dimensions,
@@ -879,6 +920,7 @@ impl VectorTest for VectorTestImpl {
         )];
 
         match Provider::upsert_namespace(
+            provider_config(),
             collection_name.clone(),
             namespace_name.clone(),
             Some(namespace_metadata),
@@ -895,7 +937,7 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        match Provider::list_namespaces(collection_name.clone()) {
+        match Provider::list_namespaces(provider_config(), collection_name.clone()) {
             Ok(namespace_list) => {
                 results.push(format!("✓ Listed {} namespaces", namespace_list.len()));
             }
@@ -913,6 +955,7 @@ impl VectorTest for VectorTestImpl {
         ];
 
         match Provider::upsert_vectors(
+            provider_config(),
             collection_name.clone(),
             test_vectors,
             Some(namespace_name.clone()),
@@ -933,6 +976,7 @@ impl VectorTest for VectorTestImpl {
         }
 
         match Provider::search_vectors(
+            provider_config(),
             collection_name.clone(),
             SearchQuery::Vector(VectorData::Dense(create_query_vector(dimensions))),
             5,
@@ -955,7 +999,7 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        match Provider::namespace_exists(collection_name.clone(), namespace_name.clone()) {
+        match Provider::namespace_exists(provider_config(), collection_name.clone(), namespace_name.clone()) {
             Ok(exists) => {
                 results.push(format!("✓ Namespace exists check: {}", exists));
             }
@@ -967,7 +1011,7 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        let _ = Provider::disconnect();
+        let _ = Provider::disconnect(provider_config());
 
         results.join("\n")
     }
@@ -983,7 +1027,7 @@ impl VectorTest for VectorTestImpl {
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(endpoint, credentials, Some(5000), options) {
+        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -997,6 +1041,7 @@ impl VectorTest for VectorTestImpl {
         };
 
         match Provider::upsert_collection(
+            provider_config(),
             collection_name.clone(),
             None,
             dimensions,
@@ -1046,7 +1091,7 @@ impl VectorTest for VectorTestImpl {
             })
             .collect::<Vec<_>>();
 
-        match Provider::upsert_vectors(collection_name.clone(), test_vectors, None) {
+        match Provider::upsert_vectors(provider_config(), collection_name.clone(), test_vectors, None) {
             Ok(_) => {
                 results.push("✓ Inserted 50 test vectors with metadata".to_string());
                 std::thread::sleep(std::time::Duration::from_secs(4));
@@ -1054,7 +1099,7 @@ impl VectorTest for VectorTestImpl {
             Err(error) => return format!("✗ Vector upsert failed: {:?}", error),
         }
 
-        match Provider::get_collection_stats(collection_name.clone(), None) {
+        match Provider::get_collection_stats(provider_config(), collection_name.clone(), None) {
             Ok(stats) => {
                 results.push(format!(
                     "✓ Collection stats: {} vectors, {} dimensions",
@@ -1069,7 +1114,7 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        match Provider::get_field_stats(collection_name.clone(), "category".to_string(), None) {
+        match Provider::get_field_stats(provider_config(), collection_name.clone(), "category".to_string(), None) {
             Ok(field_stats) => {
                 results.push(format!(
                     "✓ Field stats for 'category': {} unique values",
@@ -1082,6 +1127,7 @@ impl VectorTest for VectorTestImpl {
         }
 
         match Provider::get_field_distribution(
+            provider_config(),
             collection_name.clone(),
             "category".to_string(),
             None,
@@ -1101,7 +1147,7 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        match Provider::get_collection(collection_name.clone()) {
+        match Provider::get_collection(provider_config(), collection_name.clone()) {
             Ok(collection_info) => {
                 results.push(format!(
                     "✓ Collection info: {}, {} dimensions, {} metric",
@@ -1125,7 +1171,7 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        match Provider::delete_collection(collection_name.clone()) {
+        match Provider::delete_collection(provider_config(), collection_name.clone()) {
             Ok(_) => {
                 results.push("✓ Collection deleted successfully".to_string());
             }
@@ -1134,7 +1180,7 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        let _ = Provider::disconnect();
+        let _ = Provider::disconnect(provider_config());
 
         results.join("\n")
     }

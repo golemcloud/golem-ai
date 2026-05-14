@@ -5,19 +5,23 @@ use crate::conversions::{
     opensearch_scroll_response_to_search_results, schema_to_opensearch_settings,
     search_query_to_opensearch_request,
 };
-use golem_ai_search::config::with_config_keys;
 use golem_ai_search::durability::{DurableSearch, ExtendedSearchProvider};
 use golem_ai_search::model::{CreateIndexOptions, SearchStream};
 use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
+use golem_ai_search::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_search::{SearchProvider, SearchStreamInterface};
-use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Cell, RefCell};
 
 mod client;
+pub mod config;
 mod conversions;
+
+pub use crate::config::OpenSearchConfig;
+#[cfg(feature = "golem")]
+pub use crate::config::OpenSearchHostConfig;
 
 /// Uses scroll API for streaming large result sets with fallback to pagination
 pub struct OpenSearchSearchStream {
@@ -46,7 +50,7 @@ impl OpenSearchSearchStream {
     }
 
     pub fn subscribe(&self) -> Pollable {
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 }
 
@@ -168,37 +172,15 @@ impl SearchStreamInterface for OpenSearchSearchStream {
 
 pub struct OpenSearch;
 
-impl OpenSearch {
-    const BASE_URL_ENV_VAR: &'static str = "OPENSEARCH_BASE_URL";
-    const USERNAME_ENV_VAR: &'static str = "OPENSEARCH_USERNAME";
-    const PASSWORD_ENV_VAR: &'static str = "OPENSEARCH_PASSWORD";
-    const API_KEY_ENV_VAR: &'static str = "OPENSEARCH_API_KEY";
-
-    fn create_client() -> Result<OpenSearchApi, SearchError> {
-        with_config_keys(&[Self::BASE_URL_ENV_VAR], |keys| {
-            if keys.is_empty() {
-                return Err(SearchError::Internal(
-                    "Missing OpenSearch base URL".to_string(),
-                ));
-            }
-
-            let base_url = keys[0].clone();
-
-            let username = std::env::var(Self::USERNAME_ENV_VAR).ok();
-            let password = std::env::var(Self::PASSWORD_ENV_VAR).ok();
-            let api_key = std::env::var(Self::API_KEY_ENV_VAR).ok();
-            {
-                Ok(OpenSearchApi::new(base_url, username, password, api_key))
-            }
-        })
-    }
-}
-
 impl SearchProvider for OpenSearch {
     type SearchStream = OpenSearchSearchStream;
+    type ProviderConfig = OpenSearchConfig;
 
-    fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn create_index(
+        provider_config: Self::ProviderConfig,
+        options: CreateIndexOptions,
+    ) -> Result<(), SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
 
         let settings = options.schema.map(schema_to_opensearch_settings);
         client.create_index(&options.index_name, settings)?;
@@ -206,21 +188,30 @@ impl SearchProvider for OpenSearch {
         Ok(())
     }
 
-    fn delete_index(name: IndexName) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete_index(
+        provider_config: Self::ProviderConfig,
+        name: IndexName,
+    ) -> Result<(), SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
         client.delete_index(&name)?;
 
         Ok(())
     }
 
-    fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
-        let client = Self::create_client()?;
+    fn list_indexes(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<IndexName>, SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
         let indices = client.list_indices()?;
         Ok(indices.into_iter().map(|idx| idx.index).collect())
     }
 
-    fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn upsert(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        doc: Doc,
+    ) -> Result<(), SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
         let opensearch_doc = doc_to_opensearch_document(doc).map_err(SearchError::InvalidQuery)?;
 
         let doc_id = opensearch_doc
@@ -234,8 +225,12 @@ impl SearchProvider for OpenSearch {
         Ok(())
     }
 
-    fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn upsert_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        docs: Vec<Doc>,
+    ) -> Result<(), SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
 
         if docs.is_empty() {
             return Ok(());
@@ -269,15 +264,23 @@ impl SearchProvider for OpenSearch {
         Ok(())
     }
 
-    fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<(), SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
         client.delete_document(&index, &id)?;
 
         Ok(())
     }
 
-    fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        ids: Vec<DocumentId>,
+    ) -> Result<(), SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
 
         if ids.is_empty() {
             return Ok(());
@@ -300,8 +303,12 @@ impl SearchProvider for OpenSearch {
         Ok(())
     }
 
-    fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
-        let client = Self::create_client()?;
+    fn get(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<Option<Doc>, SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
 
         match client.get_document(&index, &id)? {
             Some(opensearch_doc) => Ok(Some(opensearch_document_to_doc(opensearch_doc))),
@@ -309,22 +316,33 @@ impl SearchProvider for OpenSearch {
         }
     }
 
-    fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
-        let client = Self::create_client()?;
+    fn search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchResults, SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
         let opensearch_request = search_query_to_opensearch_request(query);
 
         let response = client.search(&index, &opensearch_request)?;
         Ok(opensearch_response_to_search_results(response))
     }
 
-    fn stream_search(index: IndexName, query: SearchQuery) -> Result<SearchStream, SearchError> {
-        let client = Self::create_client()?;
+    fn stream_search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchStream, SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
         let stream = OpenSearchSearchStream::new(client, index, query);
         Ok(SearchStream::new(stream))
     }
 
-    fn get_schema(index: IndexName) -> Result<Schema, SearchError> {
-        let client = Self::create_client()?;
+    fn get_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+    ) -> Result<Schema, SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
 
         let mappings = client.get_mappings(&index)?;
         Ok(opensearch_mappings_to_schema(
@@ -333,8 +351,12 @@ impl SearchProvider for OpenSearch {
         ))
     }
 
-    fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn update_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        schema: Schema,
+    ) -> Result<(), SearchError> {
+        let client = OpenSearchApi::new(&provider_config);
         let settings = schema_to_opensearch_settings(schema);
 
         if let Some(mappings) = settings.mappings {
@@ -346,11 +368,12 @@ impl SearchProvider for OpenSearch {
 }
 
 impl ExtendedSearchProvider for OpenSearch {
-    fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
-        let client = Self::create_client().unwrap_or_else(|_| {
-            OpenSearchApi::new("http://localhost:9200".to_string(), None, None, None)
-        });
-
+    fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Self::SearchStream {
+        let client = OpenSearchApi::new(&provider_config);
         OpenSearchSearchStream::new(client, index, query)
     }
 

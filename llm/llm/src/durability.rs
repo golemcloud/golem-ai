@@ -1,6 +1,6 @@
 use crate::model::{Config, ContentPart, Error, Event, Message, Role, StreamDelta};
+use crate::wasi_compat::Pollable;
 use crate::LlmProvider;
-use golem_rust::golem_wasm::Pollable;
 use indoc::indoc;
 use std::marker::PhantomData;
 
@@ -15,7 +15,11 @@ pub struct DurableLLM<Impl> {
 #[allow(async_fn_in_trait)]
 pub trait ExtendedLlmProvider: LlmProvider + 'static {
     /// Creates an instance of the LLM specific `ChatStream` without wrapping it in a `Resource`
-    async fn unwrapped_stream(events: Vec<Event>, config: Config) -> Self::ChatStream;
+    async fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> Self::ChatStream;
 
     /// Creates the retry prompt with a combination of the original events, and the partially received
     /// streaming responses. There is a default implementation here, but it can be overridden with provider-specific
@@ -77,7 +81,7 @@ pub trait ExtendedLlmProvider: LlmProvider + 'static {
 
 /// When the durability feature flag is off, `DurableLLM<Impl>` is a transparent wrapper that
 /// forwards every call to the inner provider without any oplog persistence.
-#[cfg(not(feature = "durability"))]
+#[cfg(not(feature = "golem"))]
 mod passthrough_impl {
     use crate::durability::{DurableLLM, ExtendedLlmProvider};
     use crate::init_logging;
@@ -86,15 +90,24 @@ mod passthrough_impl {
 
     impl<Impl: ExtendedLlmProvider> LlmProvider for DurableLLM<Impl> {
         type ChatStream = Impl::ChatStream;
+        type ProviderConfig = Impl::ProviderConfig;
 
-        async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+        async fn send(
+            provider_config: Self::ProviderConfig,
+            events: Vec<Event>,
+            config: Config,
+        ) -> Result<Response, Error> {
             init_logging();
-            Impl::send(events, config).await
+            Impl::send(provider_config, events, config).await
         }
 
-        async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
+        async fn stream(
+            provider_config: Self::ProviderConfig,
+            events: Vec<Event>,
+            config: Config,
+        ) -> ChatStream {
             init_logging();
-            Impl::stream(events, config).await
+            Impl::stream(provider_config, events, config).await
         }
     }
 }
@@ -107,7 +120,7 @@ mod passthrough_impl {
 /// stored as input, and the full response stored as output. To serialize these in a way it is
 /// observable by oplog consumers, each relevant data type has to be converted to/from `ValueAndType`
 /// which is implemented using the type classes and builder in the `golem-rust` library.
-#[cfg(feature = "durability")]
+#[cfg(feature = "golem")]
 mod durable_impl {
     use crate::durability::{DurableLLM, ExtendedLlmProvider};
     use crate::model::{ChatStream, Config, Error, Event, Response, StreamDelta, StreamEvent};
@@ -116,8 +129,8 @@ mod durable_impl {
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
     #[cfg(not(feature = "nopoll"))]
     use golem_rust::bindings::golem::durability::durability::LazyInitializedPollable;
+    use crate::wasi_compat::Pollable;
     use golem_rust::durability::Durability;
-    use golem_rust::golem_wasm::Pollable;
     use golem_rust::{
         with_persistence_level, with_persistence_level_async, FromValueAndType, IntoValue,
         PersistenceLevel,
@@ -128,8 +141,13 @@ mod durable_impl {
 
     impl<Impl: ExtendedLlmProvider> LlmProvider for DurableLLM<Impl> {
         type ChatStream = DurableChatStream<Impl>;
+        type ProviderConfig = Impl::ProviderConfig;
 
-        async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
+        async fn send(
+            provider_config: Self::ProviderConfig,
+            events: Vec<Event>,
+            config: Config,
+        ) -> Result<Response, Error> {
             init_logging();
 
             let durability = Durability::<Response, Error>::new(
@@ -142,9 +160,11 @@ mod durable_impl {
                 let config_clone = config.clone();
                 let result =
                     with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
-                        Impl::send(events_clone, config_clone).await
+                        Impl::send(provider_config, events_clone, config_clone).await
                     })
                     .await;
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist_serializable(SendInput { events, config }, result.clone());
                 result
             } else {
@@ -152,7 +172,11 @@ mod durable_impl {
             }
         }
 
-        async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
+        async fn stream(
+            provider_config: Self::ProviderConfig,
+            events: Vec<Event>,
+            config: Config,
+        ) -> ChatStream {
             init_logging();
 
             let durability = Durability::<NoOutput, UnusedError>::new(
@@ -163,10 +187,13 @@ mod durable_impl {
             if durability.is_live() {
                 let events_clone = events.clone();
                 let config_clone = config.clone();
+                let provider_config_clone = provider_config.clone();
                 let result =
                     with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
                         ChatStream::new(DurableChatStream::<Impl>::live(
+                            provider_config_clone.clone(),
                             <Impl as ExtendedLlmProvider>::unwrapped_stream(
+                                provider_config_clone,
                                 events_clone,
                                 config_clone,
                             )
@@ -174,11 +201,13 @@ mod durable_impl {
                         ))
                     })
                     .await;
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 let _ = durability.persist_infallible(SendInput { events, config }, NoOutput);
                 result
             } else {
                 let _: NoOutput = durability.replay_infallible();
                 ChatStream::new(DurableChatStream::<Impl>::replay(
+                    provider_config,
                     events.into_iter().map(Ok).collect(),
                     config,
                 ))
@@ -219,6 +248,7 @@ mod durable_impl {
     }
 
     pub struct DurableChatStream<Impl: ExtendedLlmProvider> {
+        provider_config: Impl::ProviderConfig,
         state: RefCell<Option<DurableChatStreamState<Impl>>>,
         subscription: RefCell<Option<Pollable>>,
         starting_replay_continuation: RefCell<bool>,
@@ -235,8 +265,9 @@ mod durable_impl {
     }
 
     impl<Impl: ExtendedLlmProvider> DurableChatStream<Impl> {
-        fn live(stream: Impl::ChatStream) -> Self {
+        fn live(provider_config: Impl::ProviderConfig, stream: Impl::ChatStream) -> Self {
             Self {
+                provider_config,
                 state: RefCell::new(Some(DurableChatStreamState::Live {
                     stream: Rc::new(stream),
                     #[cfg(not(feature = "nopoll"))]
@@ -247,8 +278,13 @@ mod durable_impl {
             }
         }
 
-        fn replay(original_events: Vec<Result<Event, Error>>, config: Config) -> Self {
+        fn replay(
+            provider_config: Impl::ProviderConfig,
+            original_events: Vec<Result<Event, Error>>,
+            config: Config,
+        ) -> Self {
             Self {
+                provider_config,
                 state: RefCell::new(Some(DurableChatStreamState::Replay {
                     original_events,
                     config,
@@ -447,10 +483,12 @@ mod durable_impl {
                     } => {
                         let _guard = self.begin_replay_continuation()?;
 
+                        let provider_config = self.provider_config.clone();
                         let stream = with_persistence_level_async(
                             PersistenceLevel::PersistNothing,
                             || async move {
                                 <Impl as ExtendedLlmProvider>::unwrapped_stream(
+                                    provider_config,
                                     extended_events,
                                     config,
                                 )

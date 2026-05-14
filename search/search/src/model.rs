@@ -4,7 +4,11 @@ pub type IndexName = String;
 pub type DocumentId = String;
 pub type Json = String;
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SearchError {
     IndexNotFound,
     InvalidQuery(String),
@@ -22,13 +26,21 @@ impl core::fmt::Display for SearchError {
 
 impl std::error::Error for SearchError {}
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Doc {
     pub id: DocumentId,
     pub content: Json,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct HighlightConfig {
     pub fields: Vec<String>,
     pub pre_tag: Option<String>,
@@ -36,7 +48,11 @@ pub struct HighlightConfig {
     pub max_length: Option<u32>,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SearchConfig {
     pub timeout_ms: Option<u32>,
     pub boost_fields: Vec<(String, f32)>,
@@ -47,7 +63,11 @@ pub struct SearchConfig {
     pub provider_params: Option<Json>,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SearchQuery {
     pub q: Option<String>,
     pub filters: Vec<String>,
@@ -60,7 +80,11 @@ pub struct SearchQuery {
     pub config: Option<SearchConfig>,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SearchHit {
     pub id: DocumentId,
     pub score: Option<f64>,
@@ -68,7 +92,11 @@ pub struct SearchHit {
     pub highlights: Option<Json>,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SearchResults {
     pub total: Option<u32>,
     pub page: Option<u32>,
@@ -79,17 +107,11 @@ pub struct SearchResults {
 }
 
 #[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    golem_rust::FromValueAndType,
-    golem_rust::IntoValue,
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
 )]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum FieldType {
     Text,
     Keyword,
@@ -100,7 +122,11 @@ pub enum FieldType {
     GeoPoint,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SchemaField {
     pub name: String,
     pub field_type: FieldType,
@@ -110,13 +136,21 @@ pub struct SchemaField {
     pub index: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Schema {
     pub fields: Vec<SchemaField>,
     pub primary_key: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CreateIndexOptions {
     pub index_name: String,
     pub schema: Option<Schema>,

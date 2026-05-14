@@ -9,7 +9,7 @@ const API_VERSION: &str = "2024-11-06";
 
 /// The Runway API client for image-to-video generation
 pub struct RunwayApi {
-    pub api_key: String,
+    pub api_key: golem_ai_video::config::SecretSource,
     pub client: Client,
 }
 
@@ -106,12 +106,12 @@ pub struct ImageToVideoRequest {
 }
 
 impl RunwayApi {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(config: &crate::config::RunwayConfig) -> Self {
         let client = Client::builder()
             .default_headers(golem_wasi_http::header::HeaderMap::new())
             .build()
             .expect("Failed to initialize HTTP client");
-        Self { api_key, client }
+        Self { api_key: config.api_key.clone(), client }
     }
 
     pub fn generate_video(
@@ -123,7 +123,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/image_to_video"))
-            .header("Authorization", format!("Bearer {}", &self.api_key))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()))
             .header("X-Runway-Version", API_VERSION)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -139,7 +139,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::GET, format!("{BASE_URL}/v1/tasks/{task_id}"))
-            .header("Authorization", format!("Bearer {}", &self.api_key))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()))
             .header("X-Runway-Version", API_VERSION)
             .send()
             .map_err(|err| from_reqwest_error("Poll request failed", err))?;
@@ -196,7 +196,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::DELETE, format!("{BASE_URL}/v1/tasks/{task_id}"))
-            .header("Authorization", format!("Bearer {}", &self.api_key))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()))
             .header("X-Runway-Version", API_VERSION)
             .send()
             .map_err(|err| from_reqwest_error("Cancel request failed", err))?;
@@ -222,7 +222,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/video_upscale"))
-            .header("Authorization", format!("Bearer {}", &self.api_key))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()))
             .header("X-Runway-Version", API_VERSION)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -241,7 +241,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/text_to_image"))
-            .header("Authorization", format!("Bearer {}", &self.api_key))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()))
             .header("X-Runway-Version", API_VERSION)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -257,7 +257,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::GET, format!("{BASE_URL}/v1/tasks/{task_id}"))
-            .header("Authorization", format!("Bearer {}", &self.api_key))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()))
             .header("X-Runway-Version", API_VERSION)
             .send()
             .map_err(|err| from_reqwest_error("Text-to-image poll request failed", err))?;

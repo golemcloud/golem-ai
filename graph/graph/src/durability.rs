@@ -26,9 +26,9 @@ pub trait ProviderGraph: GraphInterface {
     type Transaction: TransactionInterface;
 }
 
-/// When the durability feature flag is off, `DurableGraph<Impl>` is a transparent wrapper that
+/// When the `golem` feature flag is off, `DurableGraph<Impl>` is a transparent wrapper that
 /// forwards every call to the inner provider without any oplog persistence.
-#[cfg(not(feature = "durability"))]
+#[cfg(not(feature = "golem"))]
 mod passthrough_impl {
     use super::*;
     use crate::init_logging;
@@ -69,7 +69,7 @@ mod passthrough_impl {
     }
 }
 
-#[cfg(feature = "durability")]
+#[cfg(feature = "golem")]
 mod durable_impl {
     use super::*;
     use crate::model::connection::GraphStatistics;

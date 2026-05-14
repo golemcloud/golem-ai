@@ -2,9 +2,7 @@ use std::time::Duration;
 
 use golem_ai_stt::durability::{DurableStt, ExtendedSttProvider};
 use golem_ai_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
-use once_cell::sync::OnceCell;
 
-use golem_ai_stt::error::Error as SttError;
 use golem_ai_stt::http::WstdHttpClient;
 use golem_ai_stt::transcription::SttProviderClient;
 use golem_ai_stt::{LanguageProvider, LOGGING_STATE};
@@ -31,31 +29,21 @@ use futures_concurrency::future::Join;
 use golem_ai_stt::model::languages::LanguageInfo;
 use itertools::Itertools;
 
+pub mod config;
 mod transcription;
 
-static API_CLIENT: OnceCell<PreRecordedAudioApi<WstdHttpClient>> = OnceCell::new();
+pub use config::DeepgramConfig;
+#[cfg(feature = "golem")]
+pub use config::DeepgramHostConfig;
 
 pub struct DeepgramStt;
 
 impl DeepgramStt {
-    fn create_or_get_client() -> Result<&'static PreRecordedAudioApi<WstdHttpClient>, SttError> {
-        API_CLIENT.get_or_try_init(|| {
-            let api_key = std::env::var("DEEPGRAM_API_TOKEN").map_err(|err| {
-                SttError::EnvVariablesNotSet(format!("Failed to load DEEPGRAM_API_TOKEN: {err}"))
-            })?;
-
-            let endpoint = std::env::var("DEEPGRAM_ENDPOINT")
-                .ok()
-                .unwrap_or_else(|| "https://api.deepgram.com/v1/listen".to_string());
-
-            let api_client = PreRecordedAudioApi::new(
-                api_key,
-                endpoint,
-                WstdHttpClient::new_with_timeout(Duration::from_secs(60), Duration::from_secs(600)),
-            );
-
-            Ok(api_client)
-        })
+    fn create_client(config: &DeepgramConfig) -> PreRecordedAudioApi<WstdHttpClient> {
+        PreRecordedAudioApi::new(
+            config,
+            WstdHttpClient::new_with_timeout(Duration::from_secs(60), Duration::from_secs(600)),
+        )
     }
 }
 
@@ -76,18 +64,22 @@ impl LanguageProvider for DeepgramStt {
 }
 
 impl SttTranscriptionProvider for DeepgramStt {
+    type ProviderConfig = DeepgramConfig;
+
     async fn transcribe(
+        provider_config: Self::ProviderConfig,
         req: SttTranscriptionRequest,
     ) -> Result<WitTranscriptionResult, WitSttError> {
-        let api_client = Self::create_or_get_client()?;
+        let api_client = Self::create_client(&provider_config);
         let api_response = api_client.transcribe_audio(req.try_into()?).await?;
         Ok(api_response.into())
     }
 
     async fn transcribe_many(
+        provider_config: Self::ProviderConfig,
         wit_requests: Vec<SttTranscriptionRequest>,
     ) -> Result<WitMultiTranscriptionResult, WitSttError> {
-        let api_client = Self::create_or_get_client()?;
+        let api_client = Self::create_client(&provider_config);
 
         let mut successes: Vec<WitTranscriptionResult> = Vec::new();
         let mut failures: Vec<WitFailedTranscription> = Vec::new();

@@ -12,8 +12,8 @@ path = "src/lib.rs"
 
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability", "golem-ai-llm/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-ai-llm/golem"]
 
 [dependencies]
 golem-ai-llm = { workspace = true }
@@ -22,7 +22,7 @@ golem-wasi-http = { workspace = true }
 mime_guess = { workspace = true }
 url = { workspace = true }
 
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 log = { workspace = true }
 serde.workspace = true
 serde_json = { workspace = true }

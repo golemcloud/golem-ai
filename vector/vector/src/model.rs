@@ -5,26 +5,30 @@ pub mod types {
     pub type DenseVector = Vec<f32>;
     pub type Metadata = Vec<(String, MetadataValue)>;
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct SparseVector {
         pub indices: Vec<u32>,
         pub values: Vec<f32>,
         pub total_dimensions: u32,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct BinaryVector {
         pub data: Vec<u8>,
         pub dimensions: u32,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct HalfVector {
         pub data: Vec<f32>,
         pub dimensions: u32,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum VectorData {
         Dense(DenseVector),
         Sparse(SparseVector),
@@ -35,6 +39,7 @@ pub mod types {
     }
 
     #[repr(u8)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
     #[derive(
         Clone,
         Copy,
@@ -43,8 +48,6 @@ pub mod types {
         Ord,
         PartialEq,
         PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
     )]
     pub enum DistanceMetric {
         Cosine,
@@ -100,15 +103,15 @@ pub mod types {
         }
     }
 
-    #[derive(
-        Clone, Copy, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue,
-    )]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct GeoCoordinates {
         pub latitude: f64,
         pub longitude: f64,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum MetadataValue {
         StringVal(String),
         NumberVal(f64),
@@ -123,6 +126,7 @@ pub mod types {
     }
 
     #[repr(u8)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
     #[derive(
         Clone,
         Copy,
@@ -131,8 +135,6 @@ pub mod types {
         Ord,
         PartialEq,
         PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
     )]
     pub enum FilterOperator {
         Eq,
@@ -150,7 +152,8 @@ pub mod types {
         GeoBbox,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct FilterCondition {
         pub field: String,
         pub operator: FilterOperator,
@@ -202,7 +205,8 @@ pub mod types {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum FilterExpression {
         Condition(FilterCondition),
         And(Vec<FilterFunc>),
@@ -210,14 +214,16 @@ pub mod types {
         Not(FilterFunc),
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct VectorRecord {
         pub id: Id,
         pub vector: VectorData,
         pub metadata: Option<Metadata>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct SearchResult {
         pub id: Id,
         pub score: f32,
@@ -226,7 +232,8 @@ pub mod types {
         pub metadata: Option<Metadata>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum VectorError {
         NotFound(String),
         AlreadyExists(String),
@@ -255,13 +262,15 @@ pub mod collections {
     pub type VectorError = super::types::VectorError;
     pub type Metadata = super::types::Metadata;
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct IndexConfig {
         pub index_type: Option<String>,
         pub parameters: Vec<(String, String)>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct CollectionInfo {
         pub name: String,
         pub description: Option<String>,
@@ -283,7 +292,8 @@ pub mod search {
     pub type FilterExpression = super::types::FilterExpression;
     pub type VectorError = super::types::VectorError;
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum SearchQuery {
         Vector(VectorData),
         ById(Id),
@@ -300,13 +310,15 @@ pub mod search_extended {
     pub type MetadataValue = super::types::MetadataValue;
     pub type SearchQuery = super::search::SearchQuery;
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum RecommendationExample {
         VectorId(Id),
         VectorData(VectorData),
     }
 
     #[repr(u8)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
     #[derive(
         Clone,
         Copy,
@@ -315,8 +327,6 @@ pub mod search_extended {
         Ord,
         PartialEq,
         PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
     )]
     pub enum RecommendationStrategy {
         AverageVector,
@@ -324,13 +334,15 @@ pub mod search_extended {
         Centroid,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct ContextPair {
         pub positive: RecommendationExample,
         pub negative: RecommendationExample,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct GroupedSearchResult {
         pub group_value: MetadataValue,
         pub results: Vec<SearchResult>,
@@ -342,7 +354,8 @@ pub mod namespaces {
     pub type VectorError = super::types::VectorError;
     pub type Metadata = super::types::Metadata;
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct NamespaceInfo {
         pub name: String,
         pub collection: String,
@@ -358,15 +371,15 @@ pub mod analytics {
     pub type MetadataValue = super::types::MetadataValue;
     pub type FilterExpression = super::types::FilterExpression;
 
-    #[derive(
-        Clone, Copy, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue,
-    )]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct NamespaceStats {
         pub vector_count: u64,
         pub size_bytes: u64,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct DistanceStats {
         pub min_distance: f32,
         pub max_distance: f32,
@@ -374,7 +387,8 @@ pub mod analytics {
         pub percentiles: Vec<(f32, f32)>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct CollectionStats {
         pub vector_count: u64,
         pub dimension: u32,
@@ -384,7 +398,8 @@ pub mod analytics {
         pub distance_distribution: Option<DistanceStats>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct FieldStats {
         pub field_name: String,
         pub value_count: u64,
@@ -399,7 +414,8 @@ pub mod connection {
     pub type VectorError = super::types::VectorError;
     pub type Metadata = super::types::Metadata;
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct OauthConfig {
         pub client_id: String,
         pub client_secret: Option<String>,
@@ -407,7 +423,8 @@ pub mod connection {
         pub scope: Option<String>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum Credentials {
         ApiKey(String),
         UsernamePassword((String, String)),
@@ -416,7 +433,8 @@ pub mod connection {
         Oauth(OauthConfig),
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct ConnectionStatus {
         pub connected: bool,
         pub provider: Option<String>,
@@ -434,14 +452,16 @@ pub mod vectors {
     pub type FilterExpression = super::types::FilterExpression;
     pub type VectorError = super::types::VectorError;
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct BatchResult {
         pub success_count: u32,
         pub failure_count: u32,
         pub errors: Vec<(u32, VectorError)>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(feature = "golem", derive(golem_rust::FromValueAndType, golem_rust::IntoValue))]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct ListResponse {
         pub vectors: Vec<VectorRecord>,
         pub next_cursor: Option<String>,

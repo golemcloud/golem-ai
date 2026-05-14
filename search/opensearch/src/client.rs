@@ -15,9 +15,9 @@ use std::time::Duration;
 pub struct OpenSearchApi {
     client: Client,
     base_url: String,
-    api_key: Option<String>,
-    username: Option<String>,
-    password: Option<String>,
+    api_key: Option<golem_ai_search::config::SecretSource>,
+    username: Option<golem_ai_search::config::SecretSource>,
+    password: Option<golem_ai_search::config::SecretSource>,
     max_retries: u32,
 }
 
@@ -179,12 +179,7 @@ pub struct ScrollRequest {
 }
 
 impl OpenSearchApi {
-    pub fn new(
-        base_url: String,
-        username: Option<String>,
-        password: Option<String>,
-        api_key: Option<String>,
-    ) -> Self {
+    pub fn new(config: &crate::config::OpenSearchConfig) -> Self {
         let timeout_secs = get_timeout_config();
         let max_retries = get_max_retries_config();
 
@@ -195,10 +190,10 @@ impl OpenSearchApi {
 
         Self {
             client,
-            base_url: base_url.trim_end_matches('/').to_string(),
-            api_key,
-            username,
-            password,
+            base_url: config.base_url.trim_end_matches('/').to_string(),
+            api_key: config.api_key.clone(),
+            username: config.username.clone(),
+            password: config.password.clone(),
             max_retries,
         }
     }
@@ -293,11 +288,13 @@ impl OpenSearchApi {
             .request(method, url)
             .header("Content-Type", "application/json");
 
-        // Add authentication
+        // Add authentication. NOTE: secrets are resolved here immediately
+        // before the outgoing request so that hot-rotated host secrets take
+        // effect on the very next request.
         if let Some(api_key) = &self.api_key {
-            builder = builder.header("Authorization", format!("ApiKey {api_key}"));
+            builder = builder.header("Authorization", format!("ApiKey {}", api_key.get()));
         } else if let (Some(username), Some(password)) = (&self.username, &self.password) {
-            builder = builder.basic_auth(username, Some(password));
+            builder = builder.basic_auth(username.get(), Some(password.get()));
         }
 
         builder
@@ -314,11 +311,13 @@ impl OpenSearchApi {
             .request(method, url)
             .header("Content-Type", content_type);
 
-        // Add authentication
+        // Add authentication. NOTE: secrets are resolved here immediately
+        // before the outgoing request so that hot-rotated host secrets take
+        // effect on the very next request.
         if let Some(api_key) = &self.api_key {
-            builder = builder.header("Authorization", format!("ApiKey {api_key}"));
+            builder = builder.header("Authorization", format!("ApiKey {}", api_key.get()));
         } else if let (Some(username), Some(password)) = (&self.username, &self.password) {
-            builder = builder.basic_auth(username, Some(password));
+            builder = builder.basic_auth(username.get(), Some(password.get()));
         }
 
         builder

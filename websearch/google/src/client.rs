@@ -1,3 +1,4 @@
+use golem_ai_web_search::config::SecretSource;
 use golem_ai_web_search::error::from_reqwest_error;
 use golem_ai_web_search::model::web_search::SearchError;
 use golem_wasi_http::Url;
@@ -8,14 +9,20 @@ use serde::{Deserialize, Serialize};
 const BASE_URL: &str = "https://www.googleapis.com/customsearch/v1";
 
 /// Google Custom Search API client for web search.
+///
+/// The API key is intentionally stored as a [`SecretSource`] (not as a
+/// resolved `String`) so that the secret value is fetched fresh from
+/// its source — which in golem mode is the agent host — right before
+/// each outgoing HTTP request. This is what lets host-side secret
+/// rotation take effect on the very next request.
 pub struct GoogleSearchApi {
     client: Client,
-    pub api_key: String,
-    pub search_engine_id: String,
+    api_key: SecretSource,
+    search_engine_id: String,
 }
 
 impl GoogleSearchApi {
-    pub fn new(api_key: String, search_engine_id: String) -> Self {
+    pub fn new(config: &crate::config::GoogleConfig) -> Self {
         let client = Client::builder()
             .user_agent("Golem-Web-Search/1.0")
             .build()
@@ -23,18 +30,21 @@ impl GoogleSearchApi {
 
         Self {
             client,
-            api_key,
-            search_engine_id,
+            api_key: config.api_key.clone(),
+            search_engine_id: config.search_engine_id.clone(),
         }
     }
 
     pub fn search(&self, request: SearchRequest) -> Result<SearchResponse, SearchError> {
         trace!("Sending request to Google Custom Search API: {request:?}");
 
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.api_key.get();
         let mut url = Url::parse(BASE_URL).expect("Invalid base URL");
         {
             let mut query_pairs = url.query_pairs_mut();
-            query_pairs.append_pair("key", &self.api_key);
+            query_pairs.append_pair("key", &api_key);
             query_pairs.append_pair("cx", &self.search_engine_id);
             query_pairs.append_pair("q", &request.query);
             if let Some(num) = request.max_results {
@@ -78,14 +88,6 @@ impl GoogleSearchApi {
             .map_err(|err| from_reqwest_error("Failed to send request", err))?;
 
         parse_response(response)
-    }
-
-    pub fn api_key(&self) -> &String {
-        &self.api_key
-    }
-
-    pub fn search_engine_id(&self) -> &String {
-        &self.search_engine_id
     }
 }
 

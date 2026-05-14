@@ -13,9 +13,9 @@ use std::fmt::Debug;
 pub struct ElasticsearchApi {
     client: Client,
     base_url: String,
-    api_key: Option<String>,
-    username: Option<String>,
-    password: Option<String>,
+    api_key: Option<golem_ai_search::config::SecretSource>,
+    username: Option<golem_ai_search::config::SecretSource>,
+    password: Option<golem_ai_search::config::SecretSource>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -175,22 +175,17 @@ pub struct ScrollRequest {
 }
 
 impl ElasticsearchApi {
-    pub fn new(
-        base_url: String,
-        username: Option<String>,
-        password: Option<String>,
-        api_key: Option<String>,
-    ) -> Self {
+    pub fn new(config: &crate::config::ElasticsearchConfig) -> Self {
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
 
         Self {
             client,
-            base_url: base_url.trim_end_matches('/').to_string(),
-            api_key,
-            username,
-            password,
+            base_url: config.url.trim_end_matches('/').to_string(),
+            api_key: config.api_key.clone(),
+            username: config.username.clone(),
+            password: config.password.clone(),
         }
     }
 
@@ -200,11 +195,13 @@ impl ElasticsearchApi {
             .request(method, url)
             .header("Content-Type", "application/json");
 
-        // Add authentication
+        // Add authentication. NOTE: secrets are resolved here immediately
+        // before the outgoing request so that hot-rotated host secrets take
+        // effect on the very next request.
         if let Some(api_key) = &self.api_key {
-            builder = builder.header("Authorization", format!("ApiKey {api_key}"));
+            builder = builder.header("Authorization", format!("ApiKey {}", api_key.get()));
         } else if let (Some(username), Some(password)) = (&self.username, &self.password) {
-            builder = builder.basic_auth(username, Some(password));
+            builder = builder.basic_auth(username.get(), Some(password.get()));
         }
 
         builder
@@ -302,11 +299,13 @@ impl ElasticsearchApi {
             .header("Content-Type", "application/x-ndjson")
             .body(operations.to_string());
 
-        // Add authentication
+        // Add authentication. NOTE: secrets are resolved here immediately
+        // before the outgoing request so that hot-rotated host secrets take
+        // effect on the very next request.
         if let Some(api_key) = &self.api_key {
-            builder = builder.header("Authorization", format!("ApiKey {api_key}"));
+            builder = builder.header("Authorization", format!("ApiKey {}", api_key.get()));
         } else if let (Some(username), Some(password)) = (&self.username, &self.password) {
-            builder = builder.basic_auth(username, Some(password));
+            builder = builder.basic_auth(username.get(), Some(password.get()));
         }
 
         let response = builder

@@ -1,4 +1,5 @@
-use golem_ai_vector::config::{get_max_retries_config, get_timeout_config};
+use crate::config::MilvusConfig;
+use golem_ai_vector::config::{get_max_retries_config, get_timeout_config, SecretSource};
 use golem_ai_vector::model::types::VectorError;
 use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
@@ -14,12 +15,12 @@ use std::time::Duration;
 pub struct MilvusClient {
     client: Client,
     base_url: String,
-    token: Option<String>,
+    token: Option<SecretSource>,
     database: String,
 }
 
 impl MilvusClient {
-    pub fn new(uri: String, token: Option<String>, database: Option<String>) -> Self {
+    pub fn new(config: &MilvusConfig) -> Self {
         let timeout_secs = get_timeout_config();
 
         let client = Client::builder()
@@ -27,17 +28,16 @@ impl MilvusClient {
             .build()
             .expect("Failed to initialize HTTP client");
 
-        let base_url = if uri.ends_with('/') {
-            uri.trim_end_matches('/').to_string()
-        } else {
-            uri
-        };
+        let base_url = config.uri.trim_end_matches('/').to_string();
 
         Self {
             client,
             base_url,
-            token,
-            database: database.unwrap_or_else(|| "_default".to_string()),
+            token: config.token.clone(),
+            database: config
+                .database
+                .clone()
+                .unwrap_or_else(|| "_default".to_string()),
         }
     }
 
@@ -57,8 +57,11 @@ impl MilvusClient {
             .header("accept", "application/json")
             .header("content-type", "application/json");
 
-        if let Some(ref token) = self.token {
-            request = request.header("Authorization", format!("Bearer {}", token));
+        if let Some(token) = &self.token {
+            // Resolve the secret right before each outgoing request so
+            // host-side secret rotation takes effect immediately.
+            let token_value = token.get();
+            request = request.header("Authorization", format!("Bearer {}", token_value));
         }
 
         request

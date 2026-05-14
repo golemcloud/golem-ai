@@ -11,6 +11,27 @@ type Provider = golem_ai_embed_hugging_face::DurableHuggingFace;
 #[cfg(feature = "voyageai")]
 type Provider = golem_ai_embed_voyageai::DurableVoyageAI;
 
+#[cfg(feature = "openai")]
+fn provider_config() -> golem_ai_embed_openai::OpenAiEmbedConfig {
+    golem_ai_embed_openai::OpenAiEmbedConfig::from_env()
+        .expect("failed to load OpenAI embed config from env")
+}
+#[cfg(feature = "cohere")]
+fn provider_config() -> golem_ai_embed_cohere::CohereConfig {
+    golem_ai_embed_cohere::CohereConfig::from_env()
+        .expect("failed to load Cohere embed config from env")
+}
+#[cfg(feature = "hugging-face")]
+fn provider_config() -> golem_ai_embed_hugging_face::HuggingFaceConfig {
+    golem_ai_embed_hugging_face::HuggingFaceConfig::from_env()
+        .expect("failed to load Hugging Face embed config from env")
+}
+#[cfg(feature = "voyageai")]
+fn provider_config() -> golem_ai_embed_voyageai::VoyageAiConfig {
+    golem_ai_embed_voyageai::VoyageAiConfig::from_env()
+        .expect("failed to load VoyageAI embed config from env")
+}
+
 const IMAGE_URL: &str =
     "https://images.pexels.com/photos/33147349/pexels-photo-33147349.jpeg";
 
@@ -68,6 +89,7 @@ impl EmbedTest for EmbedTestImpl {
         };
         println!("Sending text for embedding generation...");
         let response: Result<EmbeddingResponse, Error> = Provider::generate(
+            provider_config(),
             vec![ContentPart::Text(
                 "Carson City is the capital city of the American state of Nevada.".to_string(),
             )],
@@ -108,7 +130,7 @@ impl EmbedTest for EmbedTestImpl {
         ];
 
         println!("Sending reranking request...");
-        let response = Provider::rerank(query.to_string(), documents, config);
+        let response = Provider::rerank(provider_config(), query.to_string(), documents, config);
         match response {
             Ok(response) => {
                 format!("Response: {:?}", response)
@@ -140,7 +162,8 @@ impl EmbedTest for EmbedTestImpl {
         })];
 
         println!("Sending image for embedding generation...");
-        let response: Result<EmbeddingResponse, Error> = Provider::generate(data, config);
+        let response: Result<EmbeddingResponse, Error> =
+            Provider::generate(provider_config(), data, config);
 
         match response {
             Ok(response) => {
@@ -199,7 +222,8 @@ impl EmbedTest for EmbedTestImpl {
         };
 
         println!("Sending text + image for embedding generation...");
-        let response: Result<EmbeddingResponse, Error> = Provider::generate(data, config);
+        let response: Result<EmbeddingResponse, Error> =
+            Provider::generate(provider_config(), data, config);
 
         match response {
             Ok(response) => {
@@ -229,6 +253,7 @@ impl EmbedTest for EmbedTestImpl {
         };
         println!("Sending text for embedding generation with default params...");
         let response: Result<EmbeddingResponse, Error> = Provider::generate(
+            provider_config(),
             vec![ContentPart::Text(
                 "Carson City is the capital city of the American state of Nevada.".to_string(),
             )],
@@ -263,6 +288,7 @@ impl EmbedTest for EmbedTestImpl {
         };
         println!("Sending text for embedding generation with provider-specific params...");
         let response: Result<EmbeddingResponse, Error> = Provider::generate(
+            provider_config(),
             vec![
                 ContentPart::Text(
                     "Machine learning is a subset of artificial intelligence.".to_string(),
@@ -308,7 +334,7 @@ impl EmbedTest for EmbedTestImpl {
             "The weather today is sunny and warm.".to_string(),
             "AI and ML are transforming various industries.".to_string(),
         ];
-        let response = Provider::rerank(query.to_string(), documents, config);
+        let response = Provider::rerank(provider_config(), query.to_string(), documents, config);
         match response {
             Ok(response) => {
                 format!("Response: {:?}", response)

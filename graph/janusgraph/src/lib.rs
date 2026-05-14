@@ -6,6 +6,12 @@ mod query_utils;
 mod schema;
 mod transaction;
 
+pub mod config;
+
+pub use config::JanusGraphConfig;
+#[cfg(feature = "golem")]
+pub use config::JanusGraphHostConfig;
+
 use client::JanusGraphApi;
 use golem_ai_graph::config::with_config_key;
 use golem_ai_graph::durability::{DurableGraph, ExtendedGuest};

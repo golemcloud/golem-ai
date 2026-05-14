@@ -5,7 +5,6 @@ use crate::conversions::{
     models_to_language_info, split_text_intelligently, synthesis_options_to_tts_request,
     validate_synthesis_input, voice_design_params_to_create_request, voice_filter_to_list_params,
 };
-use golem_ai_tts::config::with_config_key;
 use golem_ai_tts::durability::{DurableTts, ExtendedTtsProvider};
 use golem_ai_tts::model::advanced::{
     AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
@@ -18,14 +17,19 @@ use golem_ai_tts::model::types::{
     VoiceGender, VoiceQuality, VoiceSettings,
 };
 use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_ai_tts::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_tts::{
     AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
     StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
 };
-use golem_rust::golem_wasm::Pollable;
 use log::{info, trace, warn};
 use std::cell::{Cell, RefCell};
+
+pub mod config;
+pub use config::ElevenLabsConfig;
+#[cfg(feature = "golem")]
+pub use config::ElevenLabsHostConfig;
 
 mod client;
 mod conversions;
@@ -647,24 +651,21 @@ impl LongFormOperationInterface for ElevenLabsLongFormOperation {
 pub struct ElevenLabsTts;
 
 impl ElevenLabsTts {
-    const ENV_VAR_NAME: &'static str = "ELEVENLABS_API_KEY";
-    const MODEL_VERSION_ENV_VAR: &'static str = "ELEVENLABS_MODEL_VERSION";
-
-    fn create_client() -> Result<ElevenLabsTtsApi, TtsError> {
-        with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
-            let model_version = std::env::var(Self::MODEL_VERSION_ENV_VAR)
-                .unwrap_or_else(|_| "eleven_multilingual_v2".to_string());
-            Ok(ElevenLabsTtsApi::new(api_key.to_string(), model_version))
-        })
+    fn create_client(provider_config: &ElevenLabsConfig) -> ElevenLabsTtsApi {
+        ElevenLabsTtsApi::new(provider_config)
     }
 }
 
 impl VoiceProvider for ElevenLabsTts {
     type Voice = ElevenLabsVoiceImpl;
     type VoiceResults = ElevenLabsVoiceResults;
+    type ProviderConfig = ElevenLabsConfig;
 
-    fn list_voices(filter: Option<VoiceFilter>) -> Result<VoiceResults, TtsError> {
-        let client = Self::create_client()?;
+    fn list_voices(
+        provider_config: Self::ProviderConfig,
+        filter: Option<VoiceFilter>,
+    ) -> Result<VoiceResults, TtsError> {
+        let client = Self::create_client(&provider_config);
         let params = voice_filter_to_list_params(filter);
 
         match client.list_voices(params) {
@@ -684,8 +685,11 @@ impl VoiceProvider for ElevenLabsTts {
         }
     }
 
-    fn get_voice(voice_id: String) -> Result<Voice, TtsError> {
-        let client = Self::create_client()?;
+    fn get_voice(
+        provider_config: Self::ProviderConfig,
+        voice_id: String,
+    ) -> Result<Voice, TtsError> {
+        let client = Self::create_client(&provider_config);
 
         match client.get_voice(&voice_id) {
             Ok(voice_data) => {
@@ -696,7 +700,10 @@ impl VoiceProvider for ElevenLabsTts {
         }
     }
 
-    fn search_voices(filter: Option<VoiceFilter>) -> Result<Vec<VoiceInfo>, TtsError> {
+    fn search_voices(
+        provider_config: Self::ProviderConfig,
+        filter: Option<VoiceFilter>,
+    ) -> Result<Vec<VoiceInfo>, TtsError> {
         let search_filter = filter.unwrap_or(VoiceFilter {
             language: None,
             gender: None,
@@ -706,7 +713,7 @@ impl VoiceProvider for ElevenLabsTts {
             search_query: None,
         });
 
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         // ElevenLabs provides native API filtering based on gender, quality, and search query
         let params = voice_filter_to_list_params(Some(search_filter));
 
@@ -723,8 +730,10 @@ impl VoiceProvider for ElevenLabsTts {
         }
     }
 
-    fn list_languages() -> Result<Vec<LanguageInfo>, TtsError> {
-        let client = Self::create_client()?;
+    fn list_languages(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<LanguageInfo>, TtsError> {
+        let client = Self::create_client(&provider_config);
 
         match client.get_models() {
             Ok(models) => Ok(models_to_language_info(models)),
@@ -734,14 +743,17 @@ impl VoiceProvider for ElevenLabsTts {
 }
 
 impl SynthesizeProvider for ElevenLabsTts {
+    type ProviderConfig = ElevenLabsConfig;
+
     fn synthesize(
+        provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisResult, TtsError> {
         validate_synthesis_input(&input, options.as_ref())?;
 
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         let voice_id = voice.get::<ElevenLabsVoiceImpl>().get_id();
 
         let max_chunk_size = get_max_chars_for_model(client.get_model_version().into());
@@ -804,6 +816,7 @@ impl SynthesizeProvider for ElevenLabsTts {
     }
 
     fn synthesize_batch(
+        provider_config: Self::ProviderConfig,
         inputs: Vec<TextInput>,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
@@ -813,7 +826,7 @@ impl SynthesizeProvider for ElevenLabsTts {
         }
 
         let mut results = Vec::new();
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         let voice_id = voice.get::<ElevenLabsVoiceImpl>().get_id();
 
         for input in inputs {
@@ -883,6 +896,7 @@ impl SynthesizeProvider for ElevenLabsTts {
     }
 
     fn get_timing_marks(
+        _provider_config: Self::ProviderConfig,
         _input: TextInput,
         _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, TtsError> {
@@ -892,10 +906,11 @@ impl SynthesizeProvider for ElevenLabsTts {
     }
 
     fn validate_input(
+        provider_config: Self::ProviderConfig,
         input: TextInput,
         _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         let model_version = client.get_model_version();
 
         Ok(crate::conversions::validate_text_input(
@@ -908,12 +923,14 @@ impl SynthesizeProvider for ElevenLabsTts {
 impl StreamingVoiceProvider for ElevenLabsTts {
     type SynthesisStream = ElevenLabsSynthesisStream;
     type VoiceConversionStream = ElevenLabsVoiceConversionStream;
+    type ProviderConfig = ElevenLabsConfig;
 
     fn create_stream(
+        provider_config: Self::ProviderConfig,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         let voice_id = voice.get::<ElevenLabsVoiceImpl>().get_id();
 
         let stream = ElevenLabsSynthesisStream::new(voice_id, client, options);
@@ -921,10 +938,11 @@ impl StreamingVoiceProvider for ElevenLabsTts {
     }
 
     fn create_voice_conversion_stream(
+        provider_config: Self::ProviderConfig,
         target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         let voice_id = target_voice.get::<ElevenLabsVoiceImpl>().get_id();
 
         let stream = ElevenLabsVoiceConversionStream::new(voice_id, client);
@@ -935,13 +953,15 @@ impl StreamingVoiceProvider for ElevenLabsTts {
 impl AdvancedTtsProvider for ElevenLabsTts {
     type PronunciationLexicon = ElevenLabsPronunciationLexicon;
     type LongFormOperation = ElevenLabsLongFormOperation;
+    type ProviderConfig = ElevenLabsConfig;
 
     fn create_voice_clone(
+        provider_config: Self::ProviderConfig,
         name: String,
         audio_samples: Vec<AudioSample>,
         description: Option<String>,
     ) -> Result<Voice, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         let request = create_voice_request_from_samples(name, description, audio_samples);
 
         match client.create_voice(&request) {
@@ -953,8 +973,12 @@ impl AdvancedTtsProvider for ElevenLabsTts {
         }
     }
 
-    fn design_voice(_name: String, characteristics: VoiceDesignParams) -> Result<Voice, TtsError> {
-        let client = Self::create_client()?;
+    fn design_voice(
+        provider_config: Self::ProviderConfig,
+        _name: String,
+        characteristics: VoiceDesignParams,
+    ) -> Result<Voice, TtsError> {
+        let client = Self::create_client(&provider_config);
         let request = voice_design_params_to_create_request(characteristics);
 
         match client.create_voice(&request) {
@@ -967,11 +991,12 @@ impl AdvancedTtsProvider for ElevenLabsTts {
     }
 
     fn convert_voice(
+        provider_config: Self::ProviderConfig,
         input_audio: Vec<u8>,
         target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _preserve_timing: Option<bool>,
     ) -> Result<Vec<u8>, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         let voice_id = target_voice.get::<ElevenLabsVoiceImpl>().get_id();
 
         let request = crate::client::SpeechToSpeechRequest {
@@ -988,11 +1013,12 @@ impl AdvancedTtsProvider for ElevenLabsTts {
     }
 
     fn generate_sound_effect(
+        provider_config: Self::ProviderConfig,
         description: String,
         duration_seconds: Option<f32>,
         style_influence: Option<f32>,
     ) -> Result<Vec<u8>, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
 
         let request = crate::client::SoundEffectRequest {
             text: description,
@@ -1011,6 +1037,7 @@ impl AdvancedTtsProvider for ElevenLabsTts {
     }
 
     fn create_lexicon(
+        _provider_config: Self::ProviderConfig,
         name: String,
         language: LanguageCode,
         entries: Option<Vec<PronunciationEntry>>,
@@ -1020,12 +1047,13 @@ impl AdvancedTtsProvider for ElevenLabsTts {
     }
 
     fn synthesize_long_form(
+        provider_config: Self::ProviderConfig,
         content: String,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         let voice_id = voice.get::<ElevenLabsVoiceImpl>().get_id();
 
         let operation = ElevenLabsLongFormOperation::new(
@@ -1041,35 +1069,33 @@ impl AdvancedTtsProvider for ElevenLabsTts {
 
 impl ExtendedTtsProvider for ElevenLabsTts {
     fn unwrapped_synthesis_stream(
+        provider_config: <Self as VoiceProvider>::ProviderConfig,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream {
-        let client = Self::create_client().unwrap_or_else(|_| {
-            ElevenLabsTtsApi::new("dummy".to_string(), "eleven_multilingual_v2".to_string())
-        });
+        let client = Self::create_client(&provider_config);
         let voice_id = voice.get::<ElevenLabsVoiceImpl>().get_id();
 
         ElevenLabsSynthesisStream::new(voice_id, client, options)
     }
 
     fn unwrapped_voice_conversion_stream(
+        provider_config: <Self as VoiceProvider>::ProviderConfig,
         target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream {
-        let client = Self::create_client().unwrap_or_else(|_| {
-            ElevenLabsTtsApi::new("dummy".to_string(), "eleven_multilingual_v2".to_string())
-        });
+        let client = Self::create_client(&provider_config);
         let voice_id = target_voice.get::<ElevenLabsVoiceImpl>().get_id();
 
         ElevenLabsVoiceConversionStream::new(voice_id, client)
     }
 
     fn subscribe_synthesis_stream(_stream: &Self::SynthesisStream) -> Pollable {
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 
     fn subscribe_voice_conversion_stream(_stream: &Self::VoiceConversionStream) -> Pollable {
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 }
 

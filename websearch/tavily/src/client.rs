@@ -1,3 +1,4 @@
+use golem_ai_web_search::config::SecretSource;
 use golem_ai_web_search::error::from_reqwest_error;
 use golem_ai_web_search::model::web_search::SearchError;
 use golem_wasi_http::Method;
@@ -10,33 +11,41 @@ use std::fmt::Debug;
 const BASE_URL: &str = "https://api.tavily.com/search";
 
 /// The Tavily Search API client for web search with deep document indexing.
+///
+/// The API key is intentionally stored as a [`SecretSource`] (not as a
+/// resolved `String`) so that the secret value is fetched fresh from
+/// its source — which in golem mode is the agent host — right before
+/// each outgoing HTTP request. This is what lets host-side secret
+/// rotation take effect on the very next request.
 pub struct TavilySearchApi {
     client: golem_wasi_http::Client,
-    pub api_key: String,
+    api_key: SecretSource,
 }
 
 impl TavilySearchApi {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(config: &crate::config::TavilyConfig) -> Self {
         let client = golem_wasi_http::Client::new();
-        Self { client, api_key }
+        Self {
+            client,
+            api_key: config.api_key.clone(),
+        }
     }
 
     pub fn search(&self, request: SearchRequest) -> Result<SearchResponse, SearchError> {
         trace!("Sending request to Tavily Search API: {request:?}");
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.api_key.get();
         let response = self
             .client
             .request(Method::POST, BASE_URL)
             .header("Content-Type", "application/json")
-            .bearer_auth(&self.api_key)
+            .bearer_auth(&api_key)
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
         parse_response(response)
-    }
-
-    pub fn api_key(&self) -> &String {
-        &self.api_key
     }
 }
 

@@ -137,16 +137,16 @@ impl std::fmt::Debug for TranscriptionRequest {
 
 #[derive(Debug)]
 pub struct FastTranscriptionApi<HC: HttpClient> {
-    subscription_key: String,
+    subscription_key: golem_ai_stt::config::SecretSource,
     region: String,
     http_client: HC,
 }
 
 impl<HC: HttpClient> FastTranscriptionApi<HC> {
-    pub fn new(subscription_key: String, region: String, http_client: HC) -> Self {
+    pub fn new(config: &crate::config::AzureConfig, http_client: HC) -> Self {
         Self {
-            subscription_key,
-            region,
+            subscription_key: config.subscription_key.clone(),
+            region: config.region.clone(),
             http_client,
         }
     }
@@ -229,7 +229,7 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             .method(Method::POST)
             .uri(&url)
             .header("Content-Type", content_type)
-            .header("Ocp-Apim-Subscription-Key", &self.subscription_key)
+            .header("Ocp-Apim-Subscription-Key", &self.subscription_key.get())
             .body(body)
             .map_err(|e| SttError::Http(request_id.clone(), HttpError::from(e)))?;
 
@@ -451,11 +451,7 @@ mod tests {
     #[wstd::test]
     async fn test_subscription_key_gets_passed_as_header() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let success_response = r#"
         {
@@ -527,11 +523,7 @@ mod tests {
     #[wstd::test]
     async fn test_diarization_config_is_passed_correctly() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let success_response = r#"
             {
@@ -632,11 +624,7 @@ mod tests {
     #[wstd::test]
     async fn test_channels_config_is_passed_correctly() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let multichannel_response = r#"
            {
@@ -777,11 +765,7 @@ mod tests {
     #[wstd::test]
     async fn test_profanity_filter_mode_is_passed_correctly() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let success_response = r#"
            {
@@ -876,11 +860,7 @@ mod tests {
     #[wstd::test]
     async fn test_audio_bytes_are_handled_correctly() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let success_response = r#"
             {
@@ -987,11 +967,7 @@ mod tests {
     #[wstd::test]
     async fn test_transcribe_audio_success() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let success_response = r#"
         {
@@ -1354,11 +1330,7 @@ mod tests {
     #[wstd::test]
     async fn test_transcribe_audio_error_bad_request() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let error_body = r#"
            {
@@ -1409,11 +1381,7 @@ mod tests {
     #[wstd::test]
     async fn test_transcribe_audio_error_unauthorized() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let error_body = r#"
         {
@@ -1464,11 +1432,7 @@ mod tests {
     #[wstd::test]
     async fn test_transcribe_audio_error_forbidden() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let error_body = r#"
         {
@@ -1519,11 +1483,7 @@ mod tests {
     #[wstd::test]
     async fn test_transcribe_audio_error_not_found() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let error_body = r#"
         {
@@ -1574,11 +1534,7 @@ mod tests {
     #[wstd::test]
     async fn test_transcribe_audio_error_unprocessable_entity() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let error_body = r#"
         {
@@ -1629,11 +1585,7 @@ mod tests {
     #[wstd::test]
     async fn test_transcribe_audio_error_rate_limit() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let error_body = r#"
         {
@@ -1684,11 +1636,7 @@ mod tests {
     #[wstd::test]
     async fn test_transcribe_audio_error_internal_server_error() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let error_body = r#"
         {
@@ -1739,11 +1687,7 @@ mod tests {
     #[wstd::test]
     async fn test_transcribe_audio_error_unknown_status() {
         let mock_client = MockHttpClient::new();
-        let api = FastTranscriptionApi::new(
-            TEST_SUBSCRIPTION_KEY.to_string(),
-            TEST_REGION.to_string(),
-            mock_client,
-        );
+        let api = FastTranscriptionApi::new(&crate::config::AzureConfig { subscription_key: golem_ai_stt::config::SecretSource::from_plain(TEST_SUBSCRIPTION_KEY), region: TEST_REGION.to_string() }, mock_client);
 
         let error_body = "I'm a teapot";
 

@@ -1,4 +1,5 @@
 mod client;
+pub mod config;
 mod conversions;
 
 use std::cell::RefCell;
@@ -12,9 +13,13 @@ use golem_ai_web_search::model::web_search::{
 };
 use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
 
+pub use config::SerperConfig;
+#[cfg(feature = "golem")]
+pub use config::SerperHostConfig;
+
+#[cfg(feature = "golem")]
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
 pub struct SerperReplayState {
-    pub api_key: String,
     pub current_page: u32,
     pub metadata: Option<SearchMetadata>,
     pub finished: bool,
@@ -93,25 +98,13 @@ impl SearchSessionInterface for SerperSearchSession {
 pub struct SerperSearch;
 
 impl SerperSearch {
-    const API_KEY_VAR: &'static str = "SERPER_API_KEY";
-
-    fn get_api_key() -> Result<String, SearchError> {
-        std::env::var(Self::API_KEY_VAR).map_err(|_| {
-            SearchError::BackendError("SERPER_API_KEY environment variable not set".to_string())
-        })
-    }
-
-    fn create_client() -> Result<SerperSearchApi, SearchError> {
-        let api_key = Self::get_api_key()?;
-        Ok(SerperSearchApi::new(api_key))
-    }
-
     fn execute_search(
+        provider_config: &SerperConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, SearchMetadata), SearchError> {
         validate_search_params(&params)?;
 
-        let client = Self::create_client()?;
+        let client = SerperSearchApi::new(provider_config);
         let request = params_to_request(params.clone(), 1)?;
 
         let response = client.search(request)?;
@@ -120,10 +113,13 @@ impl SerperSearch {
         Ok((results, metadata))
     }
 
-    fn start_search_session(params: SearchParams) -> Result<SerperSearchSession, SearchError> {
+    fn start_search_session(
+        provider_config: &SerperConfig,
+        params: SearchParams,
+    ) -> Result<SerperSearchSession, SearchError> {
         validate_search_params(&params)?;
 
-        let client = Self::create_client()?;
+        let client = SerperSearchApi::new(provider_config);
         let search = SerperSearchSessionImpl::new(client, params);
         Ok(SerperSearchSession::new(search))
     }
@@ -131,27 +127,36 @@ impl SerperSearch {
 
 impl WebSearchProvider for SerperSearch {
     type SearchSession = SerperSearchSession;
+    type ProviderConfig = SerperConfig;
 
-    fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
-        match Self::start_search_session(params) {
+    fn start_search(
+        provider_config: Self::ProviderConfig,
+        params: SearchParams,
+    ) -> Result<SearchSession, SearchError> {
+        match Self::start_search_session(&provider_config, params) {
             Ok(session) => Ok(SearchSession::new(session)),
             Err(err) => Err(err),
         }
     }
 
     fn search_once(
+        provider_config: Self::ProviderConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        let (results, metadata) = Self::execute_search(params)?;
+        let (results, metadata) = Self::execute_search(&provider_config, params)?;
         Ok((results, Some(metadata)))
     }
 }
 
+#[cfg(feature = "golem")]
 impl ExtendedWebSearchProvider for SerperSearch {
     type ReplayState = SerperReplayState;
 
-    fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
-        let client = Self::create_client()?;
+    fn unwrapped_search_session(
+        provider_config: Self::ProviderConfig,
+        params: SearchParams,
+    ) -> Result<Self::SearchSession, SearchError> {
+        let client = SerperSearchApi::new(&provider_config);
         let search = SerperSearchSessionImpl::new(client, params);
         Ok(SerperSearchSession::new(search))
     }
@@ -159,7 +164,6 @@ impl ExtendedWebSearchProvider for SerperSearch {
     fn session_to_state(session: &Self::SearchSession) -> Self::ReplayState {
         let search = session.0.borrow_mut();
         SerperReplayState {
-            api_key: search.client.api_key().to_string(),
             current_page: search.current_page,
             metadata: search.metadata.clone(),
             finished: search.finished,
@@ -167,10 +171,11 @@ impl ExtendedWebSearchProvider for SerperSearch {
     }
 
     fn session_from_state(
+        provider_config: Self::ProviderConfig,
         state: &Self::ReplayState,
         params: SearchParams,
     ) -> Result<Self::SearchSession, SearchError> {
-        let client = SerperSearchApi::new(state.api_key.clone());
+        let client = SerperSearchApi::new(&provider_config);
         let mut search = SerperSearchSessionImpl::new(client, params);
         search.current_page = state.current_page;
         search.metadata = state.metadata.clone();
@@ -178,5 +183,8 @@ impl ExtendedWebSearchProvider for SerperSearch {
         Ok(SerperSearchSession::new(search))
     }
 }
+
+#[cfg(not(feature = "golem"))]
+impl ExtendedWebSearchProvider for SerperSearch {}
 
 pub type DurableSerperSearch = DurableWebSearch<SerperSearch>;

@@ -1,11 +1,19 @@
 pub mod types {
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct ImageResult {
         pub url: String,
         pub description: Option<String>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct SearchResult {
         pub title: String,
         pub url: String,
@@ -20,33 +28,33 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        Eq,
-        Ord,
-        PartialEq,
-        PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum SafeSearchLevel {
         Off,
         Medium,
         High,
     }
 
-    #[derive(
-        Clone, Copy, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct RateLimitInfo {
         pub limit: u32,
         pub remaining: u32,
         pub reset_timestamp: u64,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct SearchMetadata {
         pub query: String,
         pub total_results: Option<u64>,
@@ -60,17 +68,11 @@ pub mod types {
     }
 
     #[repr(u8)]
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        Eq,
-        Ord,
-        PartialEq,
-        PartialOrd,
-        golem_rust::FromValueAndType,
-        golem_rust::IntoValue,
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
     )]
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum TimeRange {
         Day,
         Week,
@@ -78,7 +80,11 @@ pub mod types {
         Year,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct SearchParams {
         pub query: String,
         pub safe_search: Option<SafeSearchLevel>,
@@ -93,7 +99,11 @@ pub mod types {
         pub advanced_answer: Option<bool>,
     }
 
-    #[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+    #[cfg_attr(
+        feature = "golem",
+        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    )]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum SearchError {
         InvalidQuery,
         RateLimited(u32),

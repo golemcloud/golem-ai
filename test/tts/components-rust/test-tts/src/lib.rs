@@ -25,6 +25,25 @@ type Provider = golem_ai_tts_google::DurableGoogleTts;
 type Provider = golem_ai_tts_aws::DurableAwsPolly;
 
 #[cfg(feature = "elevenlabs")]
+fn provider_config() -> golem_ai_tts_elevenlabs::ElevenLabsConfig {
+    golem_ai_tts_elevenlabs::ElevenLabsConfig::from_env()
+        .expect("failed to load ElevenLabs config from env")
+}
+#[cfg(feature = "deepgram")]
+fn provider_config() -> golem_ai_tts_deepgram::DeepgramConfig {
+    golem_ai_tts_deepgram::DeepgramConfig::from_env()
+        .expect("failed to load Deepgram config from env")
+}
+#[cfg(feature = "google")]
+fn provider_config() -> golem_ai_tts_google::GoogleConfig {
+    golem_ai_tts_google::GoogleConfig::from_env().expect("failed to load Google config from env")
+}
+#[cfg(feature = "aws")]
+fn provider_config() -> golem_ai_tts_aws::AwsConfig {
+    golem_ai_tts_aws::AwsConfig::from_env().expect("failed to load AWS config from env")
+}
+
+#[cfg(feature = "elevenlabs")]
 const TEST_PROVIDER: &str = "ELEVENLABS";
 #[cfg(feature = "deepgram")]
 const TEST_PROVIDER: &str = "DEEPGRAM";
@@ -92,13 +111,13 @@ struct TtsTestImpl {
 }
 
 fn get_test_voice() -> Result<Voice, String> {
-    match Provider::list_voices(None) {
+    match Provider::list_voices(provider_config(), None) {
         Ok(voice_results) => {
             if voice_results.has_more() {
                 match voice_results.get_next() {
                     Ok(voices) => {
                         if let Some(voice_info) = voices.first() {
-                            match Provider::get_voice(voice_info.id.clone()) {
+                            match Provider::get_voice(provider_config(), voice_info.id.clone()) {
                                 Ok(voice) => Ok(voice),
                                 Err(e) => Err(format!(
                                     "Failed to get voice {}: {:?}",
@@ -147,7 +166,7 @@ impl TtsTest for TtsTestImpl {
         let mut results = Vec::new();
 
         println!("Listing all available voices...");
-        match Provider::list_voices(None) {
+        match Provider::list_voices(provider_config(), None) {
             Ok(voice_results) => {
                 results.push("✓ Voice listing successful".to_string());
 
@@ -191,7 +210,7 @@ impl TtsTest for TtsTestImpl {
             search_query: None,
         };
 
-        match Provider::list_voices(Some(filter)) {
+        match Provider::list_voices(provider_config(), Some(filter)) {
             Ok(filtered_results) => {
                 results.push("✓ Voice filtering successful".to_string());
                 if let Some(total) = filtered_results.get_total_count() {
@@ -202,7 +221,7 @@ impl TtsTest for TtsTestImpl {
         }
 
         println!("Testing language discovery...");
-        match Provider::list_languages() {
+        match Provider::list_languages(provider_config(), ) {
             Ok(languages) => {
                 results.push(format!("✓ Found {} supported languages", languages.len()));
                 for lang in languages.iter().take(5) {
@@ -224,7 +243,7 @@ impl TtsTest for TtsTestImpl {
             provider: None,
             search_query: Some("natural".to_string()),
         };
-        match Provider::search_voices(Some(search_filter)) {
+        match Provider::search_voices(provider_config(), Some(search_filter)) {
             Ok(search_results) => {
                 results.push(format!(
                     "✓ Voice search found {} results",
@@ -254,7 +273,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(text_input.clone(), voice_borrow, None) {
+        match Provider::synthesize(provider_config(), text_input.clone(), voice_borrow, None) {
             Ok(result) => {
                 results.push("✓ Basic synthesis successful".to_string());
                 save_audio_result(&result.audio_data, "test2-basic", "mp3");
@@ -282,7 +301,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(text_input, voice_borrow, Some(options)) {
+        match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(options)) {
             Ok(result) => {
                 results.push("✓ Synthesis with audio config successful".to_string());
                 save_audio_result(&result.audio_data, "test2-config", "wav");
@@ -321,7 +340,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(text_input, voice_borrow, Some(voice_options)) {
+        match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(voice_options)) {
             Ok(result) => {
                 results.push("✓ Synthesis with voice settings successful".to_string());
                 save_audio_result(&result.audio_data, "test2-voice-settings", "mp3");
@@ -349,7 +368,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(ssml_input.clone(), voice_borrow, None) {
+        match Provider::synthesize(provider_config(), ssml_input.clone(), voice_borrow, None) {
             Ok(result) => {
                 results.push("✓ SSML synthesis successful".to_string());
                 results.push(format!(
@@ -363,7 +382,7 @@ impl TtsTest for TtsTestImpl {
 
         println!("Testing input validation...");
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::validate_input(ssml_input.clone(), voice_borrow) {
+        match Provider::validate_input(provider_config(), ssml_input.clone(), voice_borrow) {
             Ok(validation) => {
                 results.push(format!(
                     "✓ Input validation: valid={}",
@@ -382,7 +401,7 @@ impl TtsTest for TtsTestImpl {
 
         println!("Testing timing marks extraction...");
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::get_timing_marks(ssml_input, voice_borrow) {
+        match Provider::get_timing_marks(provider_config(), ssml_input, voice_borrow) {
             Ok(timing_marks) => {
                 results.push(format!("✓ Retrieved {} timing marks", timing_marks.len()));
                 for (i, mark) in timing_marks.iter().take(3).enumerate() {
@@ -412,7 +431,7 @@ impl TtsTest for TtsTestImpl {
         ];
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize_batch(batch_inputs, voice_borrow, None) {
+        match Provider::synthesize_batch(provider_config(), batch_inputs, voice_borrow, None) {
             Ok(batch_results) => {
                 results.push(format!(
                     "✓ Batch synthesis completed: {} items",
@@ -455,7 +474,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::create_stream(voice_borrow, Some(stream_options)) {
+        match Provider::create_stream(provider_config(), voice_borrow, Some(stream_options)) {
             Ok(stream) => {
                 results.push("✓ Streaming session created".to_string());
 
@@ -549,7 +568,7 @@ impl TtsTest for TtsTestImpl {
             quality_rating: Some(8),
         }];
 
-        match Provider::create_voice_clone(
+        match Provider::create_voice_clone(provider_config(), 
             "test-clone-voice".to_string(),
             audio_samples,
             Some("A test cloned voice".to_string()),
@@ -564,7 +583,7 @@ impl TtsTest for TtsTestImpl {
                 };
 
                 let voice_borrow = VoiceBorrow::new(&*cloned_voice);
-                match Provider::synthesize(text_input, voice_borrow, None) {
+                match Provider::synthesize(provider_config(), text_input, voice_borrow, None) {
                     Ok(result) => {
                         results.push("✓ Synthesis with cloned voice successful".to_string());
                         save_audio_result(&result.audio_data, "test5-cloned", "mp3");
@@ -594,7 +613,7 @@ impl TtsTest for TtsTestImpl {
             reference_voice: None,
         };
 
-        match Provider::design_voice("test-designed-voice".to_string(), design_params) {
+        match Provider::design_voice(provider_config(), "test-designed-voice".to_string(), design_params) {
             Ok(designed_voice) => {
                 results.push("✓ Voice design successful".to_string());
                 results.push(format!(
@@ -609,7 +628,7 @@ impl TtsTest for TtsTestImpl {
                 };
 
                 let voice_borrow = VoiceBorrow::new(&*designed_voice);
-                match Provider::synthesize(text_input, voice_borrow, None) {
+                match Provider::synthesize(provider_config(), text_input, voice_borrow, None) {
                     Ok(result) => {
                         results.push("✓ Synthesis with designed voice successful".to_string());
                         save_audio_result(&result.audio_data, "test5-designed", "mp3");
@@ -676,7 +695,7 @@ impl TtsTest for TtsTestImpl {
             };
 
             let voice_borrow = VoiceBorrow::new(&*voice);
-            match Provider::synthesize(text_input, voice_borrow, Some(options)) {
+            match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(options)) {
                 Ok(result) => {
                     results.push(format!(
                         "✓ {} format synthesis successful",
@@ -729,7 +748,7 @@ impl TtsTest for TtsTestImpl {
             };
 
             let voice_borrow = VoiceBorrow::new(&*voice);
-            match Provider::synthesize(text_input, voice_borrow, Some(options)) {
+            match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(options)) {
                 Ok(result) => {
                     results.push(format!("✓ {}Hz sample rate successful", rate));
                     save_audio_result(
@@ -765,7 +784,7 @@ impl TtsTest for TtsTestImpl {
 
         results.push(TEST_PROVIDER.to_string());
 
-        match Provider::create_lexicon(
+        match Provider::create_lexicon(provider_config(), 
             "testlexicon".to_string(),
             "en-US".to_string(),
             Some(pronunciation_entries),
@@ -801,7 +820,7 @@ impl TtsTest for TtsTestImpl {
         }
 
         println!("Testing sound effect generation...");
-        match Provider::generate_sound_effect(
+        match Provider::generate_sound_effect(provider_config(), 
             "Ocean waves gently lapping against the shore".to_string(),
             Some(5.0),
             Some(0.7),
@@ -825,7 +844,7 @@ impl TtsTest for TtsTestImpl {
         let mut results = Vec::new();
 
         println!("Testing authentication scenarios...");
-        match Provider::list_voices(None) {
+        match Provider::list_voices(provider_config(), None) {
             Ok(_) => results.push("✓ Authentication successful".to_string()),
             Err(TtsError::Unauthorized(msg)) => {
                 results.push(format!("✗ Unauthorized access: {}", msg));
@@ -850,7 +869,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(text_input, voice_borrow, None) {
+        match Provider::synthesize(provider_config(), text_input, voice_borrow, None) {
             Ok(result) => {
                 results.push("✓ Large text synthesis successful".to_string());
                 results.push(format!(
@@ -898,7 +917,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(empty_input, voice_borrow, None) {
+        match Provider::synthesize(provider_config(), empty_input, voice_borrow, None) {
             Ok(_) => results.push("✓ Empty text handled gracefully".to_string()),
             Err(TtsError::InvalidText(msg)) => {
                 results.push(format!("✓ Empty text properly rejected: {}", msg));
@@ -914,7 +933,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(bad_ssml, voice_borrow, None) {
+        match Provider::synthesize(provider_config(), bad_ssml, voice_borrow, None) {
             Ok(_) => results.push("⚠ Malformed SSML was accepted".to_string()),
             Err(TtsError::InvalidSsml(msg)) => {
                 results.push(format!("✓ Malformed SSML properly rejected: {}", msg));
@@ -930,7 +949,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(unsupported_lang, voice_borrow, None) {
+        match Provider::synthesize(provider_config(), unsupported_lang, voice_borrow, None) {
             Ok(_) => results.push("⚠ Unsupported language was accepted".to_string()),
             Err(TtsError::UnsupportedLanguage(msg)) => {
                 results.push(format!("✓ Unsupported language properly rejected: {}", msg));
@@ -966,7 +985,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(test_input, voice_borrow, Some(options)) {
+        match Provider::synthesize(provider_config(), test_input, voice_borrow, Some(options)) {
             Ok(_) => {
                 results.push(
                     "⚠ Invalid voice settings were accepted (may be clamped)".to_string(),
@@ -979,7 +998,7 @@ impl TtsTest for TtsTestImpl {
         }
 
         println!("Testing non-existent voice handling...");
-        match Provider::get_voice("non-existent-voice-id-12345".to_string()) {
+        match Provider::get_voice(provider_config(), "non-existent-voice-id-12345".to_string()) {
             Ok(_) => results.push("⚠ Non-existent voice was found".to_string()),
             Err(TtsError::VoiceNotFound(msg)) => {
                 results.push(format!("✓ Non-existent voice properly rejected: {}", msg));
@@ -1010,7 +1029,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(text_input, voice_borrow, None) {
+        match Provider::synthesize(provider_config(), text_input, voice_borrow, None) {
             Ok(result) => {
                 results.push("✓ Long-form synthesis successful".to_string());
                 results.push(format!(
@@ -1036,7 +1055,7 @@ impl TtsTest for TtsTestImpl {
         let chapter_breaks = Some(vec![1000, 2000, 3000, 4000]);
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize_long_form(
+        match Provider::synthesize_long_form(provider_config(), 
             long_content,
             voice_borrow,
             "/output/test10-long-form.mp3".to_string(),
@@ -1140,7 +1159,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::create_stream(voice_borrow, Some(stream_options)) {
+        match Provider::create_stream(provider_config(), voice_borrow, Some(stream_options)) {
             Ok(stream) => {
                 results.push("✓ Streaming session created for durability test".to_string());
 
@@ -1282,7 +1301,7 @@ impl TtsTest for TtsTestImpl {
         println!("Testing voice-to-voice conversion...");
         let input_audio = create_dummy_audio_data();
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::convert_voice(input_audio, voice_borrow, Some(true)) {
+        match Provider::convert_voice(provider_config(), input_audio, voice_borrow, Some(true)) {
             Ok(converted_audio) => {
                 results.push("✓ Voice conversion successful".to_string());
                 results.push(format!(
@@ -1299,7 +1318,7 @@ impl TtsTest for TtsTestImpl {
 
         println!("Testing voice conversion streaming...");
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::create_voice_conversion_stream(voice_borrow, None) {
+        match Provider::create_voice_conversion_stream(provider_config(), voice_borrow, None) {
             Ok(conversion_stream) => {
                 results.push("✓ Voice conversion stream created".to_string());
 
@@ -1404,7 +1423,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(comprehensive_text, voice_borrow, Some(comprehensive_options)) {
+        match Provider::synthesize(provider_config(), comprehensive_text, voice_borrow, Some(comprehensive_options)) {
             Ok(result) => {
                 results.push("✓ Comprehensive synthesis successful".to_string());
                 results.push(format!(

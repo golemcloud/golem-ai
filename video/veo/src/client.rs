@@ -12,26 +12,29 @@ const SCOPE: &str = "https://www.googleapis.com/auth/cloud-platform";
 pub struct VeoApi {
     project_id: String,
     client_email: String,
-    private_key: String,
+    private_key: golem_ai_video::config::SecretSource,
     client: Client,
 }
 
 impl VeoApi {
-    pub fn new(project_id: String, client_email: String, private_key: String) -> Self {
+    pub fn new(config: &crate::config::VeoConfig) -> Self {
         let client = Client::builder()
             .default_headers(golem_wasi_http::header::HeaderMap::new())
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
-            project_id,
-            client_email,
-            private_key,
+            project_id: config.project_id.clone(),
+            client_email: config.client_email.clone(),
+            private_key: config.private_key.clone(),
             client,
         }
     }
 
     fn get_auth_header(&self) -> Result<String, VideoError> {
-        let token = generate_access_token(&self.client_email, &self.private_key, SCOPE)?;
+        // Resolve the private key right before signing so that
+        // hot-rotated host secrets take effect on the next request.
+        let private_key = self.private_key.get();
+        let token = generate_access_token(&self.client_email, &private_key, SCOPE)?;
         Ok(format!("Bearer {token}"))
     }
 

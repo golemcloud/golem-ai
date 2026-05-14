@@ -8,9 +8,17 @@ use std::cell::RefCell;
 use std::str::FromStr;
 
 pub trait EmbeddingProvider {
-    fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error>;
+    /// Provider-specific configuration that the caller resolves and passes in.
+    type ProviderConfig: Clone + 'static;
+
+    fn generate(
+        provider_config: Self::ProviderConfig,
+        inputs: Vec<ContentPart>,
+        config: Config,
+    ) -> Result<EmbeddingResponse, Error>;
 
     fn rerank(
+        provider_config: Self::ProviderConfig,
         query: String,
         documents: Vec<String>,
         config: Config,

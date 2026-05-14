@@ -5,7 +5,6 @@ use crate::conversions::{
     synthesis_options_to_polly_params, validate_polly_input, validate_synthesis_input,
     voice_filter_to_describe_params,
 };
-use golem_ai_tts::config::with_config_key;
 use golem_ai_tts::durability::{DurableTts, ExtendedTtsProvider};
 use golem_ai_tts::model::advanced::{
     AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
@@ -18,14 +17,19 @@ use golem_ai_tts::model::types::{
     TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
 use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_ai_tts::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_tts::{
     AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
     StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
 };
-use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Cell, RefCell};
+
+pub mod config;
+pub use config::AwsConfig;
+#[cfg(feature = "golem")]
+pub use config::AwsHostConfig;
 
 mod client;
 mod conversions;
@@ -671,35 +675,21 @@ impl LongFormOperationInterface for PollyLongFormOperation {
 pub struct AwsPolly;
 
 impl AwsPolly {
-    const ACCESS_KEY_ENV_VAR: &'static str = "AWS_ACCESS_KEY_ID";
-    const SECRET_KEY_ENV_VAR: &'static str = "AWS_SECRET_ACCESS_KEY";
-    const REGION_ENV_VAR: &'static str = "AWS_REGION";
-    const SESSION_TOKEN_ENV_VAR: &'static str = "AWS_SESSION_TOKEN";
-
-    fn create_client() -> Result<AwsPollyTtsApi, TtsError> {
-        with_config_key(Self::ACCESS_KEY_ENV_VAR, Err, |access_key_id| {
-            with_config_key(Self::SECRET_KEY_ENV_VAR, Err, |secret_access_key| {
-                let region =
-                    std::env::var(Self::REGION_ENV_VAR).unwrap_or_else(|_| "us-east-1".to_string());
-                let session_token = std::env::var(Self::SESSION_TOKEN_ENV_VAR).ok();
-
-                AwsPollyTtsApi::new(
-                    access_key_id.to_string(),
-                    secret_access_key.to_string(),
-                    region,
-                    session_token,
-                )
-            })
-        })
+    fn create_client(provider_config: &AwsConfig) -> Result<AwsPollyTtsApi, TtsError> {
+        AwsPollyTtsApi::new(provider_config)
     }
 }
 
 impl VoiceProvider for AwsPolly {
     type Voice = PollyVoiceImpl;
     type VoiceResults = PollyVoiceResults;
+    type ProviderConfig = AwsConfig;
 
-    fn list_voices(filter: Option<VoiceFilter>) -> Result<VoiceResults, TtsError> {
-        let client = Self::create_client()?;
+    fn list_voices(
+        provider_config: Self::ProviderConfig,
+        filter: Option<VoiceFilter>,
+    ) -> Result<VoiceResults, TtsError> {
+        let client = Self::create_client(&provider_config)?;
         let params = voice_filter_to_describe_params(filter.clone());
 
         let response = client.describe_voices(params)?;
@@ -729,8 +719,11 @@ impl VoiceProvider for AwsPolly {
         )))
     }
 
-    fn get_voice(voice_id: String) -> Result<Voice, TtsError> {
-        let client = Self::create_client()?;
+    fn get_voice(
+        provider_config: Self::ProviderConfig,
+        voice_id: String,
+    ) -> Result<Voice, TtsError> {
+        let client = Self::create_client(&provider_config)?;
         let response = client.describe_voices(None)?;
 
         let voice_data = response
@@ -742,8 +735,11 @@ impl VoiceProvider for AwsPolly {
         Ok(Voice::new(PollyVoiceImpl::new(voice_data, client)))
     }
 
-    fn search_voices(filter: Option<VoiceFilter>) -> Result<Vec<VoiceInfo>, TtsError> {
-        let client = Self::create_client()?;
+    fn search_voices(
+        provider_config: Self::ProviderConfig,
+        filter: Option<VoiceFilter>,
+    ) -> Result<Vec<VoiceInfo>, TtsError> {
+        let client = Self::create_client(&provider_config)?;
         let params = voice_filter_to_describe_params(filter.clone());
 
         let response = client.describe_voices(params)?;
@@ -768,20 +764,25 @@ impl VoiceProvider for AwsPolly {
         Ok(voice_infos)
     }
 
-    fn list_languages() -> Result<Vec<LanguageInfo>, TtsError> {
+    fn list_languages(
+        _provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<LanguageInfo>, TtsError> {
         Ok(get_polly_language_info())
     }
 }
 
 impl SynthesizeProvider for AwsPolly {
+    type ProviderConfig = AwsConfig;
+
     fn synthesize(
+        provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisResult, TtsError> {
         validate_synthesis_input(&input, options.as_ref())?;
 
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config)?;
         let voice_id = voice.get::<PollyVoiceImpl>().get_id();
 
         if input.content.len() > 3000 {
@@ -844,11 +845,12 @@ impl SynthesizeProvider for AwsPolly {
     }
 
     fn synthesize_batch(
+        provider_config: Self::ProviderConfig,
         inputs: Vec<TextInput>,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config)?;
         let voice_id = voice.get::<PollyVoiceImpl>().get_id();
         let mut results = Vec::new();
 
@@ -921,10 +923,11 @@ impl SynthesizeProvider for AwsPolly {
     }
 
     fn get_timing_marks(
+        provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config)?;
         let voice_id = voice.get::<PollyVoiceImpl>().get_id();
 
         trace!(
@@ -992,6 +995,7 @@ impl SynthesizeProvider for AwsPolly {
     }
 
     fn validate_input(
+        _provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, TtsError> {
@@ -1003,12 +1007,14 @@ impl SynthesizeProvider for AwsPolly {
 impl StreamingVoiceProvider for AwsPolly {
     type SynthesisStream = PollySynthesisStream;
     type VoiceConversionStream = PollyVoiceConversionStream;
+    type ProviderConfig = AwsConfig;
 
     fn create_stream(
+        provider_config: Self::ProviderConfig,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config)?;
         let voice_id = voice.get::<PollyVoiceImpl>().get_id();
 
         Ok(SynthesisStream::new(PollySynthesisStream::new(
@@ -1017,10 +1023,11 @@ impl StreamingVoiceProvider for AwsPolly {
     }
 
     fn create_voice_conversion_stream(
+        provider_config: Self::ProviderConfig,
         target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config)?;
         let voice_id = target_voice.get::<PollyVoiceImpl>().get_id();
 
         Ok(VoiceConversionStream::new(PollyVoiceConversionStream::new(
@@ -1032,8 +1039,10 @@ impl StreamingVoiceProvider for AwsPolly {
 impl AdvancedTtsProvider for AwsPolly {
     type PronunciationLexicon = PollyPronunciationLexicon;
     type LongFormOperation = PollyLongFormOperation;
+    type ProviderConfig = AwsConfig;
 
     fn create_voice_clone(
+        _provider_config: Self::ProviderConfig,
         _name: String,
         _audio_samples: Vec<AudioSample>,
         _description: Option<String>,
@@ -1044,6 +1053,7 @@ impl AdvancedTtsProvider for AwsPolly {
     }
 
     fn design_voice(
+        _provider_config: Self::ProviderConfig,
         _name: String,
         _characteristics: VoiceDesignParams,
     ) -> Result<golem_ai_tts::model::voices::Voice, TtsError> {
@@ -1053,6 +1063,7 @@ impl AdvancedTtsProvider for AwsPolly {
     }
 
     fn convert_voice(
+        _provider_config: Self::ProviderConfig,
         _input_audio: Vec<u8>,
         _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _preserve_timing: Option<bool>,
@@ -1063,6 +1074,7 @@ impl AdvancedTtsProvider for AwsPolly {
     }
 
     fn generate_sound_effect(
+        _provider_config: Self::ProviderConfig,
         _description: String,
         _duration_seconds: Option<f32>,
         _style_influence: Option<f32>,
@@ -1073,11 +1085,12 @@ impl AdvancedTtsProvider for AwsPolly {
     }
 
     fn create_lexicon(
+        provider_config: Self::ProviderConfig,
         name: String,
         language: LanguageCode,
         entries: Option<Vec<PronunciationEntry>>,
     ) -> Result<PronunciationLexicon, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config)?;
         let lexicon = PollyPronunciationLexicon::new(name, language, entries, client);
 
         lexicon.sync_lexicon()?;
@@ -1086,12 +1099,13 @@ impl AdvancedTtsProvider for AwsPolly {
     }
 
     fn synthesize_long_form(
+        provider_config: Self::ProviderConfig,
         content: String,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         _chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config)?;
         let voice_id = voice.get::<PollyVoiceImpl>().get_id();
         let voice_language = voice.get::<PollyVoiceImpl>().get_language();
 
@@ -1141,47 +1155,35 @@ impl AdvancedTtsProvider for AwsPolly {
 
 impl ExtendedTtsProvider for AwsPolly {
     fn unwrapped_synthesis_stream(
+        provider_config: <Self as VoiceProvider>::ProviderConfig,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream {
-        let client = Self::create_client().unwrap_or_else(|_| {
-            AwsPollyTtsApi::new(
-                "dummy".to_string(),
-                "dummy".to_string(),
-                "us-east-1".to_string(),
-                None,
-            )
-            .unwrap_or_else(|_| panic!("Failed to create fallback client"))
-        });
+        let client = Self::create_client(&provider_config)
+            .unwrap_or_else(|_| panic!("Failed to create AWS Polly client"));
         let voice_id = voice.get::<PollyVoiceImpl>().get_id();
 
         PollySynthesisStream::new(voice_id, client, options)
     }
 
     fn unwrapped_voice_conversion_stream(
+        provider_config: <Self as VoiceProvider>::ProviderConfig,
         target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream {
-        let client = Self::create_client().unwrap_or_else(|_| {
-            AwsPollyTtsApi::new(
-                "dummy".to_string(),
-                "dummy".to_string(),
-                "us-east-1".to_string(),
-                None,
-            )
-            .unwrap_or_else(|_| panic!("Failed to create fallback client"))
-        });
+        let client = Self::create_client(&provider_config)
+            .unwrap_or_else(|_| panic!("Failed to create AWS Polly client"));
         let voice_id = target_voice.get::<PollyVoiceImpl>().get_id();
 
         PollyVoiceConversionStream::new(voice_id, client)
     }
 
     fn subscribe_synthesis_stream(_stream: &Self::SynthesisStream) -> Pollable {
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 
     fn subscribe_voice_conversion_stream(_stream: &Self::VoiceConversionStream) -> Pollable {
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 }
 

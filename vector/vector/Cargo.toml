@@ -11,7 +11,7 @@ description = "Library for working with vector databases on Golem Cloud"
 path = "src/lib.rs"
 
 [dependencies]
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 golem-wasi-http = { workspace = true }
 
 log = { workspace = true }
@@ -21,5 +21,5 @@ thiserror = "2.0.12"
 wasi-logger = "0.1.2"
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-rust/durability", "golem-rust/export_golem_agentic"]

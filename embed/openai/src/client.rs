@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use golem_ai_embed::{
+    config::SecretSource,
     error::{error_code_from_status, from_reqwest_error},
     model::Error,
 };
@@ -15,21 +16,30 @@ const BASE_URL: &str = "https://api.openai.com/v1";
 
 /// The OpenAI API client for creating embeddings.
 ///
+/// The API key is intentionally stored as a [`SecretSource`] (not as a
+/// resolved `String`) so that the secret value is fetched fresh from
+/// its source — which in golem mode is the agent host — right before
+/// each outgoing HTTP request. This is what lets host-side secret
+/// rotation take effect on the very next request.
+///
 /// Based on https://platform.openai.com/docs/api-reference/embeddings/create
 pub struct EmbeddingsApi {
-    openai_api_key: String,
+    openai_api_key: SecretSource,
     openai_base_url: String,
     client: Client,
 }
 
 impl EmbeddingsApi {
-    pub fn new(openai_api_key: String) -> Self {
-        let openai_base_url = std::env::var("OPENAI_BASE_URL").unwrap_or(BASE_URL.to_string());
+    pub fn new(config: &crate::config::OpenAiEmbedConfig) -> Self {
+        let openai_base_url = config
+            .base_url
+            .clone()
+            .unwrap_or_else(|| BASE_URL.to_string());
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
-            openai_api_key,
+            openai_api_key: config.api_key.clone(),
             openai_base_url,
             client,
         }
@@ -37,10 +47,13 @@ impl EmbeddingsApi {
 
     pub fn generate_embeding(&self, request: EmbeddingRequest) -> Result<EmbeddingResponse, Error> {
         trace!("Sending request to OpenAI API: {request:?}");
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.openai_api_key.get();
         let response = self
             .client
             .request(Method::POST, format!("{}/embeddings", self.openai_base_url))
-            .bearer_auth(&self.openai_api_key)
+            .bearer_auth(&api_key)
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Request failed", err))?;

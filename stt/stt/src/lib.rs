@@ -1,3 +1,4 @@
+pub mod config;
 pub mod durability;
 pub mod error;
 pub mod guest;
@@ -15,15 +16,31 @@ use crate::model::transcription::{
 };
 use std::{cell::RefCell, str::FromStr};
 
+/// Trait for providers that expose a static set of supported languages.
+///
+/// `LanguageProvider` does not require a `ProviderConfig` because every
+/// stt provider implementation derives its language list from a static
+/// in-process table; no host-side or per-request configuration is
+/// needed for this lookup.
 pub trait LanguageProvider {
     fn list_languages() -> Result<Vec<LanguageInfo>, model::languages::SttError>;
 }
 
 #[allow(async_fn_in_trait)]
 pub trait TranscriptionProvider {
-    async fn transcribe(request: TranscriptionRequest) -> Result<TranscriptionResult, SttError>;
+    /// Provider-specific configuration (API keys, regions, bucket
+    /// names, etc.) that the caller resolves once and passes in. Each
+    /// provider crate defines its own concrete config type; see e.g.
+    /// `golem_ai_stt_whisper::WhisperConfig`.
+    type ProviderConfig: Clone + 'static;
+
+    async fn transcribe(
+        provider_config: Self::ProviderConfig,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionResult, SttError>;
 
     async fn transcribe_many(
+        provider_config: Self::ProviderConfig,
         requests: Vec<TranscriptionRequest>,
     ) -> Result<MultiTranscriptionResult, SttError>;
 }

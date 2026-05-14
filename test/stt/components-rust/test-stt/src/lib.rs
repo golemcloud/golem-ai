@@ -17,6 +17,29 @@ type Provider = golem_ai_stt_deepgram::DurableDeepgramStt;
 #[cfg(feature = "google")]
 type Provider = golem_ai_stt_google::DurableGoogleStt;
 
+#[cfg(feature = "whisper")]
+fn provider_config() -> golem_ai_stt_whisper::WhisperConfig {
+    golem_ai_stt_whisper::WhisperConfig::from_env()
+        .expect("failed to load Whisper config from env")
+}
+#[cfg(feature = "aws")]
+fn provider_config() -> golem_ai_stt_aws::AwsConfig {
+    golem_ai_stt_aws::AwsConfig::from_env().expect("failed to load AWS config from env")
+}
+#[cfg(feature = "azure")]
+fn provider_config() -> golem_ai_stt_azure::AzureConfig {
+    golem_ai_stt_azure::AzureConfig::from_env().expect("failed to load Azure config from env")
+}
+#[cfg(feature = "deepgram")]
+fn provider_config() -> golem_ai_stt_deepgram::DeepgramConfig {
+    golem_ai_stt_deepgram::DeepgramConfig::from_env()
+        .expect("failed to load Deepgram config from env")
+}
+#[cfg(feature = "google")]
+fn provider_config() -> golem_ai_stt_google::GoogleConfig {
+    golem_ai_stt_google::GoogleConfig::from_env().expect("failed to load Google config from env")
+}
+
 #[agent_definition]
 pub trait SttTest {
     fn new(name: String) -> Self;
@@ -50,7 +73,7 @@ impl SttTest for SttTestImpl {
             options: None,
         };
 
-        match Provider::transcribe(request).await {
+        match Provider::transcribe(provider_config(), request).await {
             Ok(res) => Ok(format!("{res:?}")),
             Err(err) => Err(format!("error: {err:?}")),
         }
@@ -85,7 +108,7 @@ impl SttTest for SttTestImpl {
             options: None,
         };
 
-        match Provider::transcribe_many(vec![request_1, request_2]).await {
+        match Provider::transcribe_many(provider_config(), vec![request_1, request_2]).await {
             Ok(res) => {
                 let successes: Vec<_> = res.successes.iter().map(|tr| format!("{tr:?}")).collect();
                 let failures: Vec<_> = res.failures.iter().map(|tr| format!("{tr:?}")).collect();

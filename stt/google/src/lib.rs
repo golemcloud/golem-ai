@@ -1,8 +1,6 @@
 use golem_ai_stt::durability::{DurableStt, ExtendedSttProvider};
 use golem_ai_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
-use once_cell::sync::OnceCell;
 
-use golem_ai_stt::error::Error as SttError;
 use golem_ai_stt::http::WstdHttpClient;
 use golem_ai_stt::runtime::WasiAsyncRuntime;
 use golem_ai_stt::transcription::SttProviderClient;
@@ -33,69 +31,62 @@ use futures_concurrency::future::Join;
 use golem_ai_stt::model::languages::LanguageInfo;
 use itertools::Itertools;
 
+pub mod config;
 mod transcription;
 
-static API_CLIENT: OnceCell<
-    SpeechToTextApi<
-        CloudStorageClient<WstdHttpClient>,
-        SpeechToTextClient<WstdHttpClient, WasiAsyncRuntime>,
-    >,
-> = OnceCell::new();
+pub use config::GoogleConfig;
+#[cfg(feature = "golem")]
+pub use config::GoogleHostConfig;
 
 pub struct GoogleStt;
 
 impl GoogleStt {
-    fn create_or_get_client() -> Result<
-        &'static SpeechToTextApi<
+    /// Build a fresh Google Speech-to-Text API client for the duration
+    /// of a single top-level provider call.
+    ///
+    /// The service-account private key is resolved here (via
+    /// `SecretSource::get`) so that hot-rotated host secrets take
+    /// effect on every top-level call. The resulting client is
+    /// short-lived and discarded after the call returns.
+    fn build_client(
+        config: &GoogleConfig,
+    ) -> Result<
+        SpeechToTextApi<
             CloudStorageClient<WstdHttpClient>,
             SpeechToTextClient<WstdHttpClient, WasiAsyncRuntime>,
         >,
-        SttError,
+        WitSttError,
     > {
-        API_CLIENT.get_or_try_init(|| {
-            let location = std::env::var("GOOGLE_LOCATION").map_err(|err| {
-                SttError::EnvVariablesNotSet(format!("Failed to load GOOGLE_LOCATION: {err}"))
+        let service_acc_key = if let Some(creds_json_file) =
+            config.application_credentials_path.as_deref()
+        {
+            let bytes = read_file_to_bytes(creds_json_file).map_err(|err| {
+                WitSttError::InternalError(format!(
+                    "Failed to read Google credentials file: {err}"
+                ))
             })?;
-
-            let bucket_name = std::env::var("GOOGLE_BUCKET_NAME").map_err(|err| {
-                SttError::EnvVariablesNotSet(format!("Failed to load GOOGLE_BUCKET_NAME: {err}"))
+            serde_json::from_slice::<ServiceAccountKey>(&bytes).map_err(|err| {
+                WitSttError::InternalError(format!("Failed to parse Google credentials: {err}"))
+            })?
+        } else {
+            let project_id = config.project_id.clone().ok_or_else(|| {
+                WitSttError::InternalError("Google project_id not set".to_string())
             })?;
+            let client_email = config.client_email.clone().ok_or_else(|| {
+                WitSttError::InternalError("Google client_email not set".to_string())
+            })?;
+            let private_key = config
+                .private_key
+                .as_ref()
+                .ok_or_else(|| {
+                    WitSttError::InternalError("Google private_key not set".to_string())
+                })?
+                .get();
+            ServiceAccountKey::new(project_id, client_email, private_key)
+        };
 
-            let service_acc_key = if let Ok(creds_json_file) =
-                std::env::var("GOOGLE_APPLICATION_CREDENTIALS")
-            {
-                let bytes = read_file_to_bytes(&creds_json_file).map_err(|err| {
-                    SttError::AuthError(format!("Failed to read Google credentials file: {err}"))
-                })?;
-                let service_acc_key: ServiceAccountKey =
-                    serde_json::from_slice(&bytes).map_err(|err| {
-                        SttError::AuthError(format!("Failed to parse Google credentials: {err}"))
-                    })?;
-                service_acc_key
-            } else {
-                let project_id = std::env::var("GOOGLE_PROJECT_ID").map_err(|err| {
-                    SttError::EnvVariablesNotSet(format!("Failed to load GOOGLE_PROJECT_ID: {err}"))
-                })?;
-
-                let client_email = std::env::var("GOOGLE_CLIENT_EMAIL").map_err(|err| {
-                    SttError::EnvVariablesNotSet(format!(
-                        "Failed to load GOOGLE_CLIENT_EMAIL: {err}"
-                    ))
-                })?;
-
-                let private_key = std::env::var("GOOGLE_PRIVATE_KEY").map_err(|err| {
-                    SttError::EnvVariablesNotSet(format!(
-                        "Failed to load GOOGLE_PRIVATE_KEY: {err}"
-                    ))
-                })?;
-
-                ServiceAccountKey::new(project_id, client_email, private_key)
-            };
-
-            let api_client = SpeechToTextApi::live(bucket_name, service_acc_key, location)?;
-
-            Ok(api_client)
-        })
+        SpeechToTextApi::live(config.bucket_name.clone(), service_acc_key, config.location.clone())
+            .map_err(WitSttError::from)
     }
 }
 
@@ -116,22 +107,26 @@ impl LanguageProvider for GoogleStt {
 }
 
 impl SttTranscriptionProvider for GoogleStt {
+    type ProviderConfig = GoogleConfig;
+
     async fn transcribe(
+        provider_config: Self::ProviderConfig,
         req: SttTranscriptionRequest,
     ) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        let api_client = Self::create_or_get_client()?;
+        let api_client = Self::build_client(&provider_config)?;
         let api_response = api_client.transcribe_audio(req.try_into()?).await?;
         api_response.try_into()
     }
 
     async fn transcribe_many(
+        provider_config: Self::ProviderConfig,
         wit_requests: Vec<SttTranscriptionRequest>,
     ) -> Result<WitMultiTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        let api_client = Self::create_or_get_client()?;
+        let api_client = Self::build_client(&provider_config)?;
 
         let mut successes: Vec<WitTranscriptionResult> = Vec::new();
         let mut failures: Vec<WitFailedTranscription> = Vec::new();

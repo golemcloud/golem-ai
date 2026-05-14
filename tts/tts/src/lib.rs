@@ -2,6 +2,7 @@ pub mod config;
 pub mod durability;
 pub mod error;
 pub mod model;
+pub mod wasi_compat;
 
 use crate::model::advanced::{
     AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
@@ -31,10 +32,26 @@ pub trait VoiceProvider {
     type Voice: VoiceInterface;
     type VoiceResults: VoiceResultsInterface;
 
-    fn list_voices(filter: Option<VoiceFilter>) -> Result<VoiceResults, TtsError>;
-    fn get_voice(voice_id: String) -> Result<Voice, TtsError>;
-    fn search_voices(filter: Option<VoiceFilter>) -> Result<Vec<VoiceInfo>, TtsError>;
-    fn list_languages() -> Result<Vec<LanguageInfo>, TtsError>;
+    /// Provider-specific configuration (API keys, regions, etc.) that the
+    /// caller resolves once and passes in. Each provider crate defines its
+    /// own concrete config type.
+    type ProviderConfig: Clone + 'static;
+
+    fn list_voices(
+        provider_config: Self::ProviderConfig,
+        filter: Option<VoiceFilter>,
+    ) -> Result<VoiceResults, TtsError>;
+    fn get_voice(
+        provider_config: Self::ProviderConfig,
+        voice_id: String,
+    ) -> Result<Voice, TtsError>;
+    fn search_voices(
+        provider_config: Self::ProviderConfig,
+        filter: Option<VoiceFilter>,
+    ) -> Result<Vec<VoiceInfo>, TtsError>;
+    fn list_languages(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<LanguageInfo>, TtsError>;
 }
 
 pub trait SynthesisStreamInterface: 'static {
@@ -81,36 +98,48 @@ pub trait StreamingVoiceProvider {
     type SynthesisStream: SynthesisStreamInterface;
     type VoiceConversionStream: VoiceConversionStreamInterface;
 
+    /// Provider-specific configuration; see [`VoiceProvider::ProviderConfig`].
+    type ProviderConfig: Clone + 'static;
+
     fn create_stream(
+        provider_config: Self::ProviderConfig,
         voice: VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, model::streaming::TtsError>;
 
     fn create_voice_conversion_stream(
+        provider_config: Self::ProviderConfig,
         target_voice: VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, model::streaming::TtsError>;
 }
 
 pub trait SynthesizeProvider {
+    /// Provider-specific configuration; see [`VoiceProvider::ProviderConfig`].
+    type ProviderConfig: Clone + 'static;
+
     fn synthesize(
+        provider_config: Self::ProviderConfig,
         input: model::synthesis::TextInput,
         voice: model::synthesis::VoiceBorrow<'_>,
         options: Option<model::synthesis::SynthesisOptions>,
     ) -> Result<SynthesisResult, model::synthesis::TtsError>;
 
     fn synthesize_batch(
+        provider_config: Self::ProviderConfig,
         inputs: Vec<model::synthesis::TextInput>,
         voice: model::synthesis::VoiceBorrow<'_>,
         options: Option<model::synthesis::SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, model::synthesis::TtsError>;
 
     fn get_timing_marks(
+        provider_config: Self::ProviderConfig,
         input: model::synthesis::TextInput,
         voice: model::synthesis::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, model::synthesis::TtsError>;
 
     fn validate_input(
+        provider_config: Self::ProviderConfig,
         input: model::synthesis::TextInput,
         voice: model::synthesis::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, model::synthesis::TtsError>;
@@ -144,36 +173,45 @@ pub trait AdvancedTtsProvider {
     type PronunciationLexicon: PronunciationLexiconInterface;
     type LongFormOperation: LongFormOperationInterface;
 
+    /// Provider-specific configuration; see [`VoiceProvider::ProviderConfig`].
+    type ProviderConfig: Clone + 'static;
+
     fn create_voice_clone(
+        provider_config: Self::ProviderConfig,
         name: String,
         audio_samples: Vec<AudioSample>,
         description: Option<String>,
     ) -> Result<model::advanced::Voice, model::advanced::TtsError>;
 
     fn design_voice(
+        provider_config: Self::ProviderConfig,
         name: String,
         characteristics: VoiceDesignParams,
     ) -> Result<model::advanced::Voice, model::advanced::TtsError>;
 
     fn convert_voice(
+        provider_config: Self::ProviderConfig,
         input_audio: Vec<u8>,
         target_voice: model::advanced::VoiceBorrow<'_>,
         preserve_timing: Option<bool>,
     ) -> Result<Vec<u8>, model::advanced::TtsError>;
 
     fn generate_sound_effect(
+        provider_config: Self::ProviderConfig,
         description: String,
         duration_seconds: Option<f32>,
         style_influence: Option<f32>,
     ) -> Result<Vec<u8>, model::advanced::TtsError>;
 
     fn create_lexicon(
+        provider_config: Self::ProviderConfig,
         name: String,
         language: model::advanced::LanguageCode,
         entries: Option<Vec<PronunciationEntry>>,
     ) -> Result<PronunciationLexicon, model::advanced::TtsError>;
 
     fn synthesize_long_form(
+        provider_config: Self::ProviderConfig,
         content: String,
         voice: model::advanced::VoiceBorrow<'_>,
         output_location: String,

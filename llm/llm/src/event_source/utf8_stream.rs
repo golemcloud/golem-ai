@@ -1,5 +1,4 @@
-use golem_rust::bindings::wasi::io::streams::{InputStream, StreamError};
-use golem_rust::golem_wasm::Pollable;
+use crate::wasi_compat::{InputStream, Pollable, StreamError};
 use log::trace;
 use std::string::FromUtf8Error;
 use std::task::Poll;

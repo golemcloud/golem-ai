@@ -12,12 +12,14 @@ use std::fmt::Debug;
 #[derive(Clone)]
 pub struct TypesenseSearchApi {
     client: Client,
-    api_key: String,
+    api_key: golem_ai_search::config::SecretSource,
     base_url: String,
 }
 
 impl TypesenseSearchApi {
-    pub fn new(api_key: String, base_url: String) -> Self {
+    pub fn new(config: &crate::config::TypesenseConfig) -> Self {
+        let api_key = config.api_key.clone();
+        let base_url = config.base_url.clone();
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
@@ -32,7 +34,7 @@ impl TypesenseSearchApi {
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
         self.client
             .request(method, url)
-            .header("X-TYPESENSE-API-KEY", &self.api_key)
+            .header("X-TYPESENSE-API-KEY", self.api_key.get())
             .header("Content-Type", "application/json")
     }
 

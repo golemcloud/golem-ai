@@ -160,16 +160,16 @@ impl std::fmt::Debug for TranscriptionRequest {
 /// https://developers.deepgram.com/reference/speech-to-text-api/listen
 pub struct PreRecordedAudioApi<HC: HttpClient> {
     endpoint: String,
-    deepgram_api_token: String,
+    deepgram_api_key: golem_ai_stt::config::SecretSource,
     http_client: HC,
 }
 
 #[allow(unused)]
 impl<HC: HttpClient> PreRecordedAudioApi<HC> {
-    pub fn new(deepgram_api_key: String, endpoint: String, http_client: HC) -> Self {
+    pub fn new(config: &crate::config::DeepgramConfig, http_client: HC) -> Self {
         Self {
-            endpoint,
-            deepgram_api_token: format!("Token {deepgram_api_key}"),
+            endpoint: config.endpoint.clone(),
+            deepgram_api_key: config.api_key.clone(),
             http_client,
         }
     }
@@ -269,7 +269,7 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             .method(Method::POST)
             .uri(url.as_str())
             .header(CONTENT_TYPE, mime_type)
-            .header("Authorization", &self.deepgram_api_token)
+            .header("Authorization", &format!("Token {}", self.deepgram_api_key.get()))
             .body(request.audio)
             .map_err(|e| {
                 Error::Http(request_id.clone(), golem_ai_stt::http::Error::HttpError(e))
@@ -556,11 +556,7 @@ mod tests {
 
         mock_client.expect_response(create_mock_success_response());
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),
@@ -589,11 +585,7 @@ mod tests {
 
         mock_client.expect_response(create_mock_success_response());
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let audio_data = Bytes::from("fake audio data");
         let request = TranscriptionRequest {
@@ -633,11 +625,7 @@ mod tests {
 
         mock_client.expect_response(create_mock_success_response());
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),
@@ -685,11 +673,7 @@ mod tests {
 
         mock_client.expect_response(create_mock_success_response());
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),
@@ -737,11 +721,7 @@ mod tests {
 
         mock_client.expect_response(create_mock_success_response());
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),
@@ -801,11 +781,7 @@ mod tests {
 
         mock_client.expect_response(create_mock_success_response());
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),
@@ -911,11 +887,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let audio_data = Bytes::from("fake audio data");
         let request = TranscriptionRequest {
@@ -1088,11 +1060,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let audio_data = Bytes::from("fake audio data");
         let request = TranscriptionRequest {
@@ -1204,11 +1172,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),
@@ -1252,11 +1216,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),
@@ -1299,11 +1259,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),
@@ -1347,11 +1303,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),
@@ -1390,11 +1342,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),
@@ -1433,11 +1381,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let api = PreRecordedAudioApi::new(
-            TEST_API_KEY.to_string(),
-            TEST_ENDPOINT.to_string(),
-            mock_client,
-        );
+        let api = PreRecordedAudioApi::new(&crate::config::DeepgramConfig { api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY), endpoint: TEST_ENDPOINT.to_string() }, mock_client);
 
         let request = TranscriptionRequest {
             request_id: "some-transcription-id".to_string(),

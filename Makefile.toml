@@ -103,7 +103,7 @@ command = "cargo"
 args = ["clippy", "--all-targets", "--", "--no-deps", "-Dwarnings"]
 
 [tasks.check-clippy-no-default-features]
-description = "Runs clippy with --no-default-features across the workspace. The `exec` crate has non-durability feature requirements and is handled by check-clippy-no-default-features-exec."
+description = "Runs clippy with --no-default-features across the workspace. The `exec` crate has runtime feature requirements unrelated to `golem` and is handled by check-clippy-no-default-features-exec."
 install_crate = "clippy"
 command = "cargo"
 args = [
@@ -118,7 +118,7 @@ args = [
 ]
 
 [tasks.check-clippy-no-default-features-exec]
-description = "Runs clippy on golem-ai-exec with --no-default-features --features 'javascript python'. The `exec` crate's non-durability features (javascript, python) are required for meaningful compilation; bundling everything into a single --no-default-features check disables them too and produces unrelated dead-code warnings."
+description = "Runs clippy on golem-ai-exec with --no-default-features --features 'javascript python'. The `exec` crate's runtime features (javascript, python) — unrelated to the `golem` feature — are required for meaningful compilation; bundling everything into a single --no-default-features check disables them too and produces unrelated dead-code warnings."
 install_crate = "clippy"
 command = "cargo"
 args = [

@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use golem_ai_embed::{
+    config::SecretSource,
     error::{error_code_from_status, from_reqwest_error},
     model::Error,
 };
@@ -12,20 +13,26 @@ const BASE_URL: &str = "https://api.voyageai.com";
 
 /// The VoyageAI API client for creating embeddings and reranking.
 ///
+/// The API key is intentionally stored as a [`SecretSource`] (not as a
+/// resolved `String`) so that the secret value is fetched fresh from
+/// its source — which in golem mode is the agent host — right before
+/// each outgoing HTTP request. This is what lets host-side secret
+/// rotation take effect on the very next request.
+///
 /// Based on https://docs.voyageai.com/reference/embeddings-api
 /// and https://docs.voyageai.com/reference/reranker-api
 pub struct VoyageAIApi {
-    voyageai_api_key: String,
+    voyageai_api_key: SecretSource,
     client: Client,
 }
 
 impl VoyageAIApi {
-    pub fn new(voyageai_api_key: String) -> Self {
+    pub fn new(config: &crate::config::VoyageAiConfig) -> Self {
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
-            voyageai_api_key,
+            voyageai_api_key: config.api_key.clone(),
             client,
         }
     }
@@ -35,10 +42,13 @@ impl VoyageAIApi {
         request: EmbeddingRequest,
     ) -> Result<EmbeddingResponse, Error> {
         trace!("Sending embedding request to VoyageAI API: {request:?}");
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.voyageai_api_key.get();
         let response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/embeddings"))
-            .bearer_auth(&self.voyageai_api_key)
+            .bearer_auth(&api_key)
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Embedding request failed", err))?;
@@ -47,10 +57,13 @@ impl VoyageAIApi {
 
     pub fn rerank(&self, request: RerankRequest) -> Result<RerankResponse, Error> {
         trace!("Sending rerank request to VoyageAI API: {request:?}");
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.voyageai_api_key.get();
         let response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/rerank"))
-            .bearer_auth(&self.voyageai_api_key)
+            .bearer_auth(&api_key)
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Rerank request failed", err))?;

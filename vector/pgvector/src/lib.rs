@@ -5,7 +5,6 @@ use crate::conversions::{
     pg_vector_results_to_vector_records, table_info_to_export_collection_info,
     vector_records_to_pgvector_data,
 };
-use golem_ai_vector::config::{with_config_key, with_connection_config_key};
 use golem_ai_vector::durability::{DurableVector, ExtendedVectorProvider};
 use golem_ai_vector::model::{
     analytics::{CollectionStats, FieldStats},
@@ -29,90 +28,64 @@ use golem_ai_vector::{
 use std::collections::HashMap;
 
 mod client;
+pub mod config;
 mod conversions;
+
+pub use crate::config::PgvectorConfig;
+#[cfg(feature = "golem")]
+pub use crate::config::PgvectorHostConfig;
 
 pub struct PgVector;
 
-impl PgVector {
-    const CONNECTION_STRING_ENV_VAR: &'static str = "PGVECTOR_CONNECTION_STRING";
-
-    fn create_client() -> Result<PgVectorClient, VectorError> {
-        let connection_string = with_config_key(
-            Self::CONNECTION_STRING_ENV_VAR,
-            |e| {
-                Err(VectorError::ConnectionError(format!(
-                    "Missing connection string: {e}"
-                )))
-            },
-            Ok,
-        )
-        .unwrap_or_else(|_| "postgres://postgres@localhost:5432/postgres".to_string());
-
-        Ok(PgVectorClient::new(connection_string))
-    }
-
-    fn create_client_with_options(
-        options: &Option<Metadata>,
-    ) -> Result<PgVectorClient, VectorError> {
-        let connection_string = with_connection_config_key(options, "connection_string")
-            .or_else(|| with_connection_config_key(options, "endpoint"))
-            .unwrap_or_else(|| "postgres://postgres@localhost:5432/postgres".to_string());
-
-        Ok(PgVectorClient::new(connection_string))
-    }
-}
-
 impl ExtendedVectorProvider for PgVector {
     fn connect_internal(
+        provider_config: <Self as ConnectionProvider>::ProviderConfig,
         _endpoint: &str,
         _credentials: &Option<Credentials>,
         _timeout_ms: &Option<u32>,
-        options: &Option<Metadata>,
+        _options: &Option<Metadata>,
     ) -> Result<(), VectorError> {
-        let client = Self::create_client_with_options(options)?;
+        let client = PgVectorClient::new(&provider_config);
         client.enable_extension()?;
         Ok(())
     }
 }
 
 impl ConnectionProvider for PgVector {
+    type ProviderConfig = PgvectorConfig;
+
     fn connect(
+        provider_config: Self::ProviderConfig,
         _endpoint: String,
         _credentials: Option<Credentials>,
         _timeout_ms: Option<u32>,
-        options: Option<Metadata>,
+        _options: Option<Metadata>,
     ) -> Result<(), VectorError> {
-        let client = Self::create_client_with_options(&options)?;
+        let client = PgVectorClient::new(&provider_config);
         client.enable_extension()?;
         Ok(())
     }
 
-    fn disconnect() -> Result<(), VectorError> {
+    fn disconnect(_provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
         Ok(())
     }
 
-    fn get_connection_status() -> Result<ConnectionStatus, VectorError> {
-        match Self::create_client() {
-            Ok(client) => match client.enable_extension() {
-                Ok(_) => Ok(ConnectionStatus {
-                    connected: true,
-                    provider: Some("pgvector".to_string()),
-                    endpoint: Some(client.connection_string().to_string()),
-                    last_activity: None,
-                    connection_id: Some("pgvector-postgres".to_string()),
-                }),
-                Err(_) => Ok(ConnectionStatus {
-                    connected: false,
-                    provider: Some("pgvector".to_string()),
-                    endpoint: Some(client.connection_string().to_string()),
-                    last_activity: None,
-                    connection_id: Some("pgvector-postgres".to_string()),
-                }),
-            },
+    fn get_connection_status(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<ConnectionStatus, VectorError> {
+        let client = PgVectorClient::new(&provider_config);
+        match client.enable_extension() {
+            Ok(_) => Ok(ConnectionStatus {
+                connected: true,
+                provider: Some("pgvector".to_string()),
+                endpoint: Some(PgVectorClient::connection_endpoint().to_string()),
+                last_activity: None,
+                connection_id: Some("pgvector-postgres".to_string()),
+            }),
             Err(_) => Ok(ConnectionStatus {
                 connected: false,
                 provider: Some("pgvector".to_string()),
-                endpoint: None,
+                endpoint: Some(PgVectorClient::connection_endpoint().to_string()),
                 last_activity: None,
                 connection_id: Some("pgvector-postgres".to_string()),
             }),
@@ -120,23 +93,25 @@ impl ConnectionProvider for PgVector {
     }
 
     fn test_connection(
+        provider_config: Self::ProviderConfig,
         _endpoint: String,
         _credentials: Option<Credentials>,
         _timeout_ms: Option<u32>,
-        options: Option<Metadata>,
+        _options: Option<Metadata>,
     ) -> Result<bool, VectorError> {
-        match Self::create_client_with_options(&options) {
-            Ok(client) => match client.enable_extension() {
-                Ok(_) => Ok(true),
-                Err(_) => Ok(false),
-            },
+        let client = PgVectorClient::new(&provider_config);
+        match client.enable_extension() {
+            Ok(_) => Ok(true),
             Err(_) => Ok(false),
         }
     }
 }
 
 impl CollectionProvider for PgVector {
+    type ProviderConfig = PgvectorConfig;
+
     fn upsert_collection(
+        provider_config: Self::ProviderConfig,
         name: String,
         _description: Option<String>,
         dimension: u32,
@@ -144,7 +119,7 @@ impl CollectionProvider for PgVector {
         _index_config: Option<IndexConfig>,
         metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         client.enable_extension()?;
 
@@ -166,8 +141,10 @@ impl CollectionProvider for PgVector {
         }
     }
 
-    fn list_collections() -> Result<Vec<String>, VectorError> {
-        let client = Self::create_client()?;
+    fn list_collections(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<String>, VectorError> {
+        let client = PgVectorClient::new(&provider_config);
 
         match client.list_tables() {
             Ok(response) => Ok(response.tables),
@@ -175,8 +152,11 @@ impl CollectionProvider for PgVector {
         }
     }
 
-    fn get_collection(name: String) -> Result<CollectionInfo, VectorError> {
-        let client = Self::create_client()?;
+    fn get_collection(
+        provider_config: Self::ProviderConfig,
+        name: String,
+    ) -> Result<CollectionInfo, VectorError> {
+        let client = PgVectorClient::new(&provider_config);
 
         let describe_response = client.describe_table(&name)?;
         let count_response = client.count_vectors(&name)?;
@@ -189,15 +169,19 @@ impl CollectionProvider for PgVector {
     }
 
     fn update_collection(
+        provider_config: Self::ProviderConfig,
         name: String,
         _description: Option<String>,
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
-        Self::get_collection(name)
+        Self::get_collection(provider_config, name)
     }
 
-    fn delete_collection(name: String) -> Result<(), VectorError> {
-        let client = Self::create_client()?;
+    fn delete_collection(
+        provider_config: Self::ProviderConfig,
+        name: String,
+    ) -> Result<(), VectorError> {
+        let client = PgVectorClient::new(&provider_config);
 
         match client.drop_table(&name) {
             Ok(_) => Ok(()),
@@ -205,8 +189,11 @@ impl CollectionProvider for PgVector {
         }
     }
 
-    fn collection_exists(name: String) -> Result<bool, VectorError> {
-        let client = Self::create_client()?;
+    fn collection_exists(
+        provider_config: Self::ProviderConfig,
+        name: String,
+    ) -> Result<bool, VectorError> {
+        let client = PgVectorClient::new(&provider_config);
 
         match client.table_exists(&name) {
             Ok(response) => Ok(response.exists),
@@ -216,12 +203,15 @@ impl CollectionProvider for PgVector {
 }
 
 impl VectorsProvider for PgVector {
+    type ProviderConfig = PgvectorConfig;
+
     fn upsert_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         vectors: Vec<VectorRecord>,
         _namespace: Option<String>,
     ) -> Result<BatchResult, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         let pg_vectors = vector_records_to_pgvector_data(&vectors)?;
 
@@ -241,6 +231,7 @@ impl VectorsProvider for PgVector {
     }
 
     fn upsert_vector(
+        provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
         vector: VectorData,
@@ -253,7 +244,7 @@ impl VectorsProvider for PgVector {
             metadata,
         };
 
-        let result = Self::upsert_vectors(collection, vec![record], namespace)?;
+        let result = Self::upsert_vectors(provider_config, collection, vec![record], namespace)?;
 
         if result.success_count > 0 {
             Ok(())
@@ -265,13 +256,14 @@ impl VectorsProvider for PgVector {
     }
 
     fn get_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
         _namespace: Option<String>,
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
     ) -> Result<Vec<VectorRecord>, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         let mut select_columns = vec!["id".to_string()];
         if include_vectors.unwrap_or(true) {
@@ -300,15 +292,24 @@ impl VectorsProvider for PgVector {
     }
 
     fn get_vector(
+        provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
         namespace: Option<String>,
     ) -> Result<Option<VectorRecord>, VectorError> {
-        let vectors = Self::get_vectors(collection, vec![id], namespace, Some(true), Some(true))?;
+        let vectors = Self::get_vectors(
+            provider_config,
+            collection,
+            vec![id],
+            namespace,
+            Some(true),
+            Some(true),
+        )?;
         Ok(vectors.into_iter().next())
     }
 
     fn update_vector(
+        provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
         vector: Option<VectorData>,
@@ -317,7 +318,7 @@ impl VectorsProvider for PgVector {
         _merge_metadata: Option<bool>,
     ) -> Result<(), VectorError> {
         if let Some(vector_data) = vector {
-            Self::upsert_vector(collection, id, vector_data, metadata, namespace)
+            Self::upsert_vector(provider_config, collection, id, vector_data, metadata, namespace)
         } else {
             Err(VectorError::InvalidParams(
                 "Vector data is required for update".to_string(),
@@ -326,11 +327,12 @@ impl VectorsProvider for PgVector {
     }
 
     fn delete_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
         _namespace: Option<String>,
     ) -> Result<u32, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         let delete_request = client::DeleteVectorsRequest {
             table_name: collection,
@@ -344,11 +346,12 @@ impl VectorsProvider for PgVector {
     }
 
     fn delete_by_filter(
+        provider_config: Self::ProviderConfig,
         collection: String,
         filter: FilterExpression,
         _namespace: Option<String>,
     ) -> Result<u32, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         let filters = crate::conversions::filter_expression_to_pg_filters(&filter)?;
 
@@ -363,13 +366,18 @@ impl VectorsProvider for PgVector {
         }
     }
 
-    fn delete_namespace(_collection: String, _namespace: String) -> Result<u32, VectorError> {
+    fn delete_namespace(
+        _provider_config: Self::ProviderConfig,
+        _collection: String,
+        _namespace: String,
+    ) -> Result<u32, VectorError> {
         Err(VectorError::UnsupportedFeature(
             "PostgreSQL doesn't support namespaces".to_string(),
         ))
     }
 
     fn list_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         _namespace: Option<String>,
         filter: Option<FilterExpression>,
@@ -378,7 +386,7 @@ impl VectorsProvider for PgVector {
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
     ) -> Result<ListResponse, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         let mut select_columns = vec!["id".to_string()];
         if include_vectors.unwrap_or(true) {
@@ -424,11 +432,12 @@ impl VectorsProvider for PgVector {
     }
 
     fn count_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         _filter: Option<FilterExpression>,
         _namespace: Option<String>,
     ) -> Result<u64, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         match client.count_vectors(&collection) {
             Ok(response) => Ok(response.count),
@@ -438,7 +447,10 @@ impl VectorsProvider for PgVector {
 }
 
 impl SearchProvider for PgVector {
+    type ProviderConfig = PgvectorConfig;
+
     fn search_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         query: SearchQuery,
         limit: u32,
@@ -450,7 +462,7 @@ impl SearchProvider for PgVector {
         _max_distance: Option<f32>,
         search_params: Option<Vec<(String, String)>>,
     ) -> Result<Vec<SearchResult>, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         let mut output_fields = vec!["id".to_string()];
         if include_vectors.unwrap_or(false) {
@@ -492,12 +504,14 @@ impl SearchProvider for PgVector {
     }
 
     fn find_similar(
+        provider_config: Self::ProviderConfig,
         collection: String,
         vector: VectorData,
         limit: u32,
         namespace: Option<String>,
     ) -> Result<Vec<SearchResult>, VectorError> {
         Self::search_vectors(
+            provider_config,
             collection,
             SearchQuery::Vector(vector),
             limit,
@@ -512,6 +526,7 @@ impl SearchProvider for PgVector {
     }
 
     fn batch_search(
+        provider_config: Self::ProviderConfig,
         collection: String,
         queries: Vec<SearchQuery>,
         limit: u32,
@@ -525,6 +540,7 @@ impl SearchProvider for PgVector {
 
         for query in queries {
             let result = Self::search_vectors(
+                provider_config.clone(),
                 collection.clone(),
                 query,
                 limit,
@@ -544,7 +560,10 @@ impl SearchProvider for PgVector {
 }
 
 impl SearchExtendedProvider for PgVector {
+    type ProviderConfig = PgvectorConfig;
+
     fn recommend_vectors(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _positive: Vec<RecommendationExample>,
         _negative: Option<Vec<RecommendationExample>>,
@@ -561,6 +580,7 @@ impl SearchExtendedProvider for PgVector {
     }
 
     fn discover_vectors(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _target: Option<RecommendationExample>,
         _context: Vec<ContextPair>,
@@ -576,6 +596,7 @@ impl SearchExtendedProvider for PgVector {
     }
 
     fn search_groups(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _query: SearchQuery,
         _group_by: String,
@@ -592,6 +613,7 @@ impl SearchExtendedProvider for PgVector {
     }
 
     fn search_range(
+        provider_config: Self::ProviderConfig,
         collection: String,
         vector: VectorData,
         min_distance: Option<f32>,
@@ -602,7 +624,7 @@ impl SearchExtendedProvider for PgVector {
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
     ) -> Result<Vec<SearchResult>, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         let query_vector = match vector {
             VectorData::Dense(dense) => dense,
@@ -668,6 +690,7 @@ impl SearchExtendedProvider for PgVector {
     }
 
     fn search_text(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _query_text: String,
         _limit: u32,
@@ -681,11 +704,14 @@ impl SearchExtendedProvider for PgVector {
 }
 
 impl AnalyticsProvider for PgVector {
+    type ProviderConfig = PgvectorConfig;
+
     fn get_collection_stats(
+        provider_config: Self::ProviderConfig,
         collection: String,
         _namespace: Option<String>,
     ) -> Result<CollectionStats, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         let count_response = client.count_vectors(&collection)?;
         let describe_response = client.describe_table(&collection)?;
@@ -708,11 +734,12 @@ impl AnalyticsProvider for PgVector {
     }
 
     fn get_field_stats(
+        provider_config: Self::ProviderConfig,
         collection: String,
         field: String,
         _namespace: Option<String>,
     ) -> Result<FieldStats, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         let stats_request = client::FieldStatsRequest {
             table_name: collection,
@@ -733,12 +760,13 @@ impl AnalyticsProvider for PgVector {
     }
 
     fn get_field_distribution(
+        provider_config: Self::ProviderConfig,
         collection: String,
         field: String,
         limit: Option<u32>,
         _namespace: Option<String>,
     ) -> Result<Vec<(MetadataValue, u64)>, VectorError> {
-        let client = Self::create_client()?;
+        let client = PgVectorClient::new(&provider_config);
 
         let distribution_request = client::FieldDistributionRequest {
             table_name: collection,
@@ -774,7 +802,10 @@ impl AnalyticsProvider for PgVector {
 }
 
 impl NamespacesProvider for PgVector {
+    type ProviderConfig = PgvectorConfig;
+
     fn upsert_namespace(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,
         _metadata: Option<Metadata>,
@@ -784,13 +815,17 @@ impl NamespacesProvider for PgVector {
         ))
     }
 
-    fn list_namespaces(_collection: String) -> Result<Vec<NamespaceInfo>, VectorError> {
+    fn list_namespaces(
+        _provider_config: Self::ProviderConfig,
+        _collection: String,
+    ) -> Result<Vec<NamespaceInfo>, VectorError> {
         Err(VectorError::UnsupportedFeature(
             "PostgreSQL doesn't support namespaces".to_string(),
         ))
     }
 
     fn get_namespace(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,
     ) -> Result<NamespaceInfo, VectorError> {
@@ -799,13 +834,21 @@ impl NamespacesProvider for PgVector {
         ))
     }
 
-    fn delete_namespace(_collection: String, _namespace: String) -> Result<(), VectorError> {
+    fn delete_namespace(
+        _provider_config: Self::ProviderConfig,
+        _collection: String,
+        _namespace: String,
+    ) -> Result<(), VectorError> {
         Err(VectorError::UnsupportedFeature(
             "PostgreSQL doesn't support namespaces".to_string(),
         ))
     }
 
-    fn namespace_exists(_collection: String, _namespace: String) -> Result<bool, VectorError> {
+    fn namespace_exists(
+        _provider_config: Self::ProviderConfig,
+        _collection: String,
+        _namespace: String,
+    ) -> Result<bool, VectorError> {
         Err(VectorError::UnsupportedFeature(
             "PostgreSQL doesn't support namespaces".to_string(),
         ))

@@ -1,5 +1,8 @@
+use crate::config::AwsConfig;
 use chrono::Utc;
-use golem_ai_tts::config::{get_endpoint_config, get_max_retries_config, get_timeout_config};
+use golem_ai_tts::config::{
+    get_endpoint_config, get_max_retries_config, get_timeout_config, SecretSource,
+};
 use golem_ai_tts::error::{from_reqwest_error, internal_error, tts_error_from_status};
 use golem_ai_tts::model::types::TtsError;
 use golem_wasi_http::{Client, Method, Response};
@@ -96,10 +99,19 @@ pub enum SpeechMarkType {
     Word,
 }
 
-#[derive(Debug)]
+/// AWS Polly TTS API client.
+///
+/// AWS credentials (access key id, secret access key, optional
+/// session token) are intentionally stored as [`SecretSource`]s so
+/// that their values are fetched fresh from their source — which in
+/// golem mode is the agent host — right before each outgoing HTTP
+/// request. This is what lets host-side secret rotation take effect on
+/// the very next request.
+#[derive(Debug, Clone)]
 pub struct AwsPollyTtsApi {
-    access_key_id: String,
-    secret_access_key: String,
+    access_key_id: SecretSource,
+    secret_access_key: SecretSource,
+    session_token: Option<SecretSource>,
     region: String,
     client: Client,
     base_url: String,
@@ -107,38 +119,42 @@ pub struct AwsPollyTtsApi {
 }
 
 impl AwsPollyTtsApi {
-    pub fn new(
-        access_key_id: String,
-        secret_access_key: String,
-        region: String,
-        session_token: Option<String>,
-    ) -> Result<Self, TtsError> {
+    pub fn new(config: &AwsConfig) -> Result<Self, TtsError> {
         let timeout = Duration::from_secs(get_timeout_config());
-        let base_url = get_endpoint_config(format!("https://polly.{}.amazonaws.com", region));
+        let base_url =
+            get_endpoint_config(format!("https://polly.{}.amazonaws.com", config.region));
 
         let client = Client::builder()
             .timeout(timeout)
             .build()
             .map_err(|err| from_reqwest_error("Failed to create HTTP client", err))?;
 
-        let final_access_key = if let Some(token) = session_token {
-            format!("{}:{}", access_key_id, token)
-        } else {
-            access_key_id
-        };
-
         Ok(Self {
-            access_key_id: final_access_key,
-            secret_access_key,
-            region,
+            access_key_id: config.access_key_id.clone(),
+            secret_access_key: config.secret_access_key.clone(),
+            session_token: config.session_token.clone(),
+            region: config.region.clone(),
             client,
             base_url,
             rate_limit_config: RateLimitConfig::default(),
         })
     }
 
+    /// Resolve the access key id with optional session-token suffix
+    /// (`<access_key>:<session_token>`) for inclusion in the
+    /// `Credential` field of the `Authorization` header. Resolved
+    /// fresh per request so host-side rotation takes immediate effect.
+    fn resolve_access_key_for_credential(&self) -> String {
+        let access_key = self.access_key_id.get();
+        if let Some(token) = self.session_token.as_ref() {
+            format!("{}:{}", access_key, token.get())
+        } else {
+            access_key
+        }
+    }
+
     fn validate_credentials(&self) -> Result<(), TtsError> {
-        if self.access_key_id.is_empty() || self.secret_access_key.is_empty() {
+        if self.access_key_id.get().is_empty() || self.secret_access_key.get().is_empty() {
             return Err(TtsError::Unauthorized(
                 "AWS credentials not properly configured".to_string(),
             ));
@@ -501,23 +517,32 @@ impl AwsPollyTtsApi {
             timestamp, credential_scope, canonical_request_hash
         );
 
-        let signature = self.calculate_s3_signature(&string_to_sign, date);
+        // Resolve the secrets right before signing so that hot-rotated
+        // host secrets take effect on the next request.
+        let secret_access_key = self.secret_access_key.get();
+        let signature = self.calculate_s3_signature(&string_to_sign, date, &secret_access_key);
+        let access_key_for_credential = self.resolve_access_key_for_credential();
 
         format!(
             "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}",
-            self.access_key_id
+            access_key_for_credential
                 .split(':')
                 .next()
-                .unwrap_or(&self.access_key_id),
+                .unwrap_or(&access_key_for_credential),
             credential_scope,
             signed_headers,
             signature
         )
     }
 
-    fn calculate_s3_signature(&self, string_to_sign: &str, date: &str) -> String {
+    fn calculate_s3_signature(
+        &self,
+        string_to_sign: &str,
+        date: &str,
+        secret_access_key: &str,
+    ) -> String {
         let date_key = hmac_sha256(
-            format!("AWS4{}", self.secret_access_key).as_bytes(),
+            format!("AWS4{}", secret_access_key).as_bytes(),
             date.as_bytes(),
         );
         let date_region_key = hmac_sha256(&date_key, self.region.as_bytes());
@@ -572,23 +597,32 @@ impl AwsPollyTtsApi {
             timestamp, credential_scope, canonical_request_hash
         );
 
-        let signature = self.calculate_signature(&string_to_sign, date);
+        // Resolve the secrets right before signing so that hot-rotated
+        // host secrets take effect on the next request.
+        let secret_access_key = self.secret_access_key.get();
+        let signature = self.calculate_signature(&string_to_sign, date, &secret_access_key);
+        let access_key_for_credential = self.resolve_access_key_for_credential();
 
         format!(
             "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}",
-            self.access_key_id
+            access_key_for_credential
                 .split(':')
                 .next()
-                .unwrap_or(&self.access_key_id),
+                .unwrap_or(&access_key_for_credential),
             credential_scope,
             signed_headers,
             signature
         )
     }
 
-    fn calculate_signature(&self, string_to_sign: &str, date: &str) -> String {
+    fn calculate_signature(
+        &self,
+        string_to_sign: &str,
+        date: &str,
+        secret_access_key: &str,
+    ) -> String {
         let date_key = hmac_sha256(
-            format!("AWS4{}", self.secret_access_key).as_bytes(),
+            format!("AWS4{}", secret_access_key).as_bytes(),
             date.as_bytes(),
         );
         let date_region_key = hmac_sha256(&date_key, self.region.as_bytes());
@@ -613,19 +647,6 @@ impl AwsPollyTtsApi {
                 msg.contains("timeout") || msg.contains("connection") || msg.contains("network")
             }
             _ => false,
-        }
-    }
-}
-
-impl Clone for AwsPollyTtsApi {
-    fn clone(&self) -> Self {
-        Self {
-            access_key_id: self.access_key_id.clone(),
-            secret_access_key: self.secret_access_key.clone(),
-            region: self.region.clone(),
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
-            rate_limit_config: self.rate_limit_config.clone(),
         }
     }
 }

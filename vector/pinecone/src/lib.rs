@@ -5,7 +5,6 @@ use crate::conversions::{
     pinecone_query_response_to_search_results, pinecone_vector_to_vector_record,
     vector_records_to_upsert_request,
 };
-use golem_ai_vector::config::with_config_key;
 use golem_ai_vector::durability::{DurableVector, ExtendedVectorProvider};
 use golem_ai_vector::model::{
     analytics::{CollectionStats, FieldStats, NamespaceStats},
@@ -28,95 +27,79 @@ use golem_ai_vector::{
 };
 
 mod client;
+pub mod config;
 mod conversions;
+
+pub use crate::config::PineconeConfig;
+#[cfg(feature = "golem")]
+pub use crate::config::PineconeHostConfig;
 
 pub struct Pinecone;
 
-impl Pinecone {
-    const API_KEY_ENV_VAR: &'static str = "PINECONE_API_KEY";
-    const ENVIRONMENT_ENV_VAR: &'static str = "PINECONE_ENVIRONMENT";
-
-    fn create_client() -> Result<PineconeClient, VectorError> {
-        let api_key = with_config_key(
-            Self::API_KEY_ENV_VAR,
-            |e| {
-                Err(VectorError::ConnectionError(format!(
-                    "Missing API key: {e}"
-                )))
-            },
-            Ok,
-        )?;
-
-        let environment = golem_ai_vector::config::get_optional_config(Self::ENVIRONMENT_ENV_VAR);
-
-        Ok(PineconeClient::new(api_key, environment))
-    }
-}
-
 impl ExtendedVectorProvider for Pinecone {
     fn connect_internal(
+        provider_config: <Self as ConnectionProvider>::ProviderConfig,
         _endpoint: &str,
         _credentials: &Option<Credentials>,
         _timeout_ms: &Option<u32>,
         _options: &Option<Metadata>,
     ) -> Result<(), VectorError> {
-        let _client = Self::create_client()?;
+        let _client = PineconeClient::new(&provider_config);
         Ok(())
     }
 }
 
 impl ConnectionProvider for Pinecone {
+    type ProviderConfig = PineconeConfig;
+
     fn connect(
+        provider_config: Self::ProviderConfig,
         _endpoint: String,
         _credentials: Option<Credentials>,
         _timeout_ms: Option<u32>,
         _options: Option<Metadata>,
     ) -> Result<(), VectorError> {
-        let _client = Self::create_client()?;
+        let _client = PineconeClient::new(&provider_config);
         Ok(())
     }
 
-    fn disconnect() -> Result<(), VectorError> {
+    fn disconnect(_provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
         Ok(())
     }
 
-    fn get_connection_status() -> Result<ConnectionStatus, VectorError> {
-        match Self::create_client() {
-            Ok(_) => Ok(ConnectionStatus {
-                connected: true,
-                provider: Some("pinecone".to_string()),
-                endpoint: Some("https://api.pinecone.io".to_string()),
-                last_activity: None,
-                connection_id: Some("pinecone-api".to_string()),
-            }),
-            Err(_) => Ok(ConnectionStatus {
-                connected: false,
-                provider: Some("pinecone".to_string()),
-                endpoint: Some("https://api.pinecone.io".to_string()),
-                last_activity: None,
-                connection_id: Some("pinecone-api".to_string()),
-            }),
-        }
+    fn get_connection_status(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<ConnectionStatus, VectorError> {
+        let _client = PineconeClient::new(&provider_config);
+        Ok(ConnectionStatus {
+            connected: true,
+            provider: Some("pinecone".to_string()),
+            endpoint: Some("https://api.pinecone.io".to_string()),
+            last_activity: None,
+            connection_id: Some("pinecone-api".to_string()),
+        })
     }
 
     fn test_connection(
+        provider_config: Self::ProviderConfig,
         _endpoint: String,
         _credentials: Option<Credentials>,
         _timeout_ms: Option<u32>,
         _options: Option<Metadata>,
     ) -> Result<bool, VectorError> {
-        match Self::create_client() {
-            Ok(client) => match client.list_indexes() {
-                Ok(_) => Ok(true),
-                Err(_) => Ok(false),
-            },
+        let client = PineconeClient::new(&provider_config);
+        match client.list_indexes() {
+            Ok(_) => Ok(true),
             Err(_) => Ok(false),
         }
     }
 }
 
 impl CollectionProvider for Pinecone {
+    type ProviderConfig = PineconeConfig;
+
     fn upsert_collection(
+        provider_config: Self::ProviderConfig,
         name: String,
         _description: Option<String>,
         dimension: u32,
@@ -124,7 +107,7 @@ impl CollectionProvider for Pinecone {
         _index_config: Option<IndexConfig>,
         metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
-        let client = Self::create_client()?;
+        let client = PineconeClient::new(&provider_config);
 
         let (cloud, region) = if let Some(meta) = &metadata {
             let cloud = meta
@@ -166,8 +149,10 @@ impl CollectionProvider for Pinecone {
         }
     }
 
-    fn list_collections() -> Result<Vec<String>, VectorError> {
-        let client = Self::create_client()?;
+    fn list_collections(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<String>, VectorError> {
+        let client = PineconeClient::new(&provider_config);
 
         match client.list_indexes() {
             Ok(response) => Ok(response
@@ -179,8 +164,11 @@ impl CollectionProvider for Pinecone {
         }
     }
 
-    fn get_collection(name: String) -> Result<CollectionInfo, VectorError> {
-        let client = Self::create_client()?;
+    fn get_collection(
+        provider_config: Self::ProviderConfig,
+        name: String,
+    ) -> Result<CollectionInfo, VectorError> {
+        let client = PineconeClient::new(&provider_config);
 
         match client.describe_index(&name) {
             Ok(index_model) => index_model_to_collection_info(&index_model),
@@ -189,15 +177,19 @@ impl CollectionProvider for Pinecone {
     }
 
     fn update_collection(
+        provider_config: Self::ProviderConfig,
         name: String,
         _description: Option<String>,
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
-        Self::get_collection(name)
+        Self::get_collection(provider_config, name)
     }
 
-    fn delete_collection(name: String) -> Result<(), VectorError> {
-        let client = Self::create_client()?;
+    fn delete_collection(
+        provider_config: Self::ProviderConfig,
+        name: String,
+    ) -> Result<(), VectorError> {
+        let client = PineconeClient::new(&provider_config);
 
         match client.delete_index(&name) {
             Ok(_) => Ok(()),
@@ -205,8 +197,11 @@ impl CollectionProvider for Pinecone {
         }
     }
 
-    fn collection_exists(name: String) -> Result<bool, VectorError> {
-        match Self::get_collection(name) {
+    fn collection_exists(
+        provider_config: Self::ProviderConfig,
+        name: String,
+    ) -> Result<bool, VectorError> {
+        match Self::get_collection(provider_config, name) {
             Ok(_) => Ok(true),
             Err(VectorError::NotFound(_)) => Ok(false),
             Err(e) => Err(e),
@@ -215,12 +210,15 @@ impl CollectionProvider for Pinecone {
 }
 
 impl VectorsProvider for Pinecone {
+    type ProviderConfig = PineconeConfig;
+
     fn upsert_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         vectors: Vec<VectorRecord>,
         namespace: Option<String>,
     ) -> Result<BatchResult, VectorError> {
-        let client = Self::create_client()?;
+        let client = PineconeClient::new(&provider_config);
 
         let upsert_request = vector_records_to_upsert_request(&vectors, namespace)?;
 
@@ -235,6 +233,7 @@ impl VectorsProvider for Pinecone {
     }
 
     fn upsert_vector(
+        provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
         vector: VectorData,
@@ -247,7 +246,7 @@ impl VectorsProvider for Pinecone {
             metadata,
         };
 
-        let result = Self::upsert_vectors(collection, vec![record], namespace)?;
+        let result = Self::upsert_vectors(provider_config, collection, vec![record], namespace)?;
 
         if result.success_count > 0 {
             Ok(())
@@ -259,13 +258,14 @@ impl VectorsProvider for Pinecone {
     }
 
     fn get_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
         namespace: Option<String>,
         _include_vectors: Option<bool>,
         _include_metadata: Option<bool>,
     ) -> Result<Vec<VectorRecord>, VectorError> {
-        let client = Self::create_client()?;
+        let client = PineconeClient::new(&provider_config);
 
         let fetch_request = client::FetchRequest { ids, namespace };
 
@@ -287,15 +287,24 @@ impl VectorsProvider for Pinecone {
     }
 
     fn get_vector(
+        provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
         namespace: Option<String>,
     ) -> Result<Option<VectorRecord>, VectorError> {
-        let vectors = Self::get_vectors(collection, vec![id], namespace, Some(true), Some(true))?;
+        let vectors = Self::get_vectors(
+            provider_config,
+            collection,
+            vec![id],
+            namespace,
+            Some(true),
+            Some(true),
+        )?;
         Ok(vectors.into_iter().next())
     }
 
     fn update_vector(
+        provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
         vector: Option<VectorData>,
@@ -304,7 +313,7 @@ impl VectorsProvider for Pinecone {
         _merge_metadata: Option<bool>,
     ) -> Result<(), VectorError> {
         if let Some(vector_data) = vector {
-            Self::upsert_vector(collection, id, vector_data, metadata, namespace)
+            Self::upsert_vector(provider_config, collection, id, vector_data, metadata, namespace)
         } else {
             Err(VectorError::InvalidParams(
                 "Vector data is required for update".to_string(),
@@ -313,11 +322,12 @@ impl VectorsProvider for Pinecone {
     }
 
     fn delete_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
         namespace: Option<String>,
     ) -> Result<u32, VectorError> {
-        let client = Self::create_client()?;
+        let client = PineconeClient::new(&provider_config);
 
         let delete_request = client::DeleteRequest {
             ids: Some(ids.clone()),
@@ -333,11 +343,12 @@ impl VectorsProvider for Pinecone {
     }
 
     fn delete_by_filter(
+        provider_config: Self::ProviderConfig,
         collection: String,
         filter: FilterExpression,
         namespace: Option<String>,
     ) -> Result<u32, VectorError> {
-        let client = Self::create_client()?;
+        let client = PineconeClient::new(&provider_config);
 
         let pinecone_filter = filter_expression_to_pinecone_filter(&filter)?;
 
@@ -354,8 +365,12 @@ impl VectorsProvider for Pinecone {
         }
     }
 
-    fn delete_namespace(collection: String, namespace: String) -> Result<u32, VectorError> {
-        let client = Self::create_client()?;
+    fn delete_namespace(
+        provider_config: Self::ProviderConfig,
+        collection: String,
+        namespace: String,
+    ) -> Result<u32, VectorError> {
+        let client = PineconeClient::new(&provider_config);
 
         let delete_request = client::DeleteRequest {
             ids: None,
@@ -371,6 +386,7 @@ impl VectorsProvider for Pinecone {
     }
 
     fn list_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         namespace: Option<String>,
         filter: Option<FilterExpression>,
@@ -379,7 +395,7 @@ impl VectorsProvider for Pinecone {
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
     ) -> Result<ListResponse, VectorError> {
-        let client = Self::create_client()?;
+        let client = PineconeClient::new(&provider_config);
 
         let prefix = if let Some(filter_expr) = &filter {
             extract_prefix_from_filter(filter_expr)
@@ -480,11 +496,12 @@ impl VectorsProvider for Pinecone {
     }
 
     fn count_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         _filter: Option<FilterExpression>,
         namespace: Option<String>,
     ) -> Result<u64, VectorError> {
-        let client = Self::create_client()?;
+        let client = PineconeClient::new(&provider_config);
 
         let stats_request = client::DescribeIndexStatsRequest { filter: None };
 
@@ -506,7 +523,10 @@ impl VectorsProvider for Pinecone {
 }
 
 impl SearchProvider for Pinecone {
+    type ProviderConfig = PineconeConfig;
+
     fn search_vectors(
+        provider_config: Self::ProviderConfig,
         collection: String,
         query: SearchQuery,
         limit: u32,
@@ -518,7 +538,7 @@ impl SearchProvider for Pinecone {
         max_distance: Option<f32>,
         _search_params: Option<Vec<(String, String)>>,
     ) -> Result<Vec<SearchResult>, VectorError> {
-        let client = Self::create_client()?;
+        let client = PineconeClient::new(&provider_config);
 
         let (query_vector, sparse_vector, query_id) = match &query {
             SearchQuery::Vector(_) => {
@@ -573,12 +593,14 @@ impl SearchProvider for Pinecone {
     }
 
     fn find_similar(
+        provider_config: Self::ProviderConfig,
         collection: String,
         vector: VectorData,
         limit: u32,
         namespace: Option<String>,
     ) -> Result<Vec<SearchResult>, VectorError> {
         Self::search_vectors(
+            provider_config,
             collection,
             SearchQuery::Vector(vector),
             limit,
@@ -593,6 +615,7 @@ impl SearchProvider for Pinecone {
     }
 
     fn batch_search(
+        provider_config: Self::ProviderConfig,
         collection: String,
         queries: Vec<SearchQuery>,
         limit: u32,
@@ -606,6 +629,7 @@ impl SearchProvider for Pinecone {
 
         for query in queries {
             let result = Self::search_vectors(
+                provider_config.clone(),
                 collection.clone(),
                 query,
                 limit,
@@ -625,7 +649,10 @@ impl SearchProvider for Pinecone {
 }
 
 impl SearchExtendedProvider for Pinecone {
+    type ProviderConfig = PineconeConfig;
+
     fn recommend_vectors(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _positive: Vec<RecommendationExample>,
         _negative: Option<Vec<RecommendationExample>>,
@@ -642,6 +669,7 @@ impl SearchExtendedProvider for Pinecone {
     }
 
     fn discover_vectors(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _target: Option<RecommendationExample>,
         _context_pairs: Vec<ContextPair>,
@@ -657,6 +685,7 @@ impl SearchExtendedProvider for Pinecone {
     }
 
     fn search_groups(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _query: SearchQuery,
         _group_by: String,
@@ -673,6 +702,7 @@ impl SearchExtendedProvider for Pinecone {
     }
 
     fn search_range(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _vector: VectorData,
         _min_distance: Option<f32>,
@@ -689,6 +719,7 @@ impl SearchExtendedProvider for Pinecone {
     }
 
     fn search_text(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _query_text: String,
         _limit: u32,
@@ -702,11 +733,14 @@ impl SearchExtendedProvider for Pinecone {
 }
 
 impl AnalyticsProvider for Pinecone {
+    type ProviderConfig = PineconeConfig;
+
     fn get_collection_stats(
+        provider_config: Self::ProviderConfig,
         collection: String,
         namespace: Option<String>,
     ) -> Result<CollectionStats, VectorError> {
-        let client = Self::create_client()?;
+        let client = PineconeClient::new(&provider_config);
 
         let stats_request = client::DescribeIndexStatsRequest { filter: None };
 
@@ -748,6 +782,7 @@ impl AnalyticsProvider for Pinecone {
     }
 
     fn get_field_stats(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _field: String,
         _namespace: Option<String>,
@@ -758,6 +793,7 @@ impl AnalyticsProvider for Pinecone {
     }
 
     fn get_field_distribution(
+        _provider_config: Self::ProviderConfig,
         _collection: String,
         _field: String,
         _limit: Option<u32>,
@@ -770,7 +806,10 @@ impl AnalyticsProvider for Pinecone {
 }
 
 impl NamespacesProvider for Pinecone {
+    type ProviderConfig = PineconeConfig;
+
     fn upsert_namespace(
+        _provider_config: Self::ProviderConfig,
         collection: String,
         namespace: String,
         _metadata: Option<Metadata>,
@@ -785,8 +824,11 @@ impl NamespacesProvider for Pinecone {
         })
     }
 
-    fn list_namespaces(collection: String) -> Result<Vec<NamespaceInfo>, VectorError> {
-        let client = Self::create_client()?;
+    fn list_namespaces(
+        provider_config: Self::ProviderConfig,
+        collection: String,
+    ) -> Result<Vec<NamespaceInfo>, VectorError> {
+        let client = PineconeClient::new(&provider_config);
 
         match client.list_namespaces(&collection) {
             Ok(namespaces) => {
@@ -807,8 +849,12 @@ impl NamespacesProvider for Pinecone {
         }
     }
 
-    fn get_namespace(collection: String, namespace: String) -> Result<NamespaceInfo, VectorError> {
-        let client = Self::create_client()?;
+    fn get_namespace(
+        provider_config: Self::ProviderConfig,
+        collection: String,
+        namespace: String,
+    ) -> Result<NamespaceInfo, VectorError> {
+        let client = PineconeClient::new(&provider_config);
 
         let stats_request = client::DescribeIndexStatsRequest { filter: None };
 
@@ -834,13 +880,21 @@ impl NamespacesProvider for Pinecone {
         }
     }
 
-    fn delete_namespace(collection: String, namespace: String) -> Result<(), VectorError> {
-        <Self as VectorsProvider>::delete_namespace(collection, namespace)?;
+    fn delete_namespace(
+        provider_config: Self::ProviderConfig,
+        collection: String,
+        namespace: String,
+    ) -> Result<(), VectorError> {
+        <Self as VectorsProvider>::delete_namespace(provider_config, collection, namespace)?;
         Ok(())
     }
 
-    fn namespace_exists(collection: String, namespace: String) -> Result<bool, VectorError> {
-        match Self::get_namespace(collection, namespace) {
+    fn namespace_exists(
+        provider_config: Self::ProviderConfig,
+        collection: String,
+        namespace: String,
+    ) -> Result<bool, VectorError> {
+        match Self::get_namespace(provider_config, collection, namespace) {
             Ok(_) => Ok(true),
             Err(VectorError::NotFound(_)) => Ok(false),
             Err(e) => Err(e),

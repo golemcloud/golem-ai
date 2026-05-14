@@ -1,3 +1,5 @@
+#[cfg(any(feature = "arangodb", feature = "neo4j"))]
+use golem_ai_graph::config::SecretSource;
 use golem_ai_graph::model::connection::ConnectionConfig;
 use golem_ai_graph::model::types::{
     CreateEdgeOptions, CreateVertexOptions, Direction, ExecuteQueryOptions,
@@ -23,56 +25,49 @@ const PROVIDER: &str = "neo4j";
 
 const DEFAULT_TEST_HOST: &str = "127.0.0.1";
 
-#[cfg(feature = "arangodb")]
-const TEST_DATABASE: &str = "test";
-#[cfg(feature = "arangodb")]
-const TEST_PORT: u16 = 8529;
-#[cfg(feature = "arangodb")]
-const TEST_USERNAME: &str = "root";
-#[cfg(feature = "arangodb")]
-const TEST_PASSWORD: &str = "test";
-
-#[cfg(feature = "janusgraph")]
-const TEST_DATABASE: &str = "janusgraph";
-#[cfg(feature = "janusgraph")]
-const TEST_PORT: u16 = 8182;
-#[cfg(feature = "janusgraph")]
-const TEST_USERNAME: &str = "";
-#[cfg(feature = "janusgraph")]
-const TEST_PASSWORD: &str = "";
-
-#[cfg(feature = "neo4j")]
-const TEST_DATABASE: &str = "neo4j";
-#[cfg(feature = "neo4j")]
-const TEST_PORT: u16 = 7474;
-#[cfg(feature = "neo4j")]
-const TEST_USERNAME: &str = "neo4j";
-#[cfg(feature = "neo4j")]
-const TEST_PASSWORD: &str = "password";
-
 fn get_test_host() -> String {
     std::env::var("GRAPH_TEST_HOST").unwrap_or_else(|_| DEFAULT_TEST_HOST.to_string())
 }
 
-fn make_config() -> ConnectionConfig {
-    ConnectionConfig {
-        hosts: Some(vec![get_test_host()]),
-        port: Some(TEST_PORT),
-        database_name: Some(TEST_DATABASE.to_string()),
-        username: if TEST_USERNAME.is_empty() {
-            None
-        } else {
-            Some(TEST_USERNAME.to_string())
-        },
-        password: if TEST_PASSWORD.is_empty() {
-            None
-        } else {
-            Some(TEST_PASSWORD.to_string())
-        },
-        timeout_seconds: None,
-        max_connections: None,
-        provider_config: vec![],
+#[cfg(feature = "arangodb")]
+fn provider_config() -> golem_ai_graph_arangodb::ArangoDbConfig {
+    golem_ai_graph_arangodb::ArangoDbConfig {
+        host: get_test_host(),
+        port: Some(8529),
+        database: Some("test".to_string()),
+        username: SecretSource::from_plain("root"),
+        password: SecretSource::from_plain("test"),
     }
+}
+
+#[cfg(feature = "janusgraph")]
+fn provider_config() -> golem_ai_graph_janusgraph::JanusGraphConfig {
+    golem_ai_graph_janusgraph::JanusGraphConfig {
+        host: get_test_host(),
+        port: Some(8182),
+        username: None,
+        password: None,
+    }
+}
+
+#[cfg(feature = "neo4j")]
+fn provider_config() -> golem_ai_graph_neo4j::Neo4jConfig {
+    golem_ai_graph_neo4j::Neo4jConfig {
+        host: get_test_host(),
+        port: Some(7474),
+        username: SecretSource::from_plain("neo4j"),
+        password: SecretSource::from_plain("password"),
+    }
+}
+
+/// Build a fresh `ConnectionConfig` for each top-level operation.
+///
+/// Calling `provider_config().to_connection_config()` per top-level
+/// call mirrors the explicit-provider-config pattern used by the other
+/// subsystems: every outgoing operation re-reads the typed config and
+/// resolves any secret sources at that moment.
+fn make_config() -> ConnectionConfig {
+    provider_config().to_connection_config()
 }
 
 #[cfg(feature = "arangodb")]

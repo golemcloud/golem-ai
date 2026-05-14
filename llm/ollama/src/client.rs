@@ -23,9 +23,11 @@ pub struct OllamaApi {
 }
 
 impl OllamaApi {
-    pub fn new(default_model: String) -> Self {
-        let base_url =
-            std::env::var("GOLEM_OLLAMA_BASE_URL").unwrap_or("http://localhost:11434".to_string());
+    pub fn new(default_model: String, config: &crate::config::OllamaConfig) -> Self {
+        let base_url = config
+            .base_url
+            .clone()
+            .unwrap_or_else(|| crate::config::DEFAULT_BASE_URL.to_string());
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");

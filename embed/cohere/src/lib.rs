@@ -1,7 +1,6 @@
 use client::EmbeddingsApi;
 use conversions::create_embed_request;
 use golem_ai_embed::{
-    config::with_config_key,
     durability::{DurableEmbed, ExtendedEmbeddingProvider},
     model::{
         Config, ContentPart, EmbeddingResponse as GolemEmbeddingResponse, Error, RerankResponse,
@@ -14,13 +13,16 @@ use crate::conversions::{
 };
 
 mod client;
+pub mod config;
 mod conversions;
+
+pub use config::CohereConfig;
+#[cfg(feature = "golem")]
+pub use config::CohereHostConfig;
 
 pub struct Cohere;
 
 impl Cohere {
-    const ENV_VAR_NAME: &'static str = "COHERE_API_KEY";
-
     fn embeddings(
         client: EmbeddingsApi,
         inputs: Vec<ContentPart>,
@@ -54,24 +56,27 @@ impl Cohere {
 }
 
 impl EmbeddingProvider for Cohere {
-    fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<GolemEmbeddingResponse, Error> {
+    type ProviderConfig = CohereConfig;
+
+    fn generate(
+        provider_config: Self::ProviderConfig,
+        inputs: Vec<ContentPart>,
+        config: Config,
+    ) -> Result<GolemEmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
-        with_config_key(Self::ENV_VAR_NAME, Err, |cohere_api_key| {
-            let client = EmbeddingsApi::new(cohere_api_key);
-            Self::embeddings(client, inputs, config)
-        })
+        let client = EmbeddingsApi::new(&provider_config);
+        Self::embeddings(client, inputs, config)
     }
 
     fn rerank(
+        provider_config: Self::ProviderConfig,
         query: String,
         documents: Vec<String>,
         config: Config,
     ) -> Result<RerankResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
-        with_config_key(Self::ENV_VAR_NAME, Err, |cohere_api_key| {
-            let client = EmbeddingsApi::new(cohere_api_key);
-            Self::rerank(client, query, documents, config)
-        })
+        let client = EmbeddingsApi::new(&provider_config);
+        Self::rerank(client, query, documents, config)
     }
 }
 

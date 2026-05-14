@@ -1,4 +1,6 @@
-use crate::durability::{DurableExec, EmptySnapshot, SessionSnapshot};
+use crate::durability::DurableExec;
+#[cfg(feature = "golem")]
+use crate::durability::{EmptySnapshot, SessionSnapshot};
 use crate::model::LanguageKind;
 use crate::model::{Error, ExecResult, File, Language, RunOptions};
 use crate::{get_contents, io_error, stage_result_failure, ExecutionProvider, ExecutionSession};
@@ -167,6 +169,7 @@ impl ExecutionSession for Session {
     }
 }
 
+#[cfg(feature = "golem")]
 impl SessionSnapshot<Session> for Execution {
     type Snapshot = EmptySnapshot;
 

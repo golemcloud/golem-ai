@@ -11,15 +11,16 @@ description = "Library for working with Text to Speech APIs on Golem Cloud"
 path = "src/lib.rs"
 
 [dependencies]
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 log = { workspace = true }
 mime = "0.3.17"
 nom = { version = "7.1", default-features = false }
 golem-wasi-http = { workspace = true }
 thiserror = "2.0.12"
 wasi-logger = "0.1.2"
+wasip2 = { workspace = true }
 
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-rust/durability", "golem-rust/export_golem_agentic"]

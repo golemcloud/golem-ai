@@ -1,3 +1,4 @@
+use crate::config::GoogleConfig;
 use base64::{engine::general_purpose, Engine as _};
 use golem_ai_tts::config::{get_endpoint_config, get_max_retries_config, get_timeout_config};
 use golem_ai_tts::error::{from_reqwest_error, internal_error, tts_error_from_status};
@@ -51,10 +52,7 @@ pub struct GoogleTtsApi {
 }
 
 impl GoogleTtsApi {
-    pub fn new(
-        credentials_path: Option<String>,
-        project_id: Option<String>,
-    ) -> Result<Self, TtsError> {
+    pub fn new(config: &GoogleConfig) -> Result<Self, TtsError> {
         let client = Client::builder()
             .timeout(Duration::from_secs(get_timeout_config()))
             .build()
@@ -66,8 +64,8 @@ impl GoogleTtsApi {
             client,
             base_url,
             rate_limit_config: RateLimitConfig::default(),
-            project_id,
-            credentials_path,
+            project_id: config.project_id.clone(),
+            credentials_path: config.credentials_path.clone(),
         })
     }
 

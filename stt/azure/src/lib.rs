@@ -5,11 +5,14 @@ use golem_ai_stt::durability::{DurableStt, ExtendedSttProvider};
 use golem_ai_stt::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
 use golem_ai_stt::transcription::SttProviderClient;
 use itertools::Itertools;
-use once_cell::sync::OnceCell;
 
+pub mod config;
 mod transcription;
 
-use golem_ai_stt::error::Error as SttError;
+pub use config::AzureConfig;
+#[cfg(feature = "golem")]
+pub use config::AzureHostConfig;
+
 use golem_ai_stt::model::types::{
     AudioFormat as WitAudioFormat, SttError as WitSttError, TimingInfo as WitTimingInfo,
     TranscriptionChannel as WitTranscriptionChannel,
@@ -33,31 +36,14 @@ use transcription::{
     TranscriptionConfig, TranscriptionRequest, TranscriptionResponse,
 };
 
-static API_CLIENT: OnceCell<FastTranscriptionApi<WstdHttpClient>> = OnceCell::new();
-
 pub struct AzureStt;
 
 impl AzureStt {
-    fn create_or_get_client() -> Result<&'static FastTranscriptionApi<WstdHttpClient>, SttError> {
-        API_CLIENT.get_or_try_init(|| {
-            let region = std::env::var("AZURE_REGION").map_err(|err| {
-                SttError::EnvVariablesNotSet(format!("Failed to load AZURE_REGION: {err}"))
-            })?;
-
-            let subscription_key = std::env::var("AZURE_SUBSCRIPTION_KEY").map_err(|err| {
-                SttError::EnvVariablesNotSet(format!(
-                    "Failed to load AZURE_SUBSCRIPTION_KEY: {err}",
-                ))
-            })?;
-
-            let api_client = FastTranscriptionApi::new(
-                subscription_key,
-                region,
-                WstdHttpClient::new_with_timeout(Duration::from_secs(60), Duration::from_secs(600)),
-            );
-
-            Ok(api_client)
-        })
+    fn create_client(config: &AzureConfig) -> FastTranscriptionApi<WstdHttpClient> {
+        FastTranscriptionApi::new(
+            config,
+            WstdHttpClient::new_with_timeout(Duration::from_secs(60), Duration::from_secs(600)),
+        )
     }
 }
 
@@ -78,22 +64,26 @@ impl LanguageProvider for AzureStt {
 }
 
 impl SttTranscriptionProvider for AzureStt {
+    type ProviderConfig = AzureConfig;
+
     async fn transcribe(
+        provider_config: Self::ProviderConfig,
         req: SttTranscriptionRequest,
     ) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        let api_client = Self::create_or_get_client()?;
+        let api_client = Self::create_client(&provider_config);
         let api_response = api_client.transcribe_audio(req.try_into()?).await?;
         Ok(api_response.into())
     }
 
     async fn transcribe_many(
+        provider_config: Self::ProviderConfig,
         wit_requests: Vec<SttTranscriptionRequest>,
     ) -> Result<WitMultiTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        let api_client = Self::create_or_get_client()?;
+        let api_client = Self::create_client(&provider_config);
 
         let mut successes: Vec<WitTranscriptionResult> = Vec::new();
         let mut failures: Vec<WitFailedTranscription> = Vec::new();

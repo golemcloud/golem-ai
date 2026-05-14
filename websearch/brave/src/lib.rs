@@ -1,4 +1,5 @@
 mod client;
+pub mod config;
 mod conversions;
 
 use std::cell::RefCell;
@@ -12,10 +13,14 @@ use golem_ai_web_search::model::web_search::{
 };
 use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
 
+pub use config::BraveConfig;
+#[cfg(feature = "golem")]
+pub use config::BraveHostConfig;
+
 // Define a custom ReplayState struct
+#[cfg(feature = "golem")]
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
 pub struct BraveReplayState {
-    pub api_key: String,
     pub current_offset: u32,
     pub metadata: Option<SearchMetadata>,
     pub finished: bool,
@@ -95,25 +100,13 @@ impl SearchSessionInterface for BraveSearchSession {
 pub struct BraveSearch;
 
 impl BraveSearch {
-    const API_KEY_VAR: &'static str = "BRAVE_API_KEY";
-
-    fn create_client() -> Result<BraveSearchApi, SearchError> {
-        let api_key = Self::get_api_key()?;
-        Ok(BraveSearchApi::new(api_key))
-    }
-
-    fn get_api_key() -> Result<String, SearchError> {
-        std::env::var(Self::API_KEY_VAR).map_err(|_| {
-            SearchError::BackendError("BRAVE_API_KEY environment variable not set".to_string())
-        })
-    }
-
     fn execute_search(
+        provider_config: &BraveConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, SearchMetadata), SearchError> {
         validate_search_params(&params)?;
 
-        let client = Self::create_client()?;
+        let client = BraveSearchApi::new(provider_config);
         let request = params_to_request(&params, 0)?;
 
         let response = client.search(request)?;
@@ -122,10 +115,13 @@ impl BraveSearch {
         Ok((results, metadata))
     }
 
-    fn start_search_session(params: SearchParams) -> Result<BraveSearchSession, SearchError> {
+    fn start_search_session(
+        provider_config: &BraveConfig,
+        params: SearchParams,
+    ) -> Result<BraveSearchSession, SearchError> {
         validate_search_params(&params)?;
 
-        let client = Self::create_client()?;
+        let client = BraveSearchApi::new(provider_config);
         let search = BraveSearchSessionImpl::new(client, params);
         Ok(BraveSearchSession::new(search))
     }
@@ -133,26 +129,34 @@ impl BraveSearch {
 
 impl WebSearchProvider for BraveSearch {
     type SearchSession = BraveSearchSession;
+    type ProviderConfig = BraveConfig;
 
-    fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
-        Self::start_search_session(params).map(SearchSession::new)
+    fn start_search(
+        provider_config: Self::ProviderConfig,
+        params: SearchParams,
+    ) -> Result<SearchSession, SearchError> {
+        Self::start_search_session(&provider_config, params).map(SearchSession::new)
     }
 
     fn search_once(
+        provider_config: Self::ProviderConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        let (results, metadata) = Self::execute_search(params)?;
+        let (results, metadata) = Self::execute_search(&provider_config, params)?;
         Ok((results, Some(metadata)))
     }
 }
 
-// ExtendedwebsearchGuest implementation
+// ExtendedWebSearchProvider implementation
+#[cfg(feature = "golem")]
 impl ExtendedWebSearchProvider for BraveSearch {
     type ReplayState = BraveReplayState;
 
-    fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
-        let api_key = Self::get_api_key()?;
-        let client = BraveSearchApi::new(api_key.clone());
+    fn unwrapped_search_session(
+        provider_config: Self::ProviderConfig,
+        params: SearchParams,
+    ) -> Result<Self::SearchSession, SearchError> {
+        let client = BraveSearchApi::new(&provider_config);
         let search = BraveSearchSessionImpl::new(client, params);
         Ok(BraveSearchSession::new(search))
     }
@@ -160,7 +164,6 @@ impl ExtendedWebSearchProvider for BraveSearch {
     fn session_to_state(session: &Self::SearchSession) -> Self::ReplayState {
         let search = session.0.borrow();
         BraveReplayState {
-            api_key: search.client.api_key().clone(),
             current_offset: search.current_offset,
             metadata: search.metadata.clone(),
             finished: search.finished,
@@ -168,10 +171,11 @@ impl ExtendedWebSearchProvider for BraveSearch {
     }
 
     fn session_from_state(
+        provider_config: Self::ProviderConfig,
         state: &Self::ReplayState,
         params: SearchParams,
     ) -> Result<Self::SearchSession, SearchError> {
-        let client = BraveSearchApi::new(state.api_key.clone());
+        let client = BraveSearchApi::new(&provider_config);
         let mut search = BraveSearchSessionImpl::new(client, params);
         search.current_offset = state.current_offset;
         search.metadata = state.metadata.clone();
@@ -179,5 +183,8 @@ impl ExtendedWebSearchProvider for BraveSearch {
         Ok(BraveSearchSession::new(search))
     }
 }
+
+#[cfg(not(feature = "golem"))]
+impl ExtendedWebSearchProvider for BraveSearch {}
 
 pub type DurableBraveSearch = DurableWebSearch<BraveSearch>;

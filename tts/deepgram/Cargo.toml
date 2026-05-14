@@ -11,13 +11,13 @@ description = "Library for working with Deepgram Text to Speech APIs on Golem Cl
 path = "src/lib.rs"
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability", "golem-ai-tts/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-ai-tts/golem"]
 
 [dependencies]
 golem-ai-tts = { workspace = true }
 
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -4,18 +4,22 @@ use crate::conversions::{
     create_retry_query, doc_to_algolia_object, schema_to_algolia_settings,
     search_query_to_algolia_query,
 };
-use golem_ai_search::config::with_config_keys;
 use golem_ai_search::durability::{DurableSearch, ExtendedSearchProvider};
 use golem_ai_search::model::{CreateIndexOptions, SearchStream};
 use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
+use golem_ai_search::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_search::{SearchProvider, SearchStreamInterface};
-use golem_rust::golem_wasm::Pollable;
 use std::cell::{Cell, RefCell};
 
 mod client;
+pub mod config;
 mod conversions;
+
+pub use crate::config::AlgoliaConfig;
+#[cfg(feature = "golem")]
+pub use crate::config::AlgoliaHostConfig;
 
 pub struct AlgoliaSearchStream {
     client: AlgoliaSearchApi,
@@ -39,7 +43,7 @@ impl AlgoliaSearchStream {
     }
 
     pub fn subscribe(&self) -> Pollable {
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 }
 
@@ -100,41 +104,25 @@ impl SearchStreamInterface for AlgoliaSearchStream {
 
 pub struct Algolia;
 
-impl Algolia {
-    const APPLICATION_ID_ENV_VAR: &'static str = "ALGOLIA_APPLICATION_ID";
-    const API_KEY_ENV_VAR: &'static str = "ALGOLIA_API_KEY";
-
-    fn create_client() -> Result<AlgoliaSearchApi, SearchError> {
-        with_config_keys(
-            &[Self::APPLICATION_ID_ENV_VAR, Self::API_KEY_ENV_VAR],
-            |keys| {
-                if keys.len() != 2 {
-                    return Err(SearchError::Internal(
-                        "Missing Algolia credentials".to_string(),
-                    ));
-                }
-
-                let application_id = keys[0].clone();
-                let api_key = keys[1].clone();
-
-                Ok(AlgoliaSearchApi::new(application_id, api_key))
-            },
-        )
-    }
-}
-
 impl SearchProvider for Algolia {
     type SearchStream = AlgoliaSearchStream;
+    type ProviderConfig = AlgoliaConfig;
 
-    fn create_index(_options: CreateIndexOptions) -> Result<(), SearchError> {
+    fn create_index(
+        _provider_config: Self::ProviderConfig,
+        _options: CreateIndexOptions,
+    ) -> Result<(), SearchError> {
         // Algolia doesn't require explicit index creation - indices are created automatically
         // when you first add documents.
         // providers that don't support index creation should return unsupported.
         Err(SearchError::Unsupported)
     }
 
-    fn delete_index(name: IndexName) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete_index(
+        provider_config: Self::ProviderConfig,
+        name: IndexName,
+    ) -> Result<(), SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
 
         match client.delete_index(&name) {
             Ok(response) => {
@@ -145,8 +133,10 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
-        let client = Self::create_client()?;
+    fn list_indexes(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<IndexName>, SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
 
         match client.list_indexes() {
             Ok(response) => Ok(response.items.into_iter().map(|item| item.name).collect()),
@@ -154,8 +144,12 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn upsert(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        doc: Doc,
+    ) -> Result<(), SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
         let algolia_object = doc_to_algolia_object(doc).map_err(SearchError::InvalidQuery)?;
 
         match client.save_object(&index, &algolia_object) {
@@ -167,8 +161,12 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn upsert_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        docs: Vec<Doc>,
+    ) -> Result<(), SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
         let mut algolia_objects = Vec::new();
 
         for doc in docs {
@@ -185,8 +183,12 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<(), SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
 
         match client.delete_object(&index, &id) {
             Ok(response) => {
@@ -197,8 +199,12 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        ids: Vec<DocumentId>,
+    ) -> Result<(), SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
 
         match client.delete_objects(&index, &ids) {
             Ok(response) => {
@@ -209,8 +215,12 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
-        let client = Self::create_client()?;
+    fn get(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<Option<Doc>, SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
 
         match client.get_object(&index, &id) {
             Ok(Some(algolia_object)) => Ok(Some(algolia_object_to_doc(algolia_object))),
@@ -219,8 +229,12 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
-        let client = Self::create_client()?;
+    fn search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchResults, SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
         let algolia_query = search_query_to_algolia_query(query);
 
         match client.search(&index, &algolia_query) {
@@ -229,14 +243,21 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn stream_search(index: IndexName, query: SearchQuery) -> Result<SearchStream, SearchError> {
-        let client = Self::create_client()?;
+    fn stream_search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchStream, SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
         let stream = AlgoliaSearchStream::new(client, index, query);
         Ok(SearchStream::new(stream))
     }
 
-    fn get_schema(index: IndexName) -> Result<Schema, SearchError> {
-        let client = Self::create_client()?;
+    fn get_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+    ) -> Result<Schema, SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
 
         match client.get_settings(&index) {
             Ok(settings) => Ok(algolia_settings_to_schema(settings)),
@@ -244,8 +265,12 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn update_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        schema: Schema,
+    ) -> Result<(), SearchError> {
+        let client = AlgoliaSearchApi::new(&provider_config);
         let settings = schema_to_algolia_settings(schema);
 
         client.set_settings(&index, &settings)?;
@@ -255,10 +280,12 @@ impl SearchProvider for Algolia {
 }
 
 impl ExtendedSearchProvider for Algolia {
-    fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
-        let client = Self::create_client()
-            .unwrap_or_else(|_| AlgoliaSearchApi::new("dummy".to_string(), "dummy".to_string()));
-
+    fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Self::SearchStream {
+        let client = AlgoliaSearchApi::new(&provider_config);
         AlgoliaSearchStream::new(client, index, query)
     }
 

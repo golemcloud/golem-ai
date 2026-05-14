@@ -11,11 +11,11 @@ description = "Library for working with Milvus APIs on Golem Cloud"
 path = "src/lib.rs"
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability", "golem-ai-vector/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-ai-vector/golem"]
 
 [dependencies]
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 golem-ai-vector = { workspace = true }
 golem-wasi-http = { workspace = true }
 

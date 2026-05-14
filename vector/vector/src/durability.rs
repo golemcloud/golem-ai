@@ -1,13 +1,33 @@
 use crate::model::types::VectorError;
-use crate::FuncProvider;
+use crate::{
+    AnalyticsProvider, CollectionProvider, ConnectionProvider, FuncProvider, NamespacesProvider,
+    SearchExtendedProvider, SearchProvider, VectorsProvider,
+};
 use std::marker::PhantomData;
 
 pub struct DurableVector<Impl> {
     _phantom: PhantomData<Impl>,
 }
 
-pub trait ExtendedVectorProvider: 'static {
+/// Trait used by `DurableVector<Impl>` to implement durability.
+///
+/// All seven sub-traits (`ConnectionProvider`, `CollectionProvider`,
+/// `VectorsProvider`, `SearchProvider`, `SearchExtendedProvider`,
+/// `AnalyticsProvider`, `NamespacesProvider`) must agree on the same
+/// `ProviderConfig` type so the durable wrapper can thread a single
+/// `provider_config` value through every method on every trait.
+pub trait ExtendedVectorProvider:
+    ConnectionProvider
+    + CollectionProvider<ProviderConfig = <Self as ConnectionProvider>::ProviderConfig>
+    + VectorsProvider<ProviderConfig = <Self as ConnectionProvider>::ProviderConfig>
+    + SearchProvider<ProviderConfig = <Self as ConnectionProvider>::ProviderConfig>
+    + SearchExtendedProvider<ProviderConfig = <Self as ConnectionProvider>::ProviderConfig>
+    + AnalyticsProvider<ProviderConfig = <Self as ConnectionProvider>::ProviderConfig>
+    + NamespacesProvider<ProviderConfig = <Self as ConnectionProvider>::ProviderConfig>
+    + 'static
+{
     fn connect_internal(
+        provider_config: <Self as ConnectionProvider>::ProviderConfig,
         endpoint: &str,
         credentials: &Option<crate::model::connection::Credentials>,
         timeout_ms: &Option<u32>,
@@ -27,50 +47,54 @@ impl<Impl: ExtendedVectorProvider> FuncProvider for DurableVector<Impl> {
 
 /// When the durability feature flag is off, `DurableVector<Impl>` is a transparent wrapper that
 /// forwards every call to the inner provider without any oplog persistence.
-#[cfg(not(feature = "durability"))]
+#[cfg(not(feature = "golem"))]
 mod passthrough_impl {
     use super::*;
     use crate::init_logging;
-    use crate::{
-        AnalyticsProvider, CollectionProvider, ConnectionProvider, NamespacesProvider,
-        SearchExtendedProvider, SearchProvider, VectorsProvider,
-    };
 
-    impl<Impl: ExtendedVectorProvider + ConnectionProvider> ConnectionProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> ConnectionProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn connect(
+            provider_config: Self::ProviderConfig,
             endpoint: String,
             credentials: Option<crate::model::connection::Credentials>,
             timeout_ms: Option<u32>,
             options: Option<crate::model::types::Metadata>,
         ) -> Result<(), VectorError> {
             init_logging();
-            Impl::connect_internal(&endpoint, &credentials, &timeout_ms, &options)
+            Impl::connect_internal(provider_config, &endpoint, &credentials, &timeout_ms, &options)
         }
 
-        fn disconnect() -> Result<(), VectorError> {
+        fn disconnect(provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
             init_logging();
-            Impl::disconnect()
+            Impl::disconnect(provider_config)
         }
 
-        fn get_connection_status() -> Result<crate::model::connection::ConnectionStatus, VectorError>
-        {
+        fn get_connection_status(
+            provider_config: Self::ProviderConfig,
+        ) -> Result<crate::model::connection::ConnectionStatus, VectorError> {
             init_logging();
-            Impl::get_connection_status()
+            Impl::get_connection_status(provider_config)
         }
 
         fn test_connection(
+            provider_config: Self::ProviderConfig,
             endpoint: String,
             credentials: Option<crate::model::connection::Credentials>,
             timeout_ms: Option<u32>,
             options: Option<crate::model::types::Metadata>,
         ) -> Result<bool, VectorError> {
             init_logging();
-            Impl::test_connection(endpoint, credentials, timeout_ms, options)
+            Impl::test_connection(provider_config, endpoint, credentials, timeout_ms, options)
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + CollectionProvider> CollectionProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> CollectionProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn upsert_collection(
+            provider_config: Self::ProviderConfig,
             name: String,
             description: Option<String>,
             dimension: u32,
@@ -79,52 +103,74 @@ mod passthrough_impl {
             metadata: Option<crate::model::types::Metadata>,
         ) -> Result<crate::model::collections::CollectionInfo, VectorError> {
             init_logging();
-            Impl::upsert_collection(name, description, dimension, metric, index_config, metadata)
+            Impl::upsert_collection(
+                provider_config,
+                name,
+                description,
+                dimension,
+                metric,
+                index_config,
+                metadata,
+            )
         }
 
-        fn list_collections() -> Result<Vec<String>, VectorError> {
+        fn list_collections(
+            provider_config: Self::ProviderConfig,
+        ) -> Result<Vec<String>, VectorError> {
             init_logging();
-            Impl::list_collections()
+            Impl::list_collections(provider_config)
         }
 
         fn get_collection(
+            provider_config: Self::ProviderConfig,
             name: String,
         ) -> Result<crate::model::collections::CollectionInfo, VectorError> {
             init_logging();
-            Impl::get_collection(name)
+            Impl::get_collection(provider_config, name)
         }
 
         fn update_collection(
+            provider_config: Self::ProviderConfig,
             name: String,
             description: Option<String>,
             metadata: Option<crate::model::types::Metadata>,
         ) -> Result<crate::model::collections::CollectionInfo, VectorError> {
             init_logging();
-            Impl::update_collection(name, description, metadata)
+            Impl::update_collection(provider_config, name, description, metadata)
         }
 
-        fn delete_collection(name: String) -> Result<(), VectorError> {
+        fn delete_collection(
+            provider_config: Self::ProviderConfig,
+            name: String,
+        ) -> Result<(), VectorError> {
             init_logging();
-            Impl::delete_collection(name)
+            Impl::delete_collection(provider_config, name)
         }
 
-        fn collection_exists(name: String) -> Result<bool, VectorError> {
+        fn collection_exists(
+            provider_config: Self::ProviderConfig,
+            name: String,
+        ) -> Result<bool, VectorError> {
             init_logging();
-            Impl::collection_exists(name)
+            Impl::collection_exists(provider_config, name)
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + VectorsProvider> VectorsProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> VectorsProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn upsert_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             vectors: Vec<crate::model::types::VectorRecord>,
             namespace: Option<String>,
         ) -> Result<crate::model::vectors::BatchResult, VectorError> {
             init_logging();
-            Impl::upsert_vectors(collection, vectors, namespace)
+            Impl::upsert_vectors(provider_config, collection, vectors, namespace)
         }
 
         fn upsert_vector(
+            provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
             vector: crate::model::types::VectorData,
@@ -132,10 +178,11 @@ mod passthrough_impl {
             namespace: Option<String>,
         ) -> Result<(), VectorError> {
             init_logging();
-            Impl::upsert_vector(collection, id, vector, metadata, namespace)
+            Impl::upsert_vector(provider_config, collection, id, vector, metadata, namespace)
         }
 
         fn get_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             ids: Vec<crate::model::types::Id>,
             namespace: Option<String>,
@@ -144,6 +191,7 @@ mod passthrough_impl {
         ) -> Result<Vec<crate::model::types::VectorRecord>, VectorError> {
             init_logging();
             Impl::get_vectors(
+                provider_config,
                 collection,
                 ids,
                 namespace,
@@ -153,15 +201,17 @@ mod passthrough_impl {
         }
 
         fn get_vector(
+            provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
             namespace: Option<String>,
         ) -> Result<Option<crate::model::types::VectorRecord>, VectorError> {
             init_logging();
-            Impl::get_vector(collection, id, namespace)
+            Impl::get_vector(provider_config, collection, id, namespace)
         }
 
         fn update_vector(
+            provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
             vector: Option<crate::model::types::VectorData>,
@@ -170,33 +220,48 @@ mod passthrough_impl {
             merge_metadata: Option<bool>,
         ) -> Result<(), VectorError> {
             init_logging();
-            Impl::update_vector(collection, id, vector, metadata, namespace, merge_metadata)
+            Impl::update_vector(
+                provider_config,
+                collection,
+                id,
+                vector,
+                metadata,
+                namespace,
+                merge_metadata,
+            )
         }
 
         fn delete_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             ids: Vec<crate::model::types::Id>,
             namespace: Option<String>,
         ) -> Result<u32, VectorError> {
             init_logging();
-            Impl::delete_vectors(collection, ids, namespace)
+            Impl::delete_vectors(provider_config, collection, ids, namespace)
         }
 
         fn delete_by_filter(
+            provider_config: Self::ProviderConfig,
             collection: String,
             filter: crate::model::types::FilterExpression,
             namespace: Option<String>,
         ) -> Result<u32, VectorError> {
             init_logging();
-            Impl::delete_by_filter(collection, filter, namespace)
+            Impl::delete_by_filter(provider_config, collection, filter, namespace)
         }
 
-        fn delete_namespace(collection: String, namespace: String) -> Result<u32, VectorError> {
+        fn delete_namespace(
+            provider_config: Self::ProviderConfig,
+            collection: String,
+            namespace: String,
+        ) -> Result<u32, VectorError> {
             init_logging();
-            Impl::delete_namespace(collection, namespace)
+            <Impl as VectorsProvider>::delete_namespace(provider_config, collection, namespace)
         }
 
         fn list_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             namespace: Option<String>,
             filter: Option<crate::model::types::FilterExpression>,
@@ -207,6 +272,7 @@ mod passthrough_impl {
         ) -> Result<crate::model::vectors::ListResponse, VectorError> {
             init_logging();
             Impl::list_vectors(
+                provider_config,
                 collection,
                 namespace,
                 filter,
@@ -218,17 +284,21 @@ mod passthrough_impl {
         }
 
         fn count_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             filter: Option<crate::model::types::FilterExpression>,
             namespace: Option<String>,
         ) -> Result<u64, VectorError> {
             init_logging();
-            Impl::count_vectors(collection, filter, namespace)
+            Impl::count_vectors(provider_config, collection, filter, namespace)
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + SearchProvider> SearchProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> SearchProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn search_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             query: crate::model::search::SearchQuery,
             limit: u32,
@@ -242,6 +312,7 @@ mod passthrough_impl {
         ) -> Result<Vec<crate::model::types::SearchResult>, VectorError> {
             init_logging();
             Impl::search_vectors(
+                provider_config,
                 collection,
                 query,
                 limit,
@@ -256,16 +327,18 @@ mod passthrough_impl {
         }
 
         fn find_similar(
+            provider_config: Self::ProviderConfig,
             collection: String,
             vector: crate::model::types::VectorData,
             limit: u32,
             namespace: Option<String>,
         ) -> Result<Vec<crate::model::types::SearchResult>, VectorError> {
             init_logging();
-            Impl::find_similar(collection, vector, limit, namespace)
+            Impl::find_similar(provider_config, collection, vector, limit, namespace)
         }
 
         fn batch_search(
+            provider_config: Self::ProviderConfig,
             collection: String,
             queries: Vec<crate::model::search::SearchQuery>,
             limit: u32,
@@ -277,6 +350,7 @@ mod passthrough_impl {
         ) -> Result<Vec<Vec<crate::model::types::SearchResult>>, VectorError> {
             init_logging();
             Impl::batch_search(
+                provider_config,
                 collection,
                 queries,
                 limit,
@@ -289,10 +363,11 @@ mod passthrough_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + SearchExtendedProvider> SearchExtendedProvider
-        for DurableVector<Impl>
-    {
+    impl<Impl: ExtendedVectorProvider> SearchExtendedProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn recommend_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             positive: Vec<crate::model::search_extended::RecommendationExample>,
             negative: Option<Vec<crate::model::search_extended::RecommendationExample>>,
@@ -305,6 +380,7 @@ mod passthrough_impl {
         ) -> Result<Vec<crate::model::types::SearchResult>, VectorError> {
             init_logging();
             Impl::recommend_vectors(
+                provider_config,
                 collection,
                 positive,
                 negative,
@@ -318,6 +394,7 @@ mod passthrough_impl {
         }
 
         fn discover_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             target: Option<crate::model::search_extended::RecommendationExample>,
             context_pairs: Vec<crate::model::search_extended::ContextPair>,
@@ -329,6 +406,7 @@ mod passthrough_impl {
         ) -> Result<Vec<crate::model::types::SearchResult>, VectorError> {
             init_logging();
             Impl::discover_vectors(
+                provider_config,
                 collection,
                 target,
                 context_pairs,
@@ -341,6 +419,7 @@ mod passthrough_impl {
         }
 
         fn search_groups(
+            provider_config: Self::ProviderConfig,
             collection: String,
             query: crate::model::search::SearchQuery,
             group_by: String,
@@ -353,6 +432,7 @@ mod passthrough_impl {
         ) -> Result<Vec<crate::model::search_extended::GroupedSearchResult>, VectorError> {
             init_logging();
             Impl::search_groups(
+                provider_config,
                 collection,
                 query,
                 group_by,
@@ -366,6 +446,7 @@ mod passthrough_impl {
         }
 
         fn search_range(
+            provider_config: Self::ProviderConfig,
             collection: String,
             vector: crate::model::types::VectorData,
             min_distance: Option<f32>,
@@ -378,6 +459,7 @@ mod passthrough_impl {
         ) -> Result<Vec<crate::model::types::SearchResult>, VectorError> {
             init_logging();
             Impl::search_range(
+                provider_config,
                 collection,
                 vector,
                 min_distance,
@@ -391,6 +473,7 @@ mod passthrough_impl {
         }
 
         fn search_text(
+            provider_config: Self::ProviderConfig,
             collection: String,
             query_text: String,
             limit: u32,
@@ -398,83 +481,105 @@ mod passthrough_impl {
             namespace: Option<String>,
         ) -> Result<Vec<crate::model::types::SearchResult>, VectorError> {
             init_logging();
-            Impl::search_text(collection, query_text, limit, filter, namespace)
+            Impl::search_text(
+                provider_config,
+                collection,
+                query_text,
+                limit,
+                filter,
+                namespace,
+            )
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + AnalyticsProvider> AnalyticsProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> AnalyticsProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn get_collection_stats(
+            provider_config: Self::ProviderConfig,
             collection: String,
             namespace: Option<String>,
         ) -> Result<crate::model::analytics::CollectionStats, VectorError> {
             init_logging();
-            Impl::get_collection_stats(collection, namespace)
+            Impl::get_collection_stats(provider_config, collection, namespace)
         }
 
         fn get_field_stats(
+            provider_config: Self::ProviderConfig,
             collection: String,
             field: String,
             namespace: Option<String>,
         ) -> Result<crate::model::analytics::FieldStats, VectorError> {
             init_logging();
-            Impl::get_field_stats(collection, field, namespace)
+            Impl::get_field_stats(provider_config, collection, field, namespace)
         }
 
         fn get_field_distribution(
+            provider_config: Self::ProviderConfig,
             collection: String,
             field: String,
             limit: Option<u32>,
             namespace: Option<String>,
         ) -> Result<Vec<(crate::model::types::MetadataValue, u64)>, VectorError> {
             init_logging();
-            Impl::get_field_distribution(collection, field, limit, namespace)
+            Impl::get_field_distribution(provider_config, collection, field, limit, namespace)
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + NamespacesProvider> NamespacesProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> NamespacesProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn upsert_namespace(
+            provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
             metadata: Option<crate::model::types::Metadata>,
         ) -> Result<crate::model::namespaces::NamespaceInfo, VectorError> {
             init_logging();
-            Impl::upsert_namespace(collection, namespace, metadata)
+            Impl::upsert_namespace(provider_config, collection, namespace, metadata)
         }
 
         fn list_namespaces(
+            provider_config: Self::ProviderConfig,
             collection: String,
         ) -> Result<Vec<crate::model::namespaces::NamespaceInfo>, VectorError> {
             init_logging();
-            Impl::list_namespaces(collection)
+            Impl::list_namespaces(provider_config, collection)
         }
 
         fn get_namespace(
+            provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
         ) -> Result<crate::model::namespaces::NamespaceInfo, VectorError> {
             init_logging();
-            Impl::get_namespace(collection, namespace)
+            Impl::get_namespace(provider_config, collection, namespace)
         }
 
-        fn delete_namespace(collection: String, namespace: String) -> Result<(), VectorError> {
+        fn delete_namespace(
+            provider_config: Self::ProviderConfig,
+            collection: String,
+            namespace: String,
+        ) -> Result<(), VectorError> {
             init_logging();
-            Impl::delete_namespace(collection, namespace)
+            <Impl as NamespacesProvider>::delete_namespace(provider_config, collection, namespace)
         }
 
-        fn namespace_exists(collection: String, namespace: String) -> Result<bool, VectorError> {
+        fn namespace_exists(
+            provider_config: Self::ProviderConfig,
+            collection: String,
+            namespace: String,
+        ) -> Result<bool, VectorError> {
             init_logging();
-            Impl::namespace_exists(collection, namespace)
+            Impl::namespace_exists(provider_config, collection, namespace)
         }
     }
 }
 
-#[cfg(feature = "durability")]
+#[cfg(feature = "golem")]
 mod durable_impl {
     use super::*;
-    use crate::{
-        init_logging, AnalyticsProvider, CollectionProvider, ConnectionProvider,
-        NamespacesProvider, SearchExtendedProvider, SearchProvider, VectorsProvider,
-    };
+    use crate::init_logging;
     use golem_rust::bindings::golem::durability::durability::WrappedFunctionType;
     use golem_rust::durability::Durability;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
@@ -482,8 +587,11 @@ mod durable_impl {
     #[derive(Debug, Clone, FromValueAndType, IntoValue)]
     pub(super) struct Unit;
 
-    impl<Impl: ExtendedVectorProvider + ConnectionProvider> ConnectionProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> ConnectionProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn connect(
+            provider_config: Self::ProviderConfig,
             endpoint: String,
             credentials: Option<crate::model::connection::Credentials>,
             timeout_ms: Option<u32>,
@@ -497,8 +605,16 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::connect_internal(&endpoint, &credentials, &timeout_ms, &options)
+                    Impl::connect_internal(
+                        provider_config,
+                        &endpoint,
+                        &credentials,
+                        &timeout_ms,
+                        &options,
+                    )
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(
                     ConnectParams {
                         endpoint,
@@ -515,7 +631,7 @@ mod durable_impl {
             }
         }
 
-        fn disconnect() -> Result<(), VectorError> {
+        fn disconnect(provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
             init_logging();
             let durability = Durability::<Unit, VectorError>::new(
                 "golem_ai_vector",
@@ -523,8 +639,9 @@ mod durable_impl {
                 WrappedFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result =
-                    with_persistence_level(PersistenceLevel::PersistNothing, || Impl::disconnect());
+                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                    Impl::disconnect(provider_config)
+                });
                 durability.persist(Unit, result.map(|_| Unit))?;
                 Ok(())
             } else {
@@ -533,8 +650,9 @@ mod durable_impl {
             }
         }
 
-        fn get_connection_status() -> Result<crate::model::connection::ConnectionStatus, VectorError>
-        {
+        fn get_connection_status(
+            provider_config: Self::ProviderConfig,
+        ) -> Result<crate::model::connection::ConnectionStatus, VectorError> {
             init_logging();
             let durability: Durability<crate::model::connection::ConnectionStatus, VectorError> =
                 Durability::new(
@@ -544,7 +662,7 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_connection_status()
+                    Impl::get_connection_status(provider_config)
                 });
                 durability.persist(Unit, result)
             } else {
@@ -553,6 +671,7 @@ mod durable_impl {
         }
 
         fn test_connection(
+            provider_config: Self::ProviderConfig,
             endpoint: String,
             credentials: Option<crate::model::connection::Credentials>,
             timeout_ms: Option<u32>,
@@ -567,6 +686,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::test_connection(
+                        provider_config,
                         endpoint.clone(),
                         credentials.clone(),
                         timeout_ms,
@@ -588,8 +708,11 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + CollectionProvider> CollectionProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> CollectionProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn upsert_collection(
+            provider_config: Self::ProviderConfig,
             name: String,
             description: Option<String>,
             dimension: u32,
@@ -607,6 +730,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::upsert_collection(
+                        provider_config,
                         name.clone(),
                         description.clone(),
                         dimension,
@@ -631,7 +755,9 @@ mod durable_impl {
             }
         }
 
-        fn list_collections() -> Result<Vec<String>, VectorError> {
+        fn list_collections(
+            provider_config: Self::ProviderConfig,
+        ) -> Result<Vec<String>, VectorError> {
             init_logging();
             let durability: Durability<Vec<String>, VectorError> = Durability::new(
                 "golem_vector_collections",
@@ -640,7 +766,7 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::list_collections()
+                    Impl::list_collections(provider_config)
                 });
                 durability.persist(Unit, result)
             } else {
@@ -649,6 +775,7 @@ mod durable_impl {
         }
 
         fn get_collection(
+            provider_config: Self::ProviderConfig,
             name: String,
         ) -> Result<crate::model::collections::CollectionInfo, VectorError> {
             init_logging();
@@ -660,7 +787,7 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_collection(name.clone())
+                    Impl::get_collection(provider_config, name.clone())
                 });
                 durability.persist(name, result)
             } else {
@@ -669,6 +796,7 @@ mod durable_impl {
         }
 
         fn update_collection(
+            provider_config: Self::ProviderConfig,
             name: String,
             description: Option<String>,
             metadata: Option<crate::model::types::Metadata>,
@@ -682,7 +810,12 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::update_collection(name.clone(), description.clone(), metadata.clone())
+                    Impl::update_collection(
+                        provider_config,
+                        name.clone(),
+                        description.clone(),
+                        metadata.clone(),
+                    )
                 });
                 durability.persist(
                     UpdateCollectionParams {
@@ -697,7 +830,10 @@ mod durable_impl {
             }
         }
 
-        fn delete_collection(name: String) -> Result<(), VectorError> {
+        fn delete_collection(
+            provider_config: Self::ProviderConfig,
+            name: String,
+        ) -> Result<(), VectorError> {
             init_logging();
             let durability: Durability<Unit, VectorError> = Durability::new(
                 "golem_vector_collections",
@@ -706,7 +842,7 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_collection(name.clone())
+                    Impl::delete_collection(provider_config, name.clone())
                 });
                 durability.persist(name, result.map(|_| Unit))?;
                 Ok(())
@@ -716,7 +852,10 @@ mod durable_impl {
             }
         }
 
-        fn collection_exists(name: String) -> Result<bool, VectorError> {
+        fn collection_exists(
+            provider_config: Self::ProviderConfig,
+            name: String,
+        ) -> Result<bool, VectorError> {
             init_logging();
             let durability: Durability<bool, VectorError> = Durability::new(
                 "golem_vector_collections",
@@ -725,7 +864,7 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::collection_exists(name.clone())
+                    Impl::collection_exists(provider_config, name.clone())
                 });
                 durability.persist(name, result)
             } else {
@@ -734,8 +873,11 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + VectorsProvider> VectorsProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> VectorsProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn upsert_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             vectors: Vec<crate::model::types::VectorRecord>,
             namespace: Option<String>,
@@ -749,7 +891,12 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert_vectors(collection.clone(), vectors.clone(), namespace.clone())
+                    Impl::upsert_vectors(
+                        provider_config,
+                        collection.clone(),
+                        vectors.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist(
                     UpsertVectorsParams {
@@ -765,6 +912,7 @@ mod durable_impl {
         }
 
         fn upsert_vector(
+            provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
             vector: crate::model::types::VectorData,
@@ -780,6 +928,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::upsert_vector(
+                        provider_config,
                         collection.clone(),
                         id.clone(),
                         vector.clone(),
@@ -805,6 +954,7 @@ mod durable_impl {
         }
 
         fn get_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             ids: Vec<crate::model::types::Id>,
             namespace: Option<String>,
@@ -821,6 +971,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::get_vectors(
+                        provider_config,
                         collection.clone(),
                         ids.clone(),
                         namespace.clone(),
@@ -844,6 +995,7 @@ mod durable_impl {
         }
 
         fn get_vector(
+            provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
             namespace: Option<String>,
@@ -857,7 +1009,12 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_vector(collection.clone(), id.clone(), namespace.clone())
+                    Impl::get_vector(
+                        provider_config,
+                        collection.clone(),
+                        id.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist(
                     GetVectorParams {
@@ -873,6 +1030,7 @@ mod durable_impl {
         }
 
         fn update_vector(
+            provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
             vector: Option<crate::model::types::VectorData>,
@@ -889,6 +1047,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::update_vector(
+                        provider_config,
                         collection.clone(),
                         id.clone(),
                         vector.clone(),
@@ -916,6 +1075,7 @@ mod durable_impl {
         }
 
         fn delete_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             ids: Vec<crate::model::types::Id>,
             namespace: Option<String>,
@@ -928,7 +1088,12 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_vectors(collection.clone(), ids.clone(), namespace.clone())
+                    Impl::delete_vectors(
+                        provider_config,
+                        collection.clone(),
+                        ids.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist(
                     DeleteVectorsParams {
@@ -944,6 +1109,7 @@ mod durable_impl {
         }
 
         fn delete_by_filter(
+            provider_config: Self::ProviderConfig,
             collection: String,
             filter: crate::model::types::FilterExpression,
             namespace: Option<String>,
@@ -956,7 +1122,12 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_by_filter(collection.clone(), filter.clone(), namespace.clone())
+                    Impl::delete_by_filter(
+                        provider_config,
+                        collection.clone(),
+                        filter.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist(
                     DeleteByFilterParams {
@@ -971,7 +1142,11 @@ mod durable_impl {
             }
         }
 
-        fn delete_namespace(collection: String, namespace: String) -> Result<u32, VectorError> {
+        fn delete_namespace(
+            provider_config: Self::ProviderConfig,
+            collection: String,
+            namespace: String,
+        ) -> Result<u32, VectorError> {
             init_logging();
             let durability: Durability<u32, VectorError> = Durability::new(
                 "golem_vector_vectors",
@@ -980,7 +1155,11 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_namespace(collection.clone(), namespace.clone())
+                    <Impl as VectorsProvider>::delete_namespace(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist((collection, namespace), result)
             } else {
@@ -989,6 +1168,7 @@ mod durable_impl {
         }
 
         fn list_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             namespace: Option<String>,
             filter: Option<crate::model::types::FilterExpression>,
@@ -1007,6 +1187,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::list_vectors(
+                        provider_config,
                         collection.clone(),
                         namespace.clone(),
                         filter.clone(),
@@ -1034,6 +1215,7 @@ mod durable_impl {
         }
 
         fn count_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             filter: Option<crate::model::types::FilterExpression>,
             namespace: Option<String>,
@@ -1046,7 +1228,12 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::count_vectors(collection.clone(), filter.clone(), namespace.clone())
+                    Impl::count_vectors(
+                        provider_config,
+                        collection.clone(),
+                        filter.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist(
                     CountVectorsParams {
@@ -1062,8 +1249,11 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + SearchProvider> SearchProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> SearchProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn search_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             query: crate::model::search::SearchQuery,
             limit: u32,
@@ -1085,6 +1275,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::search_vectors(
+                        provider_config,
                         collection.clone(),
                         query.clone(),
                         limit,
@@ -1118,6 +1309,7 @@ mod durable_impl {
         }
 
         fn find_similar(
+            provider_config: Self::ProviderConfig,
             collection: String,
             vector: crate::model::types::VectorData,
             limit: u32,
@@ -1132,7 +1324,13 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::find_similar(collection.clone(), vector.clone(), limit, namespace.clone())
+                    Impl::find_similar(
+                        provider_config,
+                        collection.clone(),
+                        vector.clone(),
+                        limit,
+                        namespace.clone(),
+                    )
                 });
                 durability.persist(
                     FindSimilarParams {
@@ -1149,6 +1347,7 @@ mod durable_impl {
         }
 
         fn batch_search(
+            provider_config: Self::ProviderConfig,
             collection: String,
             queries: Vec<crate::model::search::SearchQuery>,
             limit: u32,
@@ -1168,6 +1367,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::batch_search(
+                        provider_config,
                         collection.clone(),
                         queries.clone(),
                         limit,
@@ -1197,10 +1397,11 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + SearchExtendedProvider> SearchExtendedProvider
-        for DurableVector<Impl>
-    {
+    impl<Impl: ExtendedVectorProvider> SearchExtendedProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn recommend_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             positive: Vec<crate::model::search_extended::RecommendationExample>,
             negative: Option<Vec<crate::model::search_extended::RecommendationExample>>,
@@ -1221,6 +1422,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::recommend_vectors(
+                        provider_config,
                         collection.clone(),
                         positive.clone(),
                         negative.clone(),
@@ -1252,6 +1454,7 @@ mod durable_impl {
         }
 
         fn discover_vectors(
+            provider_config: Self::ProviderConfig,
             collection: String,
             target: Option<crate::model::search_extended::RecommendationExample>,
             context_pairs: Vec<crate::model::search_extended::ContextPair>,
@@ -1271,6 +1474,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::discover_vectors(
+                        provider_config,
                         collection.clone(),
                         target.clone(),
                         context_pairs.clone(),
@@ -1300,6 +1504,7 @@ mod durable_impl {
         }
 
         fn search_groups(
+            provider_config: Self::ProviderConfig,
             collection: String,
             query: crate::model::search::SearchQuery,
             group_by: String,
@@ -1322,6 +1527,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::search_groups(
+                        provider_config,
                         collection.clone(),
                         query.clone(),
                         group_by.clone(),
@@ -1353,6 +1559,7 @@ mod durable_impl {
         }
 
         fn search_range(
+            provider_config: Self::ProviderConfig,
             collection: String,
             vector: crate::model::types::VectorData,
             min_distance: Option<f32>,
@@ -1373,6 +1580,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::search_range(
+                        provider_config,
                         collection.clone(),
                         vector.clone(),
                         min_distance,
@@ -1404,6 +1612,7 @@ mod durable_impl {
         }
 
         fn search_text(
+            provider_config: Self::ProviderConfig,
             collection: String,
             query_text: String,
             limit: u32,
@@ -1420,6 +1629,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::search_text(
+                        provider_config,
                         collection.clone(),
                         query_text.clone(),
                         limit,
@@ -1443,8 +1653,11 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + AnalyticsProvider> AnalyticsProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> AnalyticsProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn get_collection_stats(
+            provider_config: Self::ProviderConfig,
             collection: String,
             namespace: Option<String>,
         ) -> Result<crate::model::analytics::CollectionStats, VectorError> {
@@ -1457,7 +1670,11 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_collection_stats(collection.clone(), namespace.clone())
+                    Impl::get_collection_stats(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist((collection, namespace), result)
             } else {
@@ -1466,6 +1683,7 @@ mod durable_impl {
         }
 
         fn get_field_stats(
+            provider_config: Self::ProviderConfig,
             collection: String,
             field: String,
             namespace: Option<String>,
@@ -1479,7 +1697,12 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_field_stats(collection.clone(), field.clone(), namespace.clone())
+                    Impl::get_field_stats(
+                        provider_config,
+                        collection.clone(),
+                        field.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist((collection, field, namespace), result)
             } else {
@@ -1488,6 +1711,7 @@ mod durable_impl {
         }
 
         fn get_field_distribution(
+            provider_config: Self::ProviderConfig,
             collection: String,
             field: String,
             limit: Option<u32>,
@@ -1505,6 +1729,7 @@ mod durable_impl {
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Impl::get_field_distribution(
+                        provider_config,
                         collection.clone(),
                         field.clone(),
                         limit,
@@ -1526,8 +1751,11 @@ mod durable_impl {
         }
     }
 
-    impl<Impl: ExtendedVectorProvider + NamespacesProvider> NamespacesProvider for DurableVector<Impl> {
+    impl<Impl: ExtendedVectorProvider> NamespacesProvider for DurableVector<Impl> {
+        type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
+
         fn upsert_namespace(
+            provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
             metadata: Option<crate::model::types::Metadata>,
@@ -1541,7 +1769,12 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert_namespace(collection.clone(), namespace.clone(), metadata.clone())
+                    Impl::upsert_namespace(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                        metadata.clone(),
+                    )
                 });
                 durability.persist((collection, namespace, metadata), result)
             } else {
@@ -1550,6 +1783,7 @@ mod durable_impl {
         }
 
         fn list_namespaces(
+            provider_config: Self::ProviderConfig,
             collection: String,
         ) -> Result<Vec<crate::model::namespaces::NamespaceInfo>, VectorError> {
             init_logging();
@@ -1561,7 +1795,7 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::list_namespaces(collection.clone())
+                    Impl::list_namespaces(provider_config, collection.clone())
                 });
                 durability.persist(collection, result)
             } else {
@@ -1570,6 +1804,7 @@ mod durable_impl {
         }
 
         fn get_namespace(
+            provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
         ) -> Result<crate::model::namespaces::NamespaceInfo, VectorError> {
@@ -1582,7 +1817,11 @@ mod durable_impl {
                 );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_namespace(collection.clone(), namespace.clone())
+                    Impl::get_namespace(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist((collection, namespace), result)
             } else {
@@ -1590,7 +1829,11 @@ mod durable_impl {
             }
         }
 
-        fn delete_namespace(collection: String, namespace: String) -> Result<(), VectorError> {
+        fn delete_namespace(
+            provider_config: Self::ProviderConfig,
+            collection: String,
+            namespace: String,
+        ) -> Result<(), VectorError> {
             init_logging();
             let durability: Durability<Unit, VectorError> = Durability::new(
                 "golem_vector_namespaces",
@@ -1599,7 +1842,11 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_namespace(collection.clone(), namespace.clone())
+                    <Impl as NamespacesProvider>::delete_namespace(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist((collection, namespace), result.map(|_| Unit))?;
                 Ok(())
@@ -1609,7 +1856,11 @@ mod durable_impl {
             }
         }
 
-        fn namespace_exists(collection: String, namespace: String) -> Result<bool, VectorError> {
+        fn namespace_exists(
+            provider_config: Self::ProviderConfig,
+            collection: String,
+            namespace: String,
+        ) -> Result<bool, VectorError> {
             init_logging();
             let durability: Durability<bool, VectorError> = Durability::new(
                 "golem_vector_namespaces",
@@ -1618,7 +1869,11 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::namespace_exists(collection.clone(), namespace.clone())
+                    Impl::namespace_exists(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                    )
                 });
                 durability.persist((collection, namespace), result)
             } else {
