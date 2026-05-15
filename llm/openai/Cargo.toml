@@ -11,13 +11,13 @@ description = "Library for working with OpenAI APIs on Golem Cloud"
 path = "src/lib.rs"
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability", "golem-ai-llm/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-ai-llm/golem"]
 
 [dependencies]
 golem-ai-llm = { workspace = true }
 
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 golem-wasi-http = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }

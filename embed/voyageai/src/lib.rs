@@ -1,5 +1,4 @@
 use golem_ai_embed::{
-    config::with_config_key,
     durability::{DurableEmbed, ExtendedEmbeddingProvider},
     model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse},
     EmbeddingProvider, LOGGING_STATE,
@@ -14,13 +13,16 @@ use crate::{
 };
 
 mod client;
+pub mod config;
 mod conversations;
+
+pub use config::VoyageAiConfig;
+#[cfg(feature = "golem")]
+pub use config::VoyageAiHostConfig;
 
 pub struct VoyageAI;
 
 impl VoyageAI {
-    const ENV_VAR_NAME: &'static str = "VOYAGEAI_API_KEY";
-
     fn embeddings(
         client: VoyageAIApi,
         inputs: Vec<ContentPart>,
@@ -54,26 +56,27 @@ impl VoyageAI {
 }
 
 impl EmbeddingProvider for VoyageAI {
-    fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
-        LOGGING_STATE.with_borrow_mut(|state| state.init());
+    type ProviderConfig = VoyageAiConfig;
 
-        with_config_key(Self::ENV_VAR_NAME, Err, |voyageai_api_key| {
-            let client = VoyageAIApi::new(voyageai_api_key);
-            Self::embeddings(client, inputs, config)
-        })
+    fn generate(
+        provider_config: Self::ProviderConfig,
+        inputs: Vec<ContentPart>,
+        config: Config,
+    ) -> Result<EmbeddingResponse, Error> {
+        LOGGING_STATE.with_borrow_mut(|state| state.init());
+        let client = VoyageAIApi::new(&provider_config);
+        Self::embeddings(client, inputs, config)
     }
 
     fn rerank(
+        provider_config: Self::ProviderConfig,
         query: String,
         documents: Vec<String>,
         config: Config,
     ) -> Result<RerankResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
-
-        with_config_key(Self::ENV_VAR_NAME, Err, |voyageai_api_key| {
-            let client = VoyageAIApi::new(voyageai_api_key);
-            Self::rerank(client, query, documents, config)
-        })
+        let client = VoyageAIApi::new(&provider_config);
+        Self::rerank(client, query, documents, config)
     }
 }
 

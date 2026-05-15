@@ -4,18 +4,22 @@ use crate::conversions::{
     meilisearch_response_to_search_results, meilisearch_settings_to_schema,
     schema_to_meilisearch_settings, search_query_to_meilisearch_request,
 };
-use golem_ai_search::config::with_config_keys;
 use golem_ai_search::durability::{DurableSearch, ExtendedSearchProvider};
 use golem_ai_search::model::{CreateIndexOptions, SearchStream};
 use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
+use golem_ai_search::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_search::{SearchProvider, SearchStreamInterface};
-use golem_rust::golem_wasm::Pollable;
 use std::cell::{Cell, RefCell};
 
 mod client;
+pub mod config;
 mod conversions;
+
+pub use crate::config::MeilisearchConfig;
+#[cfg(feature = "golem")]
+pub use crate::config::MeilisearchHostConfig;
 
 /// Simple search stream implementation for Meilisearch
 /// Since Meilisearch doesn't have native streaming, we implement pagination-based streaming
@@ -41,7 +45,7 @@ impl MeilisearchSearchStream {
     }
 
     pub fn subscribe(&self) -> Pollable {
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 }
 
@@ -110,32 +114,15 @@ impl SearchStreamInterface for MeilisearchSearchStream {
 
 pub struct Meilisearch;
 
-impl Meilisearch {
-    const BASE_URL_ENV_VAR: &'static str = "MEILISEARCH_BASE_URL";
-    const API_KEY_ENV_VAR: &'static str = "MEILISEARCH_API_KEY";
-
-    fn create_client() -> Result<MeilisearchApi, SearchError> {
-        with_config_keys(&[Self::BASE_URL_ENV_VAR], |keys| {
-            if keys.is_empty() {
-                return Err(SearchError::Internal(
-                    "Missing Meilisearch base URL".to_string(),
-                ));
-            }
-
-            let base_url = keys[0].clone();
-
-            let api_key = std::env::var(Self::API_KEY_ENV_VAR).ok();
-
-            Ok(MeilisearchApi::new(base_url, api_key))
-        })
-    }
-}
-
 impl SearchProvider for Meilisearch {
     type SearchStream = MeilisearchSearchStream;
+    type ProviderConfig = MeilisearchConfig;
 
-    fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn create_index(
+        provider_config: Self::ProviderConfig,
+        options: CreateIndexOptions,
+    ) -> Result<(), SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
 
         let create_request = client::MeilisearchCreateIndexRequest {
             uid: options.index_name.clone(),
@@ -155,8 +142,11 @@ impl SearchProvider for Meilisearch {
         Ok(())
     }
 
-    fn delete_index(name: IndexName) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete_index(
+        provider_config: Self::ProviderConfig,
+        name: IndexName,
+    ) -> Result<(), SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
 
         let task = client.delete_index(&name)?;
         client.wait_for_task(task.task_uid)?;
@@ -164,8 +154,8 @@ impl SearchProvider for Meilisearch {
         Ok(())
     }
 
-    fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
-        let client = Self::create_client()?;
+    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
 
         let response = client.list_indexes()?;
         Ok(response
@@ -175,8 +165,12 @@ impl SearchProvider for Meilisearch {
             .collect())
     }
 
-    fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn upsert(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        doc: Doc,
+    ) -> Result<(), SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
         let meilisearch_doc =
             doc_to_meilisearch_document(doc).map_err(SearchError::InvalidQuery)?;
 
@@ -186,8 +180,12 @@ impl SearchProvider for Meilisearch {
         Ok(())
     }
 
-    fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn upsert_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        docs: Vec<Doc>,
+    ) -> Result<(), SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
         let mut meilisearch_docs = Vec::new();
 
         for doc in docs {
@@ -202,8 +200,12 @@ impl SearchProvider for Meilisearch {
         Ok(())
     }
 
-    fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<(), SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
 
         let task = client.delete_document(&index, &id)?;
         client.wait_for_task(task.task_uid)?;
@@ -211,8 +213,12 @@ impl SearchProvider for Meilisearch {
         Ok(())
     }
 
-    fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        ids: Vec<DocumentId>,
+    ) -> Result<(), SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
 
         let task = client.delete_documents(&index, &ids)?;
         client.wait_for_task(task.task_uid)?;
@@ -220,8 +226,12 @@ impl SearchProvider for Meilisearch {
         Ok(())
     }
 
-    fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
-        let client = Self::create_client()?;
+    fn get(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<Option<Doc>, SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
 
         match client.get_document(&index, &id)? {
             Some(meilisearch_doc) => Ok(Some(meilisearch_document_to_doc(meilisearch_doc))),
@@ -229,29 +239,44 @@ impl SearchProvider for Meilisearch {
         }
     }
 
-    fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
-        let client = Self::create_client()?;
+    fn search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchResults, SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
         let meilisearch_request = search_query_to_meilisearch_request(query);
 
         let response = client.search(&index, &meilisearch_request)?;
         Ok(meilisearch_response_to_search_results(response))
     }
 
-    fn stream_search(index: IndexName, query: SearchQuery) -> Result<SearchStream, SearchError> {
-        let client = Self::create_client()?;
+    fn stream_search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchStream, SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
         let stream = MeilisearchSearchStream::new(client, index, query);
         Ok(SearchStream::new(stream))
     }
 
-    fn get_schema(index: IndexName) -> Result<Schema, SearchError> {
-        let client = Self::create_client()?;
+    fn get_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+    ) -> Result<Schema, SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
 
         let settings = client.get_settings(&index)?;
         Ok(meilisearch_settings_to_schema(settings))
     }
 
-    fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn update_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        schema: Schema,
+    ) -> Result<(), SearchError> {
+        let client = MeilisearchApi::new(&provider_config);
         let settings = schema_to_meilisearch_settings(schema);
 
         let _task = client.update_settings(&index, &settings)?;
@@ -261,10 +286,12 @@ impl SearchProvider for Meilisearch {
 }
 
 impl ExtendedSearchProvider for Meilisearch {
-    fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
-        let client = Self::create_client()
-            .unwrap_or_else(|_| MeilisearchApi::new("http://localhost:7700".to_string(), None));
-
+    fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Self::SearchStream {
+        let client = MeilisearchApi::new(&provider_config);
         MeilisearchSearchStream::new(client, index, query)
     }
 

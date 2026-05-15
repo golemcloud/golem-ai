@@ -1,4 +1,5 @@
 mod client;
+pub mod config;
 mod conversions;
 
 use crate::client::{
@@ -8,19 +9,22 @@ use crate::conversions::{
     convert_usage, events_to_request, process_response, stop_reason_to_finish_reason,
 };
 use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
-use golem_ai_llm::config::{get_config_key, with_config_key};
 use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::event_source::EventSource;
 use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, Message, Response, ResponseMetadata,
     Role, StreamDelta, StreamEvent, ToolCall,
 };
+use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::LlmProvider;
-use golem_rust::golem_wasm::Pollable;
 use indoc::indoc;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
+
+pub use config::AnthropicConfig;
+#[cfg(feature = "golem")]
+pub use config::AnthropicHostConfig;
 
 #[derive(Default)]
 struct JsonFragment {
@@ -256,8 +260,6 @@ impl LlmChatStreamState for AnthropicChatStream {
 pub struct Anthropic;
 
 impl Anthropic {
-    const ENV_VAR_NAME: &'static str = "ANTHROPIC_API_KEY";
-
     fn request(client: MessagesApi, request: MessagesRequest) -> Result<Response, Error> {
         let response = client.send_messages(request)?;
         process_response(response)
@@ -277,35 +279,38 @@ impl Anthropic {
 
 impl LlmProvider for Anthropic {
     type ChatStream = LlmChatStream<AnthropicChatStream>;
+    type ProviderConfig = AnthropicConfig;
 
-    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
-        let anthropic_api_key = get_config_key(Self::ENV_VAR_NAME)?;
-        let client = MessagesApi::new(anthropic_api_key);
+    async fn send(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> Result<Response, Error> {
+        let client = MessagesApi::new(&provider_config);
         let request = events_to_request(events, config)?;
         Self::request(client, request)
     }
 
-    async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(events, config).await)
+    async fn stream(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(provider_config, events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for Anthropic {
     async fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
         events: Vec<Event>,
         config: Config,
     ) -> LlmChatStream<AnthropicChatStream> {
-        with_config_key(
-            Self::ENV_VAR_NAME,
-            AnthropicChatStream::failed,
-            |anthropic_api_key| {
-                let client = MessagesApi::new(anthropic_api_key);
-                match events_to_request(events, config) {
-                    Ok(request) => Self::streaming_request(client, request),
-                    Err(err) => AnthropicChatStream::failed(err),
-                }
-            },
-        )
+        let client = MessagesApi::new(&provider_config);
+        match events_to_request(events, config) {
+            Ok(request) => Self::streaming_request(client, request),
+            Err(err) => AnthropicChatStream::failed(err),
+        }
     }
 
     fn retry_prompt(

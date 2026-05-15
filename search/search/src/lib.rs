@@ -2,6 +2,7 @@ pub mod config;
 pub mod durability;
 pub mod error;
 pub mod model;
+pub mod wasi_compat;
 
 use crate::model::{
     CreateIndexOptions, Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery,
@@ -20,18 +21,65 @@ pub trait SearchStreamInterface: 'static {
 pub trait SearchProvider {
     type SearchStream: SearchStreamInterface;
 
-    fn create_index(options: CreateIndexOptions) -> Result<(), SearchError>;
-    fn delete_index(name: IndexName) -> Result<(), SearchError>;
-    fn list_indexes() -> Result<Vec<IndexName>, SearchError>;
-    fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError>;
-    fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError>;
-    fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError>;
-    fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError>;
-    fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError>;
-    fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError>;
-    fn stream_search(index: IndexName, query: SearchQuery) -> Result<SearchStream, SearchError>;
-    fn get_schema(index: IndexName) -> Result<Schema, SearchError>;
-    fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError>;
+    /// Provider-specific configuration (API keys, base URLs, etc.) that the
+    /// caller resolves once and passes in. Each provider crate defines its
+    /// own concrete config type; see e.g.
+    /// `golem_ai_search_algolia::AlgoliaConfig`.
+    type ProviderConfig: Clone + 'static;
+
+    fn create_index(
+        provider_config: Self::ProviderConfig,
+        options: CreateIndexOptions,
+    ) -> Result<(), SearchError>;
+    fn delete_index(
+        provider_config: Self::ProviderConfig,
+        name: IndexName,
+    ) -> Result<(), SearchError>;
+    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError>;
+    fn upsert(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        doc: Doc,
+    ) -> Result<(), SearchError>;
+    fn upsert_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        docs: Vec<Doc>,
+    ) -> Result<(), SearchError>;
+    fn delete(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<(), SearchError>;
+    fn delete_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        ids: Vec<DocumentId>,
+    ) -> Result<(), SearchError>;
+    fn get(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<Option<Doc>, SearchError>;
+    fn search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchResults, SearchError>;
+    fn stream_search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchStream, SearchError>;
+    fn get_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+    ) -> Result<Schema, SearchError>;
+    fn update_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        schema: Schema,
+    ) -> Result<(), SearchError>;
 }
 
 impl<'a> From<&'a SearchError> for SearchError {

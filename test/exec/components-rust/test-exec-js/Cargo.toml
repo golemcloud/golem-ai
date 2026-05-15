@@ -9,7 +9,7 @@ path = "src/lib.rs"
 
 [dependencies]
 golem-rust = { workspace = true }
-golem-ai-exec = { path = "../../../../exec/exec", default-features = false, features = ["javascript", "durability"] }
+golem-ai-exec = { path = "../../../../exec/exec", default-features = false, features = ["javascript", "golem"] }
 indoc = "2.0.6"
 log = { workspace = true }
 serde = { workspace = true }

@@ -1,4 +1,5 @@
 mod client;
+pub mod config;
 mod conversions;
 
 use crate::client::TavilySearchApi;
@@ -11,9 +12,13 @@ use golem_ai_web_search::model::web_search::{
 use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
 use std::cell::RefCell;
 
+pub use config::TavilyConfig;
+#[cfg(feature = "golem")]
+pub use config::TavilyHostConfig;
+
+#[cfg(feature = "golem")]
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
 pub struct TavilyReplayState {
-    pub api_key: String,
     pub metadata: Option<SearchMetadata>,
     pub finished: bool,
 }
@@ -85,25 +90,13 @@ impl SearchSessionInterface for TavilySearchSession {
 pub struct TavilySearch;
 
 impl TavilySearch {
-    const API_KEY_VAR: &'static str = "TAVILY_API_KEY";
-
-    fn create_client() -> Result<TavilySearchApi, SearchError> {
-        let api_key = Self::get_api_key()?;
-        Ok(TavilySearchApi::new(api_key))
-    }
-
-    fn get_api_key() -> Result<String, SearchError> {
-        std::env::var(Self::API_KEY_VAR).map_err(|_| {
-            SearchError::BackendError("TAVILY_API_KEY environment variable not set".to_string())
-        })
-    }
-
     fn execute_search(
+        provider_config: &TavilyConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, SearchMetadata), SearchError> {
         validate_search_params(&params)?;
 
-        let client = Self::create_client()?;
+        let client = TavilySearchApi::new(provider_config);
         let request = params_to_request(&params)?;
 
         let response = client.search(request)?;
@@ -113,10 +106,13 @@ impl TavilySearch {
         Ok((results, metadata))
     }
 
-    fn start_search_session(params: SearchParams) -> Result<TavilySearchSession, SearchError> {
+    fn start_search_session(
+        provider_config: &TavilyConfig,
+        params: SearchParams,
+    ) -> Result<TavilySearchSession, SearchError> {
         validate_search_params(&params)?;
 
-        let client = Self::create_client()?;
+        let client = TavilySearchApi::new(provider_config);
         let search = TavilySearchSessionImpl::new(client, params);
         Ok(TavilySearchSession::new(search))
     }
@@ -124,27 +120,36 @@ impl TavilySearch {
 
 impl WebSearchProvider for TavilySearch {
     type SearchSession = TavilySearchSession;
+    type ProviderConfig = TavilyConfig;
 
-    fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
-        match Self::start_search_session(params) {
+    fn start_search(
+        provider_config: Self::ProviderConfig,
+        params: SearchParams,
+    ) -> Result<SearchSession, SearchError> {
+        match Self::start_search_session(&provider_config, params) {
             Ok(session) => Ok(SearchSession::new(session)),
             Err(err) => Err(err),
         }
     }
 
     fn search_once(
+        provider_config: Self::ProviderConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        let (results, metadata) = Self::execute_search(params)?;
+        let (results, metadata) = Self::execute_search(&provider_config, params)?;
         Ok((results, Some(metadata)))
     }
 }
 
+#[cfg(feature = "golem")]
 impl ExtendedWebSearchProvider for TavilySearch {
     type ReplayState = TavilyReplayState;
 
-    fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
-        let client = Self::create_client()?;
+    fn unwrapped_search_session(
+        provider_config: Self::ProviderConfig,
+        params: SearchParams,
+    ) -> Result<Self::SearchSession, SearchError> {
+        let client = TavilySearchApi::new(&provider_config);
         let search = TavilySearchSessionImpl::new(client, params);
         Ok(TavilySearchSession::new(search))
     }
@@ -152,21 +157,24 @@ impl ExtendedWebSearchProvider for TavilySearch {
     fn session_to_state(session: &Self::SearchSession) -> Self::ReplayState {
         let search = session.0.borrow_mut();
         TavilyReplayState {
-            api_key: search.client.api_key().to_string(),
             metadata: search.metadata.clone(),
             finished: search.finished,
         }
     }
     fn session_from_state(
+        provider_config: Self::ProviderConfig,
         state: &Self::ReplayState,
         params: SearchParams,
     ) -> Result<Self::SearchSession, SearchError> {
-        let client = TavilySearchApi::new(state.api_key.clone());
+        let client = TavilySearchApi::new(&provider_config);
         let mut search = TavilySearchSessionImpl::new(client, params);
         search.metadata = state.metadata.clone();
         search.finished = state.finished;
         Ok(TavilySearchSession::new(search))
     }
 }
+
+#[cfg(not(feature = "golem"))]
+impl ExtendedWebSearchProvider for TavilySearch {}
 
 pub type DurableTavilySearch = DurableWebSearch<TavilySearch>;

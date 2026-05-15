@@ -1,5 +1,5 @@
+use crate::wasi_compat::StreamError as WasiStreamError;
 use core::fmt;
-use golem_rust::bindings::wasi::io::streams::StreamError as WasiStreamError;
 use golem_wasi_http::header::HeaderValue;
 use golem_wasi_http::Error as ReqwestError;
 use golem_wasi_http::Response;

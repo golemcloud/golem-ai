@@ -11,8 +11,18 @@ pub struct SttTranscriptionRequest {
 
 #[allow(async_fn_in_trait)]
 pub trait SttTranscriptionProvider {
-    async fn transcribe(req: SttTranscriptionRequest) -> Result<TranscriptionResult, SttError>;
+    /// Provider-specific configuration (API keys, regions, bucket
+    /// names, etc.). Each provider crate defines its own concrete
+    /// config type and threads it through every top-level call.
+    type ProviderConfig: Clone + 'static;
+
+    async fn transcribe(
+        provider_config: Self::ProviderConfig,
+        req: SttTranscriptionRequest,
+    ) -> Result<TranscriptionResult, SttError>;
+
     async fn transcribe_many(
+        provider_config: Self::ProviderConfig,
         wit_requests: Vec<SttTranscriptionRequest>,
     ) -> Result<MultiTranscriptionResult, SttError>;
 }

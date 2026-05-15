@@ -1,9 +1,8 @@
 use crate::event_source::parser::{is_bom, is_lf, line, RawEventLine};
 use crate::event_source::utf8_stream::Utf8Stream;
 use crate::event_source::MessageEvent;
+use crate::wasi_compat::{InputStream, Pollable, StreamError};
 use core::time::Duration;
-use golem_rust::bindings::wasi::io::streams::{InputStream, StreamError};
-use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::task::Poll;
 

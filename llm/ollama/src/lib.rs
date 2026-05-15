@@ -3,6 +3,7 @@ use std::cell::{Ref, RefCell, RefMut};
 use client::{CompletionsRequest, OllamaApi};
 use conversions::{events_to_request, process_response};
 use golem_ai_llm::model::ErrorCode;
+use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::{
     chat_stream::{LlmChatStream, LlmChatStreamState},
     durability::{DurableLLM, ExtendedLlmProvider},
@@ -13,11 +14,15 @@ use golem_ai_llm::{
     },
     LlmProvider,
 };
-use golem_rust::golem_wasm::Pollable;
 use log::trace;
 
 mod client;
+pub mod config;
 mod conversions;
+
+pub use config::OllamaConfig;
+#[cfg(feature = "golem")]
+pub use config::OllamaHostConfig;
 
 pub struct OllamaChatStream {
     stream: RefCell<Option<EventSource>>,
@@ -208,24 +213,34 @@ impl Ollama {
 
 impl LlmProvider for Ollama {
     type ChatStream = LlmChatStream<OllamaChatStream>;
+    type ProviderConfig = OllamaConfig;
 
-    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
-        let client = OllamaApi::new(config.model.clone());
+    async fn send(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> Result<Response, Error> {
+        let client = OllamaApi::new(config.model.clone(), &provider_config);
         let events = events_to_request(events, config)?;
         Self::request(&client, events)
     }
 
-    async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(events, config).await)
+    async fn stream(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(provider_config, events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for Ollama {
     async fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
         events: Vec<Event>,
         config: Config,
     ) -> LlmChatStream<OllamaChatStream> {
-        let client = OllamaApi::new(config.model.clone());
+        let client = OllamaApi::new(config.model.clone(), &provider_config);
         match events_to_request(events, config) {
             Ok(request) => Self::streaming_request(&client, request),
             Err(err) => OllamaChatStream::failed(err),

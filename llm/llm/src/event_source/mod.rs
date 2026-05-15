@@ -11,7 +11,7 @@ mod utf8_stream;
 
 use crate::event_source::error::Error;
 use crate::event_source::event_stream::EventStream;
-use golem_rust::golem_wasm::Pollable;
+use crate::wasi_compat::Pollable;
 use golem_wasi_http::header::HeaderValue;
 use golem_wasi_http::{Response, StatusCode};
 pub use message_event::MessageEvent;
@@ -44,12 +44,6 @@ impl EventSource {
         match check_response(response) {
             Ok(mut response) => {
                 let (handle, body) = response.get_raw_input_stream();
-                let handle = unsafe {
-                    std::mem::transmute::<
-                        golem_wasi_http::InputStream,
-                        golem_rust::bindings::wasi::io::streams::InputStream,
-                    >(handle)
-                };
 
                 let stream = if response
                     .headers()

@@ -2,17 +2,11 @@ use crate::ChatStreamInterface;
 
 /// Roles of the conversation
 #[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    golem_rust::FromValueAndType,
-    golem_rust::IntoValue,
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
 )]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Role {
     /// Instructions provided by the user
     User,
@@ -26,17 +20,11 @@ pub enum Role {
 
 /// Possible error cases for LLM calls
 #[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    golem_rust::FromValueAndType,
-    golem_rust::IntoValue,
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
 )]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum ErrorCode {
     /// Invalid request parameters
     InvalidRequest,
@@ -54,17 +42,11 @@ pub enum ErrorCode {
 
 /// Reasons for finishing a conversation
 #[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    golem_rust::FromValueAndType,
-    golem_rust::IntoValue,
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
 )]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum FinishReason {
     /// The conversation finished
     Stop,
@@ -82,17 +64,11 @@ pub enum FinishReason {
 
 /// Image detail levels
 #[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    golem_rust::FromValueAndType,
-    golem_rust::IntoValue,
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
 )]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum ImageDetail {
     Low,
     High,
@@ -100,7 +76,11 @@ pub enum ImageDetail {
 }
 
 /// Points to an image by an URL and an optional image detail level
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ImageUrl {
     /// The URL of the image
     pub url: String,
@@ -109,7 +89,11 @@ pub struct ImageUrl {
 }
 
 /// Contains an inline image
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ImageSource {
     /// Raw image data
     pub data: Vec<u8>,
@@ -120,7 +104,11 @@ pub struct ImageSource {
 }
 
 /// Contains an image, either a remote or an inlined one
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ImageReference {
     /// A remote image
     Url(ImageUrl),
@@ -129,7 +117,11 @@ pub enum ImageReference {
 }
 
 /// One part of the conversation
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ContentPart {
     /// Text content
     Text(String),
@@ -138,7 +130,11 @@ pub enum ContentPart {
 }
 
 /// A message in the conversation
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Message {
     /// Role of this message
     pub role: Role,
@@ -149,7 +145,11 @@ pub struct Message {
 }
 
 /// Describes a tool callable by the LLM
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ToolDefinition {
     /// Name of the tool
     pub name: String,
@@ -160,7 +160,11 @@ pub struct ToolDefinition {
 }
 
 /// Describes a tool call request
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ToolCall {
     /// Call identifier
     pub id: String,
@@ -171,7 +175,11 @@ pub struct ToolCall {
 }
 
 /// Describes a successful tool call
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ToolSuccess {
     /// Call identifier
     pub id: String,
@@ -184,7 +192,11 @@ pub struct ToolSuccess {
 }
 
 /// Describes a failed tool call
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ToolFailure {
     /// Call identifier
     pub id: String,
@@ -197,7 +209,11 @@ pub struct ToolFailure {
 }
 
 /// Result of a tool call
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ToolResult {
     /// The tool call succeeded
     Success(ToolSuccess),
@@ -206,14 +222,22 @@ pub enum ToolResult {
 }
 
 /// Simple key-value pair
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Kv {
     pub key: String,
     pub value: String,
 }
 
 /// LLM configuration
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Config {
     /// The model to use
     pub model: String,
@@ -232,7 +256,11 @@ pub struct Config {
 }
 
 /// Token usage statistics
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Usage {
     /// Number of input tokens used
     pub input_tokens: Option<u32>,
@@ -243,7 +271,11 @@ pub struct Usage {
 }
 
 /// Metadata about an LLM response
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ResponseMetadata {
     /// Reason for finishing the conversation
     pub finish_reason: Option<FinishReason>,
@@ -258,7 +290,11 @@ pub struct ResponseMetadata {
 }
 
 /// LLM error
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Error {
     /// Error code
     pub code: ErrorCode,
@@ -269,7 +305,11 @@ pub struct Error {
 }
 
 /// Response from an LLM
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Response {
     /// Response ID
     pub id: String,
@@ -282,7 +322,11 @@ pub struct Response {
 }
 
 /// Chat events that can happen during a chat session
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Event {
     /// Message asked by the user
     Message(Message),
@@ -293,7 +337,11 @@ pub enum Event {
 }
 
 /// Changes in a streaming conversation
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct StreamDelta {
     /// New content parts
     pub content: Option<Vec<ContentPart>>,
@@ -302,7 +350,11 @@ pub struct StreamDelta {
 }
 
 /// Event in a streaming conversation
-#[derive(Clone, Debug, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[cfg_attr(
+    feature = "golem",
+    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum StreamEvent {
     /// New incoming response content or tool call requests
     Delta(StreamDelta),

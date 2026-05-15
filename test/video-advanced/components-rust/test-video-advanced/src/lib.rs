@@ -18,6 +18,25 @@ type Provider = golem_ai_video_stability::DurableStability;
 #[cfg(feature = "veo")]
 type Provider = golem_ai_video_veo::DurableVeo;
 
+#[cfg(feature = "stability")]
+fn provider_config() -> golem_ai_video_stability::StabilityConfig {
+    golem_ai_video_stability::StabilityConfig::from_env()
+        .expect("failed to load Stability config from env")
+}
+#[cfg(feature = "runway")]
+fn provider_config() -> golem_ai_video_runway::RunwayConfig {
+    golem_ai_video_runway::RunwayConfig::from_env()
+        .expect("failed to load Runway config from env")
+}
+#[cfg(feature = "kling")]
+fn provider_config() -> golem_ai_video_kling::KlingConfig {
+    golem_ai_video_kling::KlingConfig::from_env().expect("failed to load Kling config from env")
+}
+#[cfg(feature = "veo")]
+fn provider_config() -> golem_ai_video_veo::VeoConfig {
+    golem_ai_video_veo::VeoConfig::from_env().expect("failed to load Veo config from env")
+}
+
 #[agent_definition]
 pub trait TestHelper {
     fn new(name: String) -> Self;
@@ -119,7 +138,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         });
 
         println!("Sending first/last frame video generation request...");
-        let job_id = match Provider::generate(media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -175,7 +194,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         });
 
         println!("Sending image-to-video with camera control request...");
-        let job_id = match Provider::generate(media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -229,7 +248,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         });
 
         println!("Sending static and dynamic mask video generation request...");
-        let job_id = match Provider::generate(media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -240,7 +259,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
     fn test4(&self) -> String {
         println!("Test4: List voice IDs");
 
-        match Provider::list_voices(None) {
+        match Provider::list_voices(provider_config(), None) {
             Ok(voices) => {
                 let mut result = String::new();
                 result.push_str("Available voices:\n");
@@ -279,7 +298,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         let audio_source = types::AudioSource::FromText(text_to_speech);
 
         println!("Sending lip-sync with voice-id request...");
-        let job_id = match Provider::generate_lip_sync(lip_sync_video, audio_source) {
+        let job_id = match Provider::generate_lip_sync(provider_config(), lip_sync_video, audio_source) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate lip-sync: {:?}", error),
         };
@@ -309,7 +328,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         });
 
         println!("Sending lip-sync with audio file request...");
-        let job_id = match Provider::generate_lip_sync(lip_sync_video, audio_source) {
+        let job_id = match Provider::generate_lip_sync(provider_config(), lip_sync_video, audio_source) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate lip-sync: {:?}", error),
         };
@@ -335,7 +354,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         let effect = types::EffectType::Single(types::SingleImageEffects::Fuzzyfuzzy);
 
         println!("Sending single image effect request...");
-        let job_id = match Provider::generate_video_effects(GenerateVideoEffectsOptions {
+        let job_id = match Provider::generate_video_effects(provider_config(), GenerateVideoEffectsOptions {
             input,
             effect,
             model: None,
@@ -368,7 +387,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         let effect = types::EffectType::Dual(dual_effect);
 
         println!("Sending dual image effect request...");
-        let job_id = match Provider::generate_video_effects(GenerateVideoEffectsOptions {
+        let job_id = match Provider::generate_video_effects(provider_config(), GenerateVideoEffectsOptions {
             input,
             effect,
             model: None,
@@ -406,14 +425,14 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         };
 
         println!("Sending text-to-video generation request...");
-        let job_id = match Provider::generate(media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
 
         let _poll_result = poll_job_until_complete(&job_id, "test9_initial");
 
-        match Provider::poll(job_id) {
+        match Provider::poll(provider_config(), job_id) {
             Ok(video_result) => {
                 let generation_id = if let Some(videos) = video_result.videos {
                     if let Some(video) = videos.first() {
@@ -434,7 +453,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
                     generation_id
                 );
 
-                match Provider::extend_video(ExtendVideoOptions {
+                match Provider::extend_video(provider_config(), ExtendVideoOptions {
                     video_id: generation_id,
                     prompt: Some("and the sunset fades into night".to_string()),
                     negative_prompt: None,
@@ -500,7 +519,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         let prompt = "A girl riding a unicorn in the forest, cinematic realism style";
 
         println!("Sending multi-image generation request...");
-        let job_id = match Provider::multi_image_generation(MultImageGenerationOptions {
+        let job_id = match Provider::multi_image_generation(provider_config(), MultImageGenerationOptions {
             input_images,
             prompt: Some(prompt.to_string()),
             config,
@@ -538,7 +557,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         };
 
         println!("Sending text-to-video generation request...");
-        let job_id = match Provider::generate(media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -548,7 +567,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
             return initial_result;
         }
 
-        let generation_id = match Provider::poll(job_id) {
+        let generation_id = match Provider::poll(provider_config(), job_id) {
             Ok(video_result) => {
                 if let Some(videos) = video_result.videos {
                     if let Some(video) = videos.first() {
@@ -570,7 +589,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         };
 
         println!("Extending video with generation ID: {}", generation_id);
-        let extend_job_id = match Provider::extend_video(ExtendVideoOptions {
+        let extend_job_id = match Provider::extend_video(provider_config(), ExtendVideoOptions {
             video_id: generation_id,
             prompt: Some("continue the video with a businesswoman with red hair, in a modern office, front facing, looking at the camera, no camera movement".to_string()),
             negative_prompt: None,
@@ -586,7 +605,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
             return extended_result;
         }
 
-        let extended_generation_id = match Provider::poll(extend_job_id) {
+        let extended_generation_id = match Provider::poll(provider_config(), extend_job_id) {
             Ok(video_result) => {
                 if let Some(videos) = video_result.videos {
                     if let Some(video) = videos.first() {
@@ -623,7 +642,7 @@ impl VideoAdvancedTest for VideoAdvancedTestImpl {
         let audio_source = types::AudioSource::FromText(text_to_speech);
 
         println!("Sending lip-sync request...");
-        let lip_sync_job_id = match Provider::generate_lip_sync(lip_sync_video, audio_source) {
+        let lip_sync_job_id = match Provider::generate_lip_sync(provider_config(), lip_sync_video, audio_source) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate lip-sync: {:?}", error),
         };
@@ -685,7 +704,7 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
     thread::sleep(Duration::from_secs(5));
 
     loop {
-        match Provider::poll(job_id.to_string()) {
+        match Provider::poll(provider_config(), job_id.to_string()) {
             Ok(video_result) => match video_result.status {
                 types::JobStatus::Pending => {
                     println!("{} is pending...", test_name);
@@ -727,7 +746,7 @@ async fn poll_job_until_complete_with_durability(job_id: &str, test_name: &str) 
     let mut round = 0;
 
     loop {
-        match Provider::poll(job_id.to_string()) {
+        match Provider::poll(provider_config(), job_id.to_string()) {
             Ok(video_result) => match video_result.status {
                 types::JobStatus::Pending => {
                     println!("{} is pending... (round {})", test_name, round);

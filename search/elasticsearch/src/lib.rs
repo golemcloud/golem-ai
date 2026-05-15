@@ -5,19 +5,23 @@ use crate::conversions::{
     elasticsearch_response_to_search_results, schema_to_elasticsearch_settings,
     search_query_to_elasticsearch_query,
 };
-use golem_ai_search::config::with_config_keys;
 use golem_ai_search::durability::{DurableSearch, ExtendedSearchProvider};
 use golem_ai_search::model::{CreateIndexOptions, SearchStream};
 use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
+use golem_ai_search::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_search::{SearchProvider, SearchStreamInterface};
-use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Cell, RefCell};
 
 mod client;
+pub mod config;
 mod conversions;
+
+pub use crate::config::ElasticsearchConfig;
+#[cfg(feature = "golem")]
+pub use crate::config::ElasticsearchHostConfig;
 
 /// Uses scroll API for streaming large result sets
 pub struct ElasticsearchSearchStream {
@@ -46,7 +50,7 @@ impl ElasticsearchSearchStream {
     }
 
     pub fn subscribe(&self) -> Pollable {
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 }
 
@@ -191,75 +195,42 @@ impl ElasticsearchSearchStream {
 
 pub struct Elasticsearch;
 
-impl Elasticsearch {
-    const URL_ENV_VAR: &'static str = "ELASTICSEARCH_URL";
-    const USERNAME_ENV_VAR: &'static str = "ELASTICSEARCH_USERNAME";
-    const PASSWORD_ENV_VAR: &'static str = "ELASTICSEARCH_PASSWORD";
-    const API_KEY_ENV_VAR: &'static str = "ELASTICSEARCH_API_KEY";
-
-    fn create_client() -> Result<ElasticsearchApi, SearchError> {
-        with_config_keys(
-            &[
-                Self::URL_ENV_VAR,
-                Self::USERNAME_ENV_VAR,
-                Self::PASSWORD_ENV_VAR,
-                Self::API_KEY_ENV_VAR,
-            ],
-            |keys| {
-                if keys.is_empty() || keys[0].is_empty() {
-                    return Err(SearchError::Internal(
-                        "Missing Elasticsearch URL".to_string(),
-                    ));
-                }
-
-                let url = keys[0].clone();
-                let username = if keys.len() > 1 && !keys[1].is_empty() {
-                    Some(keys[1].clone())
-                } else {
-                    None
-                };
-                let password = if keys.len() > 2 && !keys[2].is_empty() {
-                    Some(keys[2].clone())
-                } else {
-                    None
-                };
-                let api_key = if keys.len() > 3 && !keys[3].is_empty() {
-                    Some(keys[3].clone())
-                } else {
-                    None
-                };
-
-                Ok(ElasticsearchApi::new(url, username, password, api_key))
-            },
-        )
-    }
-}
-
 impl SearchProvider for Elasticsearch {
     type SearchStream = ElasticsearchSearchStream;
+    type ProviderConfig = ElasticsearchConfig;
 
-    fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn create_index(
+        provider_config: Self::ProviderConfig,
+        options: CreateIndexOptions,
+    ) -> Result<(), SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         let settings = options.schema.map(schema_to_elasticsearch_settings);
 
         client.create_index(&options.index_name, settings)
     }
 
-    fn delete_index(name: IndexName) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete_index(
+        provider_config: Self::ProviderConfig,
+        name: IndexName,
+    ) -> Result<(), SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         client.delete_index(&name)
     }
 
-    fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
-        let client = Self::create_client()?;
+    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         match client.list_indices() {
             Ok(indices) => Ok(indices.into_iter().map(|idx| idx.index).collect()),
             Err(e) => Err(e),
         }
     }
 
-    fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn upsert(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        doc: Doc,
+    ) -> Result<(), SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         let document = doc_to_elasticsearch_document(doc).map_err(SearchError::InvalidQuery)?;
 
         client.index_document(
@@ -269,8 +240,12 @@ impl SearchProvider for Elasticsearch {
         )
     }
 
-    fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn upsert_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        docs: Vec<Doc>,
+    ) -> Result<(), SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         let bulk_operations =
             build_bulk_operations(&index, &docs, "index").map_err(SearchError::InvalidQuery)?;
 
@@ -288,13 +263,21 @@ impl SearchProvider for Elasticsearch {
         }
     }
 
-    fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<(), SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         client.delete_document(&index, &id)
     }
 
-    fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        ids: Vec<DocumentId>,
+    ) -> Result<(), SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         let bulk_operations =
             build_bulk_delete_operations(&index, &ids).map_err(SearchError::InvalidQuery)?;
 
@@ -312,8 +295,12 @@ impl SearchProvider for Elasticsearch {
         }
     }
 
-    fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
-        let client = Self::create_client()?;
+    fn get(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<Option<Doc>, SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         match client.get_document(&index, &id) {
             Ok(Some(document)) => Ok(Some(elasticsearch_document_to_doc(id, document))),
             Ok(None) => Ok(None),
@@ -321,8 +308,12 @@ impl SearchProvider for Elasticsearch {
         }
     }
 
-    fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
-        let client = Self::create_client()?;
+    fn search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchResults, SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         let es_query = search_query_to_elasticsearch_query(query);
 
         match client.search(&index, &es_query) {
@@ -331,22 +322,33 @@ impl SearchProvider for Elasticsearch {
         }
     }
 
-    fn stream_search(index: IndexName, query: SearchQuery) -> Result<SearchStream, SearchError> {
-        let client = Self::create_client()?;
+    fn stream_search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchStream, SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         let stream = ElasticsearchSearchStream::new(client, index, query);
         Ok(SearchStream::new(stream))
     }
 
-    fn get_schema(index: IndexName) -> Result<Schema, SearchError> {
-        let client = Self::create_client()?;
+    fn get_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+    ) -> Result<Schema, SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         match client.get_mappings(&index) {
             Ok(mappings) => Ok(elasticsearch_mappings_to_schema(mappings, &index)),
             Err(e) => Err(e),
         }
     }
 
-    fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn update_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        schema: Schema,
+    ) -> Result<(), SearchError> {
+        let client = ElasticsearchApi::new(&provider_config);
         let settings = schema_to_elasticsearch_settings(schema);
 
         if let Some(mappings) = settings.mappings {
@@ -358,11 +360,12 @@ impl SearchProvider for Elasticsearch {
 }
 
 impl ExtendedSearchProvider for Elasticsearch {
-    fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
-        let client = Self::create_client().unwrap_or_else(|_| {
-            ElasticsearchApi::new("http://localhost:9200".to_string(), None, None, None)
-        });
-
+    fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Self::SearchStream {
+        let client = ElasticsearchApi::new(&provider_config);
         ElasticsearchSearchStream::new(client, index, query)
     }
 

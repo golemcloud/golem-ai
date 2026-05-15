@@ -1,8 +1,8 @@
 use crate::event_source::{Event, EventSource, MessageEvent};
 use crate::model::{Error, ErrorCode, StreamEvent};
+use crate::wasi_compat::{subscribe_zero, Pollable};
 use crate::ChatStreamInterface;
 use async_trait::async_trait;
-use golem_rust::golem_wasm::Pollable;
 use std::cell::{Ref, RefMut};
 use std::task::Poll;
 
@@ -28,7 +28,7 @@ impl<T: LlmChatStreamState> LlmChatStream<T> {
         if let Some(stream) = self.implementation.stream().as_ref() {
             stream.subscribe()
         } else {
-            golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+            subscribe_zero()
         }
     }
 }

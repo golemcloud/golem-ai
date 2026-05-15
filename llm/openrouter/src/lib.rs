@@ -1,12 +1,16 @@
 mod client;
+pub mod config;
 mod conversions;
+
+pub use config::OpenRouterConfig;
+#[cfg(feature = "golem")]
+pub use config::OpenRouterHostConfig;
 
 use crate::client::{ChatCompletionChunk, CompletionsApi, CompletionsRequest, FunctionCall};
 use crate::conversions::{
     convert_finish_reason, convert_usage, events_to_request, process_response,
 };
 use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
-use golem_ai_llm::config::{get_config_key, with_config_key};
 use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::error::error_code_from_status;
 use golem_ai_llm::event_source::EventSource;
@@ -14,8 +18,8 @@ use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Message, Response,
     ResponseMetadata, Role, StreamDelta, StreamEvent, ToolCall,
 };
+use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::LlmProvider;
-use golem_rust::golem_wasm::Pollable;
 use golem_wasi_http::StatusCode;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
@@ -238,8 +242,6 @@ impl LlmChatStreamState for OpenRouterChatStream {
 pub struct OpenRouter;
 
 impl OpenRouter {
-    const ENV_VAR_NAME: &'static str = "OPENROUTER_API_KEY";
-
     fn request(client: CompletionsApi, request: CompletionsRequest) -> Result<Response, Error> {
         let response = client.send_messages(request)?;
         process_response(response)
@@ -259,36 +261,38 @@ impl OpenRouter {
 
 impl LlmProvider for OpenRouter {
     type ChatStream = LlmChatStream<OpenRouterChatStream>;
+    type ProviderConfig = OpenRouterConfig;
 
-    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
-        let openrouter_api_key = get_config_key(Self::ENV_VAR_NAME)?;
-        let client = CompletionsApi::new(openrouter_api_key);
+    async fn send(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> Result<Response, Error> {
+        let client = CompletionsApi::new(&provider_config);
         let request = events_to_request(events, config)?;
         Self::request(client, request)
     }
 
-    async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(events, config).await)
+    async fn stream(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(provider_config, events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for OpenRouter {
     async fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
         events: Vec<Event>,
         config: Config,
     ) -> LlmChatStream<OpenRouterChatStream> {
-        with_config_key(
-            Self::ENV_VAR_NAME,
-            OpenRouterChatStream::failed,
-            |openrouter_api_key| {
-                let client = CompletionsApi::new(openrouter_api_key);
-
-                match events_to_request(events, config) {
-                    Ok(request) => Self::streaming_request(client, request),
-                    Err(err) => OpenRouterChatStream::failed(err),
-                }
-            },
-        )
+        let client = CompletionsApi::new(&provider_config);
+        match events_to_request(events, config) {
+            Ok(request) => Self::streaming_request(client, request),
+            Err(err) => OpenRouterChatStream::failed(err),
+        }
     }
 
     fn retry_prompt(

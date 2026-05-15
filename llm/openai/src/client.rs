@@ -1,3 +1,4 @@
+use golem_ai_llm::config::SecretSource;
 use golem_ai_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
 use golem_ai_llm::event_source::EventSource;
 use golem_ai_llm::model::{Error, ErrorCode};
@@ -13,21 +14,30 @@ const BASE_URL: &str = "https://api.openai.com/v1";
 
 /// The OpenAI API client for creating model responses.
 ///
+/// The API key is intentionally stored as a [`SecretSource`] (not as a
+/// resolved `String`) so that the secret value is fetched fresh from
+/// its source — which in golem mode is the agent host — right before
+/// each outgoing HTTP request. This is what lets host-side secret
+/// rotation take effect on the very next request.
+///
 /// Based on https://platform.openai.com/docs/api-reference/responses/create
 pub struct ResponsesApi {
-    openai_api_key: String,
+    openai_api_key: SecretSource,
     openai_base_url: String,
     client: Client,
 }
 
 impl ResponsesApi {
-    pub fn new(openai_api_key: String) -> Self {
-        let openai_base_url = std::env::var("OPENAI_BASE_URL").unwrap_or(BASE_URL.to_string());
+    pub fn new(config: &crate::config::OpenAiConfig) -> Self {
+        let openai_base_url = config
+            .base_url
+            .clone()
+            .unwrap_or_else(|| BASE_URL.to_string());
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
-            openai_api_key,
+            openai_api_key: config.api_key.clone(),
             openai_base_url,
             client,
         }
@@ -39,10 +49,13 @@ impl ResponsesApi {
     ) -> Result<CreateModelResponseResponse, Error> {
         trace!("Sending request to OpenAI API: {request:?}");
 
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.openai_api_key.get();
         let response: Response = self
             .client
             .request(Method::POST, format!("{}/responses", self.openai_base_url))
-            .bearer_auth(&self.openai_api_key)
+            .bearer_auth(&api_key)
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Request failed", err))?;
@@ -56,10 +69,16 @@ impl ResponsesApi {
     ) -> Result<EventSource, Error> {
         trace!("Sending request to OpenAI API: {request:?}");
 
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next stream
+        // creation. Header-based auth means the value cannot change
+        // mid-stream, but a brand-new stream (including durability
+        // replay continuations) will pick up the rotated value.
+        let api_key = self.openai_api_key.get();
         let response: Response = self
             .client
             .request(Method::POST, format!("{}/responses", self.openai_base_url))
-            .bearer_auth(&self.openai_api_key)
+            .bearer_auth(&api_key)
             .header(
                 golem_wasi_http::header::ACCEPT,
                 HeaderValue::from_static("text/event-stream"),

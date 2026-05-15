@@ -1,8 +1,7 @@
 use super::stream::{LlmStream, StreamError as NdJsonStreamError};
 use crate::event_source::utf8_stream::Utf8Stream;
 use crate::event_source::MessageEvent;
-use golem_rust::bindings::wasi::io::streams::{InputStream, StreamError};
-use golem_rust::golem_wasm::Pollable;
+use crate::wasi_compat::{InputStream, Pollable, StreamError};
 use log::trace;
 use std::task::Poll;
 

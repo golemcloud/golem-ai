@@ -1,4 +1,5 @@
 mod client;
+pub mod config;
 mod conversions;
 
 use crate::client::{ChatCompletionChunk, CompletionsApi, CompletionsRequest, StreamOptions};
@@ -7,17 +8,20 @@ use crate::conversions::{
     process_response,
 };
 use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
-use golem_ai_llm::config::{get_config_key, with_config_key};
 use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::event_source::EventSource;
 use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Response,
     ResponseMetadata, StreamDelta, StreamEvent,
 };
+use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::LlmProvider;
-use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Ref, RefCell, RefMut};
+
+pub use config::GrokConfig;
+#[cfg(feature = "golem")]
+pub use config::GrokHostConfig;
 
 pub struct GrokChatStream {
     stream: RefCell<Option<EventSource>>,
@@ -131,8 +135,6 @@ impl LlmChatStreamState for GrokChatStream {
 pub struct Grok;
 
 impl Grok {
-    const ENV_VAR_NAME: &'static str = "XAI_API_KEY";
-
     fn request(client: CompletionsApi, request: CompletionsRequest) -> Result<Response, Error> {
         let response = client.send_messages(request)?;
         process_response(response)
@@ -155,32 +157,38 @@ impl Grok {
 
 impl LlmProvider for Grok {
     type ChatStream = LlmChatStream<GrokChatStream>;
+    type ProviderConfig = GrokConfig;
 
-    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
-        let xai_api_key = get_config_key(Self::ENV_VAR_NAME)?;
-        let client = CompletionsApi::new(xai_api_key);
+    async fn send(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> Result<Response, Error> {
+        let client = CompletionsApi::new(&provider_config);
         let request = events_to_request(events, config)?;
         Self::request(client, request)
     }
 
-    async fn stream(messages: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(messages, config).await)
+    async fn stream(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(provider_config, events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for Grok {
     async fn unwrapped_stream(
-        messages: Vec<Event>,
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
         config: Config,
     ) -> LlmChatStream<GrokChatStream> {
-        with_config_key(Self::ENV_VAR_NAME, GrokChatStream::failed, |xai_api_key| {
-            let client = CompletionsApi::new(xai_api_key);
-
-            match events_to_request(messages, config) {
-                Ok(request) => Self::streaming_request(client, request),
-                Err(err) => GrokChatStream::failed(err),
-            }
-        })
+        let client = CompletionsApi::new(&provider_config);
+        match events_to_request(events, config) {
+            Ok(request) => Self::streaming_request(client, request),
+            Err(err) => GrokChatStream::failed(err),
+        }
     }
 
     fn subscribe(stream: &Self::ChatStream) -> Pollable {

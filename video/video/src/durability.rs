@@ -8,14 +8,23 @@ pub struct DurableVideo<Impl> {
 
 /// Trait implemented by provider crates in addition to the three native Video provider traits
 /// so `DurableVideo` can be parameterised by a single type that supplies all of them.
+///
+/// All three sub-traits (`VideoGenerationProvider`, `LipSyncProvider`,
+/// `AdvancedVideoGenerationProvider`) must agree on the same `ProviderConfig`
+/// type so that the durable wrapper can thread a single `provider_config`
+/// value through every method.
 pub trait ExtendedVideoGenerationProvider:
-    VideoGenerationProvider + LipSyncProvider + AdvancedVideoGenerationProvider + 'static
+    VideoGenerationProvider
+    + LipSyncProvider<ProviderConfig = <Self as VideoGenerationProvider>::ProviderConfig>
+    + AdvancedVideoGenerationProvider<
+        ProviderConfig = <Self as VideoGenerationProvider>::ProviderConfig,
+    > + 'static
 {
 }
 
 /// When the durability feature flag is off, `DurableVideo<Impl>` is a transparent wrapper that
 /// forwards every call to the inner provider without any oplog persistence.
-#[cfg(not(feature = "durability"))]
+#[cfg(not(feature = "golem"))]
 mod passthrough_impl {
     use crate::durability::{DurableVideo, ExtendedVideoGenerationProvider};
     use crate::model::advanced::{
@@ -28,56 +37,84 @@ mod passthrough_impl {
     use crate::{AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider};
 
     impl<Impl: ExtendedVideoGenerationProvider> VideoGenerationProvider for DurableVideo<Impl> {
-        fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
-            Impl::generate(input, config)
+        type ProviderConfig = <Impl as VideoGenerationProvider>::ProviderConfig;
+
+        fn generate(
+            provider_config: Self::ProviderConfig,
+            input: MediaInput,
+            config: GenerationConfig,
+        ) -> Result<String, VideoError> {
+            Impl::generate(provider_config, input, config)
         }
 
-        fn poll(job_id: String) -> Result<VideoResult, VideoError> {
-            Impl::poll(job_id)
+        fn poll(
+            provider_config: Self::ProviderConfig,
+            job_id: String,
+        ) -> Result<VideoResult, VideoError> {
+            Impl::poll(provider_config, job_id)
         }
 
-        fn cancel(job_id: String) -> Result<String, VideoError> {
-            Impl::cancel(job_id)
+        fn cancel(
+            provider_config: Self::ProviderConfig,
+            job_id: String,
+        ) -> Result<String, VideoError> {
+            Impl::cancel(provider_config, job_id)
         }
     }
 
     impl<Impl: ExtendedVideoGenerationProvider> LipSyncProvider for DurableVideo<Impl> {
+        type ProviderConfig = <Impl as VideoGenerationProvider>::ProviderConfig;
+
         fn generate_lip_sync(
+            provider_config: Self::ProviderConfig,
             video: LipSyncVideo,
             audio: AudioSource,
         ) -> Result<String, VideoError> {
-            Impl::generate_lip_sync(video, audio)
+            Impl::generate_lip_sync(provider_config, video, audio)
         }
 
-        fn list_voices(language: Option<String>) -> Result<Vec<VoiceInfo>, VideoError> {
-            Impl::list_voices(language)
+        fn list_voices(
+            provider_config: Self::ProviderConfig,
+            language: Option<String>,
+        ) -> Result<Vec<VoiceInfo>, VideoError> {
+            Impl::list_voices(provider_config, language)
         }
     }
 
     impl<Impl: ExtendedVideoGenerationProvider> AdvancedVideoGenerationProvider for DurableVideo<Impl> {
-        fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
-            Impl::extend_video(options)
+        type ProviderConfig = <Impl as VideoGenerationProvider>::ProviderConfig;
+
+        fn extend_video(
+            provider_config: Self::ProviderConfig,
+            options: ExtendVideoOptions,
+        ) -> Result<String, VideoError> {
+            Impl::extend_video(provider_config, options)
         }
 
-        fn upscale_video(input: BaseVideo) -> Result<String, VideoError> {
-            Impl::upscale_video(input)
+        fn upscale_video(
+            provider_config: Self::ProviderConfig,
+            input: BaseVideo,
+        ) -> Result<String, VideoError> {
+            Impl::upscale_video(provider_config, input)
         }
 
         fn generate_video_effects(
+            provider_config: Self::ProviderConfig,
             options: GenerateVideoEffectsOptions,
         ) -> Result<String, VideoError> {
-            Impl::generate_video_effects(options)
+            Impl::generate_video_effects(provider_config, options)
         }
 
         fn multi_image_generation(
+            provider_config: Self::ProviderConfig,
             options: MultImageGenerationOptions,
         ) -> Result<String, VideoError> {
-            Impl::multi_image_generation(options)
+            Impl::multi_image_generation(provider_config, options)
         }
     }
 }
 
-/// When the durability feature flag is on, wrapping with `DurableVideo` adds custom durability
+/// When the `golem` feature flag is on, wrapping with `DurableVideo` adds custom durability
 /// on top of the provider-specific Video implementation using Golem's special host functions and
 /// the `golem-rust` helper library.
 ///
@@ -85,7 +122,10 @@ mod passthrough_impl {
 /// stored as input, and the full response stored as output. To serialize these in a way it is
 /// observable by oplog consumers, each relevant data type has to be converted to/from `ValueAndType`
 /// which is implemented using the type classes and builder in the `golem-rust` library.
-#[cfg(feature = "durability")]
+///
+/// NOTE: `provider_config` is intentionally **not** persisted in the oplog input
+/// payloads because it can carry secrets (API keys etc.).
+#[cfg(feature = "golem")]
 mod durable_impl {
     use crate::durability::{DurableVideo, ExtendedVideoGenerationProvider};
     use crate::model::advanced::{
@@ -104,7 +144,13 @@ mod durable_impl {
     use std::fmt::{Display, Formatter};
 
     impl<Impl: ExtendedVideoGenerationProvider> VideoGenerationProvider for DurableVideo<Impl> {
-        fn generate(input: MediaInput, config: GenerationConfig) -> Result<String, VideoError> {
+        type ProviderConfig = <Impl as VideoGenerationProvider>::ProviderConfig;
+
+        fn generate(
+            provider_config: Self::ProviderConfig,
+            input: MediaInput,
+            config: GenerationConfig,
+        ) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
                 "golem_ai_video",
@@ -112,16 +158,23 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let input_clone = input.clone();
+                let config_clone = config.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::generate(input.clone(), config.clone())
+                    Impl::generate(provider_config, input_clone, config_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(GenerateInput { input, config }, result)
             } else {
                 durability.replay()
             }
         }
 
-        fn poll(job_id: String) -> Result<VideoResult, VideoError> {
+        fn poll(
+            provider_config: Self::ProviderConfig,
+            job_id: String,
+        ) -> Result<VideoResult, VideoError> {
             init_logging();
             let durability = Durability::<VideoResult, VideoError>::new(
                 "golem_ai_video",
@@ -129,16 +182,22 @@ mod durable_impl {
                 DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
+                let job_id_clone = job_id.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::poll(job_id.clone())
+                    Impl::poll(provider_config, job_id_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(PollInput { job_id }, result)
             } else {
                 durability.replay()
             }
         }
 
-        fn cancel(job_id: String) -> Result<String, VideoError> {
+        fn cancel(
+            provider_config: Self::ProviderConfig,
+            job_id: String,
+        ) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
                 "golem_ai_video",
@@ -146,9 +205,12 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let job_id_clone = job_id.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::cancel(job_id.clone())
+                    Impl::cancel(provider_config, job_id_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(CancelInput { job_id }, result)
             } else {
                 durability.replay()
@@ -157,7 +219,10 @@ mod durable_impl {
     }
 
     impl<Impl: ExtendedVideoGenerationProvider> LipSyncProvider for DurableVideo<Impl> {
+        type ProviderConfig = <Impl as VideoGenerationProvider>::ProviderConfig;
+
         fn generate_lip_sync(
+            provider_config: Self::ProviderConfig,
             video: LipSyncVideo,
             audio: AudioSource,
         ) -> Result<String, VideoError> {
@@ -168,16 +233,23 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let video_clone = video.clone();
+                let audio_clone = audio.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::generate_lip_sync(video.clone(), audio.clone())
+                    Impl::generate_lip_sync(provider_config, video_clone, audio_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(GenerateLipSyncInput { video, audio }, result)
             } else {
                 durability.replay()
             }
         }
 
-        fn list_voices(language: Option<String>) -> Result<Vec<VoiceInfo>, VideoError> {
+        fn list_voices(
+            provider_config: Self::ProviderConfig,
+            language: Option<String>,
+        ) -> Result<Vec<VoiceInfo>, VideoError> {
             init_logging();
             let durability = Durability::<Vec<VoiceInfo>, VideoError>::new(
                 "golem_ai_video",
@@ -185,9 +257,12 @@ mod durable_impl {
                 DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
+                let language_clone = language.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::list_voices(language.clone())
+                    Impl::list_voices(provider_config, language_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(ListVoicesInput { language }, result)
             } else {
                 durability.replay()
@@ -196,7 +271,12 @@ mod durable_impl {
     }
 
     impl<Impl: ExtendedVideoGenerationProvider> AdvancedVideoGenerationProvider for DurableVideo<Impl> {
-        fn extend_video(options: ExtendVideoOptions) -> Result<String, VideoError> {
+        type ProviderConfig = <Impl as VideoGenerationProvider>::ProviderConfig;
+
+        fn extend_video(
+            provider_config: Self::ProviderConfig,
+            options: ExtendVideoOptions,
+        ) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
                 "golem_ai_video",
@@ -204,16 +284,22 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let options_clone = options.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::extend_video(options.clone())
+                    Impl::extend_video(provider_config, options_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(options, result)
             } else {
                 durability.replay()
             }
         }
 
-        fn upscale_video(input: BaseVideo) -> Result<String, VideoError> {
+        fn upscale_video(
+            provider_config: Self::ProviderConfig,
+            input: BaseVideo,
+        ) -> Result<String, VideoError> {
             init_logging();
             let durability = Durability::<String, VideoError>::new(
                 "golem_ai_video",
@@ -221,9 +307,12 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let input_clone = input.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upscale_video(input.clone())
+                    Impl::upscale_video(provider_config, input_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(UpscaleVideoInput { input }, result)
             } else {
                 durability.replay()
@@ -231,6 +320,7 @@ mod durable_impl {
         }
 
         fn generate_video_effects(
+            provider_config: Self::ProviderConfig,
             options: GenerateVideoEffectsOptions,
         ) -> Result<String, VideoError> {
             init_logging();
@@ -240,9 +330,12 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let options_clone = options.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::generate_video_effects(options.clone())
+                    Impl::generate_video_effects(provider_config, options_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(options, result)
             } else {
                 durability.replay()
@@ -250,6 +343,7 @@ mod durable_impl {
         }
 
         fn multi_image_generation(
+            provider_config: Self::ProviderConfig,
             options: MultImageGenerationOptions,
         ) -> Result<String, VideoError> {
             init_logging();
@@ -259,9 +353,12 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let options_clone = options.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::multi_image_generation(options.clone())
+                    Impl::multi_image_generation(provider_config, options_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(options, result)
             } else {
                 durability.replay()

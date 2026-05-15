@@ -18,31 +18,41 @@ use std::marker::PhantomData;
 pub struct DurableTts<Impl> {
     phantom: PhantomData<Impl>,
 }
+/// Provider trait used by `DurableTts<Impl>` to implement durability.
+///
+/// All four sub-traits (`VoiceProvider`, `StreamingVoiceProvider`,
+/// `SynthesizeProvider`, `AdvancedTtsProvider`) must agree on the same
+/// `ProviderConfig` type so that the durable wrapper can thread a single
+/// `provider_config` value through every method on every trait.
 pub trait ExtendedTtsProvider:
-    VoiceProvider + StreamingVoiceProvider + SynthesizeProvider + AdvancedTtsProvider + 'static
+    VoiceProvider
+    + StreamingVoiceProvider<ProviderConfig = <Self as VoiceProvider>::ProviderConfig>
+    + SynthesizeProvider<ProviderConfig = <Self as VoiceProvider>::ProviderConfig>
+    + AdvancedTtsProvider<ProviderConfig = <Self as VoiceProvider>::ProviderConfig>
+    + 'static
 {
     fn unwrapped_synthesis_stream(
+        provider_config: <Self as VoiceProvider>::ProviderConfig,
         voice: crate::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream;
 
     fn unwrapped_voice_conversion_stream(
+        provider_config: <Self as VoiceProvider>::ProviderConfig,
         target_voice: crate::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream;
 
-    fn subscribe_synthesis_stream(
-        stream: &Self::SynthesisStream,
-    ) -> golem_rust::golem_wasm::Pollable;
+    fn subscribe_synthesis_stream(stream: &Self::SynthesisStream) -> crate::wasi_compat::Pollable;
 
     fn subscribe_voice_conversion_stream(
         stream: &Self::VoiceConversionStream,
-    ) -> golem_rust::golem_wasm::Pollable;
+    ) -> crate::wasi_compat::Pollable;
 }
 
 /// When the durability feature flag is off, `DurableTts<Impl>` is a transparent wrapper that
 /// forwards every call to the inner provider without any oplog persistence.
-#[cfg(not(feature = "durability"))]
+#[cfg(not(feature = "golem"))]
 mod passthrough_impl {
     use crate::durability::{DurableTts, ExtendedTtsProvider};
     use crate::init_logging;
@@ -58,141 +68,180 @@ mod passthrough_impl {
     impl<Impl: ExtendedTtsProvider> VoiceProvider for DurableTts<Impl> {
         type Voice = Impl::Voice;
         type VoiceResults = Impl::VoiceResults;
+        type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
-        fn list_voices(filter: Option<VoiceFilter>) -> Result<VoiceResults, TtsError> {
+        fn list_voices(
+            provider_config: Self::ProviderConfig,
+            filter: Option<VoiceFilter>,
+        ) -> Result<VoiceResults, TtsError> {
             init_logging();
-            Impl::list_voices(filter)
+            Impl::list_voices(provider_config, filter)
         }
 
-        fn get_voice(voice_id: String) -> Result<Voice, TtsError> {
+        fn get_voice(
+            provider_config: Self::ProviderConfig,
+            voice_id: String,
+        ) -> Result<Voice, TtsError> {
             init_logging();
-            Impl::get_voice(voice_id)
+            Impl::get_voice(provider_config, voice_id)
         }
 
-        fn search_voices(filter: Option<VoiceFilter>) -> Result<Vec<VoiceInfo>, TtsError> {
+        fn search_voices(
+            provider_config: Self::ProviderConfig,
+            filter: Option<VoiceFilter>,
+        ) -> Result<Vec<VoiceInfo>, TtsError> {
             init_logging();
-            Impl::search_voices(filter)
+            Impl::search_voices(provider_config, filter)
         }
 
-        fn list_languages() -> Result<Vec<LanguageInfo>, TtsError> {
+        fn list_languages(
+            provider_config: Self::ProviderConfig,
+        ) -> Result<Vec<LanguageInfo>, TtsError> {
             init_logging();
-            Impl::list_languages()
+            Impl::list_languages(provider_config)
         }
     }
 
     impl<Impl: ExtendedTtsProvider> SynthesizeProvider for DurableTts<Impl> {
+        type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
+
         fn synthesize(
+            provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisResult, TtsError> {
             init_logging();
-            Impl::synthesize(input, voice, options)
+            Impl::synthesize(provider_config, input, voice, options)
         }
 
         fn synthesize_batch(
+            provider_config: Self::ProviderConfig,
             inputs: Vec<TextInput>,
             voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<Vec<SynthesisResult>, TtsError> {
             init_logging();
-            Impl::synthesize_batch(inputs, voice, options)
+            Impl::synthesize_batch(provider_config, inputs, voice, options)
         }
 
         fn get_timing_marks(
+            provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
         ) -> Result<Vec<TimingInfo>, TtsError> {
             init_logging();
-            Impl::get_timing_marks(input, voice)
+            Impl::get_timing_marks(provider_config, input, voice)
         }
 
         fn validate_input(
+            provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
         ) -> Result<ValidationResult, TtsError> {
             init_logging();
-            Impl::validate_input(input, voice)
+            Impl::validate_input(provider_config, input, voice)
         }
     }
 
     impl<Impl: ExtendedTtsProvider> StreamingVoiceProvider for DurableTts<Impl> {
         type SynthesisStream = Impl::SynthesisStream;
         type VoiceConversionStream = Impl::VoiceConversionStream;
+        type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
         fn create_stream(
+            provider_config: Self::ProviderConfig,
             voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisStream, TtsError> {
             init_logging();
-            Impl::create_stream(voice, options)
+            Impl::create_stream(provider_config, voice, options)
         }
 
         fn create_voice_conversion_stream(
+            provider_config: Self::ProviderConfig,
             target_voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<VoiceConversionStream, TtsError> {
             init_logging();
-            Impl::create_voice_conversion_stream(target_voice, options)
+            Impl::create_voice_conversion_stream(provider_config, target_voice, options)
         }
     }
 
     impl<Impl: ExtendedTtsProvider> AdvancedTtsProvider for DurableTts<Impl> {
         type PronunciationLexicon = Impl::PronunciationLexicon;
         type LongFormOperation = Impl::LongFormOperation;
+        type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
         fn create_voice_clone(
+            provider_config: Self::ProviderConfig,
             name: String,
             audio_samples: Vec<AudioSample>,
             description: Option<String>,
         ) -> Result<Voice, TtsError> {
             init_logging();
-            Impl::create_voice_clone(name, audio_samples, description)
+            Impl::create_voice_clone(provider_config, name, audio_samples, description)
         }
 
         fn design_voice(
+            provider_config: Self::ProviderConfig,
             name: String,
             characteristics: VoiceDesignParams,
         ) -> Result<Voice, TtsError> {
             init_logging();
-            Impl::design_voice(name, characteristics)
+            Impl::design_voice(provider_config, name, characteristics)
         }
 
         fn convert_voice(
+            provider_config: Self::ProviderConfig,
             input_audio: Vec<u8>,
             target_voice: crate::model::voices::VoiceBorrow<'_>,
             preserve_timing: Option<bool>,
         ) -> Result<Vec<u8>, TtsError> {
             init_logging();
-            Impl::convert_voice(input_audio, target_voice, preserve_timing)
+            Impl::convert_voice(provider_config, input_audio, target_voice, preserve_timing)
         }
 
         fn generate_sound_effect(
+            provider_config: Self::ProviderConfig,
             description: String,
             duration_seconds: Option<f32>,
             style_influence: Option<f32>,
         ) -> Result<Vec<u8>, TtsError> {
             init_logging();
-            Impl::generate_sound_effect(description, duration_seconds, style_influence)
+            Impl::generate_sound_effect(
+                provider_config,
+                description,
+                duration_seconds,
+                style_influence,
+            )
         }
 
         fn create_lexicon(
+            provider_config: Self::ProviderConfig,
             name: String,
             language: LanguageCode,
             entries: Option<Vec<PronunciationEntry>>,
         ) -> Result<PronunciationLexicon, TtsError> {
             init_logging();
-            Impl::create_lexicon(name, language, entries)
+            Impl::create_lexicon(provider_config, name, language, entries)
         }
 
         fn synthesize_long_form(
+            provider_config: Self::ProviderConfig,
             content: String,
             voice: crate::model::voices::VoiceBorrow<'_>,
             output_location: String,
             chapter_breaks: Option<Vec<u32>>,
         ) -> Result<LongFormOperation, TtsError> {
             init_logging();
-            Impl::synthesize_long_form(content, voice, output_location, chapter_breaks)
+            Impl::synthesize_long_form(
+                provider_config,
+                content,
+                voice,
+                output_location,
+                chapter_breaks,
+            )
         }
     }
 }
@@ -200,7 +249,7 @@ mod passthrough_impl {
 /// When the durability feature flag is on, wrapping with `DurableTts` adds custom durability
 /// on top of the provider-specific TTS implementation using Golem's special host functions and
 /// the `golem-rust` helper library.
-#[cfg(feature = "durability")]
+#[cfg(feature = "golem")]
 mod durable_impl {
     use crate::durability::{DurableTts, ExtendedTtsProvider};
 
@@ -220,6 +269,7 @@ mod durable_impl {
     };
 
     use crate::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+    use crate::wasi_compat::Pollable;
     use crate::{
         init_logging, AdvancedTtsProvider, LongFormOperationInterface,
         PronunciationLexiconInterface, StreamingVoiceProvider, SynthesizeProvider,
@@ -229,7 +279,6 @@ mod durable_impl {
         DurableFunctionType, LazyInitializedPollable,
     };
     use golem_rust::durability::Durability;
-    use golem_rust::golem_wasm::Pollable;
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};
@@ -458,8 +507,12 @@ mod durable_impl {
     impl<Impl: ExtendedTtsProvider> VoiceProvider for DurableTts<Impl> {
         type Voice = Impl::Voice;
         type VoiceResults = Impl::VoiceResults;
+        type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
-        fn list_voices(filter: Option<VoiceFilter>) -> Result<VoiceResults, TtsError> {
+        fn list_voices(
+            provider_config: Self::ProviderConfig,
+            filter: Option<VoiceFilter>,
+        ) -> Result<VoiceResults, TtsError> {
             init_logging();
 
             let durability = Durability::<VoiceResultsOutput, TtsError>::new(
@@ -468,8 +521,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let provider_config_for_call = provider_config.clone();
+                let filter_for_call = filter.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::list_voices(filter.clone())
+                    Impl::list_voices(provider_config_for_call, filter_for_call)
                 });
                 let voices = match &result {
                     Ok(voice_results) => {
@@ -478,25 +533,36 @@ mod durable_impl {
                     }
                     Err(_) => Vec::new(),
                 };
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(
-                    ListVoicesInput { filter },
+                    ListVoicesInput {
+                        filter: filter.clone(),
+                    },
                     result.map(|_| VoiceResultsOutput {
                         voices: voices.clone(),
                     }),
                 )?;
 
-                Ok(VoiceResults::new(
-                    DurableVoiceResults::<Impl>::new_with_voices(voices),
-                ))
+                Ok(VoiceResults::new(DurableVoiceResults::<Impl>::new_live(
+                    provider_config,
+                    filter,
+                    voices,
+                )))
             } else {
                 let output = durability.replay::<VoiceResultsOutput, TtsError>()?;
-                Ok(VoiceResults::new(
-                    DurableVoiceResults::<Impl>::new_with_voices(output.voices),
-                ))
+                Ok(VoiceResults::new(DurableVoiceResults::<Impl>::new_live(
+                    provider_config,
+                    filter,
+                    output.voices,
+                )))
             }
         }
 
-        fn get_voice(voice_id: String) -> Result<Voice, TtsError> {
+        fn get_voice(
+            provider_config: Self::ProviderConfig,
+            voice_id: String,
+        ) -> Result<Voice, TtsError> {
             init_logging();
 
             let durability = Durability::<VoiceOutput, TtsError>::new(
@@ -505,8 +571,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let provider_config_for_call = provider_config.clone();
+                let voice_id_for_call = voice_id.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_voice(voice_id.clone())
+                    Impl::get_voice(provider_config_for_call, voice_id_for_call)
                 });
                 let voice_data = match &result {
                     Ok(voice) => {
@@ -529,12 +597,14 @@ mod durable_impl {
                         return result;
                     }
                 };
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability.persist(
                     GetVoiceInput { voice_id },
                     result.map(|_| voice_data.clone()),
                 )?;
 
                 Ok(Voice::new(DurableVoice::<Impl>::new(
+                    provider_config,
                     voice_data.id,
                     voice_data.name,
                     voice_data.provider_id,
@@ -550,6 +620,7 @@ mod durable_impl {
             } else {
                 let voice_data = durability.replay::<VoiceOutput, TtsError>()?;
                 Ok(Voice::new(DurableVoice::<Impl>::new(
+                    provider_config,
                     voice_data.id,
                     voice_data.name,
                     voice_data.provider_id,
@@ -565,7 +636,10 @@ mod durable_impl {
             }
         }
 
-        fn search_voices(filter: Option<VoiceFilter>) -> Result<Vec<VoiceInfo>, TtsError> {
+        fn search_voices(
+            provider_config: Self::ProviderConfig,
+            filter: Option<VoiceFilter>,
+        ) -> Result<Vec<VoiceInfo>, TtsError> {
             init_logging();
 
             let durability = Durability::<VoiceInfoListOutput, TtsError>::new(
@@ -574,8 +648,9 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::search_voices(filter.clone());
+                let result = Impl::search_voices(provider_config, filter.clone());
                 let result = result.map(|v| VoiceInfoListOutput { voices: v });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(SearchVoicesInput { filter }, result)
                     .map(|output| output.voices)
@@ -586,7 +661,9 @@ mod durable_impl {
             }
         }
 
-        fn list_languages() -> Result<Vec<LanguageInfo>, TtsError> {
+        fn list_languages(
+            provider_config: Self::ProviderConfig,
+        ) -> Result<Vec<LanguageInfo>, TtsError> {
             init_logging();
 
             let durability = Durability::<LanguageInfoListOutput, TtsError>::new(
@@ -595,8 +672,9 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::list_languages();
+                let result = Impl::list_languages(provider_config);
                 let result = result.map(|l| LanguageInfoListOutput { languages: l });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(NoInput, result)
                     .map(|output| output.languages)
@@ -609,7 +687,10 @@ mod durable_impl {
     }
 
     impl<Impl: ExtendedTtsProvider> SynthesizeProvider for DurableTts<Impl> {
+        type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
+
         fn synthesize(
+            provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
@@ -622,8 +703,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::synthesize(input.clone(), voice, options.clone());
+                let result =
+                    Impl::synthesize(provider_config, input.clone(), voice, options.clone());
                 let result = result.map(|r| SynthesisResultOutput { result: r });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(SynthesizeInput { input, options }, result)
                     .map(|output| output.result)
@@ -635,6 +718,7 @@ mod durable_impl {
         }
 
         fn synthesize_batch(
+            provider_config: Self::ProviderConfig,
             inputs: Vec<TextInput>,
             voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
@@ -647,8 +731,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::synthesize_batch(inputs.clone(), voice, options.clone());
+                let result =
+                    Impl::synthesize_batch(provider_config, inputs.clone(), voice, options.clone());
                 let result = result.map(|r| SynthesisResultListOutput { results: r });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(SynthesizeBatchInput { inputs, options }, result)
                     .map(|output| output.results)
@@ -660,6 +746,7 @@ mod durable_impl {
         }
 
         fn get_timing_marks(
+            provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
         ) -> Result<Vec<TimingInfo>, TtsError> {
@@ -671,8 +758,9 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::get_timing_marks(input.clone(), voice);
+                let result = Impl::get_timing_marks(provider_config, input.clone(), voice);
                 let result = result.map(|t| TimingInfoListOutput { timing: t });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(GetTimingMarksInput { input }, result)
                     .map(|output| output.timing)
@@ -684,6 +772,7 @@ mod durable_impl {
         }
 
         fn validate_input(
+            provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
         ) -> Result<ValidationResult, TtsError> {
@@ -695,8 +784,9 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::validate_input(input.clone(), voice);
+                let result = Impl::validate_input(provider_config, input.clone(), voice);
                 let result = result.map(|v| ValidationResultOutput { result: v });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(ValidateInputInput { input }, result)
                     .map(|output| output.result)
@@ -711,21 +801,24 @@ mod durable_impl {
     impl<Impl: ExtendedTtsProvider> StreamingVoiceProvider for DurableTts<Impl> {
         type SynthesisStream = Impl::SynthesisStream;
         type VoiceConversionStream = Impl::VoiceConversionStream;
+        type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
         fn create_stream(
+            provider_config: Self::ProviderConfig,
             voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisStream, TtsError> {
             init_logging();
-            Impl::create_stream(voice, options)
+            Impl::create_stream(provider_config, voice, options)
         }
 
         fn create_voice_conversion_stream(
+            provider_config: Self::ProviderConfig,
             target_voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<VoiceConversionStream, TtsError> {
             init_logging();
-            Impl::create_voice_conversion_stream(target_voice, options)
+            Impl::create_voice_conversion_stream(provider_config, target_voice, options)
         }
     }
 
@@ -881,6 +974,7 @@ mod durable_impl {
     }
 
     pub struct DurableVoiceResults<Impl: ExtendedTtsProvider> {
+        provider_config: <Impl as VoiceProvider>::ProviderConfig,
         filter: Option<VoiceFilter>,
         cached_voices: Option<Vec<VoiceInfo>>,
         _phantom: PhantomData<Impl>,
@@ -888,17 +982,14 @@ mod durable_impl {
 
     #[allow(dead_code)]
     impl<Impl: ExtendedTtsProvider> DurableVoiceResults<Impl> {
-        fn new(filter: Option<VoiceFilter>) -> Self {
+        fn new_live(
+            provider_config: <Impl as VoiceProvider>::ProviderConfig,
+            filter: Option<VoiceFilter>,
+            voices: Vec<VoiceInfo>,
+        ) -> Self {
             Self {
+                provider_config,
                 filter,
-                cached_voices: None,
-                _phantom: PhantomData,
-            }
-        }
-
-        fn new_with_voices(voices: Vec<VoiceInfo>) -> Self {
-            Self {
-                filter: None,
                 cached_voices: Some(voices),
                 _phantom: PhantomData,
             }
@@ -924,8 +1015,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let provider_config = self.provider_config.clone();
+                let filter = self.filter.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let underlying_results = Impl::list_voices(self.filter.clone());
+                    let underlying_results = Impl::list_voices(provider_config, filter);
                     match underlying_results {
                         Ok(results) => results.get::<Impl::VoiceResults>().has_more(),
                         Err(_) => false,
@@ -948,8 +1041,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let provider_config = self.provider_config.clone();
+                let filter = self.filter.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let underlying_results = Impl::list_voices(self.filter.clone())?;
+                    let underlying_results = Impl::list_voices(provider_config, filter)?;
                     let voices = underlying_results.get::<Impl::VoiceResults>().get_next()?;
                     Ok(VoiceInfoListOutput { voices })
                 });
@@ -974,8 +1069,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let provider_config = self.provider_config.clone();
+                let filter = self.filter.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let underlying_results = Impl::list_voices(self.filter.clone());
+                    let underlying_results = Impl::list_voices(provider_config, filter);
                     match underlying_results {
                         Ok(results) => results.get::<Impl::VoiceResults>().get_total_count(),
                         Err(_) => None,
@@ -990,7 +1087,8 @@ mod durable_impl {
 
     // Durable Voice resource
     #[allow(dead_code)]
-    pub struct DurableVoice<Impl> {
+    pub struct DurableVoice<Impl: ExtendedTtsProvider> {
+        provider_config: <Impl as VoiceProvider>::ProviderConfig,
         id: String,
         name: String,
         provider_id: Option<String>,
@@ -1009,6 +1107,7 @@ mod durable_impl {
         #[allow(clippy::too_many_arguments)]
         #[allow(dead_code)]
         pub fn new(
+            provider_config: <Impl as VoiceProvider>::ProviderConfig,
             id: String,
             name: String,
             provider_id: Option<String>,
@@ -1022,6 +1121,7 @@ mod durable_impl {
             supported_formats: Vec<AudioFormat>,
         ) -> Self {
             Self {
+                provider_config,
                 id,
                 name,
                 provider_id,
@@ -1127,19 +1227,32 @@ mod durable_impl {
                 DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
+                let provider_config = self.provider_config.clone();
+                let id = self.id.clone();
+                let name = format!("{}_clone", self.name);
+                let provider_id = self.provider_id.clone();
+                let language = self.language.clone();
+                let additional_languages = self.additional_languages.clone();
+                let description = self.description.clone();
+                let sample_rates = self.sample_rates.clone();
+                let supported_formats = self.supported_formats.clone();
+                let supports_ssml = self.supports_ssml;
+                let gender = self.gender;
+                let quality = self.quality;
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
                     Voice::new(DurableVoice::<Impl>::new(
-                        self.id.clone(),
-                        format!("{}_clone", self.name),
-                        self.provider_id.clone(),
-                        self.language.clone(),
-                        self.additional_languages.clone(),
-                        self.gender,
-                        self.quality,
-                        self.description.clone(),
-                        self.supports_ssml,
-                        self.sample_rates.clone(),
-                        self.supported_formats.clone(),
+                        provider_config,
+                        id,
+                        name,
+                        provider_id,
+                        language,
+                        additional_languages,
+                        gender,
+                        quality,
+                        description,
+                        supports_ssml,
+                        sample_rates,
+                        supported_formats,
                     ))
                 });
                 let _ = durability.persist_infallible(NoInput, NoOutput);
@@ -1147,6 +1260,7 @@ mod durable_impl {
             } else {
                 let _: NoOutput = durability.replay_infallible();
                 Ok(Voice::new(DurableVoice::<Impl>::new(
+                    self.provider_config.clone(),
                     self.id.clone(),
                     format!("{}_clone", self.name),
                     self.provider_id.clone(),
@@ -1169,10 +1283,13 @@ mod durable_impl {
                 DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
+                let provider_config = self.provider_config.clone();
+                let id = self.id.clone();
+                let text_for_call = text.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let voice = Impl::get_voice(self.id.clone())?;
+                    let voice = Impl::get_voice(provider_config, id)?;
                     let guest = voice.get::<Impl::Voice>();
-                    guest.preview(text.clone())
+                    guest.preview(text_for_call)
                 });
 
                 let audio_data = result?;
@@ -1191,7 +1308,8 @@ mod durable_impl {
         }
     }
 
-    pub struct DurablePronunciationLexicon<Impl> {
+    pub struct DurablePronunciationLexicon<Impl: ExtendedTtsProvider> {
+        provider_config: <Impl as VoiceProvider>::ProviderConfig,
         name: String,
         language: LanguageCode,
         entries: Option<Vec<PronunciationEntry>>,
@@ -1200,11 +1318,13 @@ mod durable_impl {
 
     impl<Impl: ExtendedTtsProvider> DurablePronunciationLexicon<Impl> {
         pub fn new(
+            provider_config: <Impl as VoiceProvider>::ProviderConfig,
             name: String,
             language: LanguageCode,
             entries: Option<Vec<PronunciationEntry>>,
         ) -> Self {
             Self {
+                provider_config,
                 name,
                 language,
                 entries,
@@ -1254,14 +1374,16 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let provider_config = self.provider_config.clone();
+                let name = self.name.clone();
+                let language = self.language.clone();
+                let entries = self.entries.clone();
+                let word_for_call = word.clone();
+                let pronunciation_for_call = pronunciation.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let lexicon = Impl::create_lexicon(
-                        self.name.clone(),
-                        self.language.clone(),
-                        self.entries.clone(),
-                    )?;
+                    let lexicon = Impl::create_lexicon(provider_config, name, language, entries)?;
                     let guest = lexicon.get::<Impl::PronunciationLexicon>();
-                    guest.add_entry(word.clone(), pronunciation.clone())
+                    guest.add_entry(word_for_call, pronunciation_for_call)
                 });
                 let result = result.map(|_| NoOutput);
                 durability
@@ -1415,8 +1537,10 @@ mod durable_impl {
     impl<Impl: ExtendedTtsProvider> AdvancedTtsProvider for DurableTts<Impl> {
         type PronunciationLexicon = DurablePronunciationLexicon<Impl>;
         type LongFormOperation = DurableLongFormOperation<Impl>;
+        type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
         fn create_voice_clone(
+            provider_config: Self::ProviderConfig,
             name: String,
             audio_samples: Vec<AudioSample>,
             description: Option<String>,
@@ -1430,7 +1554,9 @@ mod durable_impl {
             );
 
             if durability.is_live() {
+                let provider_config_for_call = provider_config.clone();
                 let result = Impl::create_voice_clone(
+                    provider_config_for_call,
                     name.clone(),
                     audio_samples.clone(),
                     description.clone(),
@@ -1466,6 +1592,7 @@ mod durable_impl {
                         supported_formats: vec![AudioFormat::Mp3],
                     },
                 };
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability.persist(
                     CreateVoiceCloneInput {
                         name,
@@ -1476,6 +1603,7 @@ mod durable_impl {
                 )?;
 
                 Ok(Voice::new(DurableVoice::<Impl>::new(
+                    provider_config,
                     voice_data.id,
                     voice_data.name,
                     voice_data.provider_id,
@@ -1491,6 +1619,7 @@ mod durable_impl {
             } else {
                 let voice_data = durability.replay::<VoiceOutput, TtsError>()?;
                 Ok(Voice::new(DurableVoice::<Impl>::new(
+                    provider_config,
                     voice_data.id,
                     voice_data.name,
                     voice_data.provider_id,
@@ -1507,6 +1636,7 @@ mod durable_impl {
         }
 
         fn design_voice(
+            provider_config: Self::ProviderConfig,
             name: String,
             characteristics: VoiceDesignParams,
         ) -> Result<Voice, TtsError> {
@@ -1519,7 +1649,12 @@ mod durable_impl {
             );
 
             if durability.is_live() {
-                let result = Impl::design_voice(name.clone(), characteristics.clone());
+                let provider_config_for_call = provider_config.clone();
+                let result = Impl::design_voice(
+                    provider_config_for_call,
+                    name.clone(),
+                    characteristics.clone(),
+                );
                 let voice_data = match &result {
                     Ok(voice) => {
                         let guest = voice.get::<Impl::Voice>();
@@ -1552,6 +1687,7 @@ mod durable_impl {
                     },
                 };
 
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability.persist(
                     DesignVoiceInput {
                         name,
@@ -1561,6 +1697,7 @@ mod durable_impl {
                 )?;
 
                 Ok(Voice::new(DurableVoice::<Impl>::new(
+                    provider_config,
                     voice_data.id,
                     voice_data.name,
                     voice_data.provider_id,
@@ -1576,6 +1713,7 @@ mod durable_impl {
             } else {
                 let voice_data = durability.replay::<VoiceOutput, TtsError>()?;
                 Ok(Voice::new(DurableVoice::<Impl>::new(
+                    provider_config,
                     voice_data.id,
                     voice_data.name,
                     voice_data.provider_id,
@@ -1592,6 +1730,7 @@ mod durable_impl {
         }
 
         fn convert_voice(
+            provider_config: Self::ProviderConfig,
             input_audio: Vec<u8>,
             target_voice: crate::model::voices::VoiceBorrow<'_>,
             preserve_timing: Option<bool>,
@@ -1604,9 +1743,14 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result =
-                    Impl::convert_voice(input_audio.clone(), target_voice, preserve_timing);
+                let result = Impl::convert_voice(
+                    provider_config,
+                    input_audio.clone(),
+                    target_voice,
+                    preserve_timing,
+                );
                 let result = result.map(|a| AudioDataOutput { audio: a });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(
                         ConvertVoiceInput {
@@ -1624,6 +1768,7 @@ mod durable_impl {
         }
 
         fn generate_sound_effect(
+            provider_config: Self::ProviderConfig,
             description: String,
             duration_seconds: Option<f32>,
             style_influence: Option<f32>,
@@ -1637,11 +1782,13 @@ mod durable_impl {
             );
             if durability.is_live() {
                 let result = Impl::generate_sound_effect(
+                    provider_config,
                     description.clone(),
                     duration_seconds,
                     style_influence,
                 );
                 let result = result.map(|a| AudioDataOutput { audio: a });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
                     .persist(
                         GenerateSoundEffectInput {
@@ -1660,6 +1807,7 @@ mod durable_impl {
         }
 
         fn create_lexicon(
+            provider_config: Self::ProviderConfig,
             name: String,
             language: LanguageCode,
             entries: Option<Vec<PronunciationEntry>>,
@@ -1679,6 +1827,7 @@ mod durable_impl {
                         entries: entries.clone(),
                     }
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 let _ = durability.persist_infallible(
                     CreateLexiconInput {
                         name: name.clone(),
@@ -1689,6 +1838,7 @@ mod durable_impl {
                 );
                 Ok(PronunciationLexicon::new(
                     DurablePronunciationLexicon::<Impl>::new(
+                        provider_config,
                         result.name,
                         result.language,
                         result.entries,
@@ -1698,6 +1848,7 @@ mod durable_impl {
                 let lexicon_data: PronunciationLexiconOutput = durability.replay_infallible();
                 Ok(PronunciationLexicon::new(
                     DurablePronunciationLexicon::<Impl>::new(
+                        provider_config,
                         lexicon_data.name,
                         lexicon_data.language,
                         lexicon_data.entries,
@@ -1707,6 +1858,7 @@ mod durable_impl {
         }
 
         fn synthesize_long_form(
+            _provider_config: Self::ProviderConfig,
             content: String,
             _voice: crate::model::voices::VoiceBorrow<'_>,
             output_location: String,
@@ -1727,6 +1879,7 @@ mod durable_impl {
                         chapter_breaks: chapter_breaks.clone(),
                     }
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input.
                 let _ = durability.persist_infallible(
                     SynthesizeLongFormInput {
                         content: content.clone(),

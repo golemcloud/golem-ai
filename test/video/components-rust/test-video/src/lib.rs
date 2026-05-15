@@ -16,6 +16,25 @@ type Provider = golem_ai_video_kling::DurableKling;
 #[cfg(feature = "veo")]
 type Provider = golem_ai_video_veo::DurableVeo;
 
+#[cfg(feature = "stability")]
+fn provider_config() -> golem_ai_video_stability::StabilityConfig {
+    golem_ai_video_stability::StabilityConfig::from_env()
+        .expect("failed to load Stability config from env")
+}
+#[cfg(feature = "runway")]
+fn provider_config() -> golem_ai_video_runway::RunwayConfig {
+    golem_ai_video_runway::RunwayConfig::from_env()
+        .expect("failed to load Runway config from env")
+}
+#[cfg(feature = "kling")]
+fn provider_config() -> golem_ai_video_kling::KlingConfig {
+    golem_ai_video_kling::KlingConfig::from_env().expect("failed to load Kling config from env")
+}
+#[cfg(feature = "veo")]
+fn provider_config() -> golem_ai_video_veo::VeoConfig {
+    golem_ai_video_veo::VeoConfig::from_env().expect("failed to load Veo config from env")
+}
+
 const POLLING_SLEEP_SECONDS: u64 = 5;
 
 #[agent_definition]
@@ -89,7 +108,7 @@ impl VideoTest for VideoTestImpl {
             MediaInput::Text("A beautiful sunset over the ocean, orange and red hues".to_string());
 
         println!("Sending text-to-video generation request...");
-        let job_id = match Provider::generate(media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -135,7 +154,7 @@ impl VideoTest for VideoTestImpl {
         });
 
         println!("Sending image-to-video generation request...");
-        let job_id = match Provider::generate(media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -152,7 +171,7 @@ impl VideoTest for VideoTestImpl {
         let mut round = 0;
 
         loop {
-            match Provider::poll(job_id.clone()) {
+            match Provider::poll(provider_config(), job_id.clone()) {
                 Ok(video_result) => match video_result.status {
                     JobStatus::Pending => {
                         println!("test2 is pending... (round {})", round);
@@ -227,7 +246,7 @@ impl VideoTest for VideoTestImpl {
         });
 
         println!("Sending image-to-video generation request with 'last' role...");
-        let job_id = match Provider::generate(media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -275,7 +294,7 @@ impl VideoTest for VideoTestImpl {
         });
 
         println!("Sending video-to-video generation request...");
-        let job_id = match Provider::generate(media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -291,7 +310,7 @@ impl VideoTest for VideoTestImpl {
         };
 
         println!("Sending video upscale request...");
-        let job_id = match Provider::upscale_video(base_video) {
+        let job_id = match Provider::upscale_video(provider_config(), base_video) {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to upscale video: {:?}", error),
         };
@@ -367,7 +386,7 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
     thread::sleep(Duration::from_secs(5));
 
     loop {
-        match Provider::poll(job_id.to_string()) {
+        match Provider::poll(provider_config(), job_id.to_string()) {
             Ok(video_result) => match video_result.status {
                 JobStatus::Pending => {
                     println!("{} is pending...", test_name);

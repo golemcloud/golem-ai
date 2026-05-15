@@ -5,10 +5,7 @@ use super::{
     event_stream::EventStream, ndjson_stream::NdJsonStream, utf8_stream::Utf8StreamError,
     MessageEvent,
 };
-use golem_rust::{
-    bindings::wasi::io::streams::{InputStream, StreamError as WasiStreamError},
-    golem_wasm::Pollable,
-};
+use crate::wasi_compat::{InputStream, Pollable, StreamError as WasiStreamError};
 use nom::error::Error as NomError;
 
 pub enum StreamType {

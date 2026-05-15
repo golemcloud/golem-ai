@@ -9,14 +9,14 @@ pub struct DurableStt<Impl> {
 
 pub trait ExtendedSttProvider: SttTranscriptionProvider + LanguageProvider + 'static {}
 
-/// When the durability feature flag is off, `DurableStt<Impl>` is a transparent wrapper that
+/// When the `golem` feature flag is off, `DurableStt<Impl>` is a transparent wrapper that
 /// forwards every call to the inner provider without any oplog persistence.
-#[cfg(not(feature = "durability"))]
+#[cfg(not(feature = "golem"))]
 mod passthrough_impl {
     use bytes::Bytes;
 
     use crate::durability::{DurableStt, ExtendedSttProvider};
-    use crate::guest::SttTranscriptionRequest;
+    use crate::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
     use crate::model::languages::LanguageInfo;
     use crate::model::transcription::{
         MultiTranscriptionResult, TranscriptionRequest, TranscriptionResult,
@@ -25,7 +25,10 @@ mod passthrough_impl {
     use crate::{LanguageProvider, TranscriptionProvider, LOGGING_STATE};
 
     impl<Impl: ExtendedSttProvider> TranscriptionProvider for DurableStt<Impl> {
+        type ProviderConfig = <Impl as SttTranscriptionProvider>::ProviderConfig;
+
         async fn transcribe(
+            provider_config: Self::ProviderConfig,
             request: TranscriptionRequest,
         ) -> Result<TranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
@@ -37,10 +40,11 @@ mod passthrough_impl {
                 options: request.options,
             };
 
-            Impl::transcribe(request).await
+            Impl::transcribe(provider_config, request).await
         }
 
         async fn transcribe_many(
+            provider_config: Self::ProviderConfig,
             requests: Vec<TranscriptionRequest>,
         ) -> Result<MultiTranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
@@ -55,7 +59,7 @@ mod passthrough_impl {
                 })
                 .collect();
 
-            Impl::transcribe_many(stt_requests).await
+            Impl::transcribe_many(provider_config, stt_requests).await
         }
     }
 
@@ -66,7 +70,7 @@ mod passthrough_impl {
     }
 }
 
-#[cfg(feature = "durability")]
+#[cfg(feature = "golem")]
 mod durable_impl {
     use bytes::Bytes;
     use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
@@ -74,7 +78,7 @@ mod durable_impl {
 
     use crate::durability::{DurableStt, ExtendedSttProvider};
 
-    use crate::guest::SttTranscriptionRequest;
+    use crate::guest::{SttTranscriptionProvider, SttTranscriptionRequest};
     use crate::model::languages::LanguageInfo;
     use crate::model::transcription::{
         MultiTranscriptionResult, TranscriptionRequest, TranscriptionResult,
@@ -84,7 +88,10 @@ mod durable_impl {
     use golem_rust::{with_persistence_level_async, FromValueAndType, IntoValue, PersistenceLevel};
 
     impl<Impl: ExtendedSttProvider> TranscriptionProvider for DurableStt<Impl> {
+        type ProviderConfig = <Impl as SttTranscriptionProvider>::ProviderConfig;
+
         async fn transcribe(
+            provider_config: Self::ProviderConfig,
             request: TranscriptionRequest,
         ) -> Result<TranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
@@ -108,11 +115,13 @@ mod durable_impl {
                         options: options.clone(),
                     };
 
-                    async move { Impl::transcribe(request).await }
+                    async move { Impl::transcribe(provider_config, request).await }
                 })
                 .await;
 
-                // Reconstruct original request for persistence
+                // Reconstruct original request for persistence.
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 let orig_request_copy = TranscriptionRequest {
                     request_id,
                     audio: audio_bytes.to_vec(),
@@ -132,6 +141,7 @@ mod durable_impl {
         }
 
         async fn transcribe_many(
+            provider_config: Self::ProviderConfig,
             requests: Vec<TranscriptionRequest>,
         ) -> Result<MultiTranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
@@ -168,11 +178,13 @@ mod durable_impl {
 
                 let result =
                     with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
-                        Impl::transcribe_many(stt_requests).await
+                        Impl::transcribe_many(provider_config, stt_requests).await
                     })
                     .await;
 
-                // Reconstruct original requests for persistence
+                // Reconstruct original requests for persistence.
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 let orig_requests_copy: Vec<TranscriptionRequest> = requests_with_bytes
                     .into_iter()
                     .map(

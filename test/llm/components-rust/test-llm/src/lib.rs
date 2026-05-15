@@ -44,6 +44,35 @@ type Provider = golem_ai_llm_openrouter::DurableOpenRouter;
 type Provider = golem_ai_llm_ollama::DurableOllama;
 
 #[cfg(feature = "openai")]
+fn provider_config() -> golem_ai_llm_openai::OpenAiConfig {
+    golem_ai_llm_openai::OpenAiConfig::from_env().expect("failed to load OpenAI config from env")
+}
+#[cfg(feature = "anthropic")]
+fn provider_config() -> golem_ai_llm_anthropic::AnthropicConfig {
+    golem_ai_llm_anthropic::AnthropicConfig::from_env()
+        .expect("failed to load Anthropic config from env")
+}
+#[cfg(feature = "bedrock")]
+fn provider_config() -> golem_ai_llm_bedrock::BedrockConfig {
+    golem_ai_llm_bedrock::BedrockConfig::from_env()
+        .expect("failed to load Bedrock config from env")
+}
+#[cfg(feature = "grok")]
+fn provider_config() -> golem_ai_llm_grok::GrokConfig {
+    golem_ai_llm_grok::GrokConfig::from_env().expect("failed to load Grok config from env")
+}
+#[cfg(feature = "openrouter")]
+fn provider_config() -> golem_ai_llm_openrouter::OpenRouterConfig {
+    golem_ai_llm_openrouter::OpenRouterConfig::from_env()
+        .expect("failed to load OpenRouter config from env")
+}
+#[cfg(feature = "ollama")]
+fn provider_config() -> golem_ai_llm_ollama::OllamaConfig {
+    golem_ai_llm_ollama::OllamaConfig::from_env().expect("failed to load Ollama config from env")
+}
+
+
+#[cfg(feature = "openai")]
 const MODEL: &str = "gpt-3.5-turbo";
 #[cfg(feature = "bedrock")]
 const MODEL: &str = "anthropic.claude-3-5-sonnet-20240620-v1:0";
@@ -167,6 +196,7 @@ impl LlmTest for LlmTestImpl {
 
         println!("Sending request to LLM...");
         let response = Provider::send(
+            provider_config(),
             vec![Event::Message(Message {
                 role: Role::User,
                 name: Some("vigoo".to_string()),
@@ -258,7 +288,9 @@ impl LlmTest for LlmTestImpl {
         }));
 
         println!("Sending request to LLM...");
-        let response1 = Provider::send(events.clone(), config.clone()).await;
+        let response1 = Provider::send(
+            provider_config(),
+            events.clone(), config.clone()).await;
         let tool_request = match response1 {
             Ok(response) => {
                 events.push(Event::Response(response.clone()));
@@ -285,7 +317,9 @@ impl LlmTest for LlmTestImpl {
                 })]));
             }
 
-            let response2 = Provider::send(events, config).await;
+            let response2 = Provider::send(
+            provider_config(),
+            events, config).await;
 
             match response2 {
                 Ok(response) => {
@@ -318,6 +352,7 @@ impl LlmTest for LlmTestImpl {
 
         println!("Starting streaming request to LLM...");
         let stream = Provider::stream(
+            provider_config(),
             vec![Event::Message(Message {
                 role: Role::User,
                 name: Some("vigoo".to_string()),
@@ -400,6 +435,7 @@ impl LlmTest for LlmTestImpl {
 
         println!("Starting streaming request to LLM...");
         let stream = Provider::stream(
+            provider_config(),
             vec![Event::Message(Message {
                 role: Role::User,
                 name: Some("vigoo".to_string()),
@@ -457,6 +493,7 @@ impl LlmTest for LlmTestImpl {
 
         println!("Sending request to LLM...");
         let response = Provider::send(
+            provider_config(),
             vec![
                 Event::Message(Message {
                     role: Role::User,
@@ -531,6 +568,7 @@ impl LlmTest for LlmTestImpl {
 
         println!("Starting streaming request to LLM...");
         let stream = Provider::stream(
+            provider_config(),
             vec![Event::Message(Message {
                 role: Role::User,
                 name: Some("vigoo".to_string()),
@@ -642,6 +680,7 @@ impl LlmTest for LlmTestImpl {
 
         println!("Sending request to LLM with inline image...");
         let response = Provider::send(
+            provider_config(),
             vec![Event::Message(Message {
                 role: Role::User,
                 name: None,
@@ -716,7 +755,9 @@ impl LlmTest for LlmTestImpl {
             )],
         })];
 
-        let stream = Provider::stream(events.clone(), config.clone()).await;
+        let stream = Provider::stream(
+            provider_config(),
+            events.clone(), config.clone()).await;
 
         let mut result = String::new();
 
@@ -738,7 +779,9 @@ impl LlmTest for LlmTestImpl {
 
         println!("Message: {events:?}");
 
-        let stream = Provider::stream(events, config).await;
+        let stream = Provider::stream(
+            provider_config(),
+            events, config).await;
 
         let mut result = String::new();
 
@@ -780,6 +823,7 @@ impl LlmTest for LlmTestImpl {
         );
 
         let response = Provider::send(
+            provider_config(),
             vec![Event::Message(Message {
                 role: Role::User,
                 name: None,

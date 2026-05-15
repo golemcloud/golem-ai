@@ -11,13 +11,13 @@ description = "Library for working with AWS Transcribe Speech to Text API on Gol
 path = "src/lib.rs"
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability", "golem-ai-stt/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-ai-stt/golem"]
 
 [dependencies]
 golem-ai-stt = { workspace = true }
 
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -39,4 +39,3 @@ bytes = "1.10.1"
 aws-sigv4 = "1.2.6"
 aws-config = { version = "1.5.10", features = ["behavior-version-latest"] }
 aws-credential-types = "1.2.1"
-

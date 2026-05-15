@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use golem_ai_embed::{
+    config::SecretSource,
     error::{error_code_from_status, from_reqwest_error},
     model::Error,
 };
@@ -12,29 +13,38 @@ const BASE_URL: &str = "https://api.cohere.ai";
 
 /// The Cohere API client for creating embeddings.
 ///
+/// The API key is intentionally stored as a [`SecretSource`] (not as a
+/// resolved `String`) so that the secret value is fetched fresh from
+/// its source — which in golem mode is the agent host — right before
+/// each outgoing HTTP request. This is what lets host-side secret
+/// rotation take effect on the very next request.
+///
 /// Based on https://docs.cohere.com/reference/embed
 pub struct EmbeddingsApi {
-    cohere_api_key: String,
+    cohere_api_key: SecretSource,
     client: Client,
 }
 
 impl EmbeddingsApi {
-    pub fn new(cohere_api_key: String) -> Self {
+    pub fn new(config: &crate::config::CohereConfig) -> Self {
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
-            cohere_api_key,
+            cohere_api_key: config.api_key.clone(),
             client,
         }
     }
 
     pub fn generate_embeding(&self, request: EmbeddingRequest) -> Result<EmbeddingResponse, Error> {
         trace!("Sending request to Cohere API: {request:?}");
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.cohere_api_key.get();
         let response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v2/embed"))
-            .bearer_auth(&self.cohere_api_key)
+            .bearer_auth(&api_key)
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Request failed", err))?;
@@ -44,10 +54,13 @@ impl EmbeddingsApi {
 
     pub fn rerank(&self, request: RerankRequest) -> Result<RerankResponse, Error> {
         trace!("Sending request to Cohere API: {request:?}");
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.cohere_api_key.get();
         let response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v2/rerank"))
-            .bearer_auth(&self.cohere_api_key)
+            .bearer_auth(&api_key)
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Request failed", err))?;

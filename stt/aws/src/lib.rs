@@ -1,7 +1,5 @@
 use golem_ai_stt::durability::{DurableStt, ExtendedSttProvider};
 
-use golem_ai_stt::error::Error as SttError;
-
 use golem_ai_stt::model::transcription::{
     FailedTranscription as WitFailedTranscription,
     MultiTranscriptionResult as WitMultiTranscriptionResult,
@@ -30,45 +28,33 @@ use crate::transcription::{S3Client, TranscribeClient};
 use futures_concurrency::future::Join;
 use golem_ai_stt::model::languages::LanguageInfo;
 use itertools::Itertools;
-use once_cell::sync::OnceCell;
 
+pub mod config;
 mod transcription;
 
-static API_CLIENT: OnceCell<
-    TranscribeApi<S3Client<WstdHttpClient>, TranscribeClient<WstdHttpClient, WasiAsyncRuntime>>,
-> = OnceCell::new();
+pub use config::AwsConfig;
+#[cfg(feature = "golem")]
+pub use config::AwsHostConfig;
 
 pub struct AwsStt;
 
 impl AwsStt {
-    fn create_or_get_client() -> Result<
-        &'static TranscribeApi<
-            S3Client<WstdHttpClient>,
-            TranscribeClient<WstdHttpClient, WasiAsyncRuntime>,
-        >,
-        SttError,
-    > {
-        API_CLIENT.get_or_try_init(|| {
-            let region = std::env::var("AWS_REGION").map_err(|err| {
-                SttError::EnvVariablesNotSet(format!("Failed to load AWS_REGION: {err}"))
-            })?;
-
-            let access_key = std::env::var("AWS_ACCESS_KEY").map_err(|err| {
-                SttError::EnvVariablesNotSet(format!("Failed to load AWS_ACCESS_KEY: {err}"))
-            })?;
-
-            let secret_key = std::env::var("AWS_SECRET_KEY").map_err(|err| {
-                SttError::EnvVariablesNotSet(format!("Failed to load AWS_SECRET_KEY: {err}"))
-            })?;
-
-            let bucket_name = std::env::var("AWS_BUCKET_NAME").map_err(|err| {
-                SttError::EnvVariablesNotSet(format!("Failed to load AWS_BUCKET_NAME: {err}"))
-            })?;
-
-            let api_client = TranscribeApi::live(bucket_name, access_key, secret_key, region);
-
-            Ok(api_client)
-        })
+    /// Build a fresh AWS Transcribe API client for the duration of a
+    /// single top-level provider call.
+    ///
+    /// The credentials are resolved here (via `SecretSource::get`) so
+    /// that hot-rotated host secrets take effect on every top-level
+    /// call. The resulting client is short-lived and discarded after
+    /// the call returns.
+    fn build_client(
+        config: &AwsConfig,
+    ) -> TranscribeApi<S3Client<WstdHttpClient>, TranscribeClient<WstdHttpClient, WasiAsyncRuntime>>
+    {
+        let access_key = config.access_key.get();
+        let secret_key = config.secret_key.get();
+        let region = config.region.clone();
+        let bucket_name = config.bucket_name.clone();
+        TranscribeApi::live(bucket_name, access_key, secret_key, region)
     }
 }
 
@@ -89,22 +75,26 @@ impl LanguageProvider for AwsStt {
 }
 
 impl SttTranscriptionProvider for AwsStt {
+    type ProviderConfig = AwsConfig;
+
     async fn transcribe(
+        provider_config: Self::ProviderConfig,
         req: SttTranscriptionRequest,
     ) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        let api_client = Self::create_or_get_client()?;
+        let api_client = Self::build_client(&provider_config);
         let api_response = api_client.transcribe_audio(req.try_into()?).await?;
         Ok(api_response.into())
     }
 
     async fn transcribe_many(
+        provider_config: Self::ProviderConfig,
         wit_requests: Vec<SttTranscriptionRequest>,
     ) -> Result<WitMultiTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        let api_client = Self::create_or_get_client()?;
+        let api_client = Self::build_client(&provider_config);
 
         let mut successes: Vec<WitTranscriptionResult> = Vec::new();
         let mut failures: Vec<WitFailedTranscription> = Vec::new();

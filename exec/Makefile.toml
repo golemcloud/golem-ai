@@ -17,13 +17,13 @@ run_task = { name = [
 [tasks.build-javascript]
 script_runner = "@duckscript"
 script = '''
-exec cargo build -p golem-ai-exec --no-default-features --features javascript --features durability
+exec cargo build -p golem-ai-exec --no-default-features --features javascript --features golem
 '''
 
 [tasks.build-python]
 script_runner = "@duckscript"
 script = '''
-exec cargo build -p golem-ai-exec --no-default-features --features python --features durability
+exec cargo build -p golem-ai-exec --no-default-features --features python --features golem
 '''
 
 [tasks.build-full]
@@ -35,13 +35,13 @@ exec cargo build -p golem-ai-exec
 [tasks.release-build-javascript]
 script_runner = "@duckscript"
 script = '''
-exec cargo build -p golem-ai-exec --release --no-default-features --features javascript --features durability
+exec cargo build -p golem-ai-exec --release --no-default-features --features javascript --features golem
 '''
 
 [tasks.release-build-python]
 script_runner = "@duckscript"
 script = '''
-exec cargo build -p golem-ai-exec --release --no-default-features --features python --features durability
+exec cargo build -p golem-ai-exec --release --no-default-features --features python --features golem
 '''
 
 [tasks.release-build-full]

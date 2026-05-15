@@ -12,16 +12,15 @@ description = "Library for working with Cohere embeding and reranking APIs on Go
 path = "src/lib.rs"
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability", "golem-ai-embed/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-ai-embed/golem"]
 
 [dependencies]
 golem-ai-embed= {path="../embed", version="0.0.0", default-features= false}
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 golem-wasi-http = { workspace = true }
 log = { workspace = true }
 serde = {workspace = true}
 base64 = { workspace = true }
 serde_json = { workspace = true }
 infer = "0.15"
-

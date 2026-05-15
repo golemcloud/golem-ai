@@ -8,9 +8,6 @@ use golem_ai_stt::transcription::SttProviderClient;
 use golem_ai_stt::{LanguageProvider, LOGGING_STATE};
 use itertools::Itertools;
 
-use once_cell::sync::OnceCell;
-
-use golem_ai_stt::error::Error as SttError;
 use golem_ai_stt::model::types::{
     AudioFormat as WitAudioFormat, SttError as WitSttError, TimingInfo as WitTimingInfo,
     TranscriptionChannel as WitTranscriptionChannel,
@@ -31,26 +28,21 @@ use transcription::{
     TranscriptionsApi,
 };
 
+pub mod config;
 mod transcription;
 
-static API_CLIENT: OnceCell<TranscriptionsApi<WstdHttpClient>> = OnceCell::new();
+pub use config::WhisperConfig;
+#[cfg(feature = "golem")]
+pub use config::WhisperHostConfig;
 
 pub struct WhisperStt;
 
 impl WhisperStt {
-    fn create_or_get_client() -> Result<&'static TranscriptionsApi<WstdHttpClient>, SttError> {
-        API_CLIENT.get_or_try_init(|| {
-            let api_key = std::env::var("OPENAI_API_KEY").map_err(|err| {
-                SttError::EnvVariablesNotSet(format!("Failed to load OPENAI_API_KEY: {err}"))
-            })?;
-
-            let api_client = TranscriptionsApi::new(
-                api_key,
-                WstdHttpClient::new_with_timeout(Duration::from_secs(60), Duration::from_secs(600)),
-            );
-
-            Ok(api_client)
-        })
+    fn create_client(config: &WhisperConfig) -> TranscriptionsApi<WstdHttpClient> {
+        TranscriptionsApi::new(
+            config,
+            WstdHttpClient::new_with_timeout(Duration::from_secs(60), Duration::from_secs(600)),
+        )
     }
 }
 
@@ -71,22 +63,26 @@ impl LanguageProvider for WhisperStt {
 }
 
 impl SttTranscriptionProvider for WhisperStt {
+    type ProviderConfig = WhisperConfig;
+
     async fn transcribe(
+        provider_config: Self::ProviderConfig,
         req: SttTranscriptionRequest,
     ) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        let api_client = Self::create_or_get_client()?;
+        let api_client = Self::create_client(&provider_config);
         let api_response = api_client.transcribe_audio(req.try_into()?).await?;
         Ok(api_response.into())
     }
 
     async fn transcribe_many(
+        provider_config: Self::ProviderConfig,
         wit_requests: Vec<SttTranscriptionRequest>,
     ) -> Result<WitMultiTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        let api_client = Self::create_or_get_client()?;
+        let api_client = Self::create_client(&provider_config);
         let mut successes: Vec<WitTranscriptionResult> = Vec::new();
         let mut failures: Vec<WitFailedTranscription> = Vec::new();
 

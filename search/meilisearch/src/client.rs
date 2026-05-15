@@ -12,7 +12,7 @@ use std::time::Duration;
 pub struct MeilisearchApi {
     client: Client,
     base_url: String,
-    api_key: Option<String>,
+    api_key: Option<golem_ai_search::config::SecretSource>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -192,15 +192,15 @@ pub struct MeilisearchSettings {
 }
 
 impl MeilisearchApi {
-    pub fn new(base_url: String, api_key: Option<String>) -> Self {
+    pub fn new(config: &crate::config::MeilisearchConfig) -> Self {
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
 
         Self {
             client,
-            base_url,
-            api_key,
+            base_url: config.base_url.clone(),
+            api_key: config.api_key.clone(),
         }
     }
 
@@ -219,8 +219,9 @@ impl MeilisearchApi {
             ),
         };
 
+        // NOTE: secret resolved here immediately before the outgoing request.
         if let Some(api_key) = &self.api_key {
-            req = req.header("Authorization", format!("Bearer {api_key}"));
+            req = req.header("Authorization", format!("Bearer {}", api_key.get()));
         }
         req = req.header("Content-Type", "application/json");
 

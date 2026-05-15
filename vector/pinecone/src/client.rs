@@ -1,4 +1,5 @@
-use golem_ai_vector::config::{get_max_retries_config, get_timeout_config};
+use crate::config::PineconeConfig;
+use golem_ai_vector::config::{get_max_retries_config, get_timeout_config, SecretSource};
 use golem_ai_vector::model::types::VectorError;
 use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
@@ -13,13 +14,13 @@ use std::time::Duration;
 #[derive(Clone)]
 pub struct PineconeClient {
     client: Client,
-    api_key: String,
+    api_key: SecretSource,
     control_plane_host: String,
     data_plane_host: Option<String>,
 }
 
 impl PineconeClient {
-    pub fn new(api_key: String, environment: Option<String>) -> Self {
+    pub fn new(config: &PineconeConfig) -> Self {
         let timeout_secs = get_timeout_config();
 
         let client = Client::builder()
@@ -27,23 +28,26 @@ impl PineconeClient {
             .build()
             .expect("Failed to initialize HTTP client");
 
-        let control_plane_host = match environment {
+        let control_plane_host = match &config.environment {
             Some(env) => format!("https://api.{}.pinecone.io", env),
             None => "https://api.pinecone.io".to_string(),
         };
 
         Self {
             client,
-            api_key,
+            api_key: config.api_key.clone(),
             control_plane_host,
             data_plane_host: None,
         }
     }
 
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
+        // Resolve the secret right before each outgoing request so
+        // host-side secret rotation takes effect immediately.
+        let api_key = self.api_key.get();
         self.client
             .request(method, url)
-            .header("Api-Key", &self.api_key)
+            .header("Api-Key", api_key)
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
             .header("X-Pinecone-API-Version", "2025-04")

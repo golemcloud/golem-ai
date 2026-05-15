@@ -3,6 +3,7 @@ pub mod config;
 pub mod durability;
 pub mod error;
 pub mod model;
+pub mod wasi_compat;
 
 #[allow(dead_code)]
 pub mod event_source;
@@ -16,9 +17,22 @@ use std::str::FromStr;
 pub trait LlmProvider {
     type ChatStream: ChatStreamInterface;
 
-    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error>;
+    /// Provider-specific configuration (API keys, base URLs, etc.) that the
+    /// caller resolves once and passes in. Each provider crate defines its
+    /// own concrete config type; see e.g. `golem_ai_llm_openai::OpenAiConfig`.
+    type ProviderConfig: Clone + 'static;
 
-    async fn stream(events: Vec<Event>, config: Config) -> ChatStream;
+    async fn send(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> Result<Response, Error>;
+
+    async fn stream(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> ChatStream;
 }
 
 /// `ChatStreamInterface` is used as `Box<dyn ChatStreamInterface>` inside `ChatStream`, so its

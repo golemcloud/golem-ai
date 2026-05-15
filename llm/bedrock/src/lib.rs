@@ -1,37 +1,55 @@
+mod async_utils;
+mod client;
+pub mod config;
+mod conversions;
+mod stream;
+mod wasi_client;
+
 use client::Bedrock as BedrockClient;
 use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, Event, Message, Response, Role, StreamDelta,
 };
+use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::LlmProvider;
-use golem_rust::bindings::wasi::clocks::monotonic_clock;
 use indoc::indoc;
 use stream::BedrockChatStream;
 
-mod async_utils;
-mod client;
-mod conversions;
-mod stream;
-mod wasi_client;
+pub use config::BedrockConfig;
+#[cfg(feature = "golem")]
+pub use config::BedrockHostConfig;
 
 pub struct Bedrock;
 
 impl LlmProvider for Bedrock {
     type ChatStream = BedrockChatStream;
+    type ProviderConfig = BedrockConfig;
 
-    async fn send(events: Vec<Event>, config: Config) -> Result<Response, Error> {
-        let client = get_bedrock_client().await?;
+    async fn send(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> Result<Response, Error> {
+        let client = BedrockClient::new(&provider_config).await?;
         client.converse(events, config).await
     }
 
-    async fn stream(events: Vec<Event>, config: Config) -> ChatStream {
-        ChatStream::new(Self::unwrapped_stream(events, config).await)
+    async fn stream(
+        provider_config: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> ChatStream {
+        ChatStream::new(Self::unwrapped_stream(provider_config, events, config).await)
     }
 }
 
 impl ExtendedLlmProvider for Bedrock {
-    async fn unwrapped_stream(messages: Vec<Event>, config: Config) -> Self::ChatStream {
-        match get_bedrock_client().await {
+    async fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
+        messages: Vec<Event>,
+        config: Config,
+    ) -> Self::ChatStream {
+        match BedrockClient::new(&provider_config).await {
             Ok(client) => client.converse_stream(messages, config).await,
             Err(err) => BedrockChatStream::failed(err),
         }
@@ -93,14 +111,11 @@ impl ExtendedLlmProvider for Bedrock {
         extended_events
     }
 
-    fn subscribe(_stream: &Self::ChatStream) -> golem_rust::golem_wasm::Pollable {
-        // this function will never get called in bedrock implementation because of `golem-llm/nopoll` feature flag
-        monotonic_clock::subscribe_duration(0)
+    fn subscribe(_stream: &Self::ChatStream) -> Pollable {
+        // this function will never get called in the bedrock implementation because of the
+        // `golem-ai-llm/nopoll` feature flag.
+        golem_ai_llm::wasi_compat::subscribe_zero()
     }
-}
-
-async fn get_bedrock_client() -> Result<BedrockClient, Error> {
-    BedrockClient::new().await
 }
 
 pub type DurableBedrock = DurableLLM<Bedrock>;

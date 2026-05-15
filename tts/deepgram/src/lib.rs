@@ -4,7 +4,6 @@ use crate::conversions::{
     get_max_chars_for_model, models_to_language_info, split_text_intelligently,
     synthesis_options_to_tts_request, validate_synthesis_request, validate_text_input,
 };
-use golem_ai_tts::config::with_config_key;
 use golem_ai_tts::durability::{DurableTts, ExtendedTtsProvider};
 use golem_ai_tts::model::advanced::{
     AudioSample, LongFormOperation, LongFormResult, OperationStatus, PronunciationEntry,
@@ -17,14 +16,19 @@ use golem_ai_tts::model::types::{
     TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
 use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
+use golem_ai_tts::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_tts::{
     AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
     StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
 };
-use golem_rust::golem_wasm::Pollable;
 use log::{info, warn};
 use std::cell::{Cell, RefCell};
+
+pub mod config;
+pub use config::DeepgramConfig;
+#[cfg(feature = "golem")]
+pub use config::DeepgramHostConfig;
 
 mod client;
 mod conversions;
@@ -646,55 +650,41 @@ impl LongFormOperationInterface for DeepgramLongFormOperation {
 pub struct DeepgramTts;
 
 impl DeepgramTts {
-    const ENV_VAR_NAME: &'static str = "DEEPGRAM_API_KEY";
-    const API_VERSION_ENV_VAR: &'static str = "DEEPGRAM_API_VERSION";
-
-    fn create_client() -> Result<DeepgramTtsApi, TtsError> {
-        with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
-            let api_version =
-                std::env::var(Self::API_VERSION_ENV_VAR).unwrap_or_else(|_| "v1".to_string());
-            Ok(DeepgramTtsApi::new(api_key.to_string(), api_version))
-        })
+    fn create_client(provider_config: &DeepgramConfig) -> DeepgramTtsApi {
+        DeepgramTtsApi::new(provider_config)
     }
 
-    fn create_client_with_rate_limit(
-        rate_limit_config: RateLimitConfig,
-    ) -> Result<DeepgramTtsApi, TtsError> {
-        with_config_key(Self::ENV_VAR_NAME, Err, |api_key| {
-            let api_version =
-                std::env::var(Self::API_VERSION_ENV_VAR).unwrap_or_else(|_| "v1".to_string());
-            Ok(DeepgramTtsApi::new(api_key.to_string(), api_version)
-                .with_rate_limit_config(rate_limit_config))
-        })
-    }
-
-    fn create_batch_client() -> Result<DeepgramTtsApi, TtsError> {
+    fn create_batch_client(provider_config: &DeepgramConfig) -> DeepgramTtsApi {
         let batch_config = RateLimitConfig {
             max_retries: 5,
             initial_delay: std::time::Duration::from_millis(500),
             max_delay: std::time::Duration::from_secs(60),
             backoff_multiplier: 1.5,
         };
-        Self::create_client_with_rate_limit(batch_config)
+        DeepgramTtsApi::new(provider_config).with_rate_limit_config(batch_config)
     }
 
-    fn create_streaming_client() -> Result<DeepgramTtsApi, TtsError> {
+    fn create_streaming_client(provider_config: &DeepgramConfig) -> DeepgramTtsApi {
         let streaming_config = RateLimitConfig {
             max_retries: 3,
             initial_delay: std::time::Duration::from_millis(200),
             max_delay: std::time::Duration::from_secs(5),
             backoff_multiplier: 2.0,
         };
-        Self::create_client_with_rate_limit(streaming_config)
+        DeepgramTtsApi::new(provider_config).with_rate_limit_config(streaming_config)
     }
 }
 
 impl VoiceProvider for DeepgramTts {
     type Voice = DeepgramVoiceImpl;
     type VoiceResults = DeepgramVoiceResults;
+    type ProviderConfig = DeepgramConfig;
 
-    fn list_voices(filter: Option<VoiceFilter>) -> Result<VoiceResults, TtsError> {
-        let client = Self::create_client()?;
+    fn list_voices(
+        provider_config: Self::ProviderConfig,
+        filter: Option<VoiceFilter>,
+    ) -> Result<VoiceResults, TtsError> {
+        let client = Self::create_client(&provider_config);
         let models = get_available_models();
 
         if let Some(f) = filter.as_ref() {
@@ -783,8 +773,11 @@ impl VoiceProvider for DeepgramTts {
         Ok(VoiceResults::new(DeepgramVoiceResults::new(voice_infos)))
     }
 
-    fn get_voice(voice_id: String) -> Result<Voice, TtsError> {
-        let client = Self::create_client()?;
+    fn get_voice(
+        provider_config: Self::ProviderConfig,
+        voice_id: String,
+    ) -> Result<Voice, TtsError> {
+        let client = Self::create_client(&provider_config);
         let models = get_available_models();
 
         if let Some(model) = models.into_iter().find(|m| m.voice_id == voice_id) {
@@ -797,8 +790,11 @@ impl VoiceProvider for DeepgramTts {
         }
     }
 
-    fn search_voices(filter: Option<VoiceFilter>) -> Result<Vec<VoiceInfo>, TtsError> {
-        let client = Self::create_client()?;
+    fn search_voices(
+        provider_config: Self::ProviderConfig,
+        filter: Option<VoiceFilter>,
+    ) -> Result<Vec<VoiceInfo>, TtsError> {
+        let client = Self::create_client(&provider_config);
 
         // Extract search query from filter
         // deepgram does not have the native api for querying we are trying a simple search over all models
@@ -849,14 +845,19 @@ impl VoiceProvider for DeepgramTts {
         Ok(voice_infos)
     }
 
-    fn list_languages() -> Result<Vec<LanguageInfo>, TtsError> {
+    fn list_languages(
+        _provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<LanguageInfo>, TtsError> {
         let models = get_available_models();
         Ok(models_to_language_info(models))
     }
 }
 
 impl SynthesizeProvider for DeepgramTts {
+    type ProviderConfig = DeepgramConfig;
+
     fn synthesize(
+        provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
@@ -868,7 +869,7 @@ impl SynthesizeProvider for DeepgramTts {
             options.as_ref(),
         )?;
 
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
         let max_chars = get_max_chars_for_model(Some(&voice_id));
@@ -966,12 +967,13 @@ impl SynthesizeProvider for DeepgramTts {
     }
 
     fn synthesize_batch(
+        provider_config: Self::ProviderConfig,
         inputs: Vec<TextInput>,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, TtsError> {
         let mut results = Vec::new();
-        let client = Self::create_batch_client()?;
+        let client = Self::create_batch_client(&provider_config);
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
         for input in inputs {
@@ -1021,6 +1023,7 @@ impl SynthesizeProvider for DeepgramTts {
     }
 
     fn get_timing_marks(
+        _provider_config: Self::ProviderConfig,
         _input: TextInput,
         _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<Vec<TimingInfo>, TtsError> {
@@ -1030,6 +1033,7 @@ impl SynthesizeProvider for DeepgramTts {
     }
 
     fn validate_input(
+        _provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
     ) -> Result<ValidationResult, TtsError> {
@@ -1080,12 +1084,14 @@ impl SynthesizeProvider for DeepgramTts {
 impl StreamingVoiceProvider for DeepgramTts {
     type SynthesisStream = DeepgramSynthesisStream;
     type VoiceConversionStream = DeepgramVoiceConversionStream;
+    type ProviderConfig = DeepgramConfig;
 
     fn create_stream(
+        provider_config: Self::ProviderConfig,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
-        let client = Self::create_streaming_client()?;
+        let client = Self::create_streaming_client(&provider_config);
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
         let stream = DeepgramSynthesisStream::new(voice_id, client, options);
@@ -1093,10 +1099,11 @@ impl StreamingVoiceProvider for DeepgramTts {
     }
 
     fn create_voice_conversion_stream(
+        provider_config: Self::ProviderConfig,
         target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
-        let client = Self::create_client()?;
+        let client = Self::create_client(&provider_config);
         let voice_id = target_voice.get::<DeepgramVoiceImpl>().get_id();
 
         let stream = DeepgramVoiceConversionStream::new(voice_id, client);
@@ -1107,8 +1114,10 @@ impl StreamingVoiceProvider for DeepgramTts {
 impl AdvancedTtsProvider for DeepgramTts {
     type PronunciationLexicon = DeepgramPronunciationLexicon;
     type LongFormOperation = DeepgramLongFormOperation;
+    type ProviderConfig = DeepgramConfig;
 
     fn create_voice_clone(
+        _provider_config: Self::ProviderConfig,
         _name: String,
         _audio_samples: Vec<AudioSample>,
         _description: Option<String>,
@@ -1118,13 +1127,18 @@ impl AdvancedTtsProvider for DeepgramTts {
         ))
     }
 
-    fn design_voice(_name: String, _characteristics: VoiceDesignParams) -> Result<Voice, TtsError> {
+    fn design_voice(
+        _provider_config: Self::ProviderConfig,
+        _name: String,
+        _characteristics: VoiceDesignParams,
+    ) -> Result<Voice, TtsError> {
         Err(TtsError::UnsupportedOperation(
             "Deepgram does not support voice design".to_string(),
         ))
     }
 
     fn convert_voice(
+        _provider_config: Self::ProviderConfig,
         _input_audio: Vec<u8>,
         _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _preserve_timing: Option<bool>,
@@ -1135,6 +1149,7 @@ impl AdvancedTtsProvider for DeepgramTts {
     }
 
     fn generate_sound_effect(
+        _provider_config: Self::ProviderConfig,
         _description: String,
         _duration_seconds: Option<f32>,
         _style_influence: Option<f32>,
@@ -1145,6 +1160,7 @@ impl AdvancedTtsProvider for DeepgramTts {
     }
 
     fn create_lexicon(
+        _provider_config: Self::ProviderConfig,
         name: String,
         language: LanguageCode,
         entries: Option<Vec<PronunciationEntry>>,
@@ -1154,12 +1170,13 @@ impl AdvancedTtsProvider for DeepgramTts {
     }
 
     fn synthesize_long_form(
+        provider_config: Self::ProviderConfig,
         content: String,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
-        let client = Self::create_batch_client()?;
+        let client = Self::create_batch_client(&provider_config);
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
         let operation = DeepgramLongFormOperation::new(
@@ -1178,33 +1195,33 @@ impl AdvancedTtsProvider for DeepgramTts {
 
 impl ExtendedTtsProvider for DeepgramTts {
     fn unwrapped_synthesis_stream(
+        provider_config: <Self as VoiceProvider>::ProviderConfig,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Self::SynthesisStream {
-        let client = Self::create_streaming_client()
-            .unwrap_or_else(|_| DeepgramTtsApi::new("dummy".to_string(), "v1".to_string()));
+        let client = Self::create_streaming_client(&provider_config);
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
         DeepgramSynthesisStream::new(voice_id, client, options)
     }
 
     fn unwrapped_voice_conversion_stream(
+        provider_config: <Self as VoiceProvider>::ProviderConfig,
         target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Self::VoiceConversionStream {
-        let client = Self::create_client()
-            .unwrap_or_else(|_| DeepgramTtsApi::new("dummy".to_string(), "v1".to_string()));
+        let client = Self::create_client(&provider_config);
         let voice_id = target_voice.get::<DeepgramVoiceImpl>().get_id();
 
         DeepgramVoiceConversionStream::new(voice_id, client)
     }
 
     fn subscribe_synthesis_stream(_stream: &Self::SynthesisStream) -> Pollable {
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 
     fn subscribe_voice_conversion_stream(_stream: &Self::VoiceConversionStream) -> Pollable {
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 }
 

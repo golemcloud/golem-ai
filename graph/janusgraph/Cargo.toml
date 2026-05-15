@@ -11,17 +11,17 @@ description = "Library for working with JanusGraph APIs on Golem Cloud"
 path = "src/lib.rs"
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability", "golem-ai-graph/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-ai-graph/golem"]
 
 [dependencies]
 golem-ai-graph = { workspace = true }
 
 base64 = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 golem-wasi-http = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-uuid = "1.17.0"
+uuid = { version = "1.17.0", features = ["v4"] }

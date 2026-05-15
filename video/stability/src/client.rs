@@ -65,13 +65,13 @@ pub struct TextToImageResponse {
 /// Two clients, one for polling with video/* and one for image/* (Part of text->image->video),
 /// Issue:https://github.com/seanmonstar/reqwest/issues/2279
 pub struct StabilityApi {
-    api_key: String,
+    api_key: golem_ai_video::config::SecretSource,
     client: Client,
     client_image: Client,
 }
 
 impl StabilityApi {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(config: &crate::config::StabilityConfig) -> Self {
         let mut headers = golem_wasi_http::header::HeaderMap::new();
         headers.insert(
             "accept",
@@ -95,7 +95,7 @@ impl StabilityApi {
             .expect("Failed to initialize HTTP client");
 
         Self {
-            api_key,
+            api_key: config.api_key.clone(),
             client,
             client_image,
         }
@@ -121,7 +121,7 @@ impl StabilityApi {
         let response: Response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v2beta/image-to-video"))
-            .header("authorization", format!("Bearer {}", &self.api_key))
+            .header("authorization", format!("Bearer {}", self.api_key.get()))
             .header(
                 "content-type",
                 format!("multipart/form-data; boundary={boundary}"),
@@ -143,7 +143,7 @@ impl StabilityApi {
                 Method::GET,
                 format!("{BASE_URL}/v2beta/image-to-video/result/{generation_id}"),
             )
-            .header("authorization", format!("Bearer {}", &self.api_key))
+            .header("authorization", format!("Bearer {}", self.api_key.get()))
             .send()
             .map_err(|err| from_reqwest_error("Poll request failed", err))?;
 
@@ -197,7 +197,7 @@ impl StabilityApi {
                 Method::POST,
                 format!("{BASE_URL}/v2beta/stable-image/generate/core"),
             )
-            .header("authorization", format!("Bearer {}", &self.api_key))
+            .header("authorization", format!("Bearer {}", self.api_key.get()))
             .header(
                 "content-type",
                 format!("multipart/form-data; boundary={boundary}"),

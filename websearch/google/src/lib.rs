@@ -1,4 +1,5 @@
 mod client;
+pub mod config;
 mod conversions;
 
 use crate::client::GoogleSearchApi;
@@ -11,13 +12,16 @@ use golem_ai_web_search::model::web_search::{
 use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
 use std::cell::RefCell;
 
+pub use config::GoogleConfig;
+#[cfg(feature = "golem")]
+pub use config::GoogleHostConfig;
+
 /// Start index for google search api pagination (which is 1-index based)
 const INITIAL_START_INDEX: u32 = 1;
 
+#[cfg(feature = "golem")]
 #[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
 pub struct GoogleReplayState {
-    pub api_key: String,
-    pub search_engine_id: String,
     pub current_page: u32,
     pub next_page_start_index: Option<u32>,
     pub metadata: Option<SearchMetadata>,
@@ -100,29 +104,13 @@ impl SearchSessionInterface for GoogleSearchSession {
 pub struct GoogleCustomSearch;
 
 impl GoogleCustomSearch {
-    const API_KEY_VAR: &'static str = "GOOGLE_API_KEY";
-    const SEARCH_ENGINE_ID_VAR: &'static str = "GOOGLE_SEARCH_ENGINE_ID";
-
-    fn create_client() -> Result<GoogleSearchApi, SearchError> {
-        let api_key = std::env::var(Self::API_KEY_VAR).map_err(|_| {
-            SearchError::BackendError("GOOGLE_API_KEY environment variable not set".to_string())
-        })?;
-
-        let search_engine_id = std::env::var(Self::SEARCH_ENGINE_ID_VAR).map_err(|_| {
-            SearchError::BackendError(
-                "GOOGLE_SEARCH_ENGINE_ID environment variable not set".to_string(),
-            )
-        })?;
-
-        Ok(GoogleSearchApi::new(api_key, search_engine_id))
-    }
-
     fn execute_search(
+        provider_config: &GoogleConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
         validate_search_params(&params)?;
 
-        let client = Self::create_client()?;
+        let client = GoogleSearchApi::new(provider_config);
         let request = params_to_request(&params, INITIAL_START_INDEX)?;
 
         let response = client.search(request)?;
@@ -131,10 +119,13 @@ impl GoogleCustomSearch {
         Ok((results, Some(metadata)))
     }
 
-    fn start_search_session(params: SearchParams) -> Result<GoogleSearchSession, SearchError> {
+    fn start_search_session(
+        provider_config: &GoogleConfig,
+        params: SearchParams,
+    ) -> Result<GoogleSearchSession, SearchError> {
         validate_search_params(&params)?;
 
-        let client = Self::create_client()?;
+        let client = GoogleSearchApi::new(provider_config);
         let search = GoogleSearch::new(client, params);
         Ok(GoogleSearchSession::new(search))
     }
@@ -142,26 +133,35 @@ impl GoogleCustomSearch {
 
 impl WebSearchProvider for GoogleCustomSearch {
     type SearchSession = GoogleSearchSession;
+    type ProviderConfig = GoogleConfig;
 
-    fn start_search(params: SearchParams) -> Result<SearchSession, SearchError> {
-        match Self::start_search_session(params) {
+    fn start_search(
+        provider_config: Self::ProviderConfig,
+        params: SearchParams,
+    ) -> Result<SearchSession, SearchError> {
+        match Self::start_search_session(&provider_config, params) {
             Ok(session) => Ok(SearchSession::new(session)),
             Err(err) => Err(err),
         }
     }
 
     fn search_once(
+        provider_config: Self::ProviderConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        Self::execute_search(params)
+        Self::execute_search(&provider_config, params)
     }
 }
 
+#[cfg(feature = "golem")]
 impl ExtendedWebSearchProvider for GoogleCustomSearch {
     type ReplayState = GoogleReplayState;
 
-    fn unwrapped_search_session(params: SearchParams) -> Result<Self::SearchSession, SearchError> {
-        let client = Self::create_client()?;
+    fn unwrapped_search_session(
+        provider_config: Self::ProviderConfig,
+        params: SearchParams,
+    ) -> Result<Self::SearchSession, SearchError> {
+        let client = GoogleSearchApi::new(&provider_config);
         let search = GoogleSearch::new(client, params);
         Ok(GoogleSearchSession::new(search))
     }
@@ -169,8 +169,6 @@ impl ExtendedWebSearchProvider for GoogleCustomSearch {
     fn session_to_state(session: &Self::SearchSession) -> Self::ReplayState {
         let search = session.0.borrow_mut();
         GoogleReplayState {
-            api_key: search.client.api_key().to_string(),
-            search_engine_id: search.client.search_engine_id().to_string(),
             current_page: search.current_page,
             next_page_start_index: search.next_page_start_index,
             metadata: search.metadata.clone(),
@@ -179,10 +177,11 @@ impl ExtendedWebSearchProvider for GoogleCustomSearch {
     }
 
     fn session_from_state(
+        provider_config: Self::ProviderConfig,
         state: &Self::ReplayState,
         params: SearchParams,
     ) -> Result<Self::SearchSession, SearchError> {
-        let client = GoogleSearchApi::new(state.api_key.clone(), state.search_engine_id.clone());
+        let client = GoogleSearchApi::new(&provider_config);
         let mut search = GoogleSearch::new(client, params);
         search.current_page = state.current_page;
         search.next_page_start_index = state.next_page_start_index;
@@ -192,5 +191,8 @@ impl ExtendedWebSearchProvider for GoogleCustomSearch {
         Ok(GoogleSearchSession::new(search))
     }
 }
+
+#[cfg(not(feature = "golem"))]
+impl ExtendedWebSearchProvider for GoogleCustomSearch {}
 
 pub type DurableGoogleCustomSearch = DurableWebSearch<GoogleCustomSearch>;

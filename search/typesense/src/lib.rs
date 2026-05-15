@@ -1,18 +1,22 @@
 use crate::client::{CollectionField, CollectionSchema, TypesenseSearchApi};
 use crate::conversions::*;
-use golem_ai_search::config::with_config_keys;
 use golem_ai_search::durability::{DurableSearch, ExtendedSearchProvider};
 use golem_ai_search::model::{CreateIndexOptions, SearchStream};
 use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
+use golem_ai_search::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_search::{SearchProvider, SearchStreamInterface};
-use golem_rust::golem_wasm::Pollable;
 use log::trace;
 use std::cell::{Cell, RefCell};
 
 mod client;
+pub mod config;
 mod conversions;
+
+pub use crate::config::TypesenseConfig;
+#[cfg(feature = "golem")]
+pub use crate::config::TypesenseHostConfig;
 
 /// Simple search stream implementation for Typesense
 /// Since Typesense doesn't have native streaming, we implement pagination-based streaming
@@ -39,31 +43,11 @@ impl TypesenseSearchStream {
 
     fn subscribe(&self) -> Pollable {
         // For non-streaming APIs, return an immediately ready pollable
-        golem_rust::bindings::wasi::clocks::monotonic_clock::subscribe_duration(0)
+        subscribe_zero()
     }
 }
 
 pub struct Typesense;
-
-impl Typesense {
-    const API_KEY_ENV_VAR: &'static str = "TYPESENSE_API_KEY";
-    const BASE_URL_ENV_VAR: &'static str = "TYPESENSE_BASE_URL";
-
-    fn create_client() -> Result<TypesenseSearchApi, SearchError> {
-        with_config_keys(&[Self::API_KEY_ENV_VAR, Self::BASE_URL_ENV_VAR], |keys| {
-            if keys.len() != 2 {
-                return Err(SearchError::Internal(
-                    "Missing Typesense credentials".to_string(),
-                ));
-            }
-
-            let api_key = keys[0].clone();
-            let base_url = keys[1].clone();
-
-            Ok(TypesenseSearchApi::new(api_key, base_url))
-        })
-    }
-}
 
 impl SearchStreamInterface for TypesenseSearchStream {
     fn as_any(&self) -> &dyn std::any::Any {
@@ -121,9 +105,13 @@ impl SearchStreamInterface for TypesenseSearchStream {
 
 impl SearchProvider for Typesense {
     type SearchStream = TypesenseSearchStream;
+    type ProviderConfig = TypesenseConfig;
 
-    fn create_index(options: CreateIndexOptions) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn create_index(
+        provider_config: Self::ProviderConfig,
+        options: CreateIndexOptions,
+    ) -> Result<(), SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
 
         let typesense_schema = options
             .schema
@@ -148,14 +136,17 @@ impl SearchProvider for Typesense {
         Ok(())
     }
 
-    fn delete_index(name: IndexName) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete_index(
+        provider_config: Self::ProviderConfig,
+        name: IndexName,
+    ) -> Result<(), SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
         client.delete_collection(&name)?;
         Ok(())
     }
 
-    fn list_indexes() -> Result<Vec<IndexName>, SearchError> {
-        let client = Self::create_client()?;
+    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
         let response = client.list_collections()?;
         Ok(response
             .0
@@ -164,15 +155,23 @@ impl SearchProvider for Typesense {
             .collect())
     }
 
-    fn upsert(index: IndexName, doc: Doc) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn upsert(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        doc: Doc,
+    ) -> Result<(), SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
         let typesense_doc = doc_to_typesense_document(doc).map_err(SearchError::Internal)?;
         client.upsert_document(&index, &typesense_doc)?;
         Ok(())
     }
 
-    fn upsert_many(index: IndexName, docs: Vec<Doc>) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn upsert_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        docs: Vec<Doc>,
+    ) -> Result<(), SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
         let typesense_docs: Result<Vec<_>, _> = docs
             .iter()
             .map(|doc| doc_to_typesense_document(doc.clone()))
@@ -182,22 +181,34 @@ impl SearchProvider for Typesense {
         Ok(())
     }
 
-    fn delete(index: IndexName, id: DocumentId) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<(), SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
         client.delete_document(&index, &id)?;
         Ok(())
     }
 
-    fn delete_many(index: IndexName, ids: Vec<DocumentId>) -> Result<(), SearchError> {
-        let client = Self::create_client()?;
+    fn delete_many(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        ids: Vec<DocumentId>,
+    ) -> Result<(), SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
         // Typesense doesn't have bulk delete by IDs, so we use filter_by
         let filter = format!("id:[{}]", ids.join(","));
         client.delete_documents_by_query(&index, &filter)?;
         Ok(())
     }
 
-    fn get(index: IndexName, id: DocumentId) -> Result<Option<Doc>, SearchError> {
-        let client = Self::create_client()?;
+    fn get(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        id: DocumentId,
+    ) -> Result<Option<Doc>, SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
 
         // Typesense doesn't have a direct get document endpoint
         // We need to search for the specific document by ID using a filter-only search
@@ -223,15 +234,23 @@ impl SearchProvider for Typesense {
         }))
     }
 
-    fn search(index: IndexName, query: SearchQuery) -> Result<SearchResults, SearchError> {
-        let client = Self::create_client()?;
+    fn search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchResults, SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
         let typesense_query = search_query_to_typesense_query(query);
         let response = client.search(&index, &typesense_query)?;
         Ok(typesense_response_to_search_results(response))
     }
 
-    fn stream_search(index: IndexName, query: SearchQuery) -> Result<SearchStream, SearchError> {
-        let client = Self::create_client()?;
+    fn stream_search(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Result<SearchStream, SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
 
         let stream = TypesenseSearchStream::new(client, index, query);
 
@@ -255,8 +274,11 @@ impl SearchProvider for Typesense {
         Ok(result)
     }
 
-    fn get_schema(index: IndexName) -> Result<Schema, SearchError> {
-        let client = Self::create_client()?;
+    fn get_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+    ) -> Result<Schema, SearchError> {
+        let client = TypesenseSearchApi::new(&provider_config);
 
         // Typesense doesn't have a direct get schema endpoint for collections
         // We need to get the collection info from the list
@@ -280,10 +302,14 @@ impl SearchProvider for Typesense {
         Ok(schema)
     }
 
-    fn update_schema(index: IndexName, schema: Schema) -> Result<(), SearchError> {
+    fn update_schema(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        schema: Schema,
+    ) -> Result<(), SearchError> {
         // Typesense doesn't support updating schema after collection creation
         // We need to delete and recreate the collection
-        let client = Self::create_client()?;
+        let client = TypesenseSearchApi::new(&provider_config);
 
         let collections = client.list_collections()?;
         let exists = collections.0.iter().any(|c| c.name == index);
@@ -300,10 +326,12 @@ impl SearchProvider for Typesense {
 }
 
 impl ExtendedSearchProvider for Typesense {
-    fn unwrapped_stream(index: IndexName, query: SearchQuery) -> Self::SearchStream {
-        let client = Self::create_client().unwrap_or_else(|_e| {
-            TypesenseSearchApi::new("dummy".to_string(), "http://localhost:8108".to_string())
-        });
+    fn unwrapped_stream(
+        provider_config: Self::ProviderConfig,
+        index: IndexName,
+        query: SearchQuery,
+    ) -> Self::SearchStream {
+        let client = TypesenseSearchApi::new(&provider_config);
 
         let simplified_query = SearchQuery {
             q: query.q,

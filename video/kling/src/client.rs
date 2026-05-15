@@ -10,26 +10,28 @@ const BASE_URL: &str = "https://api-singapore.klingai.com";
 
 /// The Kling API client for video generation
 pub struct KlingApi {
-    access_key: String,
-    secret_key: String,
+    access_key: golem_ai_video::config::SecretSource,
+    secret_key: golem_ai_video::config::SecretSource,
     client: Client,
 }
 
 impl KlingApi {
-    pub fn new(access_key: String, secret_key: String) -> Self {
+    pub fn new(config: &crate::config::KlingConfig) -> Self {
         let client = Client::builder()
             .default_headers(golem_wasi_http::header::HeaderMap::new())
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
-            access_key,
-            secret_key,
+            access_key: config.access_key.clone(),
+            secret_key: config.secret_key.clone(),
             client,
         }
     }
 
     fn get_auth_header(&self) -> Result<String, VideoError> {
-        let token = generate_jwt_token(&self.access_key, &self.secret_key)
+        let access_key = self.access_key.get();
+        let secret_key = self.secret_key.get();
+        let token = generate_jwt_token(&access_key, &secret_key)
             .map_err(|e| VideoError::InternalError(format!("JWT token generation failed: {e}")))?;
         Ok(format!("Bearer {token}"))
     }

@@ -1,6 +1,3 @@
-use golem_rust::value_and_type::{FromValueAndType, IntoValue};
-use golem_rust::{FromValueAndType, IntoValue};
-use std::fmt::Debug;
 use std::marker::PhantomData;
 
 /// Wraps an Exec implementation with custom durability
@@ -8,21 +5,31 @@ pub struct DurableExec<Impl> {
     phantom: PhantomData<Impl>,
 }
 
-pub trait SessionSnapshot<Session> {
-    type Snapshot: Debug + Clone + IntoValue + FromValueAndType;
+#[cfg(feature = "golem")]
+pub use snapshot::{EmptySnapshot, SessionSnapshot};
 
-    fn supports_snapshot(session: &Session) -> bool;
+#[cfg(feature = "golem")]
+mod snapshot {
+    use golem_rust::value_and_type::{FromValueAndType, IntoValue};
+    use golem_rust::{FromValueAndType, IntoValue};
+    use std::fmt::Debug;
 
-    fn take_snapshot(session: &Session) -> Self::Snapshot;
-    fn restore_snapshot(session: &Session, snapshot: Self::Snapshot);
+    pub trait SessionSnapshot<Session> {
+        type Snapshot: Debug + Clone + IntoValue + FromValueAndType;
+
+        fn supports_snapshot(session: &Session) -> bool;
+
+        fn take_snapshot(session: &Session) -> Self::Snapshot;
+        fn restore_snapshot(session: &Session, snapshot: Self::Snapshot);
+    }
+
+    #[derive(Debug, Clone, IntoValue, FromValueAndType)]
+    pub struct EmptySnapshot {}
 }
-
-#[derive(Debug, Clone, IntoValue, FromValueAndType)]
-pub struct EmptySnapshot {}
 
 /// When the durability feature flag is off, `DurableExec<Impl>` is a transparent wrapper that
 /// forwards every call to the inner provider without any oplog persistence.
-#[cfg(not(feature = "durability"))]
+#[cfg(not(feature = "golem"))]
 mod passthrough_impl {
     use crate::durability::DurableExec;
     use crate::model::{Error, ExecResult, File, Language, RunOptions};
@@ -44,7 +51,7 @@ mod passthrough_impl {
     }
 }
 
-#[cfg(feature = "durability")]
+#[cfg(feature = "golem")]
 mod durable_impl {
     use crate::durability::{DurableExec, SessionSnapshot};
     use crate::model::{Error, ExecResult, File, Language, RunOptions};

@@ -11,8 +11,10 @@ description = "Library for working with pgvector APIs on Golem Cloud"
 path = "src/lib.rs"
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability", "golem-ai-vector/durability"]
+# `golem-rust` is mandatory because the pgvector client depends on the
+# `golem::rdbms::postgres` host bindings to talk to PostgreSQL.
+default = ["golem"]
+golem = ["golem-ai-vector/golem"]
 
 [dependencies]
 golem-rust = { workspace = true }

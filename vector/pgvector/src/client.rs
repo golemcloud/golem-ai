@@ -1,7 +1,8 @@
+use crate::config::PgvectorConfig;
 use crate::conversions::{
     distance_metric_to_pgvector_operator, string_to_distance_metric, string_value_to_db_value,
 };
-use golem_ai_vector::config::get_max_retries_config;
+use golem_ai_vector::config::{get_max_retries_config, SecretSource};
 use golem_ai_vector::model::types::VectorError;
 use golem_rust::bindings::golem::rdbms::postgres::{DbConnection, DbResult, DbValue};
 use log::trace;
@@ -9,23 +10,35 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-/// PostgreSQL Vector (pgvector) client using Golem RDBMS interface
+/// PostgreSQL Vector (pgvector) client using Golem RDBMS interface.
+///
+/// The connection string is held as a [`SecretSource`] and resolved on
+/// every database connection so that hot-rotated host secrets take
+/// effect immediately.
 #[derive(Clone)]
 pub struct PgVectorClient {
-    connection_string: String,
+    connection_string: SecretSource,
 }
 
 impl PgVectorClient {
-    pub fn new(connection_string: String) -> Self {
-        Self { connection_string }
+    pub fn new(config: &PgvectorConfig) -> Self {
+        Self {
+            connection_string: config.connection_string.clone(),
+        }
     }
 
-    pub fn connection_string(&self) -> &str {
-        &self.connection_string
+    /// Returns a redacted display string for the connection. The actual
+    /// connection string is never exposed because it embeds the
+    /// password.
+    pub fn connection_endpoint() -> &'static str {
+        "[redacted]"
     }
 
     fn get_connection(&self) -> Result<DbConnection, VectorError> {
-        match DbConnection::open(&self.connection_string) {
+        // Resolve the secret right before each outgoing request so
+        // host-side secret rotation takes effect immediately.
+        let conn_str = self.connection_string.get();
+        match DbConnection::open(&conn_str) {
             Ok(conn) => Ok(conn),
             Err(e) => Err(VectorError::ConnectionError(format!(
                 "Failed to connect to PostgreSQL: {:?}",
@@ -1258,9 +1271,3 @@ pub struct FieldDistributionResponse {
 }
 
 // helper functions
-
-impl Default for PgVectorClient {
-    fn default() -> Self {
-        Self::new("postgres://postgres@localhost:5432/postgres".to_string())
-    }
-}

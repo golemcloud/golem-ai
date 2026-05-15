@@ -11,23 +11,30 @@ pub trait ExtendedEmbeddingProvider: EmbeddingProvider + 'static {}
 
 /// When the durability feature flag is off, `DurableEmbed<Impl>` is a transparent wrapper that
 /// forwards every call to the inner provider without any oplog persistence.
-#[cfg(not(feature = "durability"))]
+#[cfg(not(feature = "golem"))]
 mod passthrough_impl {
     use crate::durability::{DurableEmbed, ExtendedEmbeddingProvider};
     use crate::model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse};
     use crate::EmbeddingProvider;
 
     impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
-        fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
-            Impl::generate(inputs, config)
+        type ProviderConfig = Impl::ProviderConfig;
+
+        fn generate(
+            provider_config: Self::ProviderConfig,
+            inputs: Vec<ContentPart>,
+            config: Config,
+        ) -> Result<EmbeddingResponse, Error> {
+            Impl::generate(provider_config, inputs, config)
         }
 
         fn rerank(
+            provider_config: Self::ProviderConfig,
             query: String,
             documents: Vec<String>,
             config: Config,
         ) -> Result<RerankResponse, Error> {
-            Impl::rerank(query, documents, config)
+            Impl::rerank(provider_config, query, documents, config)
         }
     }
 }
@@ -40,7 +47,7 @@ mod passthrough_impl {
 /// stored as input, and the full response stored as output. To serialize these in a way it is
 /// observable by oplog consumers, each relevant data type has to be converted to/from `ValueAndType`
 /// which is implemented using the type classes and builder in the `golem-rust` library.
-#[cfg(feature = "durability")]
+#[cfg(feature = "golem")]
 mod durable_impl {
     use crate::durability::{DurableEmbed, ExtendedEmbeddingProvider};
     use crate::model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse};
@@ -50,16 +57,26 @@ mod durable_impl {
     use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
 
     impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
-        fn generate(inputs: Vec<ContentPart>, config: Config) -> Result<EmbeddingResponse, Error> {
+        type ProviderConfig = Impl::ProviderConfig;
+
+        fn generate(
+            provider_config: Self::ProviderConfig,
+            inputs: Vec<ContentPart>,
+            config: Config,
+        ) -> Result<EmbeddingResponse, Error> {
             let durability = Durability::<EmbeddingResponse, Error>::new(
                 "golem_ai_embed",
                 "generate",
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let inputs_clone = inputs.clone();
+                let config_clone = config.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::generate(inputs.clone(), config.clone())
+                    Impl::generate(provider_config, inputs_clone, config_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(GenerateInput { inputs, config }, result)
             } else {
                 durability.replay()
@@ -67,6 +84,7 @@ mod durable_impl {
         }
 
         fn rerank(
+            provider_config: Self::ProviderConfig,
             query: String,
             documents: Vec<String>,
             config: Config,
@@ -77,9 +95,14 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
+                let query_clone = query.clone();
+                let documents_clone = documents.clone();
+                let config_clone = config.clone();
                 let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::rerank(query.clone(), documents.clone(), config.clone())
+                    Impl::rerank(provider_config, query_clone, documents_clone, config_clone)
                 });
+                // NOTE: `provider_config` deliberately not included in the persisted input,
+                // because it can carry secrets (API keys etc.).
                 durability.persist(
                     RerankInput {
                         query,

@@ -1,4 +1,7 @@
-use golem_ai_tts::config::{get_endpoint_config, get_max_retries_config, get_timeout_config};
+use crate::config::DeepgramConfig;
+use golem_ai_tts::config::{
+    get_endpoint_config, get_max_retries_config, get_timeout_config, SecretSource,
+};
 use golem_ai_tts::error::{from_reqwest_error, tts_error_from_status};
 use golem_ai_tts::model::types::TtsError;
 use golem_wasi_http::{Client, Method, RequestBuilder, Response};
@@ -29,18 +32,25 @@ impl Default for RateLimitConfig {
 }
 
 /// Deepgram TTS API client
+///
+/// The API key is intentionally stored as a [`SecretSource`] (not as a
+/// resolved `String`) so that the secret value is fetched fresh from
+/// its source — which in golem mode is the agent host — right before
+/// each outgoing HTTP request. This is what lets host-side secret
+/// rotation take effect on the very next request.
+///
 /// Based on https://developers.deepgram.com/docs/text-to-speech
 #[derive(Clone)]
 pub struct DeepgramTtsApi {
     client: Client,
-    api_key: String,
+    api_key: SecretSource,
     base_url: String,
     api_version: String,
     rate_limit_config: RateLimitConfig,
 }
 
 impl DeepgramTtsApi {
-    pub fn new(api_key: String, api_version: String) -> Self {
+    pub fn new(config: &DeepgramConfig) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(get_timeout_config()))
             .build()
@@ -50,9 +60,9 @@ impl DeepgramTtsApi {
 
         Self {
             client,
-            api_key,
+            api_key: config.api_key.clone(),
             base_url,
-            api_version,
+            api_version: config.api_version.clone(),
             rate_limit_config: RateLimitConfig::default(),
         }
     }
@@ -63,9 +73,12 @@ impl DeepgramTtsApi {
     }
 
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.api_key.get();
         self.client
             .request(method, url)
-            .header("Authorization", format!("Token {}", self.api_key))
+            .header("Authorization", format!("Token {}", api_key))
             .header("Content-Type", "application/json")
     }
 

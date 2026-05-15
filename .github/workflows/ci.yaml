@@ -388,7 +388,7 @@ jobs:
           echo "Starting Milvus..."
           cd /home/runner
           mkdir milvus-setup && cd milvus-setup
-          curl -sfL https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh -o standalone_embed.sh
+          curl -sfL https://raw.githubusercontent.com/milvus-io/milvus/2.6/scripts/standalone_embed.sh -o standalone_embed.sh
           sleep 30
           bash standalone_embed.sh start
           cd $GITHUB_WORKSPACE
@@ -450,7 +450,7 @@ jobs:
           echo "Testing milvus integration..."
           export GOLEM_PRESET=milvus-release
           golem deploy --yes
-          golem agent new -e MILVUS_DATABASE=default 'VectorTest("milvus-1")'
+          golem agent new -e MILVUS_URI=http://127.0.0.1:19530 -e MILVUS_DATABASE=default 'VectorTest("milvus-1")'
           golem agent invoke 'VectorTest("milvus-1")' test1 | grep -v "ERROR: "
           golem agent invoke 'VectorTest("milvus-1")' test2 | grep -v "ERROR: "
           golem agent invoke 'VectorTest("milvus-1")' test3 | grep -v "ERROR: "
@@ -481,7 +481,7 @@ jobs:
           export GOLEM_PRESET=qdrant-release
           golem deploy --yes
           sleep 10
-          golem agent new 'VectorTest("qdrant-1")'
+          golem agent new -e QDRANT_URL=http://127.0.0.1:6333 'VectorTest("qdrant-1")'
           golem agent invoke 'VectorTest("qdrant-1")' test1 | grep -v "ERROR: "
           golem agent invoke 'VectorTest("qdrant-1")' test2 | grep -v "ERROR: "
           golem agent invoke 'VectorTest("qdrant-1")' test3 | grep -v "ERROR: "

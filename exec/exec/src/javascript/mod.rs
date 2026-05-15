@@ -1,5 +1,6 @@
 mod builtin;
 
+#[cfg(feature = "golem")]
 use crate::durability::{EmptySnapshot, SessionSnapshot};
 use crate::model::{Error, ExecResult, File, Language, RunOptions};
 use crate::model::{LanguageKind, StageResult};
@@ -253,6 +254,7 @@ impl JavaScriptSession {
     }
 }
 
+#[cfg(feature = "golem")]
 impl SessionSnapshot<JavaScriptSession> for JavaScriptSession {
     type Snapshot = EmptySnapshot;
 

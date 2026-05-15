@@ -11,13 +11,13 @@ description = "Library for executing dynamic code snippets on Golem Cloud"
 path = "src/lib.rs"
 
 [features]
-default = ["javascript", "python", "durability"]
-durability = ["golem-rust/durability"]
+default = ["javascript", "python", "golem"]
+golem = ["dep:golem-rust", "golem-rust/durability", "golem-rust/export_golem_agentic"]
 javascript = ["dep:rquickjs"]
 python = ["dep:rustpython"]
 
 [dependencies]
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 
 async-trait = "0.1.89"
 base64 = "0.22.1"

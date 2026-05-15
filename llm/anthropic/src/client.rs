@@ -1,3 +1,4 @@
+use golem_ai_llm::config::SecretSource;
 use golem_ai_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
 use golem_ai_llm::event_source::EventSource;
 use golem_ai_llm::model::Error;
@@ -14,26 +15,32 @@ const BASE_URL: &str = "https://api.anthropic.com";
 
 /// The Anthropic API client for creating model responses.
 pub struct MessagesApi {
-    api_key: String,
+    api_key: SecretSource,
     client: Client,
 }
 
 impl MessagesApi {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(config: &crate::config::AnthropicConfig) -> Self {
         let client = Client::builder()
             .build()
             .expect("Failed to initialize HTTP client");
-        Self { api_key, client }
+        Self {
+            api_key: config.api_key.clone(),
+            client,
+        }
     }
 
     pub fn send_messages(&self, request: MessagesRequest) -> Result<MessagesResponse, Error> {
         trace!("Sending request to Anthropic API: {request:?}");
 
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next request.
+        let api_key = self.api_key.get();
         let response: Response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/messages"))
             .header("anthropic-version", "2023-06-01")
-            .header("x-api-key", &self.api_key)
+            .header("x-api-key", &api_key)
             .json(&request)
             .send()
             .map_err(|err| from_reqwest_error("Request failed", err))?;
@@ -44,11 +51,17 @@ impl MessagesApi {
     pub fn stream_send_messages(&self, request: MessagesRequest) -> Result<EventSource, Error> {
         trace!("Sending request to Anthropic API: {request:?}");
 
+        // Resolve the API key right before issuing the request so that
+        // hot-rotated host secrets take effect on the next stream
+        // creation. Header-based auth means the value cannot change
+        // mid-stream, but a brand-new stream (including durability
+        // replay continuations) will pick up the rotated value.
+        let api_key = self.api_key.get();
         let response: Response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/messages"))
             .header("anthropic-version", "2023-06-01")
-            .header("x-api-key", &self.api_key)
+            .header("x-api-key", &api_key)
             .header(
                 golem_wasi_http::header::ACCEPT,
                 HeaderValue::from_static("text/event-stream"),

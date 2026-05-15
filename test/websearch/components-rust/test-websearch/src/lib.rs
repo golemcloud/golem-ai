@@ -39,6 +39,27 @@ type Provider = golem_ai_web_search_tavily::DurableTavilySearch;
 type Provider = golem_ai_web_search_serper::DurableSerperSearch;
 
 #[cfg(feature = "google")]
+fn provider_config() -> golem_ai_web_search_google::GoogleConfig {
+    golem_ai_web_search_google::GoogleConfig::from_env()
+        .expect("failed to load Google config from env")
+}
+#[cfg(feature = "brave")]
+fn provider_config() -> golem_ai_web_search_brave::BraveConfig {
+    golem_ai_web_search_brave::BraveConfig::from_env()
+        .expect("failed to load Brave config from env")
+}
+#[cfg(feature = "tavily")]
+fn provider_config() -> golem_ai_web_search_tavily::TavilyConfig {
+    golem_ai_web_search_tavily::TavilyConfig::from_env()
+        .expect("failed to load Tavily config from env")
+}
+#[cfg(feature = "serper")]
+fn provider_config() -> golem_ai_web_search_serper::SerperConfig {
+    golem_ai_web_search_serper::SerperConfig::from_env()
+        .expect("failed to load Serper config from env")
+}
+
+#[cfg(feature = "google")]
 const PROVIDER: &str = "google";
 #[cfg(feature = "brave")]
 const PROVIDER: &str = "brave";
@@ -86,7 +107,7 @@ impl WebsearchTest for WebsearchTestImpl {
         };
 
         println!("Sending search request using {} provider...", PROVIDER);
-        let response = Provider::search_once(params);
+        let response = Provider::search_once(provider_config(), params);
         println!("Response: {:?}", response);
 
         match response {
@@ -168,7 +189,7 @@ impl WebsearchTest for WebsearchTestImpl {
 
         println!("Starting search session using {} provider...", PROVIDER);
 
-        let session = match Provider::start_search(params) {
+        let session = match Provider::start_search(provider_config(), params) {
             Ok(session) => session,
             Err(error) => {
                 let error_msg = format_search_error(&error);
@@ -294,7 +315,7 @@ impl WebsearchTest for WebsearchTestImpl {
             "Searching for recent AI news using {} provider...",
             PROVIDER
         );
-        let response = Provider::search_once(params);
+        let response = Provider::search_once(provider_config(), params);
 
         match response {
             Ok((results, metadata)) => {
@@ -362,7 +383,7 @@ impl WebsearchTest for WebsearchTestImpl {
             "Searching academic sources for climate research using {} provider...",
             PROVIDER
         );
-        let response = Provider::search_once(params);
+        let response = Provider::search_once(provider_config(), params);
 
         match response {
             Ok((results, metadata)) => {
@@ -438,7 +459,7 @@ impl WebsearchTest for WebsearchTestImpl {
             "Searching hiking gear reviews (excluding e-commerce) using {} provider...",
             PROVIDER
         );
-        let response = Provider::search_once(params);
+        let response = Provider::search_once(provider_config(), params);
 
         match response {
             Ok((results, metadata)) => {
@@ -527,7 +548,7 @@ impl WebsearchTest for WebsearchTestImpl {
             "Searching Slovenian recipes in Slovenian language using {} provider...",
             PROVIDER
         );
-        let response = Provider::search_once(params);
+        let response = Provider::search_once(provider_config(), params);
 
         match response {
             Ok((results, metadata)) => {
@@ -604,7 +625,7 @@ impl WebsearchTest for WebsearchTestImpl {
             "Searching child safety resources with high safe search using {} provider...",
             PROVIDER
         );
-        let response = Provider::search_once(params);
+        let response = Provider::search_once(provider_config(), params);
 
         match response {
             Ok((results, metadata)) => {

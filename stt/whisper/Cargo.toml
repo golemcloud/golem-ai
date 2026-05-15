@@ -11,13 +11,13 @@ description = "Library for working with OpenAI Whisper transcription API on Gole
 path = "src/lib.rs"
 
 [features]
-default = ["durability"]
-durability = ["golem-rust/durability", "golem-ai-stt/durability"]
+default = ["golem"]
+golem = ["dep:golem-rust", "golem-ai-stt/golem"]
 
 [dependencies]
 golem-ai-stt = { workspace = true }
 
-golem-rust = { workspace = true }
+golem-rust = { workspace = true, optional = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -33,4 +33,3 @@ itertools = "0.14.0"
 
 [dev-dependencies]
 multipart-2021 = "0.19.0"
-
