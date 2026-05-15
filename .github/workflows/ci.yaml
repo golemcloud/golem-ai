@@ -388,7 +388,7 @@ jobs:
           echo "Starting Milvus..."
           cd /home/runner
           mkdir milvus-setup && cd milvus-setup
-          curl -sfL https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh -o standalone_embed.sh
+          curl -sfL https://raw.githubusercontent.com/milvus-io/milvus/2.6/scripts/standalone_embed.sh -o standalone_embed.sh
           sleep 30
           bash standalone_embed.sh start
           cd $GITHUB_WORKSPACE
