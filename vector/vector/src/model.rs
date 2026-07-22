@@ -7,7 +7,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SparseVector {
@@ -18,7 +18,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct BinaryVector {
@@ -28,7 +28,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct HalfVector {
@@ -38,7 +38,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum VectorData {
@@ -53,7 +53,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum DistanceMetric {
@@ -112,7 +112,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct GeoCoordinates {
@@ -122,7 +122,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum MetadataValue {
@@ -141,7 +141,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum FilterOperator {
@@ -162,7 +162,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct FilterCondition {
@@ -218,7 +218,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum FilterExpression {
@@ -230,7 +230,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct VectorRecord {
@@ -241,7 +241,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SearchResult {
@@ -254,7 +254,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum VectorError {
@@ -287,7 +287,7 @@ pub mod collections {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct IndexConfig {
@@ -297,7 +297,7 @@ pub mod collections {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct CollectionInfo {
@@ -323,7 +323,7 @@ pub mod search {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum SearchQuery {
@@ -344,7 +344,7 @@ pub mod search_extended {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum RecommendationExample {
@@ -355,7 +355,7 @@ pub mod search_extended {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum RecommendationStrategy {
@@ -366,7 +366,7 @@ pub mod search_extended {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct ContextPair {
@@ -376,7 +376,7 @@ pub mod search_extended {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct GroupedSearchResult {
@@ -392,7 +392,7 @@ pub mod namespaces {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct NamespaceInfo {
@@ -412,7 +412,7 @@ pub mod analytics {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct NamespaceStats {
@@ -422,7 +422,7 @@ pub mod analytics {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct DistanceStats {
@@ -434,7 +434,7 @@ pub mod analytics {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct CollectionStats {
@@ -448,7 +448,7 @@ pub mod analytics {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct FieldStats {
@@ -467,7 +467,7 @@ pub mod connection {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct OauthConfig {
@@ -479,7 +479,7 @@ pub mod connection {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum Credentials {
@@ -492,7 +492,7 @@ pub mod connection {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct ConnectionStatus {
@@ -514,7 +514,7 @@ pub mod vectors {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct BatchResult {
@@ -525,7 +525,7 @@ pub mod vectors {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct ListResponse {

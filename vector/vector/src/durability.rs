@@ -16,6 +16,7 @@ pub struct DurableVector<Impl> {
 /// `AnalyticsProvider`, `NamespacesProvider`) must agree on the same
 /// `ProviderConfig` type so the durable wrapper can thread a single
 /// `provider_config` value through every method on every trait.
+#[allow(async_fn_in_trait)]
 pub trait ExtendedVectorProvider:
     ConnectionProvider
     + CollectionProvider<ProviderConfig = <Self as ConnectionProvider>::ProviderConfig>
@@ -26,7 +27,7 @@ pub trait ExtendedVectorProvider:
     + NamespacesProvider<ProviderConfig = <Self as ConnectionProvider>::ProviderConfig>
     + 'static
 {
-    fn connect_internal(
+    async fn connect_internal(
         provider_config: <Self as ConnectionProvider>::ProviderConfig,
         endpoint: &str,
         credentials: &Option<crate::model::connection::Credentials>,
@@ -55,7 +56,7 @@ mod passthrough_impl {
     impl<Impl: ExtendedVectorProvider> ConnectionProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn connect(
+        async fn connect(
             provider_config: Self::ProviderConfig,
             endpoint: String,
             credentials: Option<crate::model::connection::Credentials>,
@@ -70,21 +71,22 @@ mod passthrough_impl {
                 &timeout_ms,
                 &options,
             )
+            .await
         }
 
-        fn disconnect(provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
+        async fn disconnect(provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
             init_logging();
-            Impl::disconnect(provider_config)
+            Impl::disconnect(provider_config).await
         }
 
-        fn get_connection_status(
+        async fn get_connection_status(
             provider_config: Self::ProviderConfig,
         ) -> Result<crate::model::connection::ConnectionStatus, VectorError> {
             init_logging();
-            Impl::get_connection_status(provider_config)
+            Impl::get_connection_status(provider_config).await
         }
 
-        fn test_connection(
+        async fn test_connection(
             provider_config: Self::ProviderConfig,
             endpoint: String,
             credentials: Option<crate::model::connection::Credentials>,
@@ -92,14 +94,14 @@ mod passthrough_impl {
             options: Option<crate::model::types::Metadata>,
         ) -> Result<bool, VectorError> {
             init_logging();
-            Impl::test_connection(provider_config, endpoint, credentials, timeout_ms, options)
+            Impl::test_connection(provider_config, endpoint, credentials, timeout_ms, options).await
         }
     }
 
     impl<Impl: ExtendedVectorProvider> CollectionProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn upsert_collection(
+        async fn upsert_collection(
             provider_config: Self::ProviderConfig,
             name: String,
             description: Option<String>,
@@ -118,64 +120,65 @@ mod passthrough_impl {
                 index_config,
                 metadata,
             )
+            .await
         }
 
-        fn list_collections(
+        async fn list_collections(
             provider_config: Self::ProviderConfig,
         ) -> Result<Vec<String>, VectorError> {
             init_logging();
-            Impl::list_collections(provider_config)
+            Impl::list_collections(provider_config).await
         }
 
-        fn get_collection(
+        async fn get_collection(
             provider_config: Self::ProviderConfig,
             name: String,
         ) -> Result<crate::model::collections::CollectionInfo, VectorError> {
             init_logging();
-            Impl::get_collection(provider_config, name)
+            Impl::get_collection(provider_config, name).await
         }
 
-        fn update_collection(
+        async fn update_collection(
             provider_config: Self::ProviderConfig,
             name: String,
             description: Option<String>,
             metadata: Option<crate::model::types::Metadata>,
         ) -> Result<crate::model::collections::CollectionInfo, VectorError> {
             init_logging();
-            Impl::update_collection(provider_config, name, description, metadata)
+            Impl::update_collection(provider_config, name, description, metadata).await
         }
 
-        fn delete_collection(
+        async fn delete_collection(
             provider_config: Self::ProviderConfig,
             name: String,
         ) -> Result<(), VectorError> {
             init_logging();
-            Impl::delete_collection(provider_config, name)
+            Impl::delete_collection(provider_config, name).await
         }
 
-        fn collection_exists(
+        async fn collection_exists(
             provider_config: Self::ProviderConfig,
             name: String,
         ) -> Result<bool, VectorError> {
             init_logging();
-            Impl::collection_exists(provider_config, name)
+            Impl::collection_exists(provider_config, name).await
         }
     }
 
     impl<Impl: ExtendedVectorProvider> VectorsProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn upsert_vectors(
+        async fn upsert_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             vectors: Vec<crate::model::types::VectorRecord>,
             namespace: Option<String>,
         ) -> Result<crate::model::vectors::BatchResult, VectorError> {
             init_logging();
-            Impl::upsert_vectors(provider_config, collection, vectors, namespace)
+            Impl::upsert_vectors(provider_config, collection, vectors, namespace).await
         }
 
-        fn upsert_vector(
+        async fn upsert_vector(
             provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
@@ -184,10 +187,10 @@ mod passthrough_impl {
             namespace: Option<String>,
         ) -> Result<(), VectorError> {
             init_logging();
-            Impl::upsert_vector(provider_config, collection, id, vector, metadata, namespace)
+            Impl::upsert_vector(provider_config, collection, id, vector, metadata, namespace).await
         }
 
-        fn get_vectors(
+        async fn get_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             ids: Vec<crate::model::types::Id>,
@@ -204,19 +207,20 @@ mod passthrough_impl {
                 include_vectors,
                 include_metadata,
             )
+            .await
         }
 
-        fn get_vector(
+        async fn get_vector(
             provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
             namespace: Option<String>,
         ) -> Result<Option<crate::model::types::VectorRecord>, VectorError> {
             init_logging();
-            Impl::get_vector(provider_config, collection, id, namespace)
+            Impl::get_vector(provider_config, collection, id, namespace).await
         }
 
-        fn update_vector(
+        async fn update_vector(
             provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
@@ -235,38 +239,40 @@ mod passthrough_impl {
                 namespace,
                 merge_metadata,
             )
+            .await
         }
 
-        fn delete_vectors(
+        async fn delete_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             ids: Vec<crate::model::types::Id>,
             namespace: Option<String>,
         ) -> Result<u32, VectorError> {
             init_logging();
-            Impl::delete_vectors(provider_config, collection, ids, namespace)
+            Impl::delete_vectors(provider_config, collection, ids, namespace).await
         }
 
-        fn delete_by_filter(
+        async fn delete_by_filter(
             provider_config: Self::ProviderConfig,
             collection: String,
             filter: crate::model::types::FilterExpression,
             namespace: Option<String>,
         ) -> Result<u32, VectorError> {
             init_logging();
-            Impl::delete_by_filter(provider_config, collection, filter, namespace)
+            Impl::delete_by_filter(provider_config, collection, filter, namespace).await
         }
 
-        fn delete_namespace(
+        async fn delete_namespace(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
         ) -> Result<u32, VectorError> {
             init_logging();
             <Impl as VectorsProvider>::delete_namespace(provider_config, collection, namespace)
+                .await
         }
 
-        fn list_vectors(
+        async fn list_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: Option<String>,
@@ -287,23 +293,24 @@ mod passthrough_impl {
                 include_vectors,
                 include_metadata,
             )
+            .await
         }
 
-        fn count_vectors(
+        async fn count_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             filter: Option<crate::model::types::FilterExpression>,
             namespace: Option<String>,
         ) -> Result<u64, VectorError> {
             init_logging();
-            Impl::count_vectors(provider_config, collection, filter, namespace)
+            Impl::count_vectors(provider_config, collection, filter, namespace).await
         }
     }
 
     impl<Impl: ExtendedVectorProvider> SearchProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn search_vectors(
+        async fn search_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             query: crate::model::search::SearchQuery,
@@ -330,9 +337,10 @@ mod passthrough_impl {
                 max_distance,
                 search_params,
             )
+            .await
         }
 
-        fn find_similar(
+        async fn find_similar(
             provider_config: Self::ProviderConfig,
             collection: String,
             vector: crate::model::types::VectorData,
@@ -340,10 +348,10 @@ mod passthrough_impl {
             namespace: Option<String>,
         ) -> Result<Vec<crate::model::types::SearchResult>, VectorError> {
             init_logging();
-            Impl::find_similar(provider_config, collection, vector, limit, namespace)
+            Impl::find_similar(provider_config, collection, vector, limit, namespace).await
         }
 
-        fn batch_search(
+        async fn batch_search(
             provider_config: Self::ProviderConfig,
             collection: String,
             queries: Vec<crate::model::search::SearchQuery>,
@@ -366,13 +374,14 @@ mod passthrough_impl {
                 include_metadata,
                 search_params,
             )
+            .await
         }
     }
 
     impl<Impl: ExtendedVectorProvider> SearchExtendedProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn recommend_vectors(
+        async fn recommend_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             positive: Vec<crate::model::search_extended::RecommendationExample>,
@@ -397,9 +406,10 @@ mod passthrough_impl {
                 include_vectors,
                 include_metadata,
             )
+            .await
         }
 
-        fn discover_vectors(
+        async fn discover_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             target: Option<crate::model::search_extended::RecommendationExample>,
@@ -422,9 +432,10 @@ mod passthrough_impl {
                 include_vectors,
                 include_metadata,
             )
+            .await
         }
 
-        fn search_groups(
+        async fn search_groups(
             provider_config: Self::ProviderConfig,
             collection: String,
             query: crate::model::search::SearchQuery,
@@ -449,9 +460,10 @@ mod passthrough_impl {
                 include_vectors,
                 include_metadata,
             )
+            .await
         }
 
-        fn search_range(
+        async fn search_range(
             provider_config: Self::ProviderConfig,
             collection: String,
             vector: crate::model::types::VectorData,
@@ -476,9 +488,10 @@ mod passthrough_impl {
                 include_vectors,
                 include_metadata,
             )
+            .await
         }
 
-        fn search_text(
+        async fn search_text(
             provider_config: Self::ProviderConfig,
             collection: String,
             query_text: String,
@@ -495,32 +508,33 @@ mod passthrough_impl {
                 filter,
                 namespace,
             )
+            .await
         }
     }
 
     impl<Impl: ExtendedVectorProvider> AnalyticsProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn get_collection_stats(
+        async fn get_collection_stats(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: Option<String>,
         ) -> Result<crate::model::analytics::CollectionStats, VectorError> {
             init_logging();
-            Impl::get_collection_stats(provider_config, collection, namespace)
+            Impl::get_collection_stats(provider_config, collection, namespace).await
         }
 
-        fn get_field_stats(
+        async fn get_field_stats(
             provider_config: Self::ProviderConfig,
             collection: String,
             field: String,
             namespace: Option<String>,
         ) -> Result<crate::model::analytics::FieldStats, VectorError> {
             init_logging();
-            Impl::get_field_stats(provider_config, collection, field, namespace)
+            Impl::get_field_stats(provider_config, collection, field, namespace).await
         }
 
-        fn get_field_distribution(
+        async fn get_field_distribution(
             provider_config: Self::ProviderConfig,
             collection: String,
             field: String,
@@ -528,56 +542,57 @@ mod passthrough_impl {
             namespace: Option<String>,
         ) -> Result<Vec<(crate::model::types::MetadataValue, u64)>, VectorError> {
             init_logging();
-            Impl::get_field_distribution(provider_config, collection, field, limit, namespace)
+            Impl::get_field_distribution(provider_config, collection, field, limit, namespace).await
         }
     }
 
     impl<Impl: ExtendedVectorProvider> NamespacesProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn upsert_namespace(
+        async fn upsert_namespace(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
             metadata: Option<crate::model::types::Metadata>,
         ) -> Result<crate::model::namespaces::NamespaceInfo, VectorError> {
             init_logging();
-            Impl::upsert_namespace(provider_config, collection, namespace, metadata)
+            Impl::upsert_namespace(provider_config, collection, namespace, metadata).await
         }
 
-        fn list_namespaces(
+        async fn list_namespaces(
             provider_config: Self::ProviderConfig,
             collection: String,
         ) -> Result<Vec<crate::model::namespaces::NamespaceInfo>, VectorError> {
             init_logging();
-            Impl::list_namespaces(provider_config, collection)
+            Impl::list_namespaces(provider_config, collection).await
         }
 
-        fn get_namespace(
+        async fn get_namespace(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
         ) -> Result<crate::model::namespaces::NamespaceInfo, VectorError> {
             init_logging();
-            Impl::get_namespace(provider_config, collection, namespace)
+            Impl::get_namespace(provider_config, collection, namespace).await
         }
 
-        fn delete_namespace(
+        async fn delete_namespace(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
         ) -> Result<(), VectorError> {
             init_logging();
             <Impl as NamespacesProvider>::delete_namespace(provider_config, collection, namespace)
+                .await
         }
 
-        fn namespace_exists(
+        async fn namespace_exists(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
         ) -> Result<bool, VectorError> {
             init_logging();
-            Impl::namespace_exists(provider_config, collection, namespace)
+            Impl::namespace_exists(provider_config, collection, namespace).await
         }
     }
 }
@@ -586,17 +601,17 @@ mod passthrough_impl {
 mod durable_impl {
     use super::*;
     use crate::init_logging;
-    use golem_rust::bindings::golem::durability::durability::WrappedFunctionType;
     use golem_rust::durability::Durability;
-    use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
+    use golem_rust::durability::DurableFunctionType;
+    use golem_rust::{with_persistence_level_async, FromSchema, IntoSchema, PersistenceLevel};
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema)]
     pub(super) struct Unit;
 
     impl<Impl: ExtendedVectorProvider> ConnectionProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn connect(
+        async fn connect(
             provider_config: Self::ProviderConfig,
             endpoint: String,
             credentials: Option<crate::model::connection::Credentials>,
@@ -607,18 +622,21 @@ mod durable_impl {
             let durability = Durability::<Unit, VectorError>::new(
                 "golem_ai_vector",
                 "connect",
-                WrappedFunctionType::WriteRemote,
+                DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::connect_internal(
-                        provider_config,
-                        &endpoint,
-                        &credentials,
-                        &timeout_ms,
-                        &options,
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::connect_internal(
+                            provider_config,
+                            &endpoint,
+                            &credentials,
+                            &timeout_ms,
+                            &options,
+                        )
+                        .await
+                    })
+                    .await;
                 // NOTE: `provider_config` deliberately not included in the persisted input,
                 // because it can carry secrets (API keys etc.).
                 durability.persist(
@@ -637,17 +655,19 @@ mod durable_impl {
             }
         }
 
-        fn disconnect(provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
+        async fn disconnect(provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
             init_logging();
             let durability = Durability::<Unit, VectorError>::new(
                 "golem_ai_vector",
                 "disconnect",
-                WrappedFunctionType::WriteRemote,
+                DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::disconnect(provider_config)
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::disconnect(provider_config).await
+                    })
+                    .await;
                 durability.persist(Unit, result.map(|_| Unit))?;
                 Ok(())
             } else {
@@ -656,7 +676,7 @@ mod durable_impl {
             }
         }
 
-        fn get_connection_status(
+        async fn get_connection_status(
             provider_config: Self::ProviderConfig,
         ) -> Result<crate::model::connection::ConnectionStatus, VectorError> {
             init_logging();
@@ -664,19 +684,21 @@ mod durable_impl {
                 Durability::new(
                     "golem_ai_vector",
                     "get_connection_status",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_connection_status(provider_config)
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::get_connection_status(provider_config).await
+                    })
+                    .await;
                 durability.persist(Unit, result)
             } else {
                 durability.replay()
             }
         }
 
-        fn test_connection(
+        async fn test_connection(
             provider_config: Self::ProviderConfig,
             endpoint: String,
             credentials: Option<crate::model::connection::Credentials>,
@@ -687,18 +709,21 @@ mod durable_impl {
             let durability: Durability<bool, VectorError> = Durability::new(
                 "golem_ai_vector",
                 "test_connection",
-                WrappedFunctionType::ReadRemote,
+                DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::test_connection(
-                        provider_config,
-                        endpoint.clone(),
-                        credentials.clone(),
-                        timeout_ms,
-                        options.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::test_connection(
+                            provider_config,
+                            endpoint.clone(),
+                            credentials.clone(),
+                            timeout_ms,
+                            options.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     ConnectParams {
                         endpoint,
@@ -717,7 +742,7 @@ mod durable_impl {
     impl<Impl: ExtendedVectorProvider> CollectionProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn upsert_collection(
+        async fn upsert_collection(
             provider_config: Self::ProviderConfig,
             name: String,
             description: Option<String>,
@@ -731,20 +756,23 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_collections",
                     "upsert_collection",
-                    WrappedFunctionType::WriteRemote,
+                    DurableFunctionType::WriteRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert_collection(
-                        provider_config,
-                        name.clone(),
-                        description.clone(),
-                        dimension,
-                        metric,
-                        index_config.clone(),
-                        metadata.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::upsert_collection(
+                            provider_config,
+                            name.clone(),
+                            description.clone(),
+                            dimension,
+                            metric,
+                            index_config.clone(),
+                            metadata.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     UpsertCollectionParams {
                         name,
@@ -761,26 +789,28 @@ mod durable_impl {
             }
         }
 
-        fn list_collections(
+        async fn list_collections(
             provider_config: Self::ProviderConfig,
         ) -> Result<Vec<String>, VectorError> {
             init_logging();
             let durability: Durability<Vec<String>, VectorError> = Durability::new(
                 "golem_vector_collections",
                 "list_collections",
-                WrappedFunctionType::ReadRemote,
+                DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::list_collections(provider_config)
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::list_collections(provider_config).await
+                    })
+                    .await;
                 durability.persist(Unit, result)
             } else {
                 durability.replay()
             }
         }
 
-        fn get_collection(
+        async fn get_collection(
             provider_config: Self::ProviderConfig,
             name: String,
         ) -> Result<crate::model::collections::CollectionInfo, VectorError> {
@@ -789,19 +819,21 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_collections",
                     "get_collection",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_collection(provider_config, name.clone())
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::get_collection(provider_config, name.clone()).await
+                    })
+                    .await;
                 durability.persist(name, result)
             } else {
                 durability.replay()
             }
         }
 
-        fn update_collection(
+        async fn update_collection(
             provider_config: Self::ProviderConfig,
             name: String,
             description: Option<String>,
@@ -812,17 +844,20 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_collections",
                     "update_collection",
-                    WrappedFunctionType::WriteRemote,
+                    DurableFunctionType::WriteRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::update_collection(
-                        provider_config,
-                        name.clone(),
-                        description.clone(),
-                        metadata.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::update_collection(
+                            provider_config,
+                            name.clone(),
+                            description.clone(),
+                            metadata.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     UpdateCollectionParams {
                         name,
@@ -836,7 +871,7 @@ mod durable_impl {
             }
         }
 
-        fn delete_collection(
+        async fn delete_collection(
             provider_config: Self::ProviderConfig,
             name: String,
         ) -> Result<(), VectorError> {
@@ -844,12 +879,14 @@ mod durable_impl {
             let durability: Durability<Unit, VectorError> = Durability::new(
                 "golem_vector_collections",
                 "delete_collection",
-                WrappedFunctionType::WriteRemote,
+                DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_collection(provider_config, name.clone())
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::delete_collection(provider_config, name.clone()).await
+                    })
+                    .await;
                 durability.persist(name, result.map(|_| Unit))?;
                 Ok(())
             } else {
@@ -858,7 +895,7 @@ mod durable_impl {
             }
         }
 
-        fn collection_exists(
+        async fn collection_exists(
             provider_config: Self::ProviderConfig,
             name: String,
         ) -> Result<bool, VectorError> {
@@ -866,12 +903,14 @@ mod durable_impl {
             let durability: Durability<bool, VectorError> = Durability::new(
                 "golem_vector_collections",
                 "collection_exists",
-                WrappedFunctionType::ReadRemote,
+                DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::collection_exists(provider_config, name.clone())
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::collection_exists(provider_config, name.clone()).await
+                    })
+                    .await;
                 durability.persist(name, result)
             } else {
                 durability.replay()
@@ -882,7 +921,7 @@ mod durable_impl {
     impl<Impl: ExtendedVectorProvider> VectorsProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn upsert_vectors(
+        async fn upsert_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             vectors: Vec<crate::model::types::VectorRecord>,
@@ -893,17 +932,20 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_vectors",
                     "upsert_vectors",
-                    WrappedFunctionType::WriteRemote,
+                    DurableFunctionType::WriteRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert_vectors(
-                        provider_config,
-                        collection.clone(),
-                        vectors.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::upsert_vectors(
+                            provider_config,
+                            collection.clone(),
+                            vectors.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     UpsertVectorsParams {
                         collection,
@@ -917,7 +959,7 @@ mod durable_impl {
             }
         }
 
-        fn upsert_vector(
+        async fn upsert_vector(
             provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
@@ -929,19 +971,22 @@ mod durable_impl {
             let durability: Durability<Unit, VectorError> = Durability::new(
                 "golem_vector_vectors",
                 "upsert_vector",
-                WrappedFunctionType::WriteRemote,
+                DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert_vector(
-                        provider_config,
-                        collection.clone(),
-                        id.clone(),
-                        vector.clone(),
-                        metadata.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::upsert_vector(
+                            provider_config,
+                            collection.clone(),
+                            id.clone(),
+                            vector.clone(),
+                            metadata.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     UpsertVectorParams {
                         collection,
@@ -959,7 +1004,7 @@ mod durable_impl {
             }
         }
 
-        fn get_vectors(
+        async fn get_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             ids: Vec<crate::model::types::Id>,
@@ -972,19 +1017,22 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_vectors",
                     "get_vectors",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_vectors(
-                        provider_config,
-                        collection.clone(),
-                        ids.clone(),
-                        namespace.clone(),
-                        include_vectors,
-                        include_metadata,
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::get_vectors(
+                            provider_config,
+                            collection.clone(),
+                            ids.clone(),
+                            namespace.clone(),
+                            include_vectors,
+                            include_metadata,
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     GetVectorsParams {
                         collection,
@@ -1000,7 +1048,7 @@ mod durable_impl {
             }
         }
 
-        fn get_vector(
+        async fn get_vector(
             provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
@@ -1011,17 +1059,20 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_vectors",
                     "get_vector",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_vector(
-                        provider_config,
-                        collection.clone(),
-                        id.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::get_vector(
+                            provider_config,
+                            collection.clone(),
+                            id.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     GetVectorParams {
                         collection,
@@ -1035,7 +1086,7 @@ mod durable_impl {
             }
         }
 
-        fn update_vector(
+        async fn update_vector(
             provider_config: Self::ProviderConfig,
             collection: String,
             id: crate::model::types::Id,
@@ -1048,20 +1099,23 @@ mod durable_impl {
             let durability: Durability<Unit, VectorError> = Durability::new(
                 "golem_vector_vectors",
                 "update_vector",
-                WrappedFunctionType::WriteRemote,
+                DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::update_vector(
-                        provider_config,
-                        collection.clone(),
-                        id.clone(),
-                        vector.clone(),
-                        metadata.clone(),
-                        namespace.clone(),
-                        merge_metadata,
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::update_vector(
+                            provider_config,
+                            collection.clone(),
+                            id.clone(),
+                            vector.clone(),
+                            metadata.clone(),
+                            namespace.clone(),
+                            merge_metadata,
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     UpdateVectorParams {
                         collection,
@@ -1080,7 +1134,7 @@ mod durable_impl {
             }
         }
 
-        fn delete_vectors(
+        async fn delete_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             ids: Vec<crate::model::types::Id>,
@@ -1090,17 +1144,20 @@ mod durable_impl {
             let durability: Durability<u32, VectorError> = Durability::new(
                 "golem_vector_vectors",
                 "delete_vectors",
-                WrappedFunctionType::WriteRemote,
+                DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_vectors(
-                        provider_config,
-                        collection.clone(),
-                        ids.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::delete_vectors(
+                            provider_config,
+                            collection.clone(),
+                            ids.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     DeleteVectorsParams {
                         collection,
@@ -1114,7 +1171,7 @@ mod durable_impl {
             }
         }
 
-        fn delete_by_filter(
+        async fn delete_by_filter(
             provider_config: Self::ProviderConfig,
             collection: String,
             filter: crate::model::types::FilterExpression,
@@ -1124,17 +1181,20 @@ mod durable_impl {
             let durability: Durability<u32, VectorError> = Durability::new(
                 "golem_vector_vectors",
                 "delete_by_filter",
-                WrappedFunctionType::WriteRemote,
+                DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_by_filter(
-                        provider_config,
-                        collection.clone(),
-                        filter.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::delete_by_filter(
+                            provider_config,
+                            collection.clone(),
+                            filter.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     DeleteByFilterParams {
                         collection,
@@ -1148,7 +1208,7 @@ mod durable_impl {
             }
         }
 
-        fn delete_namespace(
+        async fn delete_namespace(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
@@ -1157,23 +1217,26 @@ mod durable_impl {
             let durability: Durability<u32, VectorError> = Durability::new(
                 "golem_vector_vectors",
                 "delete_namespace",
-                WrappedFunctionType::WriteRemote,
+                DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    <Impl as VectorsProvider>::delete_namespace(
-                        provider_config,
-                        collection.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        <Impl as VectorsProvider>::delete_namespace(
+                            provider_config,
+                            collection.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist((collection, namespace), result)
             } else {
                 durability.replay()
             }
         }
 
-        fn list_vectors(
+        async fn list_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: Option<String>,
@@ -1188,21 +1251,24 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_vectors",
                     "list_vectors",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::list_vectors(
-                        provider_config,
-                        collection.clone(),
-                        namespace.clone(),
-                        filter.clone(),
-                        limit,
-                        cursor.clone(),
-                        include_vectors,
-                        include_metadata,
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::list_vectors(
+                            provider_config,
+                            collection.clone(),
+                            namespace.clone(),
+                            filter.clone(),
+                            limit,
+                            cursor.clone(),
+                            include_vectors,
+                            include_metadata,
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     ListVectorsParams {
                         collection,
@@ -1220,7 +1286,7 @@ mod durable_impl {
             }
         }
 
-        fn count_vectors(
+        async fn count_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             filter: Option<crate::model::types::FilterExpression>,
@@ -1230,17 +1296,20 @@ mod durable_impl {
             let durability: Durability<u64, VectorError> = Durability::new(
                 "golem_vector_vectors",
                 "count_vectors",
-                WrappedFunctionType::ReadRemote,
+                DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::count_vectors(
-                        provider_config,
-                        collection.clone(),
-                        filter.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::count_vectors(
+                            provider_config,
+                            collection.clone(),
+                            filter.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     CountVectorsParams {
                         collection,
@@ -1258,7 +1327,7 @@ mod durable_impl {
     impl<Impl: ExtendedVectorProvider> SearchProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn search_vectors(
+        async fn search_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             query: crate::model::search::SearchQuery,
@@ -1276,24 +1345,27 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_search",
                     "search_vectors",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::search_vectors(
-                        provider_config,
-                        collection.clone(),
-                        query.clone(),
-                        limit,
-                        filter.clone(),
-                        namespace.clone(),
-                        include_vectors,
-                        include_metadata,
-                        min_score,
-                        max_distance,
-                        search_params.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::search_vectors(
+                            provider_config,
+                            collection.clone(),
+                            query.clone(),
+                            limit,
+                            filter.clone(),
+                            namespace.clone(),
+                            include_vectors,
+                            include_metadata,
+                            min_score,
+                            max_distance,
+                            search_params.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     SearchVectorsParams {
                         collection,
@@ -1314,7 +1386,7 @@ mod durable_impl {
             }
         }
 
-        fn find_similar(
+        async fn find_similar(
             provider_config: Self::ProviderConfig,
             collection: String,
             vector: crate::model::types::VectorData,
@@ -1326,18 +1398,21 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_search",
                     "find_similar",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::find_similar(
-                        provider_config,
-                        collection.clone(),
-                        vector.clone(),
-                        limit,
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::find_similar(
+                            provider_config,
+                            collection.clone(),
+                            vector.clone(),
+                            limit,
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     FindSimilarParams {
                         collection,
@@ -1352,7 +1427,7 @@ mod durable_impl {
             }
         }
 
-        fn batch_search(
+        async fn batch_search(
             provider_config: Self::ProviderConfig,
             collection: String,
             queries: Vec<crate::model::search::SearchQuery>,
@@ -1368,22 +1443,25 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_search",
                     "batch_search",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::batch_search(
-                        provider_config,
-                        collection.clone(),
-                        queries.clone(),
-                        limit,
-                        filter.clone(),
-                        namespace.clone(),
-                        include_vectors,
-                        include_metadata,
-                        search_params.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::batch_search(
+                            provider_config,
+                            collection.clone(),
+                            queries.clone(),
+                            limit,
+                            filter.clone(),
+                            namespace.clone(),
+                            include_vectors,
+                            include_metadata,
+                            search_params.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     BatchSearchParams {
                         collection,
@@ -1406,7 +1484,7 @@ mod durable_impl {
     impl<Impl: ExtendedVectorProvider> SearchExtendedProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn recommend_vectors(
+        async fn recommend_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             positive: Vec<crate::model::search_extended::RecommendationExample>,
@@ -1423,23 +1501,26 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_search_extended",
                     "recommend_vectors",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::recommend_vectors(
-                        provider_config,
-                        collection.clone(),
-                        positive.clone(),
-                        negative.clone(),
-                        limit,
-                        filter.clone(),
-                        namespace.clone(),
-                        strategy,
-                        include_vectors,
-                        include_metadata,
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::recommend_vectors(
+                            provider_config,
+                            collection.clone(),
+                            positive.clone(),
+                            negative.clone(),
+                            limit,
+                            filter.clone(),
+                            namespace.clone(),
+                            strategy,
+                            include_vectors,
+                            include_metadata,
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     RecommendVectorsParams {
                         collection,
@@ -1459,7 +1540,7 @@ mod durable_impl {
             }
         }
 
-        fn discover_vectors(
+        async fn discover_vectors(
             provider_config: Self::ProviderConfig,
             collection: String,
             target: Option<crate::model::search_extended::RecommendationExample>,
@@ -1475,22 +1556,25 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_search_extended",
                     "discover_vectors",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::discover_vectors(
-                        provider_config,
-                        collection.clone(),
-                        target.clone(),
-                        context_pairs.clone(),
-                        limit,
-                        filter.clone(),
-                        namespace.clone(),
-                        include_vectors,
-                        include_metadata,
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::discover_vectors(
+                            provider_config,
+                            collection.clone(),
+                            target.clone(),
+                            context_pairs.clone(),
+                            limit,
+                            filter.clone(),
+                            namespace.clone(),
+                            include_vectors,
+                            include_metadata,
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     DiscoverVectorsParams {
                         collection,
@@ -1509,7 +1593,7 @@ mod durable_impl {
             }
         }
 
-        fn search_groups(
+        async fn search_groups(
             provider_config: Self::ProviderConfig,
             collection: String,
             query: crate::model::search::SearchQuery,
@@ -1528,23 +1612,26 @@ mod durable_impl {
             > = Durability::new(
                 "golem_vector_search_extended",
                 "search_groups",
-                WrappedFunctionType::ReadRemote,
+                DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::search_groups(
-                        provider_config,
-                        collection.clone(),
-                        query.clone(),
-                        group_by.clone(),
-                        group_size,
-                        max_groups,
-                        filter.clone(),
-                        namespace.clone(),
-                        include_vectors,
-                        include_metadata,
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::search_groups(
+                            provider_config,
+                            collection.clone(),
+                            query.clone(),
+                            group_by.clone(),
+                            group_size,
+                            max_groups,
+                            filter.clone(),
+                            namespace.clone(),
+                            include_vectors,
+                            include_metadata,
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     SearchGroupsParams {
                         collection,
@@ -1564,7 +1651,7 @@ mod durable_impl {
             }
         }
 
-        fn search_range(
+        async fn search_range(
             provider_config: Self::ProviderConfig,
             collection: String,
             vector: crate::model::types::VectorData,
@@ -1581,23 +1668,26 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_search_extended",
                     "search_range",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::search_range(
-                        provider_config,
-                        collection.clone(),
-                        vector.clone(),
-                        min_distance,
-                        max_distance,
-                        filter.clone(),
-                        namespace.clone(),
-                        limit,
-                        include_vectors,
-                        include_metadata,
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::search_range(
+                            provider_config,
+                            collection.clone(),
+                            vector.clone(),
+                            min_distance,
+                            max_distance,
+                            filter.clone(),
+                            namespace.clone(),
+                            limit,
+                            include_vectors,
+                            include_metadata,
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     SearchRangeParams {
                         collection,
@@ -1617,7 +1707,7 @@ mod durable_impl {
             }
         }
 
-        fn search_text(
+        async fn search_text(
             provider_config: Self::ProviderConfig,
             collection: String,
             query_text: String,
@@ -1630,19 +1720,22 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_search_extended",
                     "search_text",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::search_text(
-                        provider_config,
-                        collection.clone(),
-                        query_text.clone(),
-                        limit,
-                        filter.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::search_text(
+                            provider_config,
+                            collection.clone(),
+                            query_text.clone(),
+                            limit,
+                            filter.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     SearchTextParams {
                         collection,
@@ -1662,7 +1755,7 @@ mod durable_impl {
     impl<Impl: ExtendedVectorProvider> AnalyticsProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn get_collection_stats(
+        async fn get_collection_stats(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: Option<String>,
@@ -1672,23 +1765,26 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_analytics",
                     "get_collection_stats",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_collection_stats(
-                        provider_config,
-                        collection.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::get_collection_stats(
+                            provider_config,
+                            collection.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist((collection, namespace), result)
             } else {
                 durability.replay()
             }
         }
 
-        fn get_field_stats(
+        async fn get_field_stats(
             provider_config: Self::ProviderConfig,
             collection: String,
             field: String,
@@ -1699,24 +1795,27 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_analytics",
                     "get_field_stats",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_field_stats(
-                        provider_config,
-                        collection.clone(),
-                        field.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::get_field_stats(
+                            provider_config,
+                            collection.clone(),
+                            field.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist((collection, field, namespace), result)
             } else {
                 durability.replay()
             }
         }
 
-        fn get_field_distribution(
+        async fn get_field_distribution(
             provider_config: Self::ProviderConfig,
             collection: String,
             field: String,
@@ -1730,18 +1829,21 @@ mod durable_impl {
             > = Durability::new(
                 "golem_vector_analytics",
                 "get_field_distribution",
-                WrappedFunctionType::ReadRemote,
+                DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_field_distribution(
-                        provider_config,
-                        collection.clone(),
-                        field.clone(),
-                        limit,
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::get_field_distribution(
+                            provider_config,
+                            collection.clone(),
+                            field.clone(),
+                            limit,
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist(
                     GetFieldDistributionParams {
                         collection,
@@ -1760,7 +1862,7 @@ mod durable_impl {
     impl<Impl: ExtendedVectorProvider> NamespacesProvider for DurableVector<Impl> {
         type ProviderConfig = <Impl as ConnectionProvider>::ProviderConfig;
 
-        fn upsert_namespace(
+        async fn upsert_namespace(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
@@ -1771,24 +1873,27 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_namespaces",
                     "upsert_namespace",
-                    WrappedFunctionType::WriteRemote,
+                    DurableFunctionType::WriteRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert_namespace(
-                        provider_config,
-                        collection.clone(),
-                        namespace.clone(),
-                        metadata.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::upsert_namespace(
+                            provider_config,
+                            collection.clone(),
+                            namespace.clone(),
+                            metadata.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist((collection, namespace, metadata), result)
             } else {
                 durability.replay()
             }
         }
 
-        fn list_namespaces(
+        async fn list_namespaces(
             provider_config: Self::ProviderConfig,
             collection: String,
         ) -> Result<Vec<crate::model::namespaces::NamespaceInfo>, VectorError> {
@@ -1797,19 +1902,21 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_namespaces",
                     "list_namespaces",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::list_namespaces(provider_config, collection.clone())
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::list_namespaces(provider_config, collection.clone()).await
+                    })
+                    .await;
                 durability.persist(collection, result)
             } else {
                 durability.replay()
             }
         }
 
-        fn get_namespace(
+        async fn get_namespace(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
@@ -1819,19 +1926,22 @@ mod durable_impl {
                 Durability::new(
                     "golem_vector_namespaces",
                     "get_namespace",
-                    WrappedFunctionType::ReadRemote,
+                    DurableFunctionType::ReadRemote,
                 );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_namespace(provider_config, collection.clone(), namespace.clone())
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::get_namespace(provider_config, collection.clone(), namespace.clone())
+                            .await
+                    })
+                    .await;
                 durability.persist((collection, namespace), result)
             } else {
                 durability.replay()
             }
         }
 
-        fn delete_namespace(
+        async fn delete_namespace(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
@@ -1840,16 +1950,19 @@ mod durable_impl {
             let durability: Durability<Unit, VectorError> = Durability::new(
                 "golem_vector_namespaces",
                 "delete_namespace",
-                WrappedFunctionType::WriteRemote,
+                DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    <Impl as NamespacesProvider>::delete_namespace(
-                        provider_config,
-                        collection.clone(),
-                        namespace.clone(),
-                    )
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        <Impl as NamespacesProvider>::delete_namespace(
+                            provider_config,
+                            collection.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist((collection, namespace), result.map(|_| Unit))?;
                 Ok(())
             } else {
@@ -1858,7 +1971,7 @@ mod durable_impl {
             }
         }
 
-        fn namespace_exists(
+        async fn namespace_exists(
             provider_config: Self::ProviderConfig,
             collection: String,
             namespace: String,
@@ -1867,12 +1980,19 @@ mod durable_impl {
             let durability: Durability<bool, VectorError> = Durability::new(
                 "golem_vector_namespaces",
                 "namespace_exists",
-                WrappedFunctionType::ReadRemote,
+                DurableFunctionType::ReadRemote,
             );
             if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::namespace_exists(provider_config, collection.clone(), namespace.clone())
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::namespace_exists(
+                            provider_config,
+                            collection.clone(),
+                            namespace.clone(),
+                        )
+                        .await
+                    })
+                    .await;
                 durability.persist((collection, namespace), result)
             } else {
                 durability.replay()
@@ -1881,7 +2001,7 @@ mod durable_impl {
     }
 
     // Parameter structures for durability
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct ConnectParams {
         endpoint: String,
         credentials: Option<crate::model::connection::Credentials>,
@@ -1889,7 +2009,7 @@ mod durable_impl {
         options: Option<crate::model::types::Metadata>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct UpsertCollectionParams {
         name: String,
         description: Option<String>,
@@ -1899,21 +2019,21 @@ mod durable_impl {
         metadata: Option<crate::model::types::Metadata>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct UpdateCollectionParams {
         name: String,
         description: Option<String>,
         metadata: Option<crate::model::types::Metadata>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct UpsertVectorsParams {
         collection: String,
         vectors: Vec<crate::model::types::VectorRecord>,
         namespace: Option<String>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct UpsertVectorParams {
         collection: String,
         id: crate::model::types::Id,
@@ -1922,7 +2042,7 @@ mod durable_impl {
         namespace: Option<String>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct UpdateVectorParams {
         collection: String,
         id: crate::model::types::Id,
@@ -1932,21 +2052,21 @@ mod durable_impl {
         merge_metadata: Option<bool>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct DeleteVectorsParams {
         collection: String,
         ids: Vec<crate::model::types::Id>,
         namespace: Option<String>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct DeleteByFilterParams {
         collection: String,
         filter: crate::model::types::FilterExpression,
         namespace: Option<String>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct SearchVectorsParams {
         collection: String,
         query: crate::model::search::SearchQuery,
@@ -1960,7 +2080,7 @@ mod durable_impl {
         search_params: Option<Vec<(String, String)>>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct BatchSearchParams {
         collection: String,
         queries: Vec<crate::model::search::SearchQuery>,
@@ -1972,7 +2092,7 @@ mod durable_impl {
         search_params: Option<Vec<(String, String)>>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct GetVectorsParams {
         collection: String,
         ids: Vec<crate::model::types::Id>,
@@ -1981,14 +2101,14 @@ mod durable_impl {
         include_metadata: Option<bool>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct GetVectorParams {
         collection: String,
         id: crate::model::types::Id,
         namespace: Option<String>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct ListVectorsParams {
         collection: String,
         namespace: Option<String>,
@@ -1999,14 +2119,14 @@ mod durable_impl {
         include_metadata: Option<bool>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct CountVectorsParams {
         collection: String,
         filter: Option<crate::model::types::FilterExpression>,
         namespace: Option<String>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct FindSimilarParams {
         collection: String,
         vector: crate::model::types::VectorData,
@@ -2014,7 +2134,7 @@ mod durable_impl {
         namespace: Option<String>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct RecommendVectorsParams {
         collection: String,
         positive: Vec<crate::model::search_extended::RecommendationExample>,
@@ -2027,7 +2147,7 @@ mod durable_impl {
         include_metadata: Option<bool>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct DiscoverVectorsParams {
         collection: String,
         target: Option<crate::model::search_extended::RecommendationExample>,
@@ -2039,7 +2159,7 @@ mod durable_impl {
         include_metadata: Option<bool>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct SearchGroupsParams {
         collection: String,
         query: crate::model::search::SearchQuery,
@@ -2052,7 +2172,7 @@ mod durable_impl {
         include_metadata: Option<bool>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct SearchRangeParams {
         collection: String,
         vector: crate::model::types::VectorData,
@@ -2065,7 +2185,7 @@ mod durable_impl {
         include_metadata: Option<bool>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct SearchTextParams {
         collection: String,
         query_text: String,
@@ -2074,7 +2194,7 @@ mod durable_impl {
         namespace: Option<String>,
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue, PartialEq)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema, PartialEq)]
     struct GetFieldDistributionParams {
         collection: String,
         field: String,
@@ -2083,20 +2203,19 @@ mod durable_impl {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "golem"))]
 mod tests {
     use crate::model::types::{
-        DenseVector, DistanceMetric, FilterCondition, FilterOperator, Id, MetadataValue,
-        SearchResult, VectorData, VectorError, VectorRecord,
+        DenseVector, DistanceMetric, FilterCondition, FilterExpression, FilterFunc, FilterOperator,
+        Id, MetadataFunc, MetadataValue, SearchResult, VectorData, VectorError, VectorRecord,
     };
-    use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
+    use golem_rust::{FromSchema, IntoSchema};
     use std::fmt::Debug;
 
-    fn roundtrip_test<T: Debug + Clone + PartialEq + IntoValueAndType + FromValueAndType>(
-        value: T,
-    ) {
-        let vnt = value.clone().into_value_and_type();
-        let extracted = T::from_value_and_type(vnt).unwrap();
+    fn roundtrip_test<T: Debug + Clone + PartialEq + IntoSchema + FromSchema>(value: T) {
+        golem_rust::schema::try_into_schema_graph::<T>().unwrap();
+        let schema_value = value.to_value();
+        let extracted = T::from_value(&schema_value).unwrap();
         assert_eq!(value, extracted);
     }
 
@@ -2142,6 +2261,24 @@ mod tests {
         roundtrip_test(MetadataValue::IntegerVal(123));
         roundtrip_test(MetadataValue::BooleanVal(true));
         roundtrip_test(MetadataValue::NullVal);
+        roundtrip_test(MetadataValue::ObjectVal(vec![(
+            "nested".to_string(),
+            MetadataFunc::new(MetadataValue::ArrayVal(vec![MetadataFunc::new(
+                MetadataValue::IntegerVal(7),
+            )])),
+        )]));
+    }
+
+    #[test]
+    fn recursive_filter_expression_roundtrip() {
+        let condition = FilterExpression::Condition(FilterCondition {
+            field: "category".to_string(),
+            operator: FilterOperator::Eq,
+            value: MetadataValue::StringVal("electronics".to_string()),
+        });
+        roundtrip_test(FilterExpression::Not(FilterFunc::new(
+            FilterExpression::And(vec![FilterFunc::new(condition)]),
+        )));
     }
 
     #[test]

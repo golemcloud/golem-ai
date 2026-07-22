@@ -3,11 +3,6 @@ pub mod durability;
 pub mod error;
 pub mod model;
 
-#[cfg(feature = "golem")]
-use golem_rust::golem_wasm::{NodeBuilder, ResourceMode, Uri, WitValueExtractor};
-#[cfg(feature = "golem")]
-use golem_rust::value_and_type::{FromValueAndType, IntoValue, TypeNodeBuilder};
-
 use model::analytics::{CollectionStats, FieldStats};
 use model::collections::{CollectionInfo, DistanceMetric, IndexConfig, Metadata, VectorError};
 use model::connection::{ConnectionStatus, Credentials};
@@ -20,11 +15,6 @@ use model::types::{FilterExpression, FilterFunc, MetadataFunc, MetadataValue};
 use model::vectors::{BatchResult, Id, ListResponse, VectorRecord};
 use std::cell::RefCell;
 use std::str::FromStr;
-
-#[cfg(feature = "golem")]
-const METADATA_FUNC_ID: u64 = 1;
-#[cfg(feature = "golem")]
-const FILTER_FUNC_ID: u64 = 2;
 
 pub trait FuncProvider {
     type MetadataFunc: MetadataFuncInterface;
@@ -43,11 +33,12 @@ pub trait FilterFuncInterface: 'static {
     fn get(&self) -> FilterExpression;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait CollectionProvider {
     /// Provider-specific configuration that the caller resolves and passes in.
     type ProviderConfig: Clone + 'static;
 
-    fn upsert_collection(
+    async fn upsert_collection(
         provider_config: Self::ProviderConfig,
         name: String,
         description: Option<String>,
@@ -56,33 +47,36 @@ pub trait CollectionProvider {
         index_config: Option<IndexConfig>,
         metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError>;
-    fn list_collections(provider_config: Self::ProviderConfig) -> Result<Vec<String>, VectorError>;
-    fn get_collection(
+    async fn list_collections(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<String>, VectorError>;
+    async fn get_collection(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<CollectionInfo, VectorError>;
-    fn update_collection(
+    async fn update_collection(
         provider_config: Self::ProviderConfig,
         name: String,
         description: Option<String>,
         metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError>;
-    fn delete_collection(
+    async fn delete_collection(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<(), VectorError>;
-    fn collection_exists(
+    async fn collection_exists(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<bool, VectorError>;
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(async_fn_in_trait)]
 pub trait SearchProvider {
     /// Provider-specific configuration that the caller resolves and passes in.
     type ProviderConfig: Clone + 'static;
 
-    fn search_vectors(
+    async fn search_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         query: SearchQuery,
@@ -95,14 +89,14 @@ pub trait SearchProvider {
         max_distance: Option<f32>,
         search_params: Option<Vec<(String, String)>>,
     ) -> Result<Vec<SearchResult>, model::search::VectorError>;
-    fn find_similar(
+    async fn find_similar(
         provider_config: Self::ProviderConfig,
         collection: String,
         vector: VectorData,
         limit: u32,
         namespace: Option<String>,
     ) -> Result<Vec<SearchResult>, model::search::VectorError>;
-    fn batch_search(
+    async fn batch_search(
         provider_config: Self::ProviderConfig,
         collection: String,
         queries: Vec<SearchQuery>,
@@ -115,82 +109,71 @@ pub trait SearchProvider {
     ) -> Result<Vec<Vec<SearchResult>>, model::search::VectorError>;
 }
 
-#[cfg(feature = "golem")]
-macro_rules! impl_resource_traits {
-    ($ResourceType:ty, $InnerType:ty, $UriString:literal, $TypeIdConstant:ident) => {
-        impl Clone for $ResourceType {
-            fn clone(&self) -> Self {
-                Self::new(self.get::<$InnerType>().clone())
-            }
-        }
-
-        impl PartialEq for $ResourceType {
-            fn eq(&self, other: &Self) -> bool {
-                self.get::<$InnerType>() == other.get::<$InnerType>()
-            }
-        }
-
-        impl IntoValue for $ResourceType {
-            fn add_to_builder<B: NodeBuilder>(self, builder: B) -> B::Result {
-                builder.handle(
-                    Uri {
-                        value: $UriString.to_string(),
-                    },
-                    0u64,
-                )
-            }
-
-            fn add_to_type_builder<B: TypeNodeBuilder>(builder: B) -> B::Result {
-                builder.handle(None, None, $TypeIdConstant, ResourceMode::Owned)
-            }
-        }
-
-        impl FromValueAndType for $ResourceType {
-            fn from_extractor<'a, 'b>(
-                extractor: &'a impl WitValueExtractor<'a, 'b>,
-            ) -> Result<Self, String> {
-                <$InnerType>::from_extractor(extractor).map(Self::new)
-            }
-        }
-    };
-}
-
-// Provide Clone/PartialEq impls for the resource wrapper types in non-golem mode
-// (the golem-derived `IntoValue`/`FromValueAndType` only exist in golem mode).
-#[cfg(not(feature = "golem"))]
 impl Clone for MetadataFunc {
     fn clone(&self) -> Self {
         Self::new(self.get::<MetadataValue>().clone())
     }
 }
 
-#[cfg(not(feature = "golem"))]
 impl PartialEq for MetadataFunc {
     fn eq(&self, other: &Self) -> bool {
         self.get::<MetadataValue>() == other.get::<MetadataValue>()
     }
 }
 
-#[cfg(not(feature = "golem"))]
 impl Clone for FilterFunc {
     fn clone(&self) -> Self {
         Self::new(self.get::<FilterExpression>().clone())
     }
 }
 
-#[cfg(not(feature = "golem"))]
 impl PartialEq for FilterFunc {
     fn eq(&self, other: &Self) -> bool {
         self.get::<FilterExpression>() == other.get::<FilterExpression>()
     }
 }
 
+#[cfg(feature = "golem")]
+macro_rules! impl_transparent_schema {
+    ($wrapper:ty, $inner:ty) => {
+        impl golem_rust::IntoSchema for $wrapper {
+            fn type_id() -> golem_rust::schema::TypeId {
+                <$inner as golem_rust::IntoSchema>::type_id()
+            }
+
+            fn register_in(
+                builder: &mut golem_rust::schema::SchemaBuilder,
+            ) -> golem_rust::SchemaType {
+                <$inner as golem_rust::IntoSchema>::register_in(builder)
+            }
+
+            fn to_value(&self) -> golem_rust::SchemaValue {
+                self.get::<$inner>().to_value()
+            }
+        }
+
+        impl golem_rust::FromSchema for $wrapper {
+            fn from_value(
+                value: &golem_rust::SchemaValue,
+            ) -> Result<Self, golem_rust::schema::FromSchemaError> {
+                <$inner as golem_rust::FromSchema>::from_value(value).map(Self::new)
+            }
+        }
+    };
+}
+
+#[cfg(feature = "golem")]
+impl_transparent_schema!(MetadataFunc, MetadataValue);
+#[cfg(feature = "golem")]
+impl_transparent_schema!(FilterFunc, FilterExpression);
+
 #[allow(clippy::too_many_arguments)]
+#[allow(async_fn_in_trait)]
 pub trait SearchExtendedProvider {
     /// Provider-specific configuration that the caller resolves and passes in.
     type ProviderConfig: Clone + 'static;
 
-    fn recommend_vectors(
+    async fn recommend_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         positive: Vec<RecommendationExample>,
@@ -202,7 +185,7 @@ pub trait SearchExtendedProvider {
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
     ) -> Result<Vec<model::search_extended::SearchResult>, model::search_extended::VectorError>;
-    fn discover_vectors(
+    async fn discover_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         target: Option<RecommendationExample>,
@@ -213,7 +196,7 @@ pub trait SearchExtendedProvider {
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
     ) -> Result<Vec<model::search_extended::SearchResult>, model::search_extended::VectorError>;
-    fn search_groups(
+    async fn search_groups(
         provider_config: Self::ProviderConfig,
         collection: String,
         query: model::search_extended::SearchQuery,
@@ -225,7 +208,7 @@ pub trait SearchExtendedProvider {
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
     ) -> Result<Vec<GroupedSearchResult>, model::search_extended::VectorError>;
-    fn search_range(
+    async fn search_range(
         provider_config: Self::ProviderConfig,
         collection: String,
         vector: model::search_extended::VectorData,
@@ -237,7 +220,7 @@ pub trait SearchExtendedProvider {
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
     ) -> Result<Vec<model::search_extended::SearchResult>, model::search_extended::VectorError>;
-    fn search_text(
+    async fn search_text(
         provider_config: Self::ProviderConfig,
         collection: String,
         query_text: String,
@@ -247,53 +230,55 @@ pub trait SearchExtendedProvider {
     ) -> Result<Vec<model::search_extended::SearchResult>, model::search_extended::VectorError>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait NamespacesProvider {
     /// Provider-specific configuration that the caller resolves and passes in.
     type ProviderConfig: Clone + 'static;
 
-    fn upsert_namespace(
+    async fn upsert_namespace(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: String,
         metadata: Option<model::namespaces::Metadata>,
     ) -> Result<NamespaceInfo, model::namespaces::VectorError>;
-    fn list_namespaces(
+    async fn list_namespaces(
         provider_config: Self::ProviderConfig,
         collection: String,
     ) -> Result<Vec<NamespaceInfo>, model::namespaces::VectorError>;
-    fn get_namespace(
+    async fn get_namespace(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: String,
     ) -> Result<NamespaceInfo, model::namespaces::VectorError>;
-    fn delete_namespace(
+    async fn delete_namespace(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: String,
     ) -> Result<(), model::namespaces::VectorError>;
-    fn namespace_exists(
+    async fn namespace_exists(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: String,
     ) -> Result<bool, model::namespaces::VectorError>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait AnalyticsProvider {
     /// Provider-specific configuration that the caller resolves and passes in.
     type ProviderConfig: Clone + 'static;
 
-    fn get_collection_stats(
+    async fn get_collection_stats(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: Option<String>,
     ) -> Result<CollectionStats, model::analytics::VectorError>;
-    fn get_field_stats(
+    async fn get_field_stats(
         provider_config: Self::ProviderConfig,
         collection: String,
         field: String,
         namespace: Option<String>,
     ) -> Result<FieldStats, model::analytics::VectorError>;
-    fn get_field_distribution(
+    async fn get_field_distribution(
         provider_config: Self::ProviderConfig,
         collection: String,
         field: String,
@@ -302,24 +287,25 @@ pub trait AnalyticsProvider {
     ) -> Result<Vec<(model::analytics::MetadataValue, u64)>, model::analytics::VectorError>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait ConnectionProvider {
     /// Provider-specific configuration that the caller resolves and passes in.
     type ProviderConfig: Clone + 'static;
 
-    fn connect(
+    async fn connect(
         provider_config: Self::ProviderConfig,
         endpoint: String,
         credentials: Option<Credentials>,
         timeout_ms: Option<u32>,
         options: Option<model::connection::Metadata>,
     ) -> Result<(), model::connection::VectorError>;
-    fn disconnect(
+    async fn disconnect(
         provider_config: Self::ProviderConfig,
     ) -> Result<(), model::connection::VectorError>;
-    fn get_connection_status(
+    async fn get_connection_status(
         provider_config: Self::ProviderConfig,
     ) -> Result<ConnectionStatus, model::connection::VectorError>;
-    fn test_connection(
+    async fn test_connection(
         provider_config: Self::ProviderConfig,
         endpoint: String,
         credentials: Option<Credentials>,
@@ -328,17 +314,18 @@ pub trait ConnectionProvider {
     ) -> Result<bool, model::connection::VectorError>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait VectorsProvider {
     /// Provider-specific configuration that the caller resolves and passes in.
     type ProviderConfig: Clone + 'static;
 
-    fn upsert_vectors(
+    async fn upsert_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         vectors: Vec<VectorRecord>,
         namespace: Option<String>,
     ) -> Result<BatchResult, model::vectors::VectorError>;
-    fn upsert_vector(
+    async fn upsert_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -346,7 +333,7 @@ pub trait VectorsProvider {
         metadata: Option<model::vectors::Metadata>,
         namespace: Option<String>,
     ) -> Result<(), model::vectors::VectorError>;
-    fn get_vectors(
+    async fn get_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
@@ -354,13 +341,13 @@ pub trait VectorsProvider {
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
     ) -> Result<Vec<VectorRecord>, model::vectors::VectorError>;
-    fn get_vector(
+    async fn get_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
         namespace: Option<String>,
     ) -> Result<Option<VectorRecord>, model::vectors::VectorError>;
-    fn update_vector(
+    async fn update_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -369,25 +356,25 @@ pub trait VectorsProvider {
         namespace: Option<String>,
         merge_metadata: Option<bool>,
     ) -> Result<(), model::vectors::VectorError>;
-    fn delete_vectors(
+    async fn delete_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
         namespace: Option<String>,
     ) -> Result<u32, model::vectors::VectorError>;
-    fn delete_by_filter(
+    async fn delete_by_filter(
         provider_config: Self::ProviderConfig,
         collection: String,
         filter: model::vectors::FilterExpression,
         namespace: Option<String>,
     ) -> Result<u32, model::vectors::VectorError>;
-    fn delete_namespace(
+    async fn delete_namespace(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: String,
     ) -> Result<u32, model::vectors::VectorError>;
     #[allow(clippy::too_many_arguments)]
-    fn list_vectors(
+    async fn list_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: Option<String>,
@@ -397,28 +384,13 @@ pub trait VectorsProvider {
         include_vectors: Option<bool>,
         include_metadata: Option<bool>,
     ) -> Result<ListResponse, model::vectors::VectorError>;
-    fn count_vectors(
+    async fn count_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         filter: Option<model::vectors::FilterExpression>,
         namespace: Option<String>,
     ) -> Result<u64, model::vectors::VectorError>;
 }
-
-#[cfg(feature = "golem")]
-impl_resource_traits!(
-    MetadataFunc,
-    MetadataValue,
-    "golem:vector/types/metadata-func",
-    METADATA_FUNC_ID
-);
-#[cfg(feature = "golem")]
-impl_resource_traits!(
-    FilterFunc,
-    FilterExpression,
-    "golem:vector/types/filter-func",
-    FILTER_FUNC_ID
-);
 
 impl MetadataFuncInterface for MetadataValue {
     fn as_any(&self) -> &dyn std::any::Any {
