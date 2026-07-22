@@ -22,7 +22,6 @@ log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 base64 = { workspace = true }
-wstd = { workspace = true }
 derive_more = { version = "2.0.1", features = ["from"] }
 http = "=1.3.1"
 url = "2.5.4"
@@ -39,4 +38,5 @@ sha2 = { version = "0.10.9", features = ["oid"] }
 rand = "0.8"
 
 [dev-dependencies]
+futures = { workspace = true }
 multipart-2021 = "0.19.0"

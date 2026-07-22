@@ -292,128 +292,132 @@ mod tests {
         }
     }
 
-    #[wstd::test]
-    async fn test_cloud_storage_put_object_request() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_cloud_storage_put_object_request() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        auth_mock_client.expect_response(
+            auth_mock_client.expect_response(
                 Response::builder()
                     .status(StatusCode::OK)
                     .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                     .unwrap(),
             );
 
-        let storage_mock_client = MockHttpClient::new();
-        storage_mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::OK)
-                .body(vec![])
-                .unwrap(),
-        );
+            let storage_mock_client = MockHttpClient::new();
+            storage_mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(vec![])
+                    .unwrap(),
+            );
 
-        let service_account_key = create_test_service_account_key();
+            let service_account_key = create_test_service_account_key();
 
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let cloud_storage_client = CloudStorageClient::new(auth.into(), storage_mock_client);
+            let cloud_storage_client = CloudStorageClient::new(auth.into(), storage_mock_client);
 
-        let bucket = "test-bucket";
-        let object_name = "test-object.txt";
-        let content = Bytes::from("Hello, World!");
+            let bucket = "test-bucket";
+            let object_name = "test-object.txt";
+            let content = Bytes::from("Hello, World!");
 
-        cloud_storage_client
-            .put_object("some-request-id", bucket, object_name, content.clone())
-            .await
-            .unwrap();
+            cloud_storage_client
+                .put_object("some-request-id", bucket, object_name, content.clone())
+                .await
+                .unwrap();
 
-        let captured_request = cloud_storage_client.http_client.last_captured_request();
-        let request = captured_request.as_ref().unwrap();
+            let captured_request = cloud_storage_client.http_client.last_captured_request();
+            let request = captured_request.as_ref().unwrap();
 
-        assert_eq!(request.method(), "POST");
+            assert_eq!(request.method(), "POST");
 
-        let expected_uri = format!(
-            "https://storage.googleapis.com/upload/storage/v1/b/{}/o?uploadType=media&name={}",
-            bucket,
-            urlencoding::encode(object_name)
-        );
-        assert_eq!(request.uri().to_string(), expected_uri);
+            let expected_uri = format!(
+                "https://storage.googleapis.com/upload/storage/v1/b/{}/o?uploadType=media&name={}",
+                bucket,
+                urlencoding::encode(object_name)
+            );
+            assert_eq!(request.uri().to_string(), expected_uri);
 
-        assert_eq!(request.body(), &content);
+            assert_eq!(request.body(), &content);
 
-        // Check headers
-        assert_eq!(
-            request.headers().get("content-type").unwrap(),
-            "application/octet-stream"
-        );
-        assert_eq!(
-            request.headers().get("content-length").unwrap(),
-            &content.len().to_string()
-        );
+            // Check headers
+            assert_eq!(
+                request.headers().get("content-type").unwrap(),
+                "application/octet-stream"
+            );
+            assert_eq!(
+                request.headers().get("content-length").unwrap(),
+                &content.len().to_string()
+            );
 
-        let auth_header = request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert_eq!(auth_header, "Bearer test-access-token");
+            let auth_header = request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert_eq!(auth_header, "Bearer test-access-token");
+        });
     }
 
-    #[wstd::test]
-    async fn test_cloud_storage_delete_object_request() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_cloud_storage_delete_object_request() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        auth_mock_client.expect_response(
+            auth_mock_client.expect_response(
                 Response::builder()
                     .status(StatusCode::OK)
                     .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                     .unwrap(),
             );
 
-        let storage_mock_client = MockHttpClient::new();
+            let storage_mock_client = MockHttpClient::new();
 
-        storage_mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::NO_CONTENT)
-                .body(vec![])
-                .unwrap(),
-        );
+            storage_mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::NO_CONTENT)
+                    .body(vec![])
+                    .unwrap(),
+            );
 
-        let service_account_key = create_test_service_account_key();
+            let service_account_key = create_test_service_account_key();
 
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let cloud_storage_client = CloudStorageClient::new(auth.into(), storage_mock_client);
+            let cloud_storage_client = CloudStorageClient::new(auth.into(), storage_mock_client);
 
-        let bucket = "test-bucket";
-        let object_name = "test-object.txt";
+            let bucket = "test-bucket";
+            let object_name = "test-object.txt";
 
-        cloud_storage_client
-            .delete_object("some-request-id", bucket, object_name)
-            .await
-            .unwrap();
+            cloud_storage_client
+                .delete_object("some-request-id", bucket, object_name)
+                .await
+                .unwrap();
 
-        let captured_request = cloud_storage_client.http_client.last_captured_request();
-        let request = captured_request.as_ref().unwrap();
+            let captured_request = cloud_storage_client.http_client.last_captured_request();
+            let request = captured_request.as_ref().unwrap();
 
-        assert_eq!(request.method(), "DELETE");
+            assert_eq!(request.method(), "DELETE");
 
-        let expected_uri = format!(
-            "https://storage.googleapis.com/storage/v1/b/{}/o/{}",
-            bucket,
-            urlencoding::encode(object_name)
-        );
-        assert_eq!(request.uri().to_string(), expected_uri);
+            let expected_uri = format!(
+                "https://storage.googleapis.com/storage/v1/b/{}/o/{}",
+                bucket,
+                urlencoding::encode(object_name)
+            );
+            assert_eq!(request.uri().to_string(), expected_uri);
 
-        let expected_body: Vec<u8> = vec![];
-        assert_eq!(request.body(), &expected_body);
+            let expected_body: Vec<u8> = vec![];
+            assert_eq!(request.body(), &expected_body);
 
-        let auth_header = request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert_eq!(auth_header, "Bearer test-access-token");
+            let auth_header = request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert_eq!(auth_header, "Bearer test-access-token");
+        });
     }
 }

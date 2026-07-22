@@ -2181,6 +2181,7 @@ dependencies = [
  "bytes",
  "chrono",
  "derive_more",
+ "futures",
  "futures-concurrency",
  "golem-ai-stt",
  "golem-rust",
@@ -2196,7 +2197,6 @@ dependencies = [
  "sha2 0.10.9",
  "url 2.5.8",
  "urlencoding",
- "wstd",
 ]
 
 [[package]]
