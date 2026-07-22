@@ -2431,9 +2431,9 @@ version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "data-encoding",
+ "golem-ai-http",
  "golem-ai-video",
  "golem-rust",
- "golem-wasi-http",
  "log 0.4.29",
  "pkcs8",
  "rsa",

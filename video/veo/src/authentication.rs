@@ -15,7 +15,7 @@ const SHA256_PREFIX: &[u8] = &[
 ];
 
 /// Generate GCP access token using service account credentials
-pub fn generate_access_token(
+pub async fn generate_access_token(
     client_email: &str,
     private_key_pem: &str,
     scope: &str,
@@ -26,7 +26,7 @@ pub fn generate_access_token(
     let jwt = generate_jwt(client_email, private_key_pem, scope)?;
 
     // Step 2: Exchange JWT for access token
-    exchange_jwt_for_token(&jwt)
+    exchange_jwt_for_token(&jwt).await
 }
 
 /// Generate a signed JWT for GCP authentication
@@ -104,8 +104,8 @@ fn generate_jwt(
 }
 
 /// Exchange JWT for GCP access token
-fn exchange_jwt_for_token(jwt: &str) -> Result<String, VideoError> {
-    use golem_wasi_http::Client;
+async fn exchange_jwt_for_token(jwt: &str) -> Result<String, VideoError> {
+    use golem_ai_http::Client;
 
     let client = Client::builder()
         .build()
@@ -120,6 +120,7 @@ fn exchange_jwt_for_token(jwt: &str) -> Result<String, VideoError> {
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(body)
         .send()
+        .await
         .map_err(|e| internal_error(format!("Failed to request access token: {e}")))?;
 
     let status = response.status();
@@ -127,6 +128,7 @@ fn exchange_jwt_for_token(jwt: &str) -> Result<String, VideoError> {
     if !status.is_success() {
         let error_body = response
             .text()
+            .await
             .map_err(|e| internal_error(format!("Failed to read error response: {e}")))?;
         return Err(internal_error(format!(
             "Token exchange failed with status {status}: {error_body}"
@@ -136,6 +138,7 @@ fn exchange_jwt_for_token(jwt: &str) -> Result<String, VideoError> {
     // Parse response
     let response_body: serde_json::Value = response
         .json()
+        .await
         .map_err(|e| internal_error(format!("Failed to parse token response: {e}")))?;
 
     // Extract access token
