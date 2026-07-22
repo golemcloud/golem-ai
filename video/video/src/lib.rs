@@ -12,56 +12,62 @@ use crate::model::video_generation::{GenerationConfig, MediaInput, VideoError, V
 use std::cell::RefCell;
 use std::str::FromStr;
 
+#[allow(async_fn_in_trait)]
 pub trait VideoGenerationProvider {
     /// Provider-specific configuration (API keys, base URLs, etc.) that the
     /// caller resolves once and passes in. Each provider crate defines its
     /// own concrete config type; see e.g. `golem_ai_video_runway::RunwayConfig`.
     type ProviderConfig: Clone + 'static;
 
-    fn generate(
+    async fn generate(
         provider_config: Self::ProviderConfig,
         input: MediaInput,
         config: GenerationConfig,
     ) -> Result<String, VideoError>;
-    fn poll(
+    async fn poll(
         provider_config: Self::ProviderConfig,
         job_id: String,
     ) -> Result<VideoResult, VideoError>;
-    fn cancel(provider_config: Self::ProviderConfig, job_id: String) -> Result<String, VideoError>;
+    async fn cancel(
+        provider_config: Self::ProviderConfig,
+        job_id: String,
+    ) -> Result<String, VideoError>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait LipSyncProvider {
     /// Provider-specific configuration; see [`VideoGenerationProvider::ProviderConfig`].
     type ProviderConfig: Clone + 'static;
 
-    fn generate_lip_sync(
+    async fn generate_lip_sync(
         provider_config: Self::ProviderConfig,
         video: LipSyncVideo,
         audio: AudioSource,
     ) -> Result<String, model::lip_sync::VideoError>;
-    fn list_voices(
+    async fn list_voices(
         provider_config: Self::ProviderConfig,
         language: Option<String>,
     ) -> Result<Vec<VoiceInfo>, model::lip_sync::VideoError>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait AdvancedVideoGenerationProvider {
     /// Provider-specific configuration; see [`VideoGenerationProvider::ProviderConfig`].
     type ProviderConfig: Clone + 'static;
 
-    fn extend_video(
+    async fn extend_video(
         provider_config: Self::ProviderConfig,
         options: ExtendVideoOptions,
     ) -> Result<String, model::advanced::VideoError>;
-    fn upscale_video(
+    async fn upscale_video(
         provider_config: Self::ProviderConfig,
         input: BaseVideo,
     ) -> Result<String, model::advanced::VideoError>;
-    fn generate_video_effects(
+    async fn generate_video_effects(
         provider_config: Self::ProviderConfig,
         options: GenerateVideoEffectsOptions,
     ) -> Result<String, model::advanced::VideoError>;
-    fn multi_image_generation(
+    async fn multi_image_generation(
         provider_config: Self::ProviderConfig,
         options: MultImageGenerationOptions,
     ) -> Result<String, model::advanced::VideoError>;

@@ -2374,8 +2374,8 @@ dependencies = [
 name = "golem-ai-video"
 version = "0.5.2"
 dependencies = [
+ "golem-ai-http",
  "golem-rust",
- "golem-wasi-http",
  "log 0.4.29",
  "mime 0.3.17",
  "mime_guess 2.0.5",
