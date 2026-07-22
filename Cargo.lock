@@ -2416,9 +2416,9 @@ name = "golem-ai-video-stability"
 version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
+ "golem-ai-http",
  "golem-ai-video",
  "golem-rust",
- "golem-wasi-http",
  "image",
  "log 0.4.29",
  "serde",

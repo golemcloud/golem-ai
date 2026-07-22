@@ -128,7 +128,7 @@ fn map_aspect_ratio_to_stability_t2i(aspect_ratio: Option<AspectRatio>) -> Optio
 }
 
 /// Generate image from text using Stability's text-to-image API
-fn generate_image_from_text(
+async fn generate_image_from_text(
     client: &StabilityApi,
     prompt: String,
     config: &GenerationConfig,
@@ -165,7 +165,7 @@ fn generate_image_from_text(
         output_format: "png".to_string(),
     };
 
-    match client.generate_text_to_image(t2i_request) {
+    match client.generate_text_to_image(t2i_request).await {
         Ok(response) => {
             log::debug!("Successfully generated image from text");
             if let Some(seed) = response.seed {
@@ -186,7 +186,7 @@ fn generate_image_from_text(
 }
 
 // Make request for video generation
-pub fn media_input_to_request(
+pub async fn media_input_to_request(
     input: MediaInput,
     config: GenerationConfig,
 ) -> Result<ImageToVideoRequest, VideoError> {
@@ -205,7 +205,7 @@ pub fn media_input_to_request(
             let processed_image_data = match ref_image.data.data {
                 MediaData::Url(url) => {
                     // Download the image from the URL and process it
-                    let raw_bytes = download_image_from_url(&url)?;
+                    let raw_bytes = download_image_from_url(&url).await?;
                     process_image_for_stability(&raw_bytes.bytes, target_dims)?
                 }
                 MediaData::Bytes(raw_bytes) => {
@@ -310,7 +310,7 @@ pub fn media_input_to_request(
 }
 
 // Generate video from text or image, text->image->video, from video is unsupported
-pub fn generate_video(
+pub async fn generate_video(
     client: &StabilityApi,
     input: MediaInput,
     config: GenerationConfig,
@@ -320,7 +320,7 @@ pub fn generate_video(
             log::info!("Processing text-to-video request via text-to-image + image-to-video");
 
             // First generate image from text
-            let image_data = generate_image_from_text(client, prompt, &config)?;
+            let image_data = generate_image_from_text(client, prompt, &config).await?;
 
             // Create a new MediaInput with the generated image
             let image_input = MediaInput::Image(golem_ai_video::model::types::Reference {
@@ -335,15 +335,15 @@ pub fn generate_video(
             });
 
             // Now generate video from the image
-            let request = media_input_to_request(image_input, config)?;
-            let response = client.generate_video(request)?;
+            let request = media_input_to_request(image_input, config).await?;
+            let response = client.generate_video(request).await?;
 
             log::info!("Successfully initiated text-to-video generation");
             Ok(response.id)
         }
         MediaInput::Image(_) => {
-            let request = media_input_to_request(input, config)?;
-            let response = client.generate_video(request)?;
+            let request = media_input_to_request(input, config).await?;
+            let response = client.generate_video(request).await?;
             Ok(response.id)
         }
         MediaInput::Video(_) => Err(unsupported_feature(
@@ -353,11 +353,11 @@ pub fn generate_video(
 }
 
 // Poll for video generation status
-pub fn poll_video_generation(
+pub async fn poll_video_generation(
     client: &StabilityApi,
     task_id: String,
 ) -> Result<VideoResult, VideoError> {
-    match client.poll_generation(&task_id) {
+    match client.poll_generation(&task_id).await {
         Ok(PollResponse::Processing) => Ok(VideoResult {
             status: JobStatus::Running,
             videos: None,
@@ -388,13 +388,13 @@ pub fn poll_video_generation(
 
 // Unsupported features
 
-pub fn cancel_video_generation(_task_id: String) -> Result<String, VideoError> {
+pub async fn cancel_video_generation(_task_id: String) -> Result<String, VideoError> {
     Err(unsupported_feature(
         "Video generation cancellation is not supported by Stability API",
     ))
 }
 
-pub fn generate_lip_sync_video(
+pub async fn generate_lip_sync_video(
     _client: &StabilityApi,
     _video: golem_ai_video::model::types::LipSyncVideo,
     _audio: golem_ai_video::model::types::AudioSource,
@@ -404,7 +404,7 @@ pub fn generate_lip_sync_video(
     ))
 }
 
-pub fn list_available_voices(
+pub async fn list_available_voices(
     _client: &StabilityApi,
     _language: Option<String>,
 ) -> Result<Vec<golem_ai_video::model::types::VoiceInfo>, VideoError> {
@@ -413,7 +413,7 @@ pub fn list_available_voices(
     ))
 }
 
-pub fn extend_video(
+pub async fn extend_video(
     _client: &StabilityApi,
     _video_id: String,
     _prompt: Option<String>,
@@ -426,7 +426,7 @@ pub fn extend_video(
     ))
 }
 
-pub fn upscale_video(
+pub async fn upscale_video(
     _client: &StabilityApi,
     _input: golem_ai_video::model::types::BaseVideo,
 ) -> Result<String, VideoError> {
@@ -435,7 +435,7 @@ pub fn upscale_video(
     ))
 }
 
-pub fn generate_video_effects(
+pub async fn generate_video_effects(
     _client: &StabilityApi,
     _input: golem_ai_video::model::types::InputImage,
     _effect: golem_ai_video::model::types::EffectType,
@@ -448,7 +448,7 @@ pub fn generate_video_effects(
     ))
 }
 
-pub fn multi_image_generation(
+pub async fn multi_image_generation(
     _client: &StabilityApi,
     _input_images: Vec<golem_ai_video::model::types::InputImage>,
     _prompt: Option<String>,
