@@ -2389,9 +2389,9 @@ name = "golem-ai-video-kling"
 version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
+ "golem-ai-http",
  "golem-ai-video",
  "golem-rust",
- "golem-wasi-http",
  "hmac-sha256",
  "log 0.4.29",
  "serde",

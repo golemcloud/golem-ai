@@ -1,7 +1,7 @@
 use crate::authentication::generate_jwt_token;
+use golem_ai_http::{Client, Method, Response};
 use golem_ai_video::error::{from_reqwest_error, video_error_from_status};
 use golem_ai_video::model::types::VideoError;
-use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +18,6 @@ pub struct KlingApi {
 impl KlingApi {
     pub fn new(config: &crate::config::KlingConfig) -> Self {
         let client = Client::builder()
-            .default_headers(golem_wasi_http::header::HeaderMap::new())
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
@@ -36,7 +35,7 @@ impl KlingApi {
         Ok(format!("Bearer {token}"))
     }
 
-    pub fn generate_text_to_video(
+    pub async fn generate_text_to_video(
         &self,
         request: TextToVideoRequest,
     ) -> Result<GenerationResponse, VideoError> {
@@ -51,12 +50,13 @@ impl KlingApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn generate_image_to_video(
+    pub async fn generate_image_to_video(
         &self,
         request: ImageToVideoRequest,
     ) -> Result<GenerationResponse, VideoError> {
@@ -71,13 +71,14 @@ impl KlingApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
         trace!("Received response status: {}", response.status());
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn generate_multi_image_to_video(
+    pub async fn generate_multi_image_to_video(
         &self,
         request: MultiImageToVideoRequest,
     ) -> Result<GenerationResponse, VideoError> {
@@ -95,14 +96,15 @@ impl KlingApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
     // Kling has individual endpoints for each generation type
     // We use polling in text2video, polling for any type works on all endpoints
-    pub fn poll_generation(&self, task_id: &str) -> Result<PollResponse, VideoError> {
+    pub async fn poll_generation(&self, task_id: &str) -> Result<PollResponse, VideoError> {
         trace!("Polling generation status for ID: {task_id}");
 
         let auth_header = self.get_auth_header()?;
@@ -115,12 +117,13 @@ impl KlingApi {
             )
             .header("Authorization", auth_header)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Poll request failed", err))?;
 
         let status = response.status();
 
         if status.is_success() {
-            let task_response: TaskResponse = parse_response(response)?;
+            let task_response: TaskResponse = parse_response(response).await?;
 
             if task_response.code != 0 {
                 return Err(VideoError::GenerationFailed(format!(
@@ -176,13 +179,14 @@ impl KlingApi {
         } else {
             let error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read error response", err))?;
 
             Err(video_error_from_status(status, error_body))
         }
     }
 
-    pub fn generate_lip_sync(
+    pub async fn generate_lip_sync(
         &self,
         request: LipSyncRequest,
     ) -> Result<GenerationResponse, VideoError> {
@@ -197,12 +201,13 @@ impl KlingApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Lip-sync request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn generate_video_effects(
+    pub async fn generate_video_effects(
         &self,
         request: VideoEffectsRequest,
     ) -> Result<GenerationResponse, VideoError> {
@@ -217,12 +222,13 @@ impl KlingApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Video effects request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn extend_video(
+    pub async fn extend_video(
         &self,
         request: VideoExtendRequest,
     ) -> Result<GenerationResponse, VideoError> {
@@ -237,9 +243,10 @@ impl KlingApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Video extend request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 }
 
@@ -491,15 +498,19 @@ pub struct VideoExtendRequest {
     pub callback_url: Option<String>,
 }
 
-fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {
+async fn parse_response<T: serde::de::DeserializeOwned>(
+    response: Response,
+) -> Result<T, VideoError> {
     let status = response.status();
     if status.is_success() {
         response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         let error_message = format!("Request failed with {status}: {error_body}");
