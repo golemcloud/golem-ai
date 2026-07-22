@@ -32,8 +32,7 @@ fn provider_config() -> golem_ai_embed_voyageai::VoyageAiConfig {
         .expect("failed to load VoyageAI embed config from env")
 }
 
-const IMAGE_URL: &str =
-    "https://images.pexels.com/photos/33147349/pexels-photo-33147349.jpeg";
+const IMAGE_URL: &str = "https://images.pexels.com/photos/33147349/pexels-photo-33147349.jpeg";
 
 #[cfg(feature = "openai")]
 const MODEL: &str = "text-embedding-3-small";
@@ -57,13 +56,13 @@ const RERANKING_MODEL: &str = "rerank-1";
 pub trait EmbedTest {
     fn new(name: String) -> Self;
 
-    fn test1(&self) -> String;
-    fn test2(&self) -> String;
-    fn test3(&self) -> String;
-    fn test4(&self) -> String;
-    fn test5(&self) -> String;
-    fn test6(&self) -> String;
-    fn test7(&self) -> String;
+    async fn test1(&self) -> String;
+    async fn test2(&self) -> String;
+    async fn test3(&self) -> String;
+    async fn test4(&self) -> String;
+    async fn test5(&self) -> String;
+    async fn test6(&self) -> String;
+    async fn test7(&self) -> String;
 }
 
 struct EmbedTestImpl {
@@ -76,7 +75,7 @@ impl EmbedTest for EmbedTestImpl {
         Self { _name: name }
     }
 
-    fn test1(&self) -> String {
+    async fn test1(&self) -> String {
         let config = Config {
             model: Some(MODEL.to_string()),
             task_type: Some(TaskType::RetrievalDocument),
@@ -94,7 +93,8 @@ impl EmbedTest for EmbedTestImpl {
                 "Carson City is the capital city of the American state of Nevada.".to_string(),
             )],
             config,
-        );
+        )
+        .await;
 
         match response {
             Ok(response) => {
@@ -111,7 +111,7 @@ impl EmbedTest for EmbedTestImpl {
         }
     }
 
-    fn test2(&self) -> String {
+    async fn test2(&self) -> String {
         let config = Config {
             model: Some(RERANKING_MODEL.to_string()),
             task_type: None,
@@ -130,7 +130,8 @@ impl EmbedTest for EmbedTestImpl {
         ];
 
         println!("Sending reranking request...");
-        let response = Provider::rerank(provider_config(), query.to_string(), documents, config);
+        let response =
+            Provider::rerank(provider_config(), query.to_string(), documents, config).await;
         match response {
             Ok(response) => {
                 format!("Response: {:?}", response)
@@ -146,7 +147,7 @@ impl EmbedTest for EmbedTestImpl {
         }
     }
 
-    fn test3(&self) -> String {
+    async fn test3(&self) -> String {
         let config = Config {
             model: Some(MODEL.to_string()),
             task_type: None,
@@ -163,7 +164,7 @@ impl EmbedTest for EmbedTestImpl {
 
         println!("Sending image for embedding generation...");
         let response: Result<EmbeddingResponse, Error> =
-            Provider::generate(provider_config(), data, config);
+            Provider::generate(provider_config(), data, config).await;
 
         match response {
             Ok(response) => {
@@ -180,7 +181,7 @@ impl EmbedTest for EmbedTestImpl {
         }
     }
 
-    fn test4(&self) -> String {
+    async fn test4(&self) -> String {
         let (config, data) = {
             #[cfg(not(feature = "cohere"))]
             {
@@ -204,7 +205,7 @@ impl EmbedTest for EmbedTestImpl {
             }
             #[cfg(feature = "cohere")]
             {
-                let provider_options = get_cohere_inputs_param().unwrap_or_else(|_| vec![]);
+                let provider_options = get_cohere_inputs_param().await.unwrap_or_else(|_| vec![]);
                 println!("provider_options: {:?}", provider_options);
                 let config = Config {
                     model: Some(MODEL.to_string()),
@@ -223,7 +224,7 @@ impl EmbedTest for EmbedTestImpl {
 
         println!("Sending text + image for embedding generation...");
         let response: Result<EmbeddingResponse, Error> =
-            Provider::generate(provider_config(), data, config);
+            Provider::generate(provider_config(), data, config).await;
 
         match response {
             Ok(response) => {
@@ -240,7 +241,7 @@ impl EmbedTest for EmbedTestImpl {
         }
     }
 
-    fn test5(&self) -> String {
+    async fn test5(&self) -> String {
         let config = Config {
             model: Some(MODEL.to_string()),
             task_type: None,
@@ -258,7 +259,8 @@ impl EmbedTest for EmbedTestImpl {
                 "Carson City is the capital city of the American state of Nevada.".to_string(),
             )],
             config,
-        );
+        )
+        .await;
 
         match response {
             Ok(response) => {
@@ -275,7 +277,7 @@ impl EmbedTest for EmbedTestImpl {
         }
     }
 
-    fn test6(&self) -> String {
+    async fn test6(&self) -> String {
         let config = Config {
             model: Some(MODEL.to_string()),
             task_type: Some(TaskType::RetrievalDocument),
@@ -294,12 +296,11 @@ impl EmbedTest for EmbedTestImpl {
                     "Machine learning is a subset of artificial intelligence.".to_string(),
                 ),
                 ContentPart::Text("The weather today is sunny and warm.".to_string()),
-                ContentPart::Text(
-                    "AI and ML are transforming various industries.".to_string(),
-                ),
+                ContentPart::Text("AI and ML are transforming various industries.".to_string()),
             ],
             config,
-        );
+        )
+        .await;
 
         match response {
             Ok(response) => {
@@ -316,7 +317,7 @@ impl EmbedTest for EmbedTestImpl {
         }
     }
 
-    fn test7(&self) -> String {
+    async fn test7(&self) -> String {
         let config = Config {
             model: Some(RERANKING_MODEL.to_string()),
             task_type: None,
@@ -334,7 +335,8 @@ impl EmbedTest for EmbedTestImpl {
             "The weather today is sunny and warm.".to_string(),
             "AI and ML are transforming various industries.".to_string(),
         ];
-        let response = Provider::rerank(provider_config(), query.to_string(), documents, config);
+        let response =
+            Provider::rerank(provider_config(), query.to_string(), documents, config).await;
         match response {
             Ok(response) => {
                 format!("Response: {:?}", response)
@@ -352,15 +354,15 @@ impl EmbedTest for EmbedTestImpl {
 }
 
 #[cfg(feature = "cohere")]
-pub fn image_to_base64(source: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn image_to_base64(source: &str) -> Result<String, Box<dyn std::error::Error>> {
     use base64::{engine::general_purpose, Engine as _};
-    use golem_wasi_http::{Client, Url};
+    use golem_ai_http::{Client, Url};
     use std::{fs, path::Path};
 
     let bytes = if Url::parse(source).is_ok() {
         let client = Client::new();
-        let response = client.get(source).send()?;
-        response.bytes()?.to_vec()
+        let response = client.get(source).send().await?;
+        response.bytes().await?.to_vec()
     } else {
         let path = Path::new(source);
         fs::read(path)?
@@ -376,8 +378,8 @@ pub fn image_to_base64(source: &str) -> Result<String, Box<dyn std::error::Error
 }
 
 #[cfg(feature = "cohere")]
-fn get_cohere_inputs_param() -> Result<Vec<Kv>, Box<dyn std::error::Error>> {
-    let image_base = image_to_base64(IMAGE_URL)?;
+async fn get_cohere_inputs_param() -> Result<Vec<Kv>, Box<dyn std::error::Error>> {
+    let image_base = image_to_base64(IMAGE_URL).await?;
     Ok(vec![Kv {
         key: "inputs".to_string(),
         value: format!(
@@ -406,14 +408,14 @@ fn get_cohere_inputs_param() -> Result<Vec<Kv>, Box<dyn std::error::Error>> {
 fn get_embed_provider_options() -> Vec<Kv> {
     #[cfg(feature = "openai")]
     {
-        return vec![Kv {
+        vec![Kv {
             key: "user".to_string(),
             value: "RutikThakre".to_string(),
-        }];
+        }]
     }
     #[cfg(feature = "cohere")]
     {
-        return vec![
+        vec![
             Kv {
                 key: "truncate".to_string(),
                 value: "END".to_string(),
@@ -422,11 +424,11 @@ fn get_embed_provider_options() -> Vec<Kv> {
                 key: "max_tokens".to_string(),
                 value: "100".to_string(),
             },
-        ];
+        ]
     }
     #[cfg(feature = "hugging-face")]
     {
-        return vec![
+        vec![
             Kv {
                 key: "normalize".to_string(),
                 value: "true".to_string(),
@@ -435,39 +437,39 @@ fn get_embed_provider_options() -> Vec<Kv> {
                 key: "prompt_name".to_string(),
                 value: "test".to_string(),
             },
-        ];
+        ]
     }
     #[cfg(feature = "voyageai")]
     {
-        return vec![Kv {
+        vec![Kv {
             key: "truncation".to_string(),
             value: "true".to_string(),
-        }];
+        }]
     }
 }
 
 fn get_rerank_provider_options() -> Vec<Kv> {
     #[cfg(feature = "openai")]
     {
-        return vec![];
+        vec![]
     }
     #[cfg(feature = "cohere")]
     {
-        return vec![Kv {
+        vec![Kv {
             key: "top_n".to_string(),
             value: "2".to_string(),
-        }];
+        }]
     }
     #[cfg(feature = "hugging-face")]
     {
-        return vec![Kv {
+        vec![Kv {
             key: "hugging_face_api_key".to_string(),
             value: "your_hugging_face_api_key".to_string(),
-        }];
+        }]
     }
     #[cfg(feature = "voyageai")]
     {
-        return vec![
+        vec![
             Kv {
                 key: "return_documents".to_string(),
                 value: "true".to_string(),
@@ -476,6 +478,6 @@ fn get_rerank_provider_options() -> Vec<Kv> {
                 key: "top_k".to_string(),
                 value: "2".to_string(),
             },
-        ];
+        ]
     }
 }
