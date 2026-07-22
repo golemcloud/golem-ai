@@ -13,6 +13,7 @@ use golem_ai_vector::{
     SearchExtendedProvider, SearchProvider, VectorsProvider,
 };
 use golem_rust::{agent_definition, agent_implementation};
+use std::time::Duration;
 
 #[cfg(feature = "milvus")]
 type Provider = golem_ai_vector_milvus::DurableMilvus;
@@ -34,8 +35,7 @@ const PROVIDER: &str = "pgvector";
 
 #[cfg(feature = "milvus")]
 fn provider_config() -> golem_ai_vector_milvus::MilvusConfig {
-    golem_ai_vector_milvus::MilvusConfig::from_env()
-        .expect("failed to load Milvus config from env")
+    golem_ai_vector_milvus::MilvusConfig::from_env().expect("failed to load Milvus config from env")
 }
 #[cfg(feature = "pinecone")]
 fn provider_config() -> golem_ai_vector_pinecone::PineconeConfig {
@@ -44,15 +44,13 @@ fn provider_config() -> golem_ai_vector_pinecone::PineconeConfig {
 }
 #[cfg(feature = "qdrant")]
 fn provider_config() -> golem_ai_vector_qdrant::QdrantConfig {
-    golem_ai_vector_qdrant::QdrantConfig::from_env()
-        .expect("failed to load Qdrant config from env")
+    golem_ai_vector_qdrant::QdrantConfig::from_env().expect("failed to load Qdrant config from env")
 }
 #[cfg(feature = "pgvector")]
 fn provider_config() -> golem_ai_vector_pgvector::PgvectorConfig {
     golem_ai_vector_pgvector::PgvectorConfig::from_env()
         .expect("failed to load Pgvector config from env")
 }
-
 
 #[cfg(feature = "milvus")]
 const TEST_ENDPOINT: &str = "http://127.0.0.1:19530";
@@ -71,8 +69,6 @@ const TEST_API_KEY: &str = "";
 
 #[cfg(feature = "pgvector")]
 const TEST_ENDPOINT: &str = "postgresql://postgres:mysecretpassword@localhost:3000/mydatabase";
-#[cfg(feature = "pgvector")]
-const TEST_DATABASE: &str = "postgres";
 
 fn get_test_endpoint() -> String {
     std::env::var("VECTOR_TEST_ENDPOINT").unwrap_or_else(|_| TEST_ENDPOINT.to_string())
@@ -90,8 +86,7 @@ fn get_test_credentials() -> Option<connection::Credentials> {
 
     #[cfg(feature = "qdrant")]
     {
-        let api_key =
-            std::env::var("QDRANT_API_KEY").unwrap_or_else(|_| TEST_API_KEY.to_string());
+        let api_key = std::env::var("QDRANT_API_KEY").unwrap_or_else(|_| TEST_API_KEY.to_string());
         if !api_key.is_empty() {
             return Some(connection::Credentials::ApiKey(api_key));
         }
@@ -105,18 +100,18 @@ fn get_test_options() -> Option<connection::Metadata> {
     {
         let database =
             std::env::var("MILVUS_DATABASE").unwrap_or_else(|_| TEST_DATABASE.to_string());
-        return Some(vec![(
+        Some(vec![(
             "database".to_string(),
             MetadataValue::StringVal(database),
-        )]);
+        )])
     }
 
     #[cfg(feature = "pgvector")]
     {
-        return Some(vec![(
+        Some(vec![(
             "connection_string".to_string(),
             MetadataValue::StringVal(get_test_endpoint()),
-        )]);
+        )])
     }
 
     #[cfg(not(any(feature = "milvus", feature = "pgvector")))]
@@ -124,6 +119,11 @@ fn get_test_options() -> Option<connection::Metadata> {
 }
 
 type DenseVector = Vec<f32>;
+
+async fn sleep(duration: Duration) {
+    let nanoseconds = u64::try_from(duration.as_nanos()).unwrap_or(u64::MAX);
+    golem_rust::wasip3::clocks::monotonic_clock::wait_for(nanoseconds).await;
+}
 
 fn create_test_vector(id: &str, dimensions: u32) -> VectorRecord {
     let vector_data = (0..dimensions)
@@ -143,14 +143,8 @@ fn create_test_vector(id: &str, dimensions: u32) -> VectorRecord {
             "index".to_string(),
             MetadataValue::IntegerVal(id.parse::<i64>().unwrap_or(0)),
         ),
-        (
-            "active".to_string(),
-            MetadataValue::BooleanVal(true),
-        ),
-        (
-            "score".to_string(),
-            MetadataValue::NumberVal(0.85),
-        ),
+        ("active".to_string(), MetadataValue::BooleanVal(true)),
+        ("score".to_string(), MetadataValue::NumberVal(0.85)),
     ];
 
     VectorRecord {
@@ -169,13 +163,13 @@ fn create_query_vector(dimensions: u32) -> DenseVector {
 #[agent_definition]
 pub trait VectorTest {
     fn new(name: String) -> Self;
-    fn test1(&self) -> String;
-    fn test2(&self) -> String;
-    fn test3(&self) -> String;
-    fn test4(&self) -> String;
-    fn test5(&self) -> String;
-    fn test6(&self) -> String;
-    fn test7(&self) -> String;
+    async fn test1(&self) -> String;
+    async fn test2(&self) -> String;
+    async fn test3(&self) -> String;
+    async fn test4(&self) -> String;
+    async fn test5(&self) -> String;
+    async fn test6(&self) -> String;
+    async fn test7(&self) -> String;
 }
 
 struct VectorTestImpl {
@@ -188,7 +182,7 @@ impl VectorTest for VectorTestImpl {
         Self { _name: name }
     }
 
-    fn test1(&self) -> String {
+    async fn test1(&self) -> String {
         println!(
             "Starting test1: Basic connection and collection operations with {}",
             PROVIDER
@@ -201,12 +195,20 @@ impl VectorTest for VectorTestImpl {
 
         println!("Connecting to vector database at: {}", endpoint);
 
-        match Provider::connect(provider_config(), endpoint.clone(), credentials.clone(), Some(5000), options) {
+        match Provider::connect(
+            provider_config(),
+            endpoint.clone(),
+            credentials.clone(),
+            Some(5000),
+            options,
+        )
+        .await
+        {
             Ok(_) => results.push("✓ Successfully connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
 
-        match Provider::get_connection_status(provider_config()) {
+        match Provider::get_connection_status(provider_config()).await {
             Ok(status) => {
                 results.push(format!(
                     "✓ Connection status: connected={}, provider={:?}",
@@ -225,9 +227,7 @@ impl VectorTest for VectorTestImpl {
         let collection_metadata = vec![
             (
                 "description".to_string(),
-                MetadataValue::StringVal(
-                    "Test collection for basic operations".to_string(),
-                ),
+                MetadataValue::StringVal("Test collection for basic operations".to_string()),
             ),
             (
                 "created_by".to_string(),
@@ -243,22 +243,24 @@ impl VectorTest for VectorTestImpl {
             DistanceMetric::Cosine,
             Some(index_config),
             Some(collection_metadata),
-        ) {
+        )
+        .await
+        {
             Ok(info) => {
                 results.push(format!("✓ Created collection: {}", info.name));
-                std::thread::sleep(std::time::Duration::from_secs(4));
+                sleep(Duration::from_secs(4)).await;
             }
             Err(error) => return format!("✗ Collection creation failed: {:?}", error),
         };
 
-        match Provider::list_collections(provider_config()) {
+        match Provider::list_collections(provider_config()).await {
             Ok(list) => {
                 results.push(format!("✓ Listed {} collections", list.len()));
             }
             Err(error) => return format!("✗ Failed to list collections: {:?}", error),
         };
 
-        match Provider::collection_exists(provider_config(), collection_name.clone()) {
+        match Provider::collection_exists(provider_config(), collection_name.clone()).await {
             Ok(exists) => {
                 results.push(format!("✓ Collection exists check: {}", exists));
             }
@@ -271,14 +273,16 @@ impl VectorTest for VectorTestImpl {
             get_test_credentials(),
             Some(5000),
             get_test_options(),
-        ) {
+        )
+        .await
+        {
             Ok(result) => {
                 results.push(format!("✓ Connection test result: {}", result));
             }
             Err(error) => return format!("✗ Connection test failed: {:?}", error),
         };
 
-        match Provider::disconnect(provider_config()) {
+        match Provider::disconnect(provider_config()).await {
             Ok(_) => results.push("✓ Successfully disconnected".to_string()),
             Err(error) => results.push(format!("⚠ Disconnect failed: {:?}", error)),
         };
@@ -286,18 +290,23 @@ impl VectorTest for VectorTestImpl {
         results.join("\n")
     }
 
-    fn test2(&self) -> String {
-        println!(
-            "Starting test2: Vector CRUD operations with {}",
-            PROVIDER
-        );
+    async fn test2(&self) -> String {
+        println!("Starting test2: Vector CRUD operations with {}", PROVIDER);
         let mut results = Vec::new();
 
         let endpoint = get_test_endpoint();
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
+        match Provider::connect(
+            provider_config(),
+            endpoint,
+            credentials,
+            Some(5000),
+            options,
+        )
+        .await
+        {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -318,7 +327,9 @@ impl VectorTest for VectorTestImpl {
             DistanceMetric::Cosine,
             Some(index_config),
             None,
-        ) {
+        )
+        .await
+        {
             Ok(_) => results.push(format!(
                 "✓ Created collection with {} dimensions",
                 dimensions
@@ -332,10 +343,17 @@ impl VectorTest for VectorTestImpl {
             create_test_vector("3", dimensions),
         ];
 
-        match Provider::upsert_vectors(provider_config(), collection_name.clone(), test_vectors, None) {
+        match Provider::upsert_vectors(
+            provider_config(),
+            collection_name.clone(),
+            test_vectors,
+            None,
+        )
+        .await
+        {
             Ok(result) => {
                 results.push(format!("✓ Upserted {} vectors", result.success_count));
-                std::thread::sleep(std::time::Duration::from_secs(4));
+                sleep(Duration::from_secs(4)).await;
             }
             Err(error) => return format!("✗ Vector upsert failed: {:?}", error),
         };
@@ -348,14 +366,23 @@ impl VectorTest for VectorTestImpl {
             None,
             Some(true),
             Some(true),
-        ) {
+        )
+        .await
+        {
             Ok(vectors) => {
                 results.push(format!("✓ Retrieved {} vectors", vectors.len()));
             }
             Err(error) => return format!("✗ Vector retrieval failed: {:?}", error),
         };
 
-        match Provider::get_vector(provider_config(), collection_name.clone(), "1".to_string(), None) {
+        match Provider::get_vector(
+            provider_config(),
+            collection_name.clone(),
+            "1".to_string(),
+            None,
+        )
+        .await
+        {
             Ok(Some(vector)) => {
                 results.push(format!("✓ Retrieved single vector: {}", vector.id));
             }
@@ -368,17 +395,11 @@ impl VectorTest for VectorTestImpl {
                 "name".to_string(),
                 MetadataValue::StringVal("updated_vector_1".to_string()),
             ),
-            (
-                "updated".to_string(),
-                MetadataValue::BooleanVal(true),
-            ),
+            ("updated".to_string(), MetadataValue::BooleanVal(true)),
         ];
 
-        let update_vector = VectorData::Dense(
-            (0..dimensions)
-                .map(|i| (i as f32) * 0.05 + 2.0)
-                .collect(),
-        );
+        let update_vector =
+            VectorData::Dense((0..dimensions).map(|i| (i as f32) * 0.05 + 2.0).collect());
 
         match Provider::update_vector(
             provider_config(),
@@ -388,12 +409,15 @@ impl VectorTest for VectorTestImpl {
             Some(updated_metadata),
             None,
             Some(true),
-        ) {
+        )
+        .await
+        {
             Ok(_) => results.push("✓ Vector updated successfully".to_string()),
             Err(error) => return format!("✗ Vector update failed: {:?}", error),
         }
 
-        match Provider::count_vectors(provider_config(), collection_name.clone(), None, None) {
+        match Provider::count_vectors(provider_config(), collection_name.clone(), None, None).await
+        {
             Ok(count) => {
                 results.push(format!("✓ Vector count: {}", count));
             }
@@ -405,19 +429,21 @@ impl VectorTest for VectorTestImpl {
             collection_name.clone(),
             vec!["3".to_string()],
             None,
-        ) {
+        )
+        .await
+        {
             Ok(count) => {
                 results.push(format!("✓ Deleted {} vectors", count));
             }
             Err(error) => return format!("✗ Vector deletion failed: {:?}", error),
         };
 
-        let _ = Provider::disconnect(provider_config());
+        let _ = Provider::disconnect(provider_config()).await;
 
         results.join("\n")
     }
 
-    fn test3(&self) -> String {
+    async fn test3(&self) -> String {
         println!(
             "Starting test3: Similarity search operations with {}",
             PROVIDER
@@ -428,7 +454,15 @@ impl VectorTest for VectorTestImpl {
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
+        match Provider::connect(
+            provider_config(),
+            endpoint,
+            credentials,
+            Some(5000),
+            options,
+        )
+        .await
+        {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -449,7 +483,9 @@ impl VectorTest for VectorTestImpl {
             DistanceMetric::Cosine,
             Some(index_config),
             None,
-        ) {
+        )
+        .await
+        {
             Ok(_) => results.push(format!(
                 "✓ Created collection with {} dimensions",
                 dimensions
@@ -461,10 +497,17 @@ impl VectorTest for VectorTestImpl {
             .map(|i| create_test_vector(&i.to_string(), dimensions))
             .collect::<Vec<_>>();
 
-        match Provider::upsert_vectors(provider_config(), collection_name.clone(), test_vectors, None) {
+        match Provider::upsert_vectors(
+            provider_config(),
+            collection_name.clone(),
+            test_vectors,
+            None,
+        )
+        .await
+        {
             Ok(_) => {
                 results.push("✓ Inserted 10 test vectors".to_string());
-                std::thread::sleep(std::time::Duration::from_secs(4));
+                sleep(Duration::from_secs(4)).await;
             }
             Err(error) => return format!("✗ Vector upsert failed: {:?}", error),
         }
@@ -484,7 +527,9 @@ impl VectorTest for VectorTestImpl {
             None,
             None,
             None,
-        ) {
+        )
+        .await
+        {
             Ok(search_results) => {
                 results.push(format!(
                     "✓ Similarity search returned {} results",
@@ -501,7 +546,9 @@ impl VectorTest for VectorTestImpl {
             VectorData::Dense(query_vector2),
             3,
             None,
-        ) {
+        )
+        .await
+        {
             Ok(similar_results) => {
                 results.push(format!(
                     "✓ Find similar returned {} results",
@@ -526,7 +573,9 @@ impl VectorTest for VectorTestImpl {
             Some(true),
             None,
             None,
-        ) {
+        )
+        .await
+        {
             Ok(batch_results) => {
                 results.push(format!(
                     "✓ Batch search completed {} queries",
@@ -536,12 +585,12 @@ impl VectorTest for VectorTestImpl {
             Err(error) => return format!("✗ Batch search failed: {:?}", error),
         };
 
-        let _ = Provider::disconnect(provider_config());
+        let _ = Provider::disconnect(provider_config()).await;
 
         results.join("\n")
     }
 
-    fn test4(&self) -> String {
+    async fn test4(&self) -> String {
         println!(
             "Starting test4: Advanced search and filtering with {}",
             PROVIDER
@@ -552,7 +601,15 @@ impl VectorTest for VectorTestImpl {
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
+        match Provider::connect(
+            provider_config(),
+            endpoint,
+            credentials,
+            Some(5000),
+            options,
+        )
+        .await
+        {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -573,7 +630,9 @@ impl VectorTest for VectorTestImpl {
             DistanceMetric::Euclidean,
             Some(index_config),
             None,
-        ) {
+        )
+        .await
+        {
             Ok(_) => results.push(format!(
                 "✓ Created collection with {} dimensions (Euclidean metric)",
                 dimensions
@@ -583,11 +642,7 @@ impl VectorTest for VectorTestImpl {
 
         let mut test_vectors = Vec::new();
         for i in 1..=20 {
-            let category = if i <= 10 {
-                "category_a"
-            } else {
-                "category_b"
-            };
+            let category = if i <= 10 { "category_a" } else { "category_b" };
             let score = (i as f64) * 0.05;
 
             let metadata = vec![
@@ -601,10 +656,7 @@ impl VectorTest for VectorTestImpl {
                 ),
                 ("score".to_string(), MetadataValue::NumberVal(score)),
                 ("index".to_string(), MetadataValue::IntegerVal(i as i64)),
-                (
-                    "active".to_string(),
-                    MetadataValue::BooleanVal(i % 2 == 0),
-                ),
+                ("active".to_string(), MetadataValue::BooleanVal(i % 2 == 0)),
             ];
 
             test_vectors.push(VectorRecord {
@@ -614,10 +666,17 @@ impl VectorTest for VectorTestImpl {
             });
         }
 
-        match Provider::upsert_vectors(provider_config(), collection_name.clone(), test_vectors, None) {
+        match Provider::upsert_vectors(
+            provider_config(),
+            collection_name.clone(),
+            test_vectors,
+            None,
+        )
+        .await
+        {
             Ok(_) => {
                 results.push("✓ Inserted 20 vectors with metadata".to_string());
-                std::thread::sleep(std::time::Duration::from_secs(4));
+                sleep(Duration::from_secs(4)).await;
             }
             Err(error) => return format!("✗ Vector upsert failed: {:?}", error),
         }
@@ -640,7 +699,9 @@ impl VectorTest for VectorTestImpl {
             None,
             None,
             None,
-        ) {
+        )
+        .await
+        {
             Ok(filtered_results) => {
                 results.push(format!(
                     "✓ Filtered search (category_a) returned {} results",
@@ -673,7 +734,9 @@ impl VectorTest for VectorTestImpl {
             None,
             Some(true),
             None,
-        ) {
+        )
+        .await
+        {
             Ok(list_response) => {
                 let filter_desc = if PROVIDER == "pinecone" {
                     "ID contains '1'"
@@ -695,7 +758,14 @@ impl VectorTest for VectorTestImpl {
             value: MetadataValue::IntegerVal(15),
         });
 
-        match Provider::delete_by_filter(provider_config(), collection_name.clone(), delete_filter, None) {
+        match Provider::delete_by_filter(
+            provider_config(),
+            collection_name.clone(),
+            delete_filter,
+            None,
+        )
+        .await
+        {
             Ok(count) => {
                 results.push(format!(
                     "✓ Deleted {} vectors by filter (index > 15)",
@@ -705,12 +775,12 @@ impl VectorTest for VectorTestImpl {
             Err(error) => return format!("✗ Delete by filter failed: {:?}", error),
         };
 
-        let _ = Provider::disconnect(provider_config());
+        let _ = Provider::disconnect(provider_config()).await;
 
         results.join("\n")
     }
 
-    fn test5(&self) -> String {
+    async fn test5(&self) -> String {
         println!(
             "Starting test5: Extended search capabilities with {}",
             PROVIDER
@@ -721,7 +791,15 @@ impl VectorTest for VectorTestImpl {
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
+        match Provider::connect(
+            provider_config(),
+            endpoint,
+            credentials,
+            Some(5000),
+            options,
+        )
+        .await
+        {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -742,7 +820,9 @@ impl VectorTest for VectorTestImpl {
             DistanceMetric::DotProduct,
             Some(index_config),
             None,
-        ) {
+        )
+        .await
+        {
             Ok(_) => results.push(format!(
                 "✓ Created collection with {} dimensions (DotProduct metric)",
                 dimensions
@@ -754,10 +834,17 @@ impl VectorTest for VectorTestImpl {
             .map(|i| create_test_vector(&i.to_string(), dimensions))
             .collect::<Vec<_>>();
 
-        match Provider::upsert_vectors(provider_config(), collection_name.clone(), test_vectors, None) {
+        match Provider::upsert_vectors(
+            provider_config(),
+            collection_name.clone(),
+            test_vectors,
+            None,
+        )
+        .await
+        {
             Ok(_) => {
                 results.push("✓ Inserted 15 test vectors".to_string());
-                std::thread::sleep(std::time::Duration::from_secs(4));
+                sleep(Duration::from_secs(4)).await;
             }
             Err(error) => return format!("✗ Vector upsert failed: {:?}", error),
         }
@@ -779,7 +866,9 @@ impl VectorTest for VectorTestImpl {
             Some(RecommendationStrategy::AverageVector),
             Some(true),
             None,
-        ) {
+        )
+        .await
+        {
             Ok(recommendation_results) => {
                 results.push(format!(
                     "✓ Recommendation search found {} results",
@@ -809,7 +898,9 @@ impl VectorTest for VectorTestImpl {
             None,
             Some(true),
             None,
-        ) {
+        )
+        .await
+        {
             Ok(discovery_results) => {
                 results.push(format!(
                     "✓ Discovery search found {} results",
@@ -817,10 +908,7 @@ impl VectorTest for VectorTestImpl {
                 ));
             }
             Err(error) => {
-                results.push(format!(
-                    "⚠ Discovery search not supported: {:?}",
-                    error
-                ));
+                results.push(format!("⚠ Discovery search not supported: {:?}", error));
             }
         }
 
@@ -837,7 +925,9 @@ impl VectorTest for VectorTestImpl {
             Some(10),
             Some(true),
             None,
-        ) {
+        )
+        .await
+        {
             Ok(range_results) => {
                 results.push(format!(
                     "✓ Range search found {} results",
@@ -856,7 +946,9 @@ impl VectorTest for VectorTestImpl {
             5,
             None,
             None,
-        ) {
+        )
+        .await
+        {
             Ok(text_results) => {
                 results.push(format!(
                     "✓ Text search found {} results",
@@ -868,23 +960,28 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        let _ = Provider::disconnect(provider_config());
+        let _ = Provider::disconnect(provider_config()).await;
 
         results.join("\n")
     }
 
-    fn test6(&self) -> String {
-        println!(
-            "Starting test6: Namespace operations with {}",
-            PROVIDER
-        );
+    async fn test6(&self) -> String {
+        println!("Starting test6: Namespace operations with {}", PROVIDER);
         let mut results = Vec::new();
 
         let endpoint = get_test_endpoint();
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
+        match Provider::connect(
+            provider_config(),
+            endpoint,
+            credentials,
+            Some(5000),
+            options,
+        )
+        .await
+        {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -905,7 +1002,9 @@ impl VectorTest for VectorTestImpl {
             DistanceMetric::Cosine,
             Some(index_config),
             None,
-        ) {
+        )
+        .await
+        {
             Ok(_) => results.push(format!(
                 "✓ Created collection with {} dimensions",
                 dimensions
@@ -924,28 +1023,24 @@ impl VectorTest for VectorTestImpl {
             collection_name.clone(),
             namespace_name.clone(),
             Some(namespace_metadata),
-        ) {
+        )
+        .await
+        {
             Ok(namespace_info) => {
                 results.push(format!("✓ Created namespace: {}", namespace_info.name));
-                std::thread::sleep(std::time::Duration::from_secs(10));
+                sleep(Duration::from_secs(10)).await;
             }
             Err(error) => {
-                results.push(format!(
-                    "⚠ Namespace creation not supported: {:?}",
-                    error
-                ));
+                results.push(format!("⚠ Namespace creation not supported: {:?}", error));
             }
         }
 
-        match Provider::list_namespaces(provider_config(), collection_name.clone()) {
+        match Provider::list_namespaces(provider_config(), collection_name.clone()).await {
             Ok(namespace_list) => {
                 results.push(format!("✓ Listed {} namespaces", namespace_list.len()));
             }
             Err(error) => {
-                results.push(format!(
-                    "⚠ Namespace listing not supported: {:?}",
-                    error
-                ));
+                results.push(format!("⚠ Namespace listing not supported: {:?}", error));
             }
         }
 
@@ -959,19 +1054,18 @@ impl VectorTest for VectorTestImpl {
             collection_name.clone(),
             test_vectors,
             Some(namespace_name.clone()),
-        ) {
+        )
+        .await
+        {
             Ok(batch_result) => {
                 results.push(format!(
                     "✓ Inserted {} vectors into namespace",
                     batch_result.success_count
                 ));
-                std::thread::sleep(std::time::Duration::from_secs(10));
+                sleep(Duration::from_secs(10)).await;
             }
             Err(error) => {
-                results.push(format!(
-                    "⚠ Namespace vector insertion failed: {:?}",
-                    error
-                ));
+                results.push(format!("⚠ Namespace vector insertion failed: {:?}", error));
             }
         }
 
@@ -987,7 +1081,9 @@ impl VectorTest for VectorTestImpl {
             None,
             None,
             None,
-        ) {
+        )
+        .await
+        {
             Ok(search_results) => {
                 results.push(format!(
                     "✓ Namespace search found {} results",
@@ -999,35 +1095,43 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        match Provider::namespace_exists(provider_config(), collection_name.clone(), namespace_name.clone()) {
+        match Provider::namespace_exists(
+            provider_config(),
+            collection_name.clone(),
+            namespace_name.clone(),
+        )
+        .await
+        {
             Ok(exists) => {
                 results.push(format!("✓ Namespace exists check: {}", exists));
             }
             Err(error) => {
-                results.push(format!(
-                    "⚠ Namespace existence check failed: {:?}",
-                    error
-                ));
+                results.push(format!("⚠ Namespace existence check failed: {:?}", error));
             }
         }
 
-        let _ = Provider::disconnect(provider_config());
+        let _ = Provider::disconnect(provider_config()).await;
 
         results.join("\n")
     }
 
-    fn test7(&self) -> String {
-        println!(
-            "Starting test7: Analytics and statistics with {}",
-            PROVIDER
-        );
+    async fn test7(&self) -> String {
+        println!("Starting test7: Analytics and statistics with {}", PROVIDER);
         let mut results = Vec::new();
 
         let endpoint = get_test_endpoint();
         let credentials = get_test_credentials();
         let options = get_test_options();
 
-        match Provider::connect(provider_config(), endpoint, credentials, Some(5000), options) {
+        match Provider::connect(
+            provider_config(),
+            endpoint,
+            credentials,
+            Some(5000),
+            options,
+        )
+        .await
+        {
             Ok(_) => results.push("✓ Connected to vector database".to_string()),
             Err(error) => return format!("✗ Connection failed: {:?}", error),
         }
@@ -1048,7 +1152,9 @@ impl VectorTest for VectorTestImpl {
             DistanceMetric::Cosine,
             Some(index_config),
             None,
-        ) {
+        )
+        .await
+        {
             Ok(_) => results.push(format!(
                 "✓ Created collection with {} dimensions",
                 dimensions
@@ -1077,10 +1183,7 @@ impl VectorTest for VectorTestImpl {
                         "score".to_string(),
                         MetadataValue::NumberVal((i as f64) * 0.02),
                     ),
-                    (
-                        "index".to_string(),
-                        MetadataValue::IntegerVal(i as i64),
-                    ),
+                    ("index".to_string(), MetadataValue::IntegerVal(i as i64)),
                 ];
 
                 VectorRecord {
@@ -1091,15 +1194,23 @@ impl VectorTest for VectorTestImpl {
             })
             .collect::<Vec<_>>();
 
-        match Provider::upsert_vectors(provider_config(), collection_name.clone(), test_vectors, None) {
+        match Provider::upsert_vectors(
+            provider_config(),
+            collection_name.clone(),
+            test_vectors,
+            None,
+        )
+        .await
+        {
             Ok(_) => {
                 results.push("✓ Inserted 50 test vectors with metadata".to_string());
-                std::thread::sleep(std::time::Duration::from_secs(4));
+                sleep(Duration::from_secs(4)).await;
             }
             Err(error) => return format!("✗ Vector upsert failed: {:?}", error),
         }
 
-        match Provider::get_collection_stats(provider_config(), collection_name.clone(), None) {
+        match Provider::get_collection_stats(provider_config(), collection_name.clone(), None).await
+        {
             Ok(stats) => {
                 results.push(format!(
                     "✓ Collection stats: {} vectors, {} dimensions",
@@ -1107,14 +1218,18 @@ impl VectorTest for VectorTestImpl {
                 ));
             }
             Err(error) => {
-                results.push(format!(
-                    "⚠ Collection stats not supported: {:?}",
-                    error
-                ));
+                results.push(format!("⚠ Collection stats not supported: {:?}", error));
             }
         }
 
-        match Provider::get_field_stats(provider_config(), collection_name.clone(), "category".to_string(), None) {
+        match Provider::get_field_stats(
+            provider_config(),
+            collection_name.clone(),
+            "category".to_string(),
+            None,
+        )
+        .await
+        {
             Ok(field_stats) => {
                 results.push(format!(
                     "✓ Field stats for 'category': {} unique values",
@@ -1132,7 +1247,9 @@ impl VectorTest for VectorTestImpl {
             "category".to_string(),
             None,
             None,
-        ) {
+        )
+        .await
+        {
             Ok(distribution) => {
                 results.push(format!(
                     "✓ Field distribution: {} different values found",
@@ -1140,14 +1257,11 @@ impl VectorTest for VectorTestImpl {
                 ));
             }
             Err(error) => {
-                results.push(format!(
-                    "⚠ Field distribution not supported: {:?}",
-                    error
-                ));
+                results.push(format!("⚠ Field distribution not supported: {:?}", error));
             }
         }
 
-        match Provider::get_collection(provider_config(), collection_name.clone()) {
+        match Provider::get_collection(provider_config(), collection_name.clone()).await {
             Ok(collection_info) => {
                 results.push(format!(
                     "✓ Collection info: {}, {} dimensions, {} metric",
@@ -1164,14 +1278,11 @@ impl VectorTest for VectorTestImpl {
                 ));
             }
             Err(error) => {
-                results.push(format!(
-                    "⚠ Collection info retrieval failed: {:?}",
-                    error
-                ));
+                results.push(format!("⚠ Collection info retrieval failed: {:?}", error));
             }
         }
 
-        match Provider::delete_collection(provider_config(), collection_name.clone()) {
+        match Provider::delete_collection(provider_config(), collection_name.clone()).await {
             Ok(_) => {
                 results.push("✓ Collection deleted successfully".to_string());
             }
@@ -1180,7 +1291,7 @@ impl VectorTest for VectorTestImpl {
             }
         }
 
-        let _ = Provider::disconnect(provider_config());
+        let _ = Provider::disconnect(provider_config()).await;
 
         results.join("\n")
     }
