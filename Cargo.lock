@@ -2094,6 +2094,7 @@ version = "0.5.2"
 dependencies = [
  "bytes",
  "derive_more",
+ "golem-ai-http",
  "golem-rust",
  "http 1.3.1",
  "log 0.4.29",
@@ -2102,7 +2103,7 @@ dependencies = [
  "url 2.5.8",
  "uuid",
  "wasi-logger",
- "wstd",
+ "wasip3 0.7.0+wasi-0.3.0",
 ]
 
 [[package]]

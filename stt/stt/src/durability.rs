@@ -73,8 +73,7 @@ mod passthrough_impl {
 #[cfg(feature = "golem")]
 mod durable_impl {
     use bytes::Bytes;
-    use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
-    use golem_rust::durability::Durability;
+    use golem_rust::durability::{Durability, DurableFunctionType};
 
     use crate::durability::{DurableStt, ExtendedSttProvider};
 
@@ -85,7 +84,7 @@ mod durable_impl {
     };
     use crate::model::types::SttError;
     use crate::{LanguageProvider, TranscriptionProvider, LOGGING_STATE};
-    use golem_rust::{with_persistence_level_async, FromValueAndType, IntoValue, PersistenceLevel};
+    use golem_rust::{with_persistence_level_async, FromSchema, IntoSchema, PersistenceLevel};
 
     impl<Impl: ExtendedSttProvider> TranscriptionProvider for DurableStt<Impl> {
         type ProviderConfig = <Impl as SttTranscriptionProvider>::ProviderConfig;
@@ -215,12 +214,12 @@ mod durable_impl {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct TranscribeInput {
         request: TranscriptionRequest,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct TranscribeManyInput {
         requests: Vec<TranscriptionRequest>,
     }
