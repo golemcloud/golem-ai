@@ -652,6 +652,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
+name = "bigdecimal"
+version = "0.4.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d6867f1565b3aad85681f1015055b087fcfd840d6aeee6eee7f2da317603695"
+dependencies = [
+ "autocfg 1.5.0",
+ "libm",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.69.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -672,6 +686,15 @@ dependencies = [
  "shlex",
  "syn",
  "which 4.4.2",
+]
+
+[[package]]
+name = "bit-vec"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -922,6 +945,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
+name = "combine"
+version = "4.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
+dependencies = [
+ "bytes",
+ "memchr",
+]
+
+[[package]]
 name = "compact_str"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1087,6 +1120,41 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d5515a3834141de9eafb9717ad39eea8247b5674e6066c404e8c4b365d2a29e"
 dependencies = [
  "cmov",
+]
+
+[[package]]
+name = "darling"
+version = "0.20.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc7f46116c46ff9ab3eb1597a45688b6715c6e628b5c133e288e709a29bcb4ee"
+dependencies = [
+ "darling_core",
+ "darling_macro",
+]
+
+[[package]]
+name = "darling_core"
+version = "0.20.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d00b9596d185e565c2207a0b01f8bd1a135483d02d9b7b0a54b11da8d53412e"
+dependencies = [
+ "fnv",
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "strsim",
+ "syn",
+]
+
+[[package]]
+name = "darling_macro"
+version = "0.20.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc34b93ccb385b40dc71c6fceac4b2ad23662c7eeb248cf10d529b7e055b6ead"
+dependencies = [
+ "darling_core",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1562,6 +1630,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "gen_ops"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "304de19db7028420975a296ab0fcbbc8e69438c4ed254a1e41e2a7f37d5f0e0a"
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1649,7 +1723,7 @@ dependencies = [
  "libc",
  "r-efi 6.0.0",
  "wasip2",
- "wasip3",
+ "wasip3 0.4.0+wasi-0.3.0-rc-2026-01-06",
 ]
 
 [[package]]
@@ -1660,7 +1734,7 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
 name = "golem-ai-embed"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "golem-rust",
  "golem-wasi-http",
@@ -1673,7 +1747,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-embed-cohere"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-embed",
@@ -1687,7 +1761,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-embed-hugging-face"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-embed",
@@ -1700,7 +1774,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-embed-openai"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-embed",
@@ -1713,7 +1787,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-embed-voyageai"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-embed",
@@ -1726,7 +1800,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-exec"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -1745,7 +1819,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-graph"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "golem-rust",
  "golem-wasi-http",
@@ -1758,7 +1832,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-graph-arangodb"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1772,7 +1846,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-graph-janusgraph"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1787,7 +1861,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-graph-neo4j"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1800,8 +1874,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "golem-ai-llm"
+name = "golem-ai-http"
 version = "0.0.0"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "futures",
+ "http 1.3.1",
+ "http-body-util",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "thiserror 2.0.18",
+ "url 2.5.8",
+ "wasip3 0.7.0+wasi-0.3.0",
+]
+
+[[package]]
+name = "golem-ai-llm"
+version = "0.5.2"
 dependencies = [
  "async-trait",
  "golem-rust",
@@ -1817,7 +1908,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-llm-anthropic"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-llm",
@@ -1831,7 +1922,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-llm-bedrock"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -1855,7 +1946,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-llm-grok"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-llm",
@@ -1868,7 +1959,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-llm-ollama"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-llm",
@@ -1884,7 +1975,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-llm-openai"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-llm",
@@ -1897,7 +1988,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-llm-openrouter"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-llm",
@@ -1910,7 +2001,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-search"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "golem-rust",
  "golem-wasi-http",
@@ -1924,7 +2015,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-search-algolia"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1938,7 +2029,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-search-elasticsearch"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1952,7 +2043,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-search-meilisearch"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1966,7 +2057,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-search-opensearch"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1980,7 +2071,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-search-typesense"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1995,7 +2086,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-stt"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "bytes",
  "derive_more",
@@ -2012,7 +2103,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-stt-aws"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "aws-config",
  "aws-credential-types",
@@ -2039,7 +2130,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-stt-azure"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "bytes",
  "derive_more",
@@ -2059,7 +2150,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-stt-deepgram"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "bytes",
  "derive_more",
@@ -2078,7 +2169,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-stt-google"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "async-lock",
  "base64 0.22.1",
@@ -2105,7 +2196,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-stt-whisper"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "bytes",
  "derive_more",
@@ -2125,7 +2216,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-tts"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "golem-rust",
  "golem-wasi-http",
@@ -2139,7 +2230,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-tts-aws"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2158,7 +2249,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-tts-deepgram"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2172,7 +2263,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-tts-elevenlabs"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2190,7 +2281,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-tts-google"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2207,7 +2298,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-vector"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "golem-rust",
  "golem-wasi-http",
@@ -2220,7 +2311,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-vector-milvus"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2234,7 +2325,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-vector-pgvector"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2248,7 +2339,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-vector-pinecone"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2263,7 +2354,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-vector-qdrant"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2277,7 +2368,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-video"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "golem-rust",
  "golem-wasi-http",
@@ -2291,7 +2382,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-video-kling"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-video",
@@ -2305,7 +2396,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-video-runway"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-video",
@@ -2318,7 +2409,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-video-stability"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-video",
@@ -2332,7 +2423,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-video-veo"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "data-encoding",
@@ -2350,7 +2441,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-web-search"
-version = "0.0.0"
+version = "0.5.2"
 dependencies = [
  "golem-rust",
  "golem-wasi-http",
@@ -2362,7 +2453,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-web-search-brave"
-version = "0.1.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-web-search",
@@ -2377,7 +2468,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-web-search-google"
-version = "0.1.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-web-search",
@@ -2392,7 +2483,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-web-search-serper"
-version = "0.1.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-web-search",
@@ -2406,7 +2497,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-web-search-tavily"
-version = "0.1.0"
+version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-web-search",
@@ -2421,14 +2512,12 @@ dependencies = [
 
 [[package]]
 name = "golem-rust"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "008d7dab3afd341260041ab0551e721dd724b21bbf06f098f191a691454b0f72"
+version = "0.0.0"
 dependencies = [
  "async-trait",
  "ctor",
  "golem-rust-macro",
- "golem-wasm",
+ "golem-schema",
  "http 1.3.1",
  "log 0.4.29",
  "serde",
@@ -2437,18 +2526,51 @@ dependencies = [
  "uuid",
  "wasi-logger",
  "wasip2",
- "wit-bindgen 0.53.1",
+ "wasip3 0.7.0+wasi-0.3.0",
+ "wit-bindgen 0.58.0",
  "wstd",
 ]
 
 [[package]]
 name = "golem-rust-macro"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3322c6f34c6acf5ba1194af562221360b458480e4722d068378f4dbff089f32"
+version = "0.0.0"
 dependencies = [
  "heck 0.5.0",
  "humantime",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "golem-schema"
+version = "0.0.0"
+dependencies = [
+ "base64 0.22.1",
+ "bigdecimal",
+ "bit-vec",
+ "chrono",
+ "combine",
+ "golem-schema-derive",
+ "range-set-blaze",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "typed-path",
+ "url 2.5.8",
+ "uuid",
+ "wasip2",
+ "wit-bindgen 0.58.0",
+]
+
+[[package]]
+name = "golem-schema-derive"
+version = "0.0.0"
+dependencies = [
+ "darling",
+ "heck 0.5.0",
  "proc-macro-crate",
  "proc-macro2",
  "quote",
@@ -2472,19 +2594,6 @@ dependencies = [
  "serde_urlencoded",
  "url 2.5.8",
  "wasip2",
-]
-
-[[package]]
-name = "golem-wasm"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "350772d6d07165e02bafb7f6e5bc8e6b2c9afdc214ee17320ea29f7df0881dde"
-dependencies = [
- "chrono",
- "itertools 0.14.0",
- "uuid",
- "wasip2",
- "wit-bindgen 0.51.0",
 ]
 
 [[package]]
@@ -2546,6 +2655,9 @@ name = "hashbrown"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
+dependencies = [
+ "foldhash 0.2.0",
+]
 
 [[package]]
 name = "heck"
@@ -3338,6 +3450,17 @@ checksum = "c0aeb26bf5e836cc1c341c8106051b573f1766dfa05aa87f0b98be5e51b02303"
 dependencies = [
  "nix 0.29.0",
  "winapi",
+]
+
+[[package]]
+name = "macro-string"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59a9dbbfc75d2688ed057456ce8a3ee3f48d12eec09229f560f3643b9f275653"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -4404,6 +4527,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "range-set-blaze"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8421b5d459262eabbe49048d362897ff3e3830b44eac6cfe341d6acb2f0f13d2"
+dependencies = [
+ "gen_ops",
+ "itertools 0.12.1",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
 name = "rdrand"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5397,6 +5532,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "strsim"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
 name = "strum"
 version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5813,6 +5954,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1410f6f91f21d1612654e7cc69193b0334f909dcf2c790c4826254fbb86f8887"
 
 [[package]]
+name = "typed-path"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41713888c5ccfd99979fcd1afd47b71652e331b3d4a0e19d30769e80fec76cce"
+
+[[package]]
 name = "typemap"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6091,6 +6238,7 @@ dependencies = [
  "idna 1.1.0",
  "percent-encoding 2.3.2",
  "serde",
+ "serde_derive",
 ]
 
 [[package]]
@@ -6208,6 +6356,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasip3"
+version = "0.7.0+wasi-0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07aa681120704bf09828d1f7cf7e763666c1dc6a36e5096efd0ad9aadfb302d3"
+dependencies = [
+ "bytes",
+ "http 1.3.1",
+ "http-body 1.0.1",
+ "thiserror 2.0.18",
+ "wit-bindgen 0.57.1",
+]
+
+[[package]]
 name = "wasm-bindgen"
 version = "0.2.121"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6273,12 +6434,12 @@ dependencies = [
 
 [[package]]
 name = "wasm-encoder"
-version = "0.245.1"
+version = "0.251.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f9dca005e69bf015e45577e415b9af8c67e8ee3c0e38b5b0add5aa92581ed5c"
+checksum = "5a879a421bd17c528b74721b2abf4c62e8f1d1889c2ba8c3c50d02deaf2ce395"
 dependencies = [
  "leb128fmt",
- "wasmparser 0.245.1",
+ "wasmparser 0.251.0",
 ]
 
 [[package]]
@@ -6311,14 +6472,14 @@ dependencies = [
 
 [[package]]
 name = "wasm-metadata"
-version = "0.245.1"
+version = "0.251.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da55e60097e8b37b475a0fa35c3420dd71d9eb7bd66109978ab55faf56a57efb"
+checksum = "5f998ccc6e012f7b86865eb2a106c8a0422017a1a88977ce01a69f2244be2e57"
 dependencies = [
  "anyhow",
  "indexmap",
- "wasm-encoder 0.245.1",
- "wasmparser 0.245.1",
+ "wasm-encoder 0.251.0",
+ "wasmparser 0.251.0",
 ]
 
 [[package]]
@@ -6346,12 +6507,12 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.245.1"
+version = "0.251.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f08c9adee0428b7bddf3890fc27e015ac4b761cc608c822667102b8bfd6995e"
+checksum = "437970b35b1a85cfde9c74b2398352d8d653f3bd8e3a3db0c063ea8f5b4b36ff"
 dependencies = [
  "bitflags 2.11.1",
- "hashbrown 0.16.1",
+ "hashbrown 0.17.0",
  "indexmap",
  "semver",
 ]
@@ -6674,18 +6835,7 @@ version = "0.51.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7249219f66ced02969388cf2bb044a09756a083d0fab1e566056b04d9fbcaa5"
 dependencies = [
- "bitflags 2.11.1",
  "wit-bindgen-rust-macro 0.51.0",
-]
-
-[[package]]
-name = "wit-bindgen"
-version = "0.53.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e915216dde3e818093168df8380a64fba25df468d626c80dd5d6a184c87e7c7"
-dependencies = [
- "bitflags 2.11.1",
- "wit-bindgen-rust-macro 0.53.1",
 ]
 
 [[package]]
@@ -6695,6 +6845,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 dependencies = [
  "bitflags 2.11.1",
+ "futures",
+]
+
+[[package]]
+name = "wit-bindgen"
+version = "0.58.0"
+source = "git+https://github.com/golemcloud/wit-bindgen?rev=af9743984748cc5d9ec0b3498bb6f70b623d0405#af9743984748cc5d9ec0b3498bb6f70b623d0405"
+dependencies = [
+ "bitflags 2.11.1",
+ "futures",
+ "wit-bindgen-rust-macro 0.58.0",
 ]
 
 [[package]]
@@ -6720,13 +6881,12 @@ dependencies = [
 
 [[package]]
 name = "wit-bindgen-core"
-version = "0.53.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3deda4b7e9f522d994906f6e6e0fc67965ea8660306940a776b76732be8f3933"
+version = "0.58.0"
+source = "git+https://github.com/golemcloud/wit-bindgen?rev=af9743984748cc5d9ec0b3498bb6f70b623d0405#af9743984748cc5d9ec0b3498bb6f70b623d0405"
 dependencies = [
  "anyhow",
  "heck 0.5.0",
- "wit-parser 0.245.1",
+ "wit-parser 0.251.0",
 ]
 
 [[package]]
@@ -6770,18 +6930,17 @@ dependencies = [
 
 [[package]]
 name = "wit-bindgen-rust"
-version = "0.53.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "863a7ab3c4dfee58db196811caeb0718b88412a0aef3d1c2b02fcbae1e37c688"
+version = "0.58.0"
+source = "git+https://github.com/golemcloud/wit-bindgen?rev=af9743984748cc5d9ec0b3498bb6f70b623d0405#af9743984748cc5d9ec0b3498bb6f70b623d0405"
 dependencies = [
  "anyhow",
  "heck 0.5.0",
  "indexmap",
  "prettyplease",
  "syn",
- "wasm-metadata 0.245.1",
- "wit-bindgen-core 0.53.1",
- "wit-component 0.245.1",
+ "wasm-metadata 0.251.0",
+ "wit-bindgen-core 0.58.0",
+ "wit-component 0.251.0",
 ]
 
 [[package]]
@@ -6815,17 +6974,17 @@ dependencies = [
 
 [[package]]
 name = "wit-bindgen-rust-macro"
-version = "0.53.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d14f3a9bfa3804bb0e9ab7f66da047f210eded6a1297ae3ba5805b384d64797f"
+version = "0.58.0"
+source = "git+https://github.com/golemcloud/wit-bindgen?rev=af9743984748cc5d9ec0b3498bb6f70b623d0405#af9743984748cc5d9ec0b3498bb6f70b623d0405"
 dependencies = [
  "anyhow",
+ "macro-string",
  "prettyplease",
  "proc-macro2",
  "quote",
  "syn",
- "wit-bindgen-core 0.53.1",
- "wit-bindgen-rust 0.53.1",
+ "wit-bindgen-core 0.58.0",
+ "wit-bindgen-rust 0.58.0",
 ]
 
 [[package]]
@@ -6868,9 +7027,9 @@ dependencies = [
 
 [[package]]
 name = "wit-component"
-version = "0.245.1"
+version = "0.251.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4894f10d2d5cbc17c77e91f86a1e48e191a788da4425293b55c98b44ba3fcac9"
+checksum = "83a5e60173c413659c689f0581b0cf5d1a2404077568f9ffdce748a9eb2fc913"
 dependencies = [
  "anyhow",
  "bitflags 2.11.1",
@@ -6879,10 +7038,10 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "wasm-encoder 0.245.1",
- "wasm-metadata 0.245.1",
- "wasmparser 0.245.1",
- "wit-parser 0.245.1",
+ "wasm-encoder 0.251.0",
+ "wasm-metadata 0.251.0",
+ "wasmparser 0.251.0",
+ "wit-parser 0.251.0",
 ]
 
 [[package]]
@@ -6923,12 +7082,12 @@ dependencies = [
 
 [[package]]
 name = "wit-parser"
-version = "0.245.1"
+version = "0.251.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "330698718e82983499419494dd1e3d7811a457a9bf9f69734e8c5f07a2547929"
+checksum = "e960732e824fab95099971a09e638979347c94ca48568d3c854c945729196947"
 dependencies = [
  "anyhow",
- "hashbrown 0.16.1",
+ "hashbrown 0.17.0",
  "id-arena",
  "indexmap",
  "log 0.4.29",
@@ -6937,7 +7096,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "unicode-xid",
- "wasmparser 0.245.1",
+ "wasmparser 0.251.0",
 ]
 
 [[package]]

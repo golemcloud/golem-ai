@@ -2,6 +2,7 @@
 resolver = "2"
 
 members = [
+    "http",
     "llm/llm",
     "llm/bedrock",
     "llm/anthropic",
@@ -59,6 +60,7 @@ lto = true
 opt-level = 's'
 
 [workspace.dependencies]
+golem-ai-http = { path = "http", version = "0.0.0" }
 golem-ai-llm = { path = "llm/llm", version = "0.0.0", default-features = false }
 golem-ai-search = { path = "search/search", version = "0.0.0", default-features = false }
 golem-ai-graph = { path = "graph/graph", version = "0.0.0", default-features = false }
@@ -68,7 +70,7 @@ golem-ai-tts = { path = "tts/tts" , version = "0.0.0" , default-features= false}
 golem-ai-vector = { path = "vector/vector", version = "0.0.0", default-features = false}
 golem-ai-embed = { path = "embed/embed", version = "0.0.0", default-features = false}
 futures = "0.3.31"
-golem-rust = "=2.1.0"
+golem-rust = { path = "../golem/sdks/rust/golem-rust", version = "=0.0.0" }
 golem-wasi-http = { version = "0.2.0", features = ["json"] }
 log = { version = "0.4.29", features = ["kv"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -77,6 +79,7 @@ wasi = "=0.14.7+wasi-0.2.4"
 wstd = "=0.6.5"
 wit-bindgen = "=0.53.1"
 wasip2 = "1.0.2"
+wasip3 = { version = "=0.7.0", features = ["http-compat"] }
 base64 = { version = "0.22.1" }
 mime_guess = { version = "2.0.5" }
 url = { version = "2.5.7" }
