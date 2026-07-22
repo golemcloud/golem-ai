@@ -2502,7 +2502,7 @@ dependencies = [
  "base64 0.22.1",
  "golem-ai-web-search",
  "golem-rust",
- "golem-wasi-http",
+ "golem-ai-http",
  "log 0.4.29",
  "serde",
  "serde_json",
