@@ -71,7 +71,7 @@ fn make_config() -> ConnectionConfig {
 }
 
 #[cfg(feature = "arangodb")]
-fn ensure_arangodb_collections(
+async fn ensure_arangodb_collections(
     _graph_connection: &golem_ai_graph::model::connection::Graph,
 ) -> Result<(), String> {
     use golem_ai_graph::model::schema::ContainerType;
@@ -79,7 +79,7 @@ fn ensure_arangodb_collections(
 
     println!("Setting up ArangoDB collections for testing...");
 
-    let schema_manager = match Provider::get_schema_manager(None) {
+    let schema_manager = match Provider::get_schema_manager(None).await {
         Ok(manager) => manager,
         Err(error) => return Err(format!("Failed to get schema manager: {:?}", error)),
     };
@@ -98,7 +98,7 @@ fn ensure_arangodb_collections(
         ("FOLLOWS", ContainerType::EdgeContainer),
     ];
 
-    let existing_containers = match schema_manager.list_containers() {
+    let existing_containers = match schema_manager.list_containers().await {
         Ok(containers) => containers,
         Err(error) => {
             println!("ERROR: Could not list existing containers: {:?}", error);
@@ -115,7 +115,10 @@ fn ensure_arangodb_collections(
             continue;
         }
 
-        match schema_manager.create_container(name.to_string(), container_type) {
+        match schema_manager
+            .create_container(name.to_string(), container_type)
+            .await
+        {
             Ok(_) => println!("Collection '{}' created successfully", name),
             Err(error) => {
                 println!("ERROR: Could not create collection '{}': {:?}", name, error);
@@ -128,7 +131,7 @@ fn ensure_arangodb_collections(
 }
 
 #[cfg(not(feature = "arangodb"))]
-fn ensure_arangodb_collections(
+async fn ensure_arangodb_collections(
     _graph_connection: &golem_ai_graph::model::connection::Graph,
 ) -> Result<(), String> {
     Ok(())
@@ -137,13 +140,13 @@ fn ensure_arangodb_collections(
 #[agent_definition]
 pub trait GraphTest {
     fn new(name: String) -> Self;
-    fn test1(&self) -> String;
-    fn test2(&self) -> String;
-    fn test3(&self) -> String;
-    fn test4(&self) -> String;
-    fn test5(&self) -> String;
-    fn test6(&self) -> String;
-    fn test7(&self) -> String;
+    async fn test1(&self) -> String;
+    async fn test2(&self) -> String;
+    async fn test3(&self) -> String;
+    async fn test4(&self) -> String;
+    async fn test5(&self) -> String;
+    async fn test6(&self) -> String;
+    async fn test7(&self) -> String;
 }
 
 struct GraphTestImpl {
@@ -156,13 +159,13 @@ impl GraphTest for GraphTestImpl {
         Self { _name: name }
     }
 
-    fn test1(&self) -> String {
+    async fn test1(&self) -> String {
         println!("Starting test1: Basic vertex operations with {}", PROVIDER);
 
         let config = make_config();
 
         println!("Connecting to graph database...");
-        let graph_connection = match Provider::connect(config) {
+        let graph_connection = match Provider::connect(config).await {
             Ok(conn) => conn,
             Err(error) => {
                 return format!(
@@ -171,12 +174,12 @@ impl GraphTest for GraphTestImpl {
                 );
             }
         };
-        if let Err(error) = ensure_arangodb_collections(&graph_connection) {
+        if let Err(error) = ensure_arangodb_collections(&graph_connection).await {
             println!("ERROR: Collection setup failed: {}", error);
         }
 
         println!("Beginning transaction...");
-        let transaction = match graph_connection.begin_transaction() {
+        let transaction = match graph_connection.begin_transaction().await {
             Ok(tx) => tx,
             Err(error) => {
                 return format!("ERROR: Transaction creation failed: {:?}", error);
@@ -193,29 +196,32 @@ impl GraphTest for GraphTestImpl {
         ];
 
         println!("Creating vertex...");
-        let vertex = match transaction.create_vertex(CreateVertexOptions {
-            vertex_type: "Person".to_string(),
-            properties: Some(properties),
-            labels: None,
-        }) {
+        let vertex = match transaction
+            .create_vertex(CreateVertexOptions {
+                vertex_type: "Person".to_string(),
+                properties: Some(properties),
+                labels: None,
+            })
+            .await
+        {
             Ok(v) => v,
             Err(error) => return format!("ERROR: Vertex creation failed: {:?}", error),
         };
 
         println!("Created vertex with ID: {:?}", vertex.id);
 
-        let retrieved_vertex = match transaction.get_vertex(vertex.id.clone()) {
+        let retrieved_vertex = match transaction.get_vertex(vertex.id.clone()).await {
             Ok(Some(v)) => v,
             Ok(None) => return "ERROR: Vertex not found after creation".to_string(),
             Err(error) => return format!("ERROR: Vertex retrieval failed: {:?}", error),
         };
 
-        match transaction.commit() {
+        match transaction.commit().await {
             Ok(_) => println!("Transaction committed successfully"),
             Err(error) => return format!("ERROR: Commit failed: {:?}", error),
         };
 
-        let _ = graph_connection.close();
+        let _ = graph_connection.close().await;
 
         format!(
             "SUCCESS [{}]: Created and retrieved vertex of type '{}' with ID {:?} and {} properties",
@@ -226,24 +232,24 @@ impl GraphTest for GraphTestImpl {
         )
     }
 
-    fn test2(&self) -> String {
+    async fn test2(&self) -> String {
         println!("Starting test2: Edge operations with {}", PROVIDER);
         let mut results = Vec::new();
 
         let config = make_config();
 
-        let graph_connection = match Provider::connect(config) {
+        let graph_connection = match Provider::connect(config).await {
             Ok(conn) => conn,
             Err(error) => {
                 return format!("ERROR: Connection failed: {:?}", error);
             }
         };
 
-        if let Err(error) = ensure_arangodb_collections(&graph_connection) {
+        if let Err(error) = ensure_arangodb_collections(&graph_connection).await {
             println!("ERROR: Collection setup failed: {}", error);
         }
 
-        let transaction = match graph_connection.begin_transaction() {
+        let transaction = match graph_connection.begin_transaction().await {
             Ok(tx) => tx,
             Err(error) => {
                 return format!("ERROR: Transaction creation failed: {:?}", error);
@@ -266,20 +272,26 @@ impl GraphTest for GraphTestImpl {
             ("age".to_string(), PropertyValue::Int32(28)),
         ];
 
-        let vertex1 = match transaction.create_vertex(CreateVertexOptions {
-            vertex_type: "Person".to_string(),
-            properties: Some(person1_props),
-            labels: None,
-        }) {
+        let vertex1 = match transaction
+            .create_vertex(CreateVertexOptions {
+                vertex_type: "Person".to_string(),
+                properties: Some(person1_props),
+                labels: None,
+            })
+            .await
+        {
             Ok(v) => v,
             Err(error) => return format!("ERROR: First vertex creation failed: {:?}", error),
         };
 
-        let vertex2 = match transaction.create_vertex(CreateVertexOptions {
-            vertex_type: "Person".to_string(),
-            properties: Some(person2_props),
-            labels: None,
-        }) {
+        let vertex2 = match transaction
+            .create_vertex(CreateVertexOptions {
+                vertex_type: "Person".to_string(),
+                properties: Some(person2_props),
+                labels: None,
+            })
+            .await
+        {
             Ok(v) => v,
             Err(error) => return format!("ERROR: Second vertex creation failed: {:?}", error),
         };
@@ -296,12 +308,15 @@ impl GraphTest for GraphTestImpl {
             ("weight".to_string(), PropertyValue::Float32Value(0.8)),
         ];
 
-        let edge = match transaction.create_edge(CreateEdgeOptions {
-            edge_type: "KNOWS".to_string(),
-            from_vertex: vertex1.id.clone(),
-            to_vertex: vertex2.id.clone(),
-            properties: Some(edge_props),
-        }) {
+        let edge = match transaction
+            .create_edge(CreateEdgeOptions {
+                edge_type: "KNOWS".to_string(),
+                from_vertex: vertex1.id.clone(),
+                to_vertex: vertex2.id.clone(),
+                properties: Some(edge_props),
+            })
+            .await
+        {
             Ok(e) => {
                 println!(
                     "INFO: Successfully created edge: {:?} -> {:?} (type: {})",
@@ -312,14 +327,15 @@ impl GraphTest for GraphTestImpl {
             Err(error) => return format!("ERROR: Edge creation failed: {:?}", error),
         };
 
-        let adjacent_vertices = match transaction.get_adjacent_vertices(
-            GetAdjacentVerticesOptions {
+        let adjacent_vertices = match transaction
+            .get_adjacent_vertices(GetAdjacentVerticesOptions {
                 vertex_id: vertex1.id.clone(),
                 direction: Direction::Outgoing,
                 edge_types: Some(vec!["KNOWS".to_string()]),
                 limit: Some(10),
-            },
-        ) {
+            })
+            .await
+        {
             Ok(vertices) => {
                 println!(
                     "INFO: Successfully found {} adjacent vertices using get_adjacent_vertices",
@@ -336,12 +352,12 @@ impl GraphTest for GraphTestImpl {
             }
         };
 
-        match transaction.commit() {
+        match transaction.commit().await {
             Ok(_) => (),
             Err(error) => return format!("ERROR: Commit failed: {:?}", error),
         };
 
-        let _ = graph_connection.close();
+        let _ = graph_connection.close().await;
 
         format!(
             "SUCCESS [{}]: Created edge of type '{}' between vertices. Found {} adjacent vertices | Provider-specific handling: {:?}",
@@ -352,21 +368,21 @@ impl GraphTest for GraphTestImpl {
         )
     }
 
-    fn test3(&self) -> String {
+    async fn test3(&self) -> String {
         let config = make_config();
 
-        let graph_connection = match Provider::connect(config) {
+        let graph_connection = match Provider::connect(config).await {
             Ok(conn) => conn,
             Err(error) => {
                 return format!("ERROR: Connection failed: {:?}", error);
             }
         };
 
-        if let Err(error) = ensure_arangodb_collections(&graph_connection) {
+        if let Err(error) = ensure_arangodb_collections(&graph_connection).await {
             println!("ERROR: Collection setup failed: {}", error);
         }
 
-        let transaction = match graph_connection.begin_transaction() {
+        let transaction = match graph_connection.begin_transaction().await {
             Ok(tx) => tx,
             Err(error) => {
                 return format!("ERROR: Transaction creation failed: {:?}", error);
@@ -381,25 +397,28 @@ impl GraphTest for GraphTestImpl {
             ("temp".to_string(), PropertyValue::Boolean(true)),
         ];
 
-        let vertex = match transaction.create_vertex(CreateVertexOptions {
-            vertex_type: "TempUser".to_string(),
-            properties: Some(properties),
-            labels: None,
-        }) {
+        let vertex = match transaction
+            .create_vertex(CreateVertexOptions {
+                vertex_type: "TempUser".to_string(),
+                properties: Some(properties),
+                labels: None,
+            })
+            .await
+        {
             Ok(v) => v,
             Err(error) => return format!("ERROR: Vertex creation failed: {:?}", error),
         };
 
         let is_active_before = transaction.is_active();
 
-        match transaction.rollback() {
+        match transaction.rollback().await {
             Ok(_) => println!("Transaction rolled back successfully"),
             Err(error) => return format!("ERROR: Rollback failed: {:?}", error),
         };
 
         let is_active_after = transaction.is_active();
 
-        let _ = graph_connection.close();
+        let _ = graph_connection.close().await;
 
         format!(
             "SUCCESS [{}]: Transaction test completed. Active before rollback: {}, after rollback: {}. Vertex ID was: {:?}",
@@ -410,24 +429,24 @@ impl GraphTest for GraphTestImpl {
         )
     }
 
-    fn test4(&self) -> String {
+    async fn test4(&self) -> String {
         println!("Starting test4: Batch operations with {}", PROVIDER);
         let mut results = Vec::new();
 
         let config = make_config();
 
-        let graph_connection = match Provider::connect(config) {
+        let graph_connection = match Provider::connect(config).await {
             Ok(conn) => conn,
             Err(error) => {
                 return format!("ERROR: Connection failed: {:?}", error);
             }
         };
 
-        if let Err(error) = ensure_arangodb_collections(&graph_connection) {
+        if let Err(error) = ensure_arangodb_collections(&graph_connection).await {
             println!("ERROR: Collection setup failed: {}", error);
         }
 
-        let transaction = match graph_connection.begin_transaction() {
+        let transaction = match graph_connection.begin_transaction().await {
             Ok(tx) => tx,
             Err(error) => {
                 return format!("ERROR: Transaction creation failed: {:?}", error);
@@ -473,7 +492,7 @@ impl GraphTest for GraphTestImpl {
             },
         ];
 
-        let vertices = match transaction.create_vertices(vertex_specs) {
+        let vertices = match transaction.create_vertices(vertex_specs).await {
             Ok(v) => {
                 results.push("Standard batch vertex creation succeeded".to_string());
                 v
@@ -504,7 +523,7 @@ impl GraphTest for GraphTestImpl {
                 ]),
             }];
 
-            let edges = match transaction.create_edges(edge_specs) {
+            let edges = match transaction.create_edges(edge_specs).await {
                 Ok(e) => {
                     results.push("Standard batch edge creation succeeded".to_string());
                     e
@@ -518,12 +537,12 @@ impl GraphTest for GraphTestImpl {
                 }
             };
 
-            match transaction.commit() {
+            match transaction.commit().await {
                 Ok(_) => (),
                 Err(error) => return format!("ERROR: Commit failed: {:?}", error),
             };
 
-            let _ = graph_connection.close();
+            let _ = graph_connection.close().await;
 
             format!(
                 "SUCCESS [{}]: Created {} vertices and {} edges in batch operations | Provider-specific handling: {:?}",
@@ -541,82 +560,98 @@ impl GraphTest for GraphTestImpl {
         }
     }
 
-    fn test5(&self) -> String {
+    async fn test5(&self) -> String {
         println!("Starting test5: Traversal operations with {}", PROVIDER);
         let mut results = Vec::new();
 
         let config = make_config();
 
-        let graph_connection = match Provider::connect(config) {
+        let graph_connection = match Provider::connect(config).await {
             Ok(conn) => conn,
             Err(error) => return format!("ERROR: Connection failed: {:?}", error),
         };
 
-        if let Err(error) = ensure_arangodb_collections(&graph_connection) {
+        if let Err(error) = ensure_arangodb_collections(&graph_connection).await {
             println!("ERROR: Collection setup failed: {}", error);
         }
 
-        let transaction = match graph_connection.begin_transaction() {
+        let transaction = match graph_connection.begin_transaction().await {
             Ok(tx) => tx,
             Err(error) => return format!("ERROR: Transaction creation failed: {:?}", error),
         };
 
-        let vertex_a = match transaction.create_vertex(CreateVertexOptions {
-            vertex_type: "Node".to_string(),
-            properties: Some(vec![(
-                "name".to_string(),
-                PropertyValue::StringValue("A".to_string()),
-            )]),
-            labels: None,
-        }) {
+        let vertex_a = match transaction
+            .create_vertex(CreateVertexOptions {
+                vertex_type: "Node".to_string(),
+                properties: Some(vec![(
+                    "name".to_string(),
+                    PropertyValue::StringValue("A".to_string()),
+                )]),
+                labels: None,
+            })
+            .await
+        {
             Ok(v) => v,
             Err(error) => return format!("ERROR: Vertex A creation failed: {:?}", error),
         };
 
-        let vertex_b = match transaction.create_vertex(CreateVertexOptions {
-            vertex_type: "Node".to_string(),
-            properties: Some(vec![(
-                "name".to_string(),
-                PropertyValue::StringValue("B".to_string()),
-            )]),
-            labels: None,
-        }) {
+        let vertex_b = match transaction
+            .create_vertex(CreateVertexOptions {
+                vertex_type: "Node".to_string(),
+                properties: Some(vec![(
+                    "name".to_string(),
+                    PropertyValue::StringValue("B".to_string()),
+                )]),
+                labels: None,
+            })
+            .await
+        {
             Ok(v) => v,
             Err(error) => return format!("ERROR: Vertex B creation failed: {:?}", error),
         };
 
-        let vertex_c = match transaction.create_vertex(CreateVertexOptions {
-            vertex_type: "Node".to_string(),
-            properties: Some(vec![(
-                "name".to_string(),
-                PropertyValue::StringValue("C".to_string()),
-            )]),
-            labels: None,
-        }) {
+        let vertex_c = match transaction
+            .create_vertex(CreateVertexOptions {
+                vertex_type: "Node".to_string(),
+                properties: Some(vec![(
+                    "name".to_string(),
+                    PropertyValue::StringValue("C".to_string()),
+                )]),
+                labels: None,
+            })
+            .await
+        {
             Ok(v) => v,
             Err(error) => return format!("ERROR: Vertex C creation failed: {:?}", error),
         };
 
-        let _ = transaction.create_edge(CreateEdgeOptions {
-            edge_type: "CONNECTS".to_string(),
-            from_vertex: vertex_a.id.clone(),
-            to_vertex: vertex_b.id.clone(),
-            properties: None,
-        });
-        let _ = transaction.create_edge(CreateEdgeOptions {
-            edge_type: "CONNECTS".to_string(),
-            from_vertex: vertex_b.id.clone(),
-            to_vertex: vertex_c.id.clone(),
-            properties: None,
-        });
+        let _ = transaction
+            .create_edge(CreateEdgeOptions {
+                edge_type: "CONNECTS".to_string(),
+                from_vertex: vertex_a.id.clone(),
+                to_vertex: vertex_b.id.clone(),
+                properties: None,
+            })
+            .await;
+        let _ = transaction
+            .create_edge(CreateEdgeOptions {
+                edge_type: "CONNECTS".to_string(),
+                from_vertex: vertex_b.id.clone(),
+                to_vertex: vertex_c.id.clone(),
+                properties: None,
+            })
+            .await;
 
-        let neighborhood = match transaction.get_neighborhood(GetNeighborhoodOptions {
-            center: vertex_b.id.clone(),
-            depth: 1,
-            direction: Direction::Both,
-            edge_types: Some(vec!["CONNECTS".to_string()]),
-            max_vertices: Some(10),
-        }) {
+        let neighborhood = match transaction
+            .get_neighborhood(GetNeighborhoodOptions {
+                center: vertex_b.id.clone(),
+                depth: 1,
+                direction: Direction::Both,
+                edge_types: Some(vec!["CONNECTS".to_string()]),
+                max_vertices: Some(10),
+            })
+            .await
+        {
             Ok(subgraph) => {
                 results.push("Standard neighborhood exploration succeeded".to_string());
                 subgraph
@@ -630,17 +665,20 @@ impl GraphTest for GraphTestImpl {
             }
         };
 
-        let path_exists_result = match transaction.path_exists(PathExistsOptions {
-            from_vertex: vertex_a.id.clone(),
-            to_vertex: vertex_c.id.clone(),
-            path: Some(PathOptions {
-                max_depth: Some(3),
-                edge_types: Some(vec!["CONNECTS".to_string()]),
-                vertex_types: None,
-                vertex_filters: None,
-                edge_filters: None,
-            }),
-        }) {
+        let path_exists_result = match transaction
+            .path_exists(PathExistsOptions {
+                from_vertex: vertex_a.id.clone(),
+                to_vertex: vertex_c.id.clone(),
+                path: Some(PathOptions {
+                    max_depth: Some(3),
+                    edge_types: Some(vec!["CONNECTS".to_string()]),
+                    vertex_types: None,
+                    vertex_filters: None,
+                    edge_filters: None,
+                }),
+            })
+            .await
+        {
             Ok(exists) => {
                 results.push("Standard path existence check succeeded".to_string());
                 exists
@@ -654,12 +692,12 @@ impl GraphTest for GraphTestImpl {
             }
         };
 
-        match transaction.commit() {
+        match transaction.commit().await {
             Ok(_) => (),
             Err(error) => return format!("ERROR: Commit failed: {:?}", error),
         };
 
-        let _ = graph_connection.close();
+        let _ = graph_connection.close().await;
 
         format!(
             "SUCCESS [{}]: Traversal test completed. Neighborhood has {} vertices and {} edges. Path from A to C exists: {} | Provider-specific handling: {:?}",
@@ -671,48 +709,52 @@ impl GraphTest for GraphTestImpl {
         )
     }
 
-    fn test6(&self) -> String {
+    async fn test6(&self) -> String {
         println!("Starting test6: Query operations with {}", PROVIDER);
         let mut results = Vec::new();
 
         let config = make_config();
 
-        let graph_connection = match Provider::connect(config) {
+        let graph_connection = match Provider::connect(config).await {
             Ok(conn) => conn,
             Err(error) => return format!("ERROR: Connection failed: {:?}", error),
         };
-        if let Err(error) = ensure_arangodb_collections(&graph_connection) {
+        if let Err(error) = ensure_arangodb_collections(&graph_connection).await {
             println!("ERROR: Collection setup failed: {}", error);
         }
 
-        let transaction = match graph_connection.begin_transaction() {
+        let transaction = match graph_connection.begin_transaction().await {
             Ok(tx) => tx,
             Err(error) => return format!("ERROR: Transaction creation failed: {:?}", error),
         };
 
-        let _ = transaction.create_vertex(CreateVertexOptions {
-            vertex_type: "Product".to_string(),
-            properties: Some(vec![
-                (
-                    "name".to_string(),
-                    PropertyValue::StringValue("Widget".to_string()),
-                ),
-                ("price".to_string(), PropertyValue::Float32Value(19.99)),
-            ]),
-            labels: None,
-        });
+        let _ = transaction
+            .create_vertex(CreateVertexOptions {
+                vertex_type: "Product".to_string(),
+                properties: Some(vec![
+                    (
+                        "name".to_string(),
+                        PropertyValue::StringValue("Widget".to_string()),
+                    ),
+                    ("price".to_string(), PropertyValue::Float32Value(19.99)),
+                ]),
+                labels: None,
+            })
+            .await;
 
-        let _ = transaction.create_vertex(CreateVertexOptions {
-            vertex_type: "Product".to_string(),
-            properties: Some(vec![
-                (
-                    "name".to_string(),
-                    PropertyValue::StringValue("Gadget".to_string()),
-                ),
-                ("price".to_string(), PropertyValue::Float32Value(29.99)),
-            ]),
-            labels: None,
-        });
+        let _ = transaction
+            .create_vertex(CreateVertexOptions {
+                vertex_type: "Product".to_string(),
+                properties: Some(vec![
+                    (
+                        "name".to_string(),
+                        PropertyValue::StringValue("Gadget".to_string()),
+                    ),
+                    ("price".to_string(), PropertyValue::Float32Value(29.99)),
+                ]),
+                labels: None,
+            })
+            .await;
 
         let (query_string, parameters) = match PROVIDER {
             "neo4j" => {
@@ -745,18 +787,21 @@ impl GraphTest for GraphTestImpl {
             }
         };
 
-        let query_result = match transaction.execute_query(ExecuteQueryOptions {
-            query: query_string,
-            parameters: if parameters.is_empty() {
-                None
-            } else {
-                Some(parameters)
-            },
-            timeout_seconds: Some(30),
-            max_results: Some(100),
-            explain: None,
-            profile: None,
-        }) {
+        let query_result = match transaction
+            .execute_query(ExecuteQueryOptions {
+                query: query_string,
+                parameters: if parameters.is_empty() {
+                    None
+                } else {
+                    Some(parameters)
+                },
+                timeout_seconds: Some(30),
+                max_results: Some(100),
+                explain: None,
+                profile: None,
+            })
+            .await
+        {
             Ok(result) => {
                 results.push("Standard query execution succeeded".to_string());
                 result
@@ -770,12 +815,12 @@ impl GraphTest for GraphTestImpl {
             }
         };
 
-        match transaction.commit() {
+        match transaction.commit().await {
             Ok(_) => (),
             Err(error) => return format!("ERROR: Commit failed: {:?}", error),
         };
 
-        let _ = graph_connection.close();
+        let _ = graph_connection.close().await;
 
         let result_count = match &query_result.query_result_value {
             QueryResult::Vertices(vertices) => vertices.len(),
@@ -793,10 +838,10 @@ impl GraphTest for GraphTestImpl {
         )
     }
 
-    fn test7(&self) -> String {
+    async fn test7(&self) -> String {
         println!("Starting test7: Schema operations with {}", PROVIDER);
 
-        let schema_manager = match Provider::get_schema_manager(None) {
+        let schema_manager = match Provider::get_schema_manager(None).await {
             Ok(manager) => manager,
             Err(error) => {
                 return format!("ERROR: Schema manager creation failed: {:?}", error);
@@ -807,7 +852,7 @@ impl GraphTest for GraphTestImpl {
         let mut edge_count = 0;
         let mut index_count = 0;
 
-        match schema_manager.list_vertex_labels() {
+        match schema_manager.list_vertex_labels().await {
             Ok(labels) => {
                 vertex_count = labels.len();
                 println!("Found {} vertex labels", vertex_count);
@@ -817,7 +862,7 @@ impl GraphTest for GraphTestImpl {
             }
         }
 
-        match schema_manager.list_edge_labels() {
+        match schema_manager.list_edge_labels().await {
             Ok(labels) => {
                 edge_count = labels.len();
                 println!("Found {} edge labels", edge_count);
@@ -827,7 +872,7 @@ impl GraphTest for GraphTestImpl {
             }
         }
 
-        match schema_manager.list_indexes() {
+        match schema_manager.list_indexes().await {
             Ok(idx_list) => {
                 index_count = idx_list.len();
                 println!("Found {} indexes", index_count);
