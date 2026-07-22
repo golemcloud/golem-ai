@@ -1,6 +1,7 @@
 use crate::client::{Neo4jStatement, Neo4jStatements};
 use crate::helpers::{config_from_env, map_neo4j_type_to_wit};
 use crate::{Neo4j, SchemaManager};
+use async_trait::async_trait;
 use golem_ai_graph::durability::ExtendedGuest;
 use golem_ai_graph::model::{
     connection::ConnectionConfig,
@@ -19,14 +20,14 @@ use std::sync::Arc;
 impl SchemaManagerProvider for Neo4j {
     type SchemaManager = SchemaManager;
 
-    fn get_schema_manager(
+    async fn get_schema_manager(
         config: Option<ConnectionConfig>,
     ) -> Result<SchemaManagerResource, GraphError> {
         let final_config = match config {
             Some(provided_config) => provided_config,
             None => config_from_env()?,
         };
-        let graph = Neo4j::connect_internal(&final_config)?;
+        let graph = Neo4j::connect_internal(&final_config).await?;
         let manager = SchemaManager {
             graph: Arc::new(graph),
         };
@@ -34,6 +35,7 @@ impl SchemaManagerProvider for Neo4j {
     }
 }
 
+#[async_trait(?Send)]
 impl SchemaManagerInterface for SchemaManager {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -42,7 +44,7 @@ impl SchemaManagerInterface for SchemaManager {
         self
     }
 
-    fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
+    async fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
         for prop in schema.properties {
             if prop.required {
                 let q = format!(
@@ -51,13 +53,14 @@ impl SchemaManagerInterface for SchemaManager {
                     label = schema.label,
                     name = prop.name
                 );
-                let tx = self.graph.begin_transaction()?;
+                let tx = self.graph.begin_transaction().await?;
                 let statement = Neo4jStatement::with_row_only(q, HashMap::new());
                 let statements = Neo4jStatements::single(statement);
 
                 match tx
                     .api
                     .execute_typed_transaction(&tx.transaction_url, &statements)
+                    .await
                 {
                     Err(e) => {
                         let is_enterprise_error = matches!(
@@ -66,12 +69,12 @@ impl SchemaManagerInterface for SchemaManager {
                         );
                         if is_enterprise_error {
                             trace!("[WARN] Skipping property existence constraint: requires Neo4j Enterprise Edition. Error: {e}");
-                            tx.commit()?;
+                            tx.commit().await?;
                         } else {
                             return Err(e);
                         }
                     }
-                    Ok(_) => tx.commit()?,
+                    Ok(_) => tx.commit().await?,
                 }
             }
 
@@ -82,29 +85,30 @@ impl SchemaManagerInterface for SchemaManager {
                     label = schema.label,
                     name = prop.name
                 );
-                let tx = self.graph.begin_transaction()?;
+                let tx = self.graph.begin_transaction().await?;
                 let statement = Neo4jStatement::with_row_only(q, HashMap::new());
                 let statements = Neo4jStatements::single(statement);
                 tx.api
-                    .execute_typed_transaction(&tx.transaction_url, &statements)?;
-                tx.commit()?;
+                    .execute_typed_transaction(&tx.transaction_url, &statements)
+                    .await?;
+                tx.commit().await?;
             }
         }
 
         Ok(())
     }
 
-    fn define_edge_label(&self, schema: EdgeLabelSchema) -> Result<(), GraphError> {
-        let tx = self.graph.begin_transaction()?;
+    async fn define_edge_label(&self, schema: EdgeLabelSchema) -> Result<(), GraphError> {
+        let tx = self.graph.begin_transaction().await?;
         let mut statements = Vec::new();
 
         for prop in schema.properties {
             if prop.required {
                 let constraint_name =
-                    format!("constraint_rel_required_{}_{}", &schema.label, &prop.name);
+                    format!("constraint_rel_required_{}_{}", schema.label, prop.name);
                 let query = format!(
                     "CREATE CONSTRAINT {} IF NOT EXISTS FOR ()-[r:{}]-() REQUIRE r.{} IS NOT NULL",
-                    constraint_name, &schema.label, &prop.name
+                    constraint_name, schema.label, prop.name
                 );
                 statements.push(Neo4jStatement::with_row_only(query, HashMap::new()));
             }
@@ -112,21 +116,22 @@ impl SchemaManagerInterface for SchemaManager {
         }
 
         if statements.is_empty() {
-            return tx.commit();
+            return tx.commit().await;
         }
 
         let statements_batch = Neo4jStatements::batch(statements);
         tx.api
-            .execute_typed_transaction(&tx.transaction_url, &statements_batch)?;
+            .execute_typed_transaction(&tx.transaction_url, &statements_batch)
+            .await?;
 
-        tx.commit()
+        tx.commit().await
     }
 
-    fn get_vertex_label_schema(
+    async fn get_vertex_label_schema(
         &self,
         label: String,
     ) -> Result<Option<VertexLabelSchema>, GraphError> {
-        let tx = self.graph.begin_transaction()?;
+        let tx = self.graph.begin_transaction().await?;
 
         let props_query =
             "CALL db.schema.nodeTypeProperties() YIELD nodeLabels, propertyName, propertyTypes, mandatory \
@@ -146,9 +151,10 @@ impl SchemaManagerInterface for SchemaManager {
         let statements = Neo4jStatements::batch(vec![props_stmt, cons_stmt]);
         let response = tx
             .api
-            .execute_typed_transaction(&tx.transaction_url, &statements)?;
+            .execute_typed_transaction(&tx.transaction_url, &statements)
+            .await?;
 
-        tx.commit()?;
+        tx.commit().await?;
 
         if !response.errors.is_empty() {
             return Err(GraphError::InvalidQuery(response.errors[0].message.clone()));
@@ -229,8 +235,11 @@ impl SchemaManagerInterface for SchemaManager {
         }))
     }
 
-    fn get_edge_label_schema(&self, label: String) -> Result<Option<EdgeLabelSchema>, GraphError> {
-        let tx = self.graph.begin_transaction()?;
+    async fn get_edge_label_schema(
+        &self,
+        label: String,
+    ) -> Result<Option<EdgeLabelSchema>, GraphError> {
+        let tx = self.graph.begin_transaction().await?;
 
         let props_query = "CALL db.schema.relTypeProperties() YIELD relType, propertyName, propertyTypes, mandatory WHERE relType = $label RETURN propertyName, propertyTypes, mandatory";
         let mut params = HashMap::new();
@@ -240,8 +249,9 @@ impl SchemaManagerInterface for SchemaManager {
 
         let response = tx
             .api
-            .execute_typed_transaction(&tx.transaction_url, &statements)?;
-        tx.commit()?;
+            .execute_typed_transaction(&tx.transaction_url, &statements)
+            .await?;
+        tx.commit().await?;
 
         let props_result = response.first_result()?;
         props_result.check_errors()?;
@@ -293,26 +303,30 @@ impl SchemaManagerInterface for SchemaManager {
         }))
     }
 
-    fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
-        let tx = self.graph.begin_transaction()?;
-        let result = tx.execute_schema_query_and_extract_string_list(
-            "CALL db.labels() YIELD label RETURN label",
-        )?;
-        tx.commit()?;
+    async fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
+        let tx = self.graph.begin_transaction().await?;
+        let result = tx
+            .execute_schema_query_and_extract_string_list(
+                "CALL db.labels() YIELD label RETURN label",
+            )
+            .await?;
+        tx.commit().await?;
         Ok(result)
     }
 
-    fn list_edge_labels(&self) -> Result<Vec<String>, GraphError> {
-        let tx = self.graph.begin_transaction()?;
-        let result = tx.execute_schema_query_and_extract_string_list(
-            "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType",
-        )?;
-        tx.commit()?;
+    async fn list_edge_labels(&self) -> Result<Vec<String>, GraphError> {
+        let tx = self.graph.begin_transaction().await?;
+        let result = tx
+            .execute_schema_query_and_extract_string_list(
+                "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType",
+            )
+            .await?;
+        tx.commit().await?;
         Ok(result)
     }
 
-    fn create_index(&self, index: IndexDefinition) -> Result<(), GraphError> {
-        let tx = self.graph.begin_transaction()?;
+    async fn create_index(&self, index: IndexDefinition) -> Result<(), GraphError> {
+        let tx = self.graph.begin_transaction().await?;
 
         let index_type_str = match index.index_type {
             IndexType::Range => "RANGE",
@@ -336,30 +350,33 @@ impl SchemaManagerInterface for SchemaManager {
         let statement = Neo4jStatement::with_row_only(query, HashMap::new());
         let statements = Neo4jStatements::single(statement);
         tx.api
-            .execute_typed_transaction(&tx.transaction_url, &statements)?;
-        tx.commit()
+            .execute_typed_transaction(&tx.transaction_url, &statements)
+            .await?;
+        tx.commit().await
     }
 
-    fn drop_index(&self, name: String) -> Result<(), GraphError> {
-        let tx = self.graph.begin_transaction()?;
+    async fn drop_index(&self, name: String) -> Result<(), GraphError> {
+        let tx = self.graph.begin_transaction().await?;
         let query = format!("DROP INDEX {name} IF EXISTS");
         let statement = Neo4jStatement::with_row_only(query, HashMap::new());
         let statements = Neo4jStatements::single(statement);
         tx.api
-            .execute_typed_transaction(&tx.transaction_url, &statements)?;
-        tx.commit()
+            .execute_typed_transaction(&tx.transaction_url, &statements)
+            .await?;
+        tx.commit().await
     }
 
-    fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
-        let tx = self.graph.begin_transaction()?;
+    async fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
+        let tx = self.graph.begin_transaction().await?;
         let query = "SHOW INDEXES";
         let statement = Neo4jStatement::with_row_only(query.to_string(), HashMap::new());
         let statements = Neo4jStatements::single(statement);
         let response = tx
             .api
-            .execute_typed_transaction(&tx.transaction_url, &statements)?;
+            .execute_typed_transaction(&tx.transaction_url, &statements)
+            .await?;
 
-        tx.commit()?;
+        tx.commit().await?;
 
         let result = response.first_result()?;
         result.check_errors()?;
@@ -408,25 +425,25 @@ impl SchemaManagerInterface for SchemaManager {
         Ok(indexes)
     }
 
-    fn get_index(&self, _name: String) -> Result<Option<IndexDefinition>, GraphError> {
+    async fn get_index(&self, _name: String) -> Result<Option<IndexDefinition>, GraphError> {
         Err(GraphError::UnsupportedOperation(
             "get_index is not supported by the Neo4j provider yet.".to_string(),
         ))
     }
 
-    fn define_edge_type(&self, _definition: EdgeTypeDefinition) -> Result<(), GraphError> {
+    async fn define_edge_type(&self, _definition: EdgeTypeDefinition) -> Result<(), GraphError> {
         Err(GraphError::UnsupportedOperation(
             "define_edge_type is not supported by the Neo4j provider".to_string(),
         ))
     }
 
-    fn list_edge_types(&self) -> Result<Vec<EdgeTypeDefinition>, GraphError> {
+    async fn list_edge_types(&self) -> Result<Vec<EdgeTypeDefinition>, GraphError> {
         Err(GraphError::UnsupportedOperation(
             "list_edge_types is not supported by the Neo4j provider".to_string(),
         ))
     }
 
-    fn create_container(
+    async fn create_container(
         &self,
         _name: String,
         _container_type: golem_ai_graph::model::schema::ContainerType,
@@ -436,7 +453,7 @@ impl SchemaManagerInterface for SchemaManager {
         ))
     }
 
-    fn list_containers(
+    async fn list_containers(
         &self,
     ) -> Result<Vec<golem_ai_graph::model::schema::ContainerInfo>, GraphError> {
         Ok(vec![])

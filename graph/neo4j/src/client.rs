@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use golem_ai_graph::model::errors::GraphError;
-use golem_wasi_http::{Client, Response};
+use golem_ai_http::{Client, Error, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -186,7 +186,7 @@ impl Neo4jApi {
         format!("/db/{}/tx", self.database)
     }
 
-    fn handle_neo4j_reqwest_error(&self, details: &str, err: golem_wasi_http::Error) -> GraphError {
+    fn handle_neo4j_reqwest_error(&self, details: &str, err: Error) -> GraphError {
         if err.is_timeout() {
             return GraphError::Timeout;
         }
@@ -197,28 +197,26 @@ impl Neo4jApi {
             ));
         }
 
-        if err.is_decode() {
+        if matches!(&err, Error::Decode(_)) {
             return GraphError::InternalError(format!(
                 "Neo4j response decode failed ({details}): {err}"
             ));
         }
 
-        if err.is_status() {
-            if let Some(status) = err.status() {
-                let error_msg = format!(
-                    "Neo4j HTTP error {} ({}): {}",
-                    status.as_u16(),
-                    details,
-                    err
-                );
-                return Self::map_neo4j_http_status(status.as_u16(), &error_msg, &Value::Null);
-            }
+        if let Some(status) = err.status() {
+            let error_msg = format!(
+                "Neo4j HTTP error {} ({}): {}",
+                status.as_u16(),
+                details,
+                err
+            );
+            return Self::map_neo4j_http_status(status.as_u16(), &error_msg, &Value::Null);
         }
 
         GraphError::InternalError(format!("Neo4j request error ({details}): {err}"))
     }
 
-    pub(crate) fn begin_transaction(&self) -> Result<String, GraphError> {
+    pub(crate) async fn begin_transaction(&self) -> Result<String, GraphError> {
         trace!("Begin Neo4j transaction for database: {}", self.database);
         let url = format!("{}{}", self.base_url, self.tx_endpoint());
         let resp = self
@@ -226,11 +224,12 @@ impl Neo4jApi {
             .post(&url)
             .header("Authorization", &self.auth_header)
             .send()
+            .await
             .map_err(|e| self.handle_neo4j_reqwest_error("Neo4j begin transaction failed", e))?;
-        Self::ensure_success_and_get_location(resp)
+        Self::ensure_success_and_get_location(resp).await
     }
 
-    pub(crate) fn execute_typed_transaction(
+    pub(crate) async fn execute_typed_transaction(
         &self,
         tx_url: &str,
         statements: &Neo4jStatements,
@@ -248,16 +247,17 @@ impl Neo4jApi {
             .header("Content-Type", "application/json")
             .body(statements_json)
             .send()
+            .await
             .map_err(|e| {
                 self.handle_neo4j_reqwest_error("Neo4j execute in transaction failed", e)
             })?;
 
-        let response = Self::ensure_success_and_typed_json(resp)?;
+        let response = Self::ensure_success_and_typed_json(resp).await?;
         trace!("[Neo4jApi] Cypher response received");
         Ok(response)
     }
 
-    pub(crate) fn commit_transaction(&self, tx_url: &str) -> Result<(), GraphError> {
+    pub(crate) async fn commit_transaction(&self, tx_url: &str) -> Result<(), GraphError> {
         trace!("Commit Neo4j transaction: {tx_url}");
         let commit_url = format!("{tx_url}/commit");
         let resp = self
@@ -265,29 +265,31 @@ impl Neo4jApi {
             .post(&commit_url)
             .header("Authorization", &self.auth_header)
             .send()
+            .await
             .map_err(|e| self.handle_neo4j_reqwest_error("Neo4j commit transaction failed", e))?;
-        Self::ensure_success(resp).map(|_| ())
+        Self::ensure_success(resp).await.map(|_| ())
     }
 
-    pub(crate) fn rollback_transaction(&self, tx_url: &str) -> Result<(), GraphError> {
+    pub(crate) async fn rollback_transaction(&self, tx_url: &str) -> Result<(), GraphError> {
         trace!("Rollback Neo4j transaction: {tx_url}");
         let resp = self
             .client
             .delete(tx_url)
             .header("Authorization", &self.auth_header)
             .send()
+            .await
             .map_err(|e| self.handle_neo4j_reqwest_error("Neo4j rollback transaction failed", e))?;
-        Self::ensure_success(resp).map(|_| ())
+        Self::ensure_success(resp).await.map(|_| ())
     }
 
     // Helpers
 
-    fn ensure_success(response: Response) -> Result<Response, GraphError> {
+    async fn ensure_success(response: Response) -> Result<Response, GraphError> {
         if response.status().is_success() {
             Ok(response)
         } else {
             let status_code = response.status().as_u16();
-            let text = response.text().map_err(|e| {
+            let text = response.text().await.map_err(|e| {
                 GraphError::InternalError(format!("Failed to read Neo4j response body: {e}"))
             })?;
             let error_body: Value = serde_json::from_str(&text)
@@ -302,9 +304,11 @@ impl Neo4jApi {
         }
     }
 
-    fn ensure_success_and_typed_json(response: Response) -> Result<Neo4jResponse, GraphError> {
+    async fn ensure_success_and_typed_json(
+        response: Response,
+    ) -> Result<Neo4jResponse, GraphError> {
         if response.status().is_success() {
-            let text = response.text().map_err(|e| {
+            let text = response.text().await.map_err(|e| {
                 GraphError::InternalError(format!("Failed to read Neo4j response body: {e}"))
             })?;
 
@@ -316,7 +320,7 @@ impl Neo4jApi {
             })
         } else {
             let status_code = response.status().as_u16();
-            let text = response.text().map_err(|e| {
+            let text = response.text().await.map_err(|e| {
                 GraphError::InternalError(format!("Failed to read Neo4j response body: {e}"))
             })?;
             let error_body: Value = serde_json::from_str(&text)
@@ -331,7 +335,7 @@ impl Neo4jApi {
         }
     }
 
-    fn ensure_success_and_get_location(response: Response) -> Result<String, GraphError> {
+    async fn ensure_success_and_get_location(response: Response) -> Result<String, GraphError> {
         if response.status().is_success() {
             response
                 .headers()
@@ -341,7 +345,7 @@ impl Neo4jApi {
                 .ok_or_else(|| GraphError::InternalError("Missing Location header".into()))
         } else {
             let status_code = response.status().as_u16();
-            let text = response.text().map_err(|e| {
+            let text = response.text().await.map_err(|e| {
                 GraphError::InternalError(format!("Failed to read Neo4j response body: {e}"))
             })?;
             let error_body: Value = serde_json::from_str(&text)
