@@ -23,8 +23,7 @@ fn provider_config() -> golem_ai_video_stability::StabilityConfig {
 }
 #[cfg(feature = "runway")]
 fn provider_config() -> golem_ai_video_runway::RunwayConfig {
-    golem_ai_video_runway::RunwayConfig::from_env()
-        .expect("failed to load Runway config from env")
+    golem_ai_video_runway::RunwayConfig::from_env().expect("failed to load Runway config from env")
 }
 #[cfg(feature = "kling")]
 fn provider_config() -> golem_ai_video_kling::KlingConfig {
@@ -66,11 +65,11 @@ impl TestHelper for TestHelperImpl {
 #[agent_definition]
 pub trait VideoTest {
     fn new(name: String) -> Self;
-    fn test1(&self) -> String;
+    async fn test1(&self) -> String;
     async fn test2(&self) -> String;
-    fn test3(&self) -> String;
-    fn test4(&self) -> String;
-    fn test5(&self) -> String;
+    async fn test3(&self) -> String;
+    async fn test4(&self) -> String;
+    async fn test5(&self) -> String;
 }
 
 struct VideoTestImpl {
@@ -83,7 +82,7 @@ impl VideoTest for VideoTestImpl {
         Self { _name: name }
     }
 
-    fn test1(&self) -> String {
+    async fn test1(&self) -> String {
         println!("Test1: Text to video generation");
 
         let config = GenerationConfig {
@@ -108,12 +107,12 @@ impl VideoTest for VideoTestImpl {
             MediaInput::Text("A beautiful sunset over the ocean, orange and red hues".to_string());
 
         println!("Sending text-to-video generation request...");
-        let job_id = match Provider::generate(provider_config(), media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config).await {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
 
-        poll_job_until_complete(&job_id, "test1")
+        poll_job_until_complete(&job_id, "test1").await
     }
 
     async fn test2(&self) -> String {
@@ -154,7 +153,7 @@ impl VideoTest for VideoTestImpl {
         });
 
         println!("Sending image-to-video generation request...");
-        let job_id = match Provider::generate(provider_config(), media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config).await {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
@@ -171,7 +170,7 @@ impl VideoTest for VideoTestImpl {
         let mut round = 0;
 
         loop {
-            match Provider::poll(provider_config(), job_id.clone()) {
+            match Provider::poll(provider_config(), job_id.clone()).await {
                 Ok(video_result) => match video_result.status {
                     JobStatus::Pending => {
                         println!("test2 is pending... (round {})", round);
@@ -212,7 +211,7 @@ impl VideoTest for VideoTestImpl {
         }
     }
 
-    fn test3(&self) -> String {
+    async fn test3(&self) -> String {
         println!("Test3: Image to video with 'last' role and URL");
 
         let config = GenerationConfig {
@@ -235,26 +234,22 @@ impl VideoTest for VideoTestImpl {
 
         let media_input = MediaInput::Image(Reference {
             data: InputImage {
-                data: MediaData::Url(
-                    "https://wallpapercave.com/wp/wp12088891.jpg".to_string(),
-                ),
+                data: MediaData::Url("https://wallpapercave.com/wp/wp12088891.jpg".to_string()),
             },
-            prompt: Some(
-                "A serene landscape transforming with gentle motion".to_string(),
-            ),
+            prompt: Some("A serene landscape transforming with gentle motion".to_string()),
             role: Some(ImageRole::Last),
         });
 
         println!("Sending image-to-video generation request with 'last' role...");
-        let job_id = match Provider::generate(provider_config(), media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config).await {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
 
-        poll_job_until_complete(&job_id, "test3")
+        poll_job_until_complete(&job_id, "test3").await
     }
 
-    fn test4(&self) -> String {
+    async fn test4(&self) -> String {
         println!("Test4: Video to video generation (VEO only)");
 
         let (video_bytes, video_mime_type) = match load_file_bytes("/output/video-test1-0.mp4") {
@@ -294,15 +289,15 @@ impl VideoTest for VideoTestImpl {
         });
 
         println!("Sending video-to-video generation request...");
-        let job_id = match Provider::generate(provider_config(), media_input, config) {
+        let job_id = match Provider::generate(provider_config(), media_input, config).await {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to generate video: {:?}", error),
         };
 
-        poll_job_until_complete(&job_id, "test4")
+        poll_job_until_complete(&job_id, "test4").await
     }
 
-    fn test5(&self) -> String {
+    async fn test5(&self) -> String {
         println!("Test5: Video upscale (Runway only)");
 
         let base_video = BaseVideo {
@@ -310,12 +305,12 @@ impl VideoTest for VideoTestImpl {
         };
 
         println!("Sending video upscale request...");
-        let job_id = match Provider::upscale_video(provider_config(), base_video) {
+        let job_id = match Provider::upscale_video(provider_config(), base_video).await {
             Ok(id) => id.trim().to_string(),
             Err(error) => return format!("ERROR: Failed to upscale video: {:?}", error),
         };
 
-        poll_job_until_complete(&job_id, "test5")
+        poll_job_until_complete(&job_id, "test5").await
     }
 }
 
@@ -361,8 +356,7 @@ fn save_video_result(video_result: &VideoResult, test_name: &str) -> String {
 
 fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
     println!("Reading file from: {}", path);
-    let mut file =
-        File::open(path).map_err(|err| format!("Failed to open {}: {}", path, err))?;
+    let mut file = File::open(path).map_err(|err| format!("Failed to open {}: {}", path, err))?;
 
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)
@@ -376,17 +370,14 @@ fn load_file_bytes(path: &str) -> Result<(Vec<u8>, String), String> {
     Ok((buffer, mime_type))
 }
 
-fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
-    println!(
-        "Polling for {} results with job ID: {}",
-        test_name, job_id
-    );
+async fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
+    println!("Polling for {} results with job ID: {}", test_name, job_id);
 
     println!("Waiting 5 seconds for job initialization...");
     thread::sleep(Duration::from_secs(5));
 
     loop {
-        match Provider::poll(provider_config(), job_id.to_string()) {
+        match Provider::poll(provider_config(), job_id.to_string()).await {
             Ok(video_result) => match video_result.status {
                 JobStatus::Pending => {
                     println!("{} is pending...", test_name);
@@ -414,5 +405,3 @@ fn poll_job_until_complete(job_id: &str, test_name: &str) -> String {
         thread::sleep(Duration::from_secs(POLLING_SLEEP_SECONDS));
     }
 }
-
-
