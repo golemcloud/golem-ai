@@ -20,21 +20,21 @@ mod passthrough_impl {
     impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
         type ProviderConfig = Impl::ProviderConfig;
 
-        fn generate(
+        async fn generate(
             provider_config: Self::ProviderConfig,
             inputs: Vec<ContentPart>,
             config: Config,
         ) -> Result<EmbeddingResponse, Error> {
-            Impl::generate(provider_config, inputs, config)
+            Impl::generate(provider_config, inputs, config).await
         }
 
-        fn rerank(
+        async fn rerank(
             provider_config: Self::ProviderConfig,
             query: String,
             documents: Vec<String>,
             config: Config,
         ) -> Result<RerankResponse, Error> {
-            Impl::rerank(provider_config, query, documents, config)
+            Impl::rerank(provider_config, query, documents, config).await
         }
     }
 }
@@ -45,21 +45,20 @@ mod passthrough_impl {
 ///
 /// There will be custom durability entries saved in the oplog, with the full embed request and configuration
 /// stored as input, and the full response stored as output. To serialize these in a way it is
-/// observable by oplog consumers, each relevant data type has to be converted to/from `ValueAndType`
-/// which is implemented using the type classes and builder in the `golem-rust` library.
+/// observable by oplog consumers, each relevant data type has to be converted to/from the shared
+/// schema representation implemented by the `golem-rust` library.
 #[cfg(feature = "golem")]
 mod durable_impl {
     use crate::durability::{DurableEmbed, ExtendedEmbeddingProvider};
     use crate::model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse};
     use crate::EmbeddingProvider;
-    use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
-    use golem_rust::durability::Durability;
-    use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
+    use golem_rust::durability::{Durability, DurableFunctionType};
+    use golem_rust::{with_persistence_level_async, FromSchema, IntoSchema, PersistenceLevel};
 
     impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
         type ProviderConfig = Impl::ProviderConfig;
 
-        fn generate(
+        async fn generate(
             provider_config: Self::ProviderConfig,
             inputs: Vec<ContentPart>,
             config: Config,
@@ -72,9 +71,10 @@ mod durable_impl {
             if durability.is_live() {
                 let inputs_clone = inputs.clone();
                 let config_clone = config.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
                     Impl::generate(provider_config, inputs_clone, config_clone)
-                });
+                })
+                .await;
                 // NOTE: `provider_config` deliberately not included in the persisted input,
                 // because it can carry secrets (API keys etc.).
                 durability.persist(GenerateInput { inputs, config }, result)
@@ -83,7 +83,7 @@ mod durable_impl {
             }
         }
 
-        fn rerank(
+        async fn rerank(
             provider_config: Self::ProviderConfig,
             query: String,
             documents: Vec<String>,
@@ -98,9 +98,10 @@ mod durable_impl {
                 let query_clone = query.clone();
                 let documents_clone = documents.clone();
                 let config_clone = config.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
                     Impl::rerank(provider_config, query_clone, documents_clone, config_clone)
-                });
+                })
+                .await;
                 // NOTE: `provider_config` deliberately not included in the persisted input,
                 // because it can carry secrets (API keys etc.).
                 durability.persist(
@@ -117,13 +118,13 @@ mod durable_impl {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct GenerateInput {
         inputs: Vec<ContentPart>,
         config: Config,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct RerankInput {
         query: String,
         documents: Vec<String>,
