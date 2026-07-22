@@ -1,13 +1,19 @@
 use crate::config::MilvusConfig;
+use golem_ai_http::{Client, Error, Method, RequestBuilder, Response, Timeouts};
 use golem_ai_vector::config::{get_max_retries_config, get_timeout_config, SecretSource};
 use golem_ai_vector::model::types::VectorError;
-use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::future::Future;
 use std::time::Duration;
+
+async fn wait_for(delay: Duration) {
+    let delay_nanos = u64::try_from(delay.as_nanos()).unwrap_or(u64::MAX);
+    wasip3::clocks::monotonic_clock::wait_for(delay_nanos).await;
+}
 
 /// Milvus Vector API client
 /// based on https://milvus.io/docs
@@ -21,10 +27,14 @@ pub struct MilvusClient {
 
 impl MilvusClient {
     pub fn new(config: &MilvusConfig) -> Self {
-        let timeout_secs = get_timeout_config();
-
+        let timeout = Duration::from_secs(get_timeout_config());
         let client = Client::builder()
-            .timeout(Duration::from_secs(timeout_secs))
+            .timeouts(
+                Timeouts::new()
+                    .connect(timeout)
+                    .first_byte(timeout)
+                    .between_bytes(timeout),
+            )
             .build()
             .expect("Failed to initialize HTTP client");
 
@@ -67,7 +77,7 @@ impl MilvusClient {
         request
     }
 
-    fn should_retry_error(&self, error: &golem_wasi_http::Error) -> bool {
+    fn should_retry_error(&self, error: &Error) -> bool {
         error.is_timeout() || error.is_request()
     }
 
@@ -79,15 +89,16 @@ impl MilvusClient {
         Duration::from_millis(delay_ms)
     }
 
-    fn execute_with_retry_sync<F>(&self, operation: F) -> Result<Response, VectorError>
+    async fn execute_with_retry<F, Fut>(&self, operation: F) -> Result<Response, VectorError>
     where
-        F: Fn() -> Result<Response, golem_wasi_http::Error> + Send + Sync,
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<Response, Error>>,
     {
         let max_retries = get_max_retries_config();
         let mut last_error = None;
 
         for attempt in 0..=max_retries {
-            match operation() {
+            match operation().await {
                 Ok(response) => return Ok(response),
                 Err(error) => {
                     trace!("Request attempt {} failed: {}", attempt, error);
@@ -105,7 +116,7 @@ impl MilvusClient {
 
                         let delay = Self::calculate_backoff_delay(attempt, is_rate_limited);
                         trace!("Retrying in {:?}", delay);
-                        std::thread::sleep(delay);
+                        wait_for(delay).await;
                     } else {
                         break;
                     }
@@ -121,38 +132,42 @@ impl MilvusClient {
         )))
     }
 
-    pub fn list_collections(&self) -> Result<ListCollectionsResponse, VectorError> {
+    pub async fn list_collections(&self) -> Result<ListCollectionsResponse, VectorError> {
         trace!("Listing collections");
 
         let request = ListCollectionsRequest {
             db_name: self.database.clone(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/collections/list")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/collections/list")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "list_collections")
+        parse_response(response, "list_collections").await
     }
 
-    pub fn create_collection(
+    pub async fn create_collection(
         &self,
         request: &CreateCollectionRequest,
     ) -> Result<CreateCollectionResponse, VectorError> {
         trace!("Creating collection: {}", request.collection_name);
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/collections/create")
-                .json(request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/collections/create")
+                    .json(request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "create_collection")
+        parse_response(response, "create_collection").await
     }
 
-    pub fn describe_collection(
+    pub async fn describe_collection(
         &self,
         collection_name: &str,
     ) -> Result<DescribeCollectionResponse, VectorError> {
@@ -163,16 +178,18 @@ impl MilvusClient {
             collection_name: collection_name.to_string(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/collections/describe")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/collections/describe")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "describe_collection")
+        parse_response(response, "describe_collection").await
     }
 
-    pub fn drop_collection(
+    pub async fn drop_collection(
         &self,
         collection_name: &str,
     ) -> Result<DropCollectionResponse, VectorError> {
@@ -183,16 +200,18 @@ impl MilvusClient {
             collection_name: collection_name.to_string(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/collections/drop")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/collections/drop")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "drop_collection")
+        parse_response(response, "drop_collection").await
     }
 
-    pub fn has_collection(
+    pub async fn has_collection(
         &self,
         collection_name: &str,
     ) -> Result<HasCollectionResponse, VectorError> {
@@ -203,16 +222,18 @@ impl MilvusClient {
             collection_name: collection_name.to_string(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/collections/has")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/collections/has")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "has_collection")
+        parse_response(response, "has_collection").await
     }
 
-    pub fn load_collection(
+    pub async fn load_collection(
         &self,
         collection_name: &str,
     ) -> Result<LoadCollectionResponse, VectorError> {
@@ -223,16 +244,18 @@ impl MilvusClient {
             collection_name: collection_name.to_string(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/collections/load")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/collections/load")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "load_collection")
+        parse_response(response, "load_collection").await
     }
 
-    pub fn release_collection(
+    pub async fn release_collection(
         &self,
         collection_name: &str,
     ) -> Result<ReleaseCollectionResponse, VectorError> {
@@ -243,92 +266,104 @@ impl MilvusClient {
             collection_name: collection_name.to_string(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/collections/release")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/collections/release")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "release_collection")
+        parse_response(response, "release_collection").await
     }
 
-    pub fn upsert(&self, request: &UpsertRequest) -> Result<UpsertResponse, VectorError> {
+    pub async fn upsert(&self, request: &UpsertRequest) -> Result<UpsertResponse, VectorError> {
         trace!(
             "Upserting {} vectors to collection: {}",
             request.data.len(),
             request.collection_name
         );
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/entities/upsert")
-                .json(request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/entities/upsert")
+                    .json(request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "upsert")
+        parse_response(response, "upsert").await
     }
 
-    pub fn search(&self, request: &SearchRequest) -> Result<SearchResponse, VectorError> {
+    pub async fn search(&self, request: &SearchRequest) -> Result<SearchResponse, VectorError> {
         trace!(
             "Searching vectors in collection: {}",
             request.collection_name
         );
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/entities/search")
-                .json(request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/entities/search")
+                    .json(request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "search")
+        parse_response(response, "search").await
     }
 
-    pub fn query(&self, request: &QueryRequest) -> Result<QueryResponse, VectorError> {
+    pub async fn query(&self, request: &QueryRequest) -> Result<QueryResponse, VectorError> {
         trace!(
             "Querying vectors in collection: {}",
             request.collection_name
         );
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/entities/query")
-                .json(request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/entities/query")
+                    .json(request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "query")
+        parse_response(response, "query").await
     }
 
-    pub fn get(&self, request: &GetRequest) -> Result<GetResponse, VectorError> {
+    pub async fn get(&self, request: &GetRequest) -> Result<GetResponse, VectorError> {
         trace!(
             "Getting vectors by IDs from collection: {}",
             request.collection_name
         );
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v1/vector/get")
-                .json(request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v1/vector/get")
+                    .json(request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "get")
+        parse_response(response, "get").await
     }
 
-    pub fn delete(&self, request: &DeleteRequest) -> Result<DeleteResponse, VectorError> {
+    pub async fn delete(&self, request: &DeleteRequest) -> Result<DeleteResponse, VectorError> {
         trace!(
             "Deleting vectors from collection: {}",
             request.collection_name
         );
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v1/vector/delete")
-                .json(request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v1/vector/delete")
+                    .json(request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "delete")
+        parse_response(response, "delete").await
     }
 
-    pub fn get_collection_stats(
+    pub async fn get_collection_stats(
         &self,
         collection_name: &str,
     ) -> Result<GetCollectionStatsResponse, VectorError> {
@@ -339,16 +374,18 @@ impl MilvusClient {
             collection_name: collection_name.to_string(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/collections/get_stats")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/collections/get_stats")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "get_collection_stats")
+        parse_response(response, "get_collection_stats").await
     }
 
-    pub fn create_partition(
+    pub async fn create_partition(
         &self,
         collection_name: &str,
         partition_name: &str,
@@ -365,16 +402,18 @@ impl MilvusClient {
             partition_name: partition_name.to_string(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/partitions/create")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/partitions/create")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "create_partition")
+        parse_response(response, "create_partition").await
     }
 
-    pub fn drop_partition(
+    pub async fn drop_partition(
         &self,
         collection_name: &str,
         partition_name: &str,
@@ -391,16 +430,18 @@ impl MilvusClient {
             partition_name: partition_name.to_string(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/partitions/drop")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/partitions/drop")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "drop_partition")
+        parse_response(response, "drop_partition").await
     }
 
-    pub fn list_partitions(
+    pub async fn list_partitions(
         &self,
         collection_name: &str,
     ) -> Result<ListPartitionsResponse, VectorError> {
@@ -411,16 +452,18 @@ impl MilvusClient {
             collection_name: collection_name.to_string(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/partitions/list")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/partitions/list")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "list_partitions")
+        parse_response(response, "list_partitions").await
     }
 
-    pub fn has_partition(
+    pub async fn has_partition(
         &self,
         collection_name: &str,
         partition_name: &str,
@@ -437,16 +480,18 @@ impl MilvusClient {
             partition_name: partition_name.to_string(),
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/partitions/has")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/partitions/has")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "has_partition")
+        parse_response(response, "has_partition").await
     }
 
-    pub fn load_partitions(
+    pub async fn load_partitions(
         &self,
         collection_name: &str,
         partition_names: Vec<String>,
@@ -463,16 +508,18 @@ impl MilvusClient {
             partition_names,
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/partitions/load")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/partitions/load")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "load_partitions")
+        parse_response(response, "load_partitions").await
     }
 
-    pub fn release_partitions(
+    pub async fn release_partitions(
         &self,
         collection_name: &str,
         partition_names: Vec<String>,
@@ -489,13 +536,15 @@ impl MilvusClient {
             partition_names,
         };
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, "/v2/vectordb/partitions/release")
-                .json(&request)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::POST, "/v2/vectordb/partitions/release")
+                    .json(&request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response, "release_partitions")
+        parse_response(response, "release_partitions").await
     }
 }
 
@@ -995,12 +1044,13 @@ fn from_milvus_error_code(error_code: i32, message: &str) -> VectorError {
     }
 }
 
-fn handle_milvus_error(response: Response, operation: &str) -> VectorError {
+async fn handle_milvus_error(response: Response, operation: &str) -> VectorError {
     let status = response.status();
 
     if !status.is_success() {
         let error_body = response
             .text()
+            .await
             .unwrap_or_else(|_| "Unknown error".to_string());
         trace!("HTTP error {status} for {operation}: {error_body:?}");
 
@@ -1031,7 +1081,7 @@ fn handle_milvus_error(response: Response, operation: &str) -> VectorError {
         };
     }
 
-    match response.text() {
+    match response.text().await {
         Ok(body) => {
             trace!("Response body for {operation}: {body}");
 
@@ -1064,7 +1114,7 @@ fn handle_milvus_error(response: Response, operation: &str) -> VectorError {
 
 //parsing function
 
-fn parse_response<T: DeserializeOwned + Debug>(
+async fn parse_response<T: DeserializeOwned + Debug>(
     response: Response,
     operation: &str,
 ) -> Result<T, VectorError> {
@@ -1073,7 +1123,7 @@ fn parse_response<T: DeserializeOwned + Debug>(
     trace!("Received response from Milvus API for {operation}: {response:?}");
 
     if status.is_success() {
-        match response.text() {
+        match response.text().await {
             Ok(body) => {
                 trace!("Received response body from Milvus API for {operation}: {body:?}");
 
@@ -1112,6 +1162,6 @@ fn parse_response<T: DeserializeOwned + Debug>(
             }
         }
     } else {
-        Err(handle_milvus_error(response, operation))
+        Err(handle_milvus_error(response, operation).await)
     }
 }
