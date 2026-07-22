@@ -2110,12 +2110,12 @@ dependencies = [
 name = "golem-ai-stt-aws"
 version = "0.5.2"
 dependencies = [
- "aws-config",
  "aws-credential-types",
  "aws-sigv4",
  "bytes",
  "chrono",
  "derive_more",
+ "futures",
  "futures-concurrency",
  "golem-ai-stt",
  "golem-rust",
@@ -2130,7 +2130,6 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "url 2.5.8",
- "wstd",
 ]
 
 [[package]]

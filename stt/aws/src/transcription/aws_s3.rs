@@ -246,118 +246,122 @@ mod tests {
         }
     }
 
-    #[wstd::test]
-    async fn test_s3_put_object_request() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
+    #[test]
+    fn test_s3_put_object_request() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
 
-        let mock_client = MockHttpClient::new();
+            let mock_client = MockHttpClient::new();
 
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::OK)
-                .body(vec![])
-                .unwrap(),
-        );
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(vec![])
+                    .unwrap(),
+            );
 
-        let s3_client = S3Client::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-        );
+            let s3_client = S3Client::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+            );
 
-        let bucket = "test-bucket";
-        let object_name = "test-object.txt";
-        let content = Bytes::from("Hello, World!");
+            let bucket = "test-bucket";
+            let object_name = "test-object.txt";
+            let content = Bytes::from("Hello, World!");
 
-        s3_client
-            .put_object("some-request-id", bucket, object_name, content.clone())
-            .await
-            .unwrap();
+            s3_client
+                .put_object("some-request-id", bucket, object_name, content.clone())
+                .await
+                .unwrap();
 
-        let captured_request = s3_client.http_client.last_captured_request();
-        let request = captured_request.as_ref().unwrap();
+            let captured_request = s3_client.http_client.last_captured_request();
+            let request = captured_request.as_ref().unwrap();
 
-        assert_eq!(request.method(), "PUT");
+            assert_eq!(request.method(), "PUT");
 
-        let expected_uri = format!("https://{bucket}.s3.amazonaws.com/{object_name}");
-        assert_eq!(request.uri().to_string(), expected_uri);
+            let expected_uri = format!("https://{bucket}.s3.amazonaws.com/{object_name}");
+            assert_eq!(request.uri().to_string(), expected_uri);
 
-        assert_eq!(request.body(), &content);
+            assert_eq!(request.body(), &content);
 
-        assert!(request.headers().contains_key("x-amz-date"));
-        assert!(request.headers().contains_key("x-amz-content-sha256"));
-        assert!(request.headers().contains_key("content-length"));
-        assert!(request.headers().contains_key("authorization"));
+            assert!(request.headers().contains_key("x-amz-date"));
+            assert!(request.headers().contains_key("x-amz-content-sha256"));
+            assert!(request.headers().contains_key("content-length"));
+            assert!(request.headers().contains_key("authorization"));
 
-        let auth_header = request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
-        assert!(auth_header.contains("Credential="));
-        assert!(auth_header.contains("SignedHeaders="));
-        assert!(auth_header.contains("Signature="));
+            let auth_header = request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
+            assert!(auth_header.contains("Credential="));
+            assert!(auth_header.contains("SignedHeaders="));
+            assert!(auth_header.contains("Signature="));
+        });
     }
 
-    #[wstd::test]
-    async fn test_s3_delete_object_request() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
+    #[test]
+    fn test_s3_delete_object_request() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
 
-        let mock_client = MockHttpClient::new();
+            let mock_client = MockHttpClient::new();
 
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::NO_CONTENT)
-                .body(vec![])
-                .unwrap(),
-        );
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::NO_CONTENT)
+                    .body(vec![])
+                    .unwrap(),
+            );
 
-        let s3_client = S3Client::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-        );
+            let s3_client = S3Client::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+            );
 
-        let bucket = "test-bucket";
-        let object_name = "test-object.txt";
+            let bucket = "test-bucket";
+            let object_name = "test-object.txt";
 
-        s3_client
-            .delete_object("some-request-id", bucket, object_name)
-            .await
-            .unwrap();
+            s3_client
+                .delete_object("some-request-id", bucket, object_name)
+                .await
+                .unwrap();
 
-        let captured_request = s3_client.http_client.last_captured_request();
-        let request = captured_request.as_ref().unwrap();
+            let captured_request = s3_client.http_client.last_captured_request();
+            let request = captured_request.as_ref().unwrap();
 
-        assert_eq!(request.method(), "DELETE");
+            assert_eq!(request.method(), "DELETE");
 
-        let expected_uri = format!("https://{bucket}.s3.amazonaws.com/{object_name}");
-        assert_eq!(request.uri().to_string(), expected_uri);
+            let expected_uri = format!("https://{bucket}.s3.amazonaws.com/{object_name}");
+            assert_eq!(request.uri().to_string(), expected_uri);
 
-        let expected_body: Vec<u8> = vec![];
-        assert_eq!(request.body(), &expected_body);
+            let expected_body: Vec<u8> = vec![];
+            assert_eq!(request.body(), &expected_body);
 
-        assert!(request.headers().contains_key("x-amz-date"));
-        assert!(request.headers().contains_key("x-amz-content-sha256"));
-        assert!(request.headers().contains_key("authorization"));
+            assert!(request.headers().contains_key("x-amz-date"));
+            assert!(request.headers().contains_key("x-amz-content-sha256"));
+            assert!(request.headers().contains_key("authorization"));
 
-        let auth_header = request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
-        assert!(auth_header.contains("Credential="));
-        assert!(auth_header.contains("SignedHeaders="));
-        assert!(auth_header.contains("Signature="));
+            let auth_header = request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
+            assert!(auth_header.contains("Credential="));
+            assert!(auth_header.contains("SignedHeaders="));
+            assert!(auth_header.contains("Signature="));
+        });
     }
 }

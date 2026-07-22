@@ -985,922 +985,93 @@ mod tests {
         }
     }
 
-    #[wstd::test]
-    async fn test_transcribe_create_vocabulary_request() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
-
-        let expected_response = CreateVocabularyResponse {
-            vocabulary_name: "test-vocabulary".to_string(),
-            language_code: "en-US".to_string(),
-            vocabulary_state: "PENDING".to_string(),
-            last_modified_time: None,
-            failure_reason: None,
-        };
-
-        let mock_client = MockHttpClient::new();
-
-        let response_json_str = serde_json::to_string(&expected_response).unwrap();
-
-        let body_bytes = response_json_str.into_bytes();
-
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::OK)
-                .body(body_bytes)
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        let vocabulary_name = "test-vocabulary".to_string();
-        let language_code = "en-US".to_string();
-        let phrases = vec![
-            "hello world".to_string(),
-            "machine learning".to_string(),
-            "artificial intelligence".to_string(),
-        ];
-
-        let actual_response = transcribe_client
-            .create_vocabulary(
-                vocabulary_name.clone(),
-                language_code.clone(),
-                phrases.clone(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(actual_response, expected_response);
-
-        let request = transcribe_client
-            .http_client
-            .last_captured_request()
-            .unwrap();
-        assert_eq!(request.method(), "POST");
-        assert_eq!(
-            request.uri().to_string(),
-            format!("https://transcribe.{region}.amazonaws.com/")
-        );
-        assert_eq!(
-            request.headers().get("content-type").unwrap(),
-            "application/x-amz-json-1.1"
-        );
-        assert_eq!(
-            request.headers().get("x-amz-target").unwrap(),
-            "com.amazonaws.transcribe.Transcribe.CreateVocabulary"
-        );
-
-        let expected_request = CreateVocabularyRequest {
-            vocabulary_name,
-            language_code,
-            phrases,
-            vocabulary_file_uri: None,
-            data_access_role_arn: None,
-            tags: None,
-        };
-
-        let actual_request: CreateVocabularyRequest =
-            serde_json::from_slice(request.body()).unwrap();
-        assert_eq!(actual_request, expected_request);
-
-        assert!(request.headers().contains_key("x-amz-date"));
-        assert!(request.headers().contains_key("x-amz-content-sha256"));
-        assert!(request.headers().contains_key("authorization"));
-
-        let auth_header = request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
-        assert!(auth_header.contains("Credential="));
-        assert!(auth_header.contains("SignedHeaders="));
-        assert!(auth_header.contains("Signature="));
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_delete_vocabulary_request() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
-
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::OK)
-                .body(vec![])
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        let vocabulary_name = "test-vocabulary".to_string();
-        let result = transcribe_client.delete_vocabulary(&vocabulary_name).await;
-
-        assert!(result.is_ok());
-
-        let request = transcribe_client
-            .http_client
-            .last_captured_request()
-            .unwrap();
-        assert_eq!(request.method(), "POST");
-        assert_eq!(
-            request.uri().to_string(),
-            format!("https://transcribe.{region}.amazonaws.com/")
-        );
-        assert_eq!(
-            request.headers().get("content-type").unwrap(),
-            "application/x-amz-json-1.1"
-        );
-        assert_eq!(
-            request.headers().get("x-amz-target").unwrap(),
-            "com.amazonaws.transcribe.Transcribe.DeleteVocabulary"
-        );
-
-        let expected_request = DeleteVocabularyRequest { vocabulary_name };
-
-        let actual_request: DeleteVocabularyRequest =
-            serde_json::from_slice(request.body()).unwrap();
-        assert_eq!(actual_request, expected_request);
-
-        assert!(request.headers().contains_key("x-amz-date"));
-        assert!(request.headers().contains_key("x-amz-content-sha256"));
-        assert!(request.headers().contains_key("authorization"));
-
-        let auth_header = request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
-        assert!(auth_header.contains("Credential="));
-        assert!(auth_header.contains("SignedHeaders="));
-        assert!(auth_header.contains("Signature="));
-    }
-
-    #[wstd::test]
-    async fn test_start_transcription_job_basic_request() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
-
-        let mock_client = MockHttpClient::new();
-
-        let mock_response = r#"{
-               "TranscriptionJob": {
-                   "TranscriptionJobName": "test-job-basic",
-                   "TranscriptionJobStatus": "COMPLETED"
-               }
-           }"#;
-
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        // Test basic audio config with no transcription config (should use identify_language)
-        let audio_config = AudioConfig {
-            format: AudioFormat::Wav,
-            channels: Some(1),
-        };
-
-        let _result = transcribe_client
-            .start_transcription_job(
-                "test-job-basic",
-                "s3://bucket/audio.wav",
-                &audio_config,
-                None, // No transcription config
-                None, // No vocabulary
-            )
-            .await
-            .unwrap();
-
-        // Verify the request was constructed correctly
-        let request = transcribe_client
-            .http_client
-            .last_captured_request()
-            .unwrap();
-        let actual_request: StartTranscriptionJobRequest =
-            serde_json::from_slice(request.body()).unwrap();
-
-        let expected_request = StartTranscriptionJobRequest {
-            content_redaction: None,
-            identify_language: Some(true), // Should be true when no language specified
-            identify_multiple_languages: None,
-            job_execution_settings: None,
-            kms_encryption_context: None,
-            language_code: None, // Should be None when using identify_language
-            language_id_settings: None,
-            language_options: None,
-            media: Media {
-                media_file_uri: "s3://bucket/audio.wav".to_string(),
-                redacted_media_file_uri: None,
-            },
-            media_format: Some("wav".to_string()),
-            media_sample_rate_hertz: None,
-            model_settings: None, // Should be None when using identify_language
-            output_bucket_name: None,
-            output_encryption_kms_key_id: None,
-            output_key: None,
-            settings: None, // Should be None for basic single-channel audio
-            subtitles: None,
-            tags: None,
-            toxicity_detection: None,
-            transcription_job_name: "test-job-basic".to_string(),
-        };
-
-        assert_eq!(
-            actual_request, expected_request,
-            "Basic request should match expected structure"
-        );
-    }
-
-    #[wstd::test]
-    async fn test_start_transcription_job_with_explicit_language() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-west-2";
-
-        let mock_client = MockHttpClient::new();
-
-        let mock_response = r#"{
-                "TranscriptionJob": {
-                    "TranscriptionJobName": "test-job-lang",
-                    "TranscriptionJobStatus": "IN_PROGRESS"
-                }
-            }"#;
-
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        let audio_config = AudioConfig {
-            format: AudioFormat::Mp3,
-            channels: Some(1),
-        };
-
-        let transcription_config = TranscriptionConfig {
-            language: Some("en-US".to_string()),
-            model: None,
-            diarization: None,
-            enable_multi_channel: false,
-            vocabulary: vec![],
-        };
-
-        let _result = transcribe_client
-            .start_transcription_job(
-                "test-job-lang",
-                "s3://bucket/audio.mp3",
-                &audio_config,
-                Some(&transcription_config),
-                None,
-            )
-            .await
-            .unwrap();
-
-        let request = transcribe_client
-            .http_client
-            .last_captured_request()
-            .unwrap();
-        let actual_request: StartTranscriptionJobRequest =
-            serde_json::from_slice(request.body()).unwrap();
-
-        let expected_request = StartTranscriptionJobRequest {
-            content_redaction: None,
-            identify_language: None, // Should be None when explicit language provided
-            identify_multiple_languages: None,
-            job_execution_settings: None,
-            kms_encryption_context: None,
-            language_code: Some("en-US".to_string()), // Should be set
-            language_id_settings: None,
-            language_options: None,
-            media: Media {
-                media_file_uri: "s3://bucket/audio.mp3".to_string(),
-                redacted_media_file_uri: None,
-            },
-            media_format: Some("mp3".to_string()),
-            media_sample_rate_hertz: None,
-            model_settings: None, // No model specified
-            output_bucket_name: None,
-            output_encryption_kms_key_id: None,
-            output_key: None,
-            settings: None, // No settings should be set
-            subtitles: None,
-            tags: None,
-            toxicity_detection: None,
-            transcription_job_name: "test-job-lang".to_string(),
-        };
-
-        assert_eq!(
-            actual_request, expected_request,
-            "Request with explicit language should match expected structure"
-        );
-    }
-
-    #[wstd::test]
-    async fn test_start_transcription_job_with_model_and_vocabulary() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "eu-west-1";
-
-        let mock_client = MockHttpClient::new();
-
-        let mock_response = r#"{
-               "TranscriptionJob": {
-                   "TranscriptionJobName": "test-job-advanced",
-                   "TranscriptionJobStatus": "COMPLETED"
-               }
-           }"#;
-
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        let audio_config = AudioConfig {
-            format: AudioFormat::Flac,
-            channels: Some(1),
-        };
-
-        let transcription_config = TranscriptionConfig {
-            language: Some("fr-FR".to_string()),
-            model: Some("custom-medical-model".to_string()),
-            diarization: None,
-            enable_multi_channel: false,
-            vocabulary: vec!["A".to_string(), "B".to_string()],
-        };
-
-        let _result = transcribe_client
-            .start_transcription_job(
-                "test-job-advanced",
-                "s3://bucket/audio.flac",
-                &audio_config,
-                Some(&transcription_config),
-                Some("custom-medical-vocab-123"), // Vocabulary name provided
-            )
-            .await
-            .unwrap();
-
-        let request = transcribe_client
-            .http_client
-            .last_captured_request()
-            .unwrap();
-        let actual_request: StartTranscriptionJobRequest =
-            serde_json::from_slice(request.body()).unwrap();
-
-        let expected_request = StartTranscriptionJobRequest {
-            content_redaction: None,
-            identify_language: None, // Explicit language provided
-            identify_multiple_languages: None,
-            job_execution_settings: None,
-            kms_encryption_context: None,
-            language_code: Some("fr-FR".to_string()),
-            language_id_settings: None,
-            language_options: None,
-            media: Media {
-                media_file_uri: "s3://bucket/audio.flac".to_string(),
-                redacted_media_file_uri: None,
-            },
-            media_format: Some("flac".to_string()),
-            media_sample_rate_hertz: None,
-            model_settings: Some(ModelSettings {
-                language_model_name: "custom-medical-model".to_string(),
-            }),
-            output_bucket_name: None,
-            output_encryption_kms_key_id: None,
-            output_key: None,
-            settings: Some(Settings {
-                channel_identification: None,
-                max_alternatives: None,
-                max_speaker_labels: None,
-                show_alternatives: None,
-                show_speaker_labels: None,
-                vocabulary_filter_method: None,
-                vocabulary_filter_name: None,
-                vocabulary_name: Some("custom-medical-vocab-123".to_string()),
-            }),
-            subtitles: None,
-            tags: None,
-            toxicity_detection: None,
-            transcription_job_name: "test-job-advanced".to_string(),
-        };
-
-        assert_eq!(
-            actual_request, expected_request,
-            "Request with model and vocabulary should match expected structure"
-        );
-    }
-
-    #[wstd::test]
-    async fn test_start_transcription_job_with_speaker_diarization() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "ap-southeast-1";
-
-        let mock_client = MockHttpClient::new();
-
-        let mock_response = r#"{
-                "TranscriptionJob": {
-                    "TranscriptionJobName": "test-job-speakers",
-                    "TranscriptionJobStatus": "IN_PROGRESS"
-                }
-            }"#;
-
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        let audio_config = AudioConfig {
-            format: AudioFormat::Ogg,
-            channels: Some(1), // Single channel
-        };
-
-        let transcription_config = TranscriptionConfig {
-            language: Some("en-AU".to_string()),
-            model: None,
-            diarization: Some(DiarizationConfig {
-                enabled: true,
-                max_speakers: 2,
-            }),
-            enable_multi_channel: false,
-            vocabulary: vec![],
-        };
-
-        let _result = transcribe_client
-            .start_transcription_job(
-                "test-job-speakers",
-                "s3://bucket/meeting.ogg",
-                &audio_config,
-                Some(&transcription_config),
-                None,
-            )
-            .await
-            .unwrap();
-
-        let request = transcribe_client
-            .http_client
-            .last_captured_request()
-            .unwrap();
-        let actual_request: StartTranscriptionJobRequest =
-            serde_json::from_slice(request.body()).unwrap();
-
-        let expected_request = StartTranscriptionJobRequest {
-            content_redaction: None,
-            identify_language: None,
-            identify_multiple_languages: None,
-            job_execution_settings: None,
-            kms_encryption_context: None,
-            language_code: Some("en-AU".to_string()),
-            language_id_settings: None,
-            language_options: None,
-            media: Media {
-                media_file_uri: "s3://bucket/meeting.ogg".to_string(),
-                redacted_media_file_uri: None,
-            },
-            media_format: Some("ogg".to_string()),
-            media_sample_rate_hertz: None,
-            model_settings: None,
-            output_bucket_name: None,
-            output_encryption_kms_key_id: None,
-            output_key: None,
-            settings: Some(Settings {
-                channel_identification: None, // Single channel
-                max_alternatives: None,
-                max_speaker_labels: Some(2), // Set for speaker diarization
-                show_alternatives: None,
-                show_speaker_labels: Some(true), // Enable speaker labels
-                vocabulary_filter_method: None,
-                vocabulary_filter_name: None,
-                vocabulary_name: None,
-            }),
-            subtitles: None,
-            tags: None,
-            toxicity_detection: None,
-            transcription_job_name: "test-job-speakers".to_string(),
-        };
-
-        assert_eq!(
-            actual_request, expected_request,
-            "Request with speaker diarization should match expected structure"
-        );
-    }
-
-    #[wstd::test]
-    async fn test_start_transcription_job_with_multi_channel() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "ca-central-1";
-
-        let mock_client = MockHttpClient::new();
-
-        let mock_response = r#"{
-                "TranscriptionJob": {
-                    "TranscriptionJobName": "test-job-channels",
-                    "TranscriptionJobStatus": "COMPLETED"
-                }
-            }"#;
-
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        let audio_config = AudioConfig {
-            format: AudioFormat::Wav,
-            channels: Some(2), // Multi-channel audio
-        };
-
-        let transcription_config = TranscriptionConfig {
-            language: Some("en-CA".to_string()),
-            model: Some("telephony-model".to_string()),
-            diarization: Some(DiarizationConfig {
-                enabled: true,
-                max_speakers: 4,
-            }),
-            enable_multi_channel: true, // Both multi-channel and speaker diarization
-            vocabulary: vec!["A".to_string(), "B".to_string()],
-        };
-
-        let _result = transcribe_client
-            .start_transcription_job(
-                "test-job-channels",
-                "s3://bucket/call-recording.wav",
-                &audio_config,
-                Some(&transcription_config),
-                Some("telephony-vocab"),
-            )
-            .await
-            .unwrap();
-
-        let request = transcribe_client
-            .http_client
-            .last_captured_request()
-            .unwrap();
-        let actual_request: StartTranscriptionJobRequest =
-            serde_json::from_slice(request.body()).unwrap();
-
-        let expected_request = StartTranscriptionJobRequest {
-            content_redaction: None,
-            identify_language: None,
-            identify_multiple_languages: None,
-            job_execution_settings: None,
-            kms_encryption_context: None,
-            language_code: Some("en-CA".to_string()),
-            language_id_settings: None,
-            language_options: None,
-            media: Media {
-                media_file_uri: "s3://bucket/call-recording.wav".to_string(),
-                redacted_media_file_uri: None,
-            },
-            media_format: Some("wav".to_string()),
-            media_sample_rate_hertz: None,
-            model_settings: Some(ModelSettings {
-                language_model_name: "telephony-model".to_string(),
-            }),
-            output_bucket_name: None,
-            output_encryption_kms_key_id: None,
-            output_key: None,
-            settings: Some(Settings {
-                channel_identification: Some(true), // Multi-channel
-                max_alternatives: None,
-                max_speaker_labels: Some(4), // Speaker diarization
-                show_alternatives: None,
-                show_speaker_labels: Some(true), // Speaker diarization
-                vocabulary_filter_method: None,
-                vocabulary_filter_name: None,
-                vocabulary_name: Some("telephony-vocab".to_string()),
-            }),
-            subtitles: None,
-            tags: None,
-            toxicity_detection: None,
-            transcription_job_name: "test-job-channels".to_string(),
-        };
-
-        assert_eq!(
-            actual_request, expected_request,
-            "Request with multi-channel and speaker diarization should match expected structure"
-        );
-    }
-
-    #[wstd::test]
-    async fn test_start_transcription_job_identify_language_ignores_vocabulary_and_model_settings()
-    {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
-
-        let mock_client = MockHttpClient::new();
-
-        let mock_response = r#"{
-               "TranscriptionJob": {
-                   "TranscriptionJobName": "test-job-identify",
-                   "TranscriptionJobStatus": "IN_PROGRESS"
-               }
-           }"#;
-
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        let audio_config = AudioConfig {
-            format: AudioFormat::Mp3,
-            channels: Some(1),
-        };
-
-        let transcription_config = TranscriptionConfig {
-            language: None, // means identify language
-            model: Some("telephony-model".to_string()),
-            diarization: None,
-            enable_multi_channel: false,
-            vocabulary: vec!["A".to_string(), "B".to_string()],
-        };
-
-        let _result = transcribe_client
-            .start_transcription_job(
-                "test-job-identify",
-                "s3://bucket/unknown-language.mp3",
-                &audio_config,
-                Some(&transcription_config),
-                Some("some-vocab"), // This should be ignored
-            )
-            .await
-            .unwrap();
-
-        let request = transcribe_client
-            .http_client
-            .last_captured_request()
-            .unwrap();
-        let actual_request: StartTranscriptionJobRequest =
-            serde_json::from_slice(request.body()).unwrap();
-
-        let expected_request = StartTranscriptionJobRequest {
-            content_redaction: None,
-            identify_language: Some(true), // Should be true
-            identify_multiple_languages: None,
-            job_execution_settings: None,
-            kms_encryption_context: None,
-            language_code: None, // Should be None
-            language_id_settings: None,
-            language_options: None,
-            media: Media {
-                media_file_uri: "s3://bucket/unknown-language.mp3".to_string(),
-                redacted_media_file_uri: None,
-            },
-            media_format: Some("mp3".to_string()),
-            media_sample_rate_hertz: None,
-            model_settings: None, // Should be None for identify_language
-            output_bucket_name: None,
-            output_encryption_kms_key_id: None,
-            output_key: None,
-            settings: None, // Vocabulary should be ignored, so settings should be None
-            subtitles: None,
-            tags: None,
-            toxicity_detection: None,
-            transcription_job_name: "test-job-identify".to_string(),
-        };
-
-        assert_eq!(
-            actual_request, expected_request,
-            "Request with identify_language should ignore vocabulary and model settings"
-        );
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_delete_transcription_job_request() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
-
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::OK)
-                .body(vec![])
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        let transcription_job_name = "test-job-name".to_string();
-        let result = transcribe_client
-            .delete_transcription_job(&transcription_job_name)
-            .await;
-
-        assert!(result.is_ok());
-
-        let request = transcribe_client
-            .http_client
-            .last_captured_request()
-            .unwrap();
-        assert_eq!(request.method(), "POST");
-        assert_eq!(
-            request.uri().to_string(),
-            format!("https://transcribe.{region}.amazonaws.com/")
-        );
-        assert_eq!(
-            request.headers().get("content-type").unwrap(),
-            "application/x-amz-json-1.1"
-        );
-        assert_eq!(
-            request.headers().get("x-amz-target").unwrap(),
-            "com.amazonaws.transcribe.Transcribe.DeleteTranscriptionJob"
-        );
-
-        let expected_request = DeleteTranscriptionJobRequest {
-            transcription_job_name,
-        };
-
-        let actual_request: DeleteTranscriptionJobRequest =
-            serde_json::from_slice(request.body()).unwrap();
-        assert_eq!(actual_request, expected_request);
-
-        assert!(request.headers().contains_key("x-amz-date"));
-        assert!(request.headers().contains_key("x-amz-content-sha256"));
-        assert!(request.headers().contains_key("authorization"));
-
-        let auth_header = request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
-        assert!(auth_header.contains("Credential="));
-        assert!(auth_header.contains("SignedHeaders="));
-        assert!(auth_header.contains("Signature="));
-    }
-
-    #[wstd::test]
-    async fn test_wait_for_vocabulary_ready_success() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
-
-        let mock_client = MockHttpClient::new();
-
-        // First call - vocabulary is still PENDING
-        let pending_response = r#"{
-               "VocabularyName": "test-vocab",
-               "LanguageCode": "en-US",
-               "VocabularyState": "PENDING",
-               "LastModifiedTime": 1234567890.0
-           }"#;
-
-        // Second call - vocabulary is READY
-        let ready_response = r#"{
-               "VocabularyName": "test-vocab",
-               "LanguageCode": "en-US",
-               "VocabularyState": "READY",
-               "LastModifiedTime": 1234567891.0,
-               "DownloadUri": "s3://bucket/vocab.txt"
-           }"#;
-
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(pending_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(ready_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        transcribe_client
-            .wait_for_vocabulary_ready("test-vocab", Duration::from_secs(300))
-            .await
-            .unwrap();
-
-        assert_eq!(transcribe_client.http_client.captured_request_count(), 2);
-
-        let sleep_calls = transcribe_client.runtime.get_sleep_calls();
-        assert!(
-            !sleep_calls.is_empty(),
-            "Should have called sleep at least once"
-        );
-
-        let captured_requests = transcribe_client.http_client.get_captured_requests();
-        for request in captured_requests.iter() {
+    #[test]
+    fn test_transcribe_create_vocabulary_request() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
+
+            let expected_response = CreateVocabularyResponse {
+                vocabulary_name: "test-vocabulary".to_string(),
+                language_code: "en-US".to_string(),
+                vocabulary_state: "PENDING".to_string(),
+                last_modified_time: None,
+                failure_reason: None,
+            };
+
+            let mock_client = MockHttpClient::new();
+
+            let response_json_str = serde_json::to_string(&expected_response).unwrap();
+
+            let body_bytes = response_json_str.into_bytes();
+
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(body_bytes)
+                    .unwrap(),
+            );
+
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            let vocabulary_name = "test-vocabulary".to_string();
+            let language_code = "en-US".to_string();
+            let phrases = vec![
+                "hello world".to_string(),
+                "machine learning".to_string(),
+                "artificial intelligence".to_string(),
+            ];
+
+            let actual_response = transcribe_client
+                .create_vocabulary(
+                    vocabulary_name.clone(),
+                    language_code.clone(),
+                    phrases.clone(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(actual_response, expected_response);
+
+            let request = transcribe_client
+                .http_client
+                .last_captured_request()
+                .unwrap();
             assert_eq!(request.method(), "POST");
             assert_eq!(
-                request.headers().get("x-amz-target").unwrap(),
-                "com.amazonaws.transcribe.Transcribe.GetVocabulary"
+                request.uri().to_string(),
+                format!("https://transcribe.{region}.amazonaws.com/")
             );
+            assert_eq!(
+                request.headers().get("content-type").unwrap(),
+                "application/x-amz-json-1.1"
+            );
+            assert_eq!(
+                request.headers().get("x-amz-target").unwrap(),
+                "com.amazonaws.transcribe.Transcribe.CreateVocabulary"
+            );
+
+            let expected_request = CreateVocabularyRequest {
+                vocabulary_name,
+                language_code,
+                phrases,
+                vocabulary_file_uri: None,
+                data_access_role_arn: None,
+                tags: None,
+            };
+
+            let actual_request: CreateVocabularyRequest =
+                serde_json::from_slice(request.body()).unwrap();
+            assert_eq!(actual_request, expected_request);
 
             assert!(request.headers().contains_key("x-amz-date"));
             assert!(request.headers().contains_key("x-amz-content-sha256"));
@@ -1916,23 +1087,872 @@ mod tests {
             assert!(auth_header.contains("Credential="));
             assert!(auth_header.contains("SignedHeaders="));
             assert!(auth_header.contains("Signature="));
-
-            let request_body: GetVocabularyRequest =
-                serde_json::from_slice(request.body()).unwrap();
-            assert_eq!(request_body.vocabulary_name, "test-vocab");
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_wait_for_vocabulary_ready_failure() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
+    #[test]
+    fn test_transcribe_delete_vocabulary_request() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
 
-        let mock_client = MockHttpClient::new();
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(vec![])
+                    .unwrap(),
+            );
 
-        // Vocabulary creation failed
-        let failed_response = r#"{
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            let vocabulary_name = "test-vocabulary".to_string();
+            let result = transcribe_client.delete_vocabulary(&vocabulary_name).await;
+
+            assert!(result.is_ok());
+
+            let request = transcribe_client
+                .http_client
+                .last_captured_request()
+                .unwrap();
+            assert_eq!(request.method(), "POST");
+            assert_eq!(
+                request.uri().to_string(),
+                format!("https://transcribe.{region}.amazonaws.com/")
+            );
+            assert_eq!(
+                request.headers().get("content-type").unwrap(),
+                "application/x-amz-json-1.1"
+            );
+            assert_eq!(
+                request.headers().get("x-amz-target").unwrap(),
+                "com.amazonaws.transcribe.Transcribe.DeleteVocabulary"
+            );
+
+            let expected_request = DeleteVocabularyRequest { vocabulary_name };
+
+            let actual_request: DeleteVocabularyRequest =
+                serde_json::from_slice(request.body()).unwrap();
+            assert_eq!(actual_request, expected_request);
+
+            assert!(request.headers().contains_key("x-amz-date"));
+            assert!(request.headers().contains_key("x-amz-content-sha256"));
+            assert!(request.headers().contains_key("authorization"));
+
+            let auth_header = request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
+            assert!(auth_header.contains("Credential="));
+            assert!(auth_header.contains("SignedHeaders="));
+            assert!(auth_header.contains("Signature="));
+        });
+    }
+
+    #[test]
+    fn test_start_transcription_job_basic_request() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
+
+            let mock_client = MockHttpClient::new();
+
+            let mock_response = r#"{
+               "TranscriptionJob": {
+                   "TranscriptionJobName": "test-job-basic",
+                   "TranscriptionJobStatus": "COMPLETED"
+               }
+           }"#;
+
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
+
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            // Test basic audio config with no transcription config (should use identify_language)
+            let audio_config = AudioConfig {
+                format: AudioFormat::Wav,
+                channels: Some(1),
+            };
+
+            let _result = transcribe_client
+                .start_transcription_job(
+                    "test-job-basic",
+                    "s3://bucket/audio.wav",
+                    &audio_config,
+                    None, // No transcription config
+                    None, // No vocabulary
+                )
+                .await
+                .unwrap();
+
+            // Verify the request was constructed correctly
+            let request = transcribe_client
+                .http_client
+                .last_captured_request()
+                .unwrap();
+            let actual_request: StartTranscriptionJobRequest =
+                serde_json::from_slice(request.body()).unwrap();
+
+            let expected_request = StartTranscriptionJobRequest {
+                content_redaction: None,
+                identify_language: Some(true), // Should be true when no language specified
+                identify_multiple_languages: None,
+                job_execution_settings: None,
+                kms_encryption_context: None,
+                language_code: None, // Should be None when using identify_language
+                language_id_settings: None,
+                language_options: None,
+                media: Media {
+                    media_file_uri: "s3://bucket/audio.wav".to_string(),
+                    redacted_media_file_uri: None,
+                },
+                media_format: Some("wav".to_string()),
+                media_sample_rate_hertz: None,
+                model_settings: None, // Should be None when using identify_language
+                output_bucket_name: None,
+                output_encryption_kms_key_id: None,
+                output_key: None,
+                settings: None, // Should be None for basic single-channel audio
+                subtitles: None,
+                tags: None,
+                toxicity_detection: None,
+                transcription_job_name: "test-job-basic".to_string(),
+            };
+
+            assert_eq!(
+                actual_request, expected_request,
+                "Basic request should match expected structure"
+            );
+        });
+    }
+
+    #[test]
+    fn test_start_transcription_job_with_explicit_language() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-west-2";
+
+            let mock_client = MockHttpClient::new();
+
+            let mock_response = r#"{
+                "TranscriptionJob": {
+                    "TranscriptionJobName": "test-job-lang",
+                    "TranscriptionJobStatus": "IN_PROGRESS"
+                }
+            }"#;
+
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
+
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            let audio_config = AudioConfig {
+                format: AudioFormat::Mp3,
+                channels: Some(1),
+            };
+
+            let transcription_config = TranscriptionConfig {
+                language: Some("en-US".to_string()),
+                model: None,
+                diarization: None,
+                enable_multi_channel: false,
+                vocabulary: vec![],
+            };
+
+            let _result = transcribe_client
+                .start_transcription_job(
+                    "test-job-lang",
+                    "s3://bucket/audio.mp3",
+                    &audio_config,
+                    Some(&transcription_config),
+                    None,
+                )
+                .await
+                .unwrap();
+
+            let request = transcribe_client
+                .http_client
+                .last_captured_request()
+                .unwrap();
+            let actual_request: StartTranscriptionJobRequest =
+                serde_json::from_slice(request.body()).unwrap();
+
+            let expected_request = StartTranscriptionJobRequest {
+                content_redaction: None,
+                identify_language: None, // Should be None when explicit language provided
+                identify_multiple_languages: None,
+                job_execution_settings: None,
+                kms_encryption_context: None,
+                language_code: Some("en-US".to_string()), // Should be set
+                language_id_settings: None,
+                language_options: None,
+                media: Media {
+                    media_file_uri: "s3://bucket/audio.mp3".to_string(),
+                    redacted_media_file_uri: None,
+                },
+                media_format: Some("mp3".to_string()),
+                media_sample_rate_hertz: None,
+                model_settings: None, // No model specified
+                output_bucket_name: None,
+                output_encryption_kms_key_id: None,
+                output_key: None,
+                settings: None, // No settings should be set
+                subtitles: None,
+                tags: None,
+                toxicity_detection: None,
+                transcription_job_name: "test-job-lang".to_string(),
+            };
+
+            assert_eq!(
+                actual_request, expected_request,
+                "Request with explicit language should match expected structure"
+            );
+        });
+    }
+
+    #[test]
+    fn test_start_transcription_job_with_model_and_vocabulary() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "eu-west-1";
+
+            let mock_client = MockHttpClient::new();
+
+            let mock_response = r#"{
+               "TranscriptionJob": {
+                   "TranscriptionJobName": "test-job-advanced",
+                   "TranscriptionJobStatus": "COMPLETED"
+               }
+           }"#;
+
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
+
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            let audio_config = AudioConfig {
+                format: AudioFormat::Flac,
+                channels: Some(1),
+            };
+
+            let transcription_config = TranscriptionConfig {
+                language: Some("fr-FR".to_string()),
+                model: Some("custom-medical-model".to_string()),
+                diarization: None,
+                enable_multi_channel: false,
+                vocabulary: vec!["A".to_string(), "B".to_string()],
+            };
+
+            let _result = transcribe_client
+                .start_transcription_job(
+                    "test-job-advanced",
+                    "s3://bucket/audio.flac",
+                    &audio_config,
+                    Some(&transcription_config),
+                    Some("custom-medical-vocab-123"), // Vocabulary name provided
+                )
+                .await
+                .unwrap();
+
+            let request = transcribe_client
+                .http_client
+                .last_captured_request()
+                .unwrap();
+            let actual_request: StartTranscriptionJobRequest =
+                serde_json::from_slice(request.body()).unwrap();
+
+            let expected_request = StartTranscriptionJobRequest {
+                content_redaction: None,
+                identify_language: None, // Explicit language provided
+                identify_multiple_languages: None,
+                job_execution_settings: None,
+                kms_encryption_context: None,
+                language_code: Some("fr-FR".to_string()),
+                language_id_settings: None,
+                language_options: None,
+                media: Media {
+                    media_file_uri: "s3://bucket/audio.flac".to_string(),
+                    redacted_media_file_uri: None,
+                },
+                media_format: Some("flac".to_string()),
+                media_sample_rate_hertz: None,
+                model_settings: Some(ModelSettings {
+                    language_model_name: "custom-medical-model".to_string(),
+                }),
+                output_bucket_name: None,
+                output_encryption_kms_key_id: None,
+                output_key: None,
+                settings: Some(Settings {
+                    channel_identification: None,
+                    max_alternatives: None,
+                    max_speaker_labels: None,
+                    show_alternatives: None,
+                    show_speaker_labels: None,
+                    vocabulary_filter_method: None,
+                    vocabulary_filter_name: None,
+                    vocabulary_name: Some("custom-medical-vocab-123".to_string()),
+                }),
+                subtitles: None,
+                tags: None,
+                toxicity_detection: None,
+                transcription_job_name: "test-job-advanced".to_string(),
+            };
+
+            assert_eq!(
+                actual_request, expected_request,
+                "Request with model and vocabulary should match expected structure"
+            );
+        });
+    }
+
+    #[test]
+    fn test_start_transcription_job_with_speaker_diarization() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "ap-southeast-1";
+
+            let mock_client = MockHttpClient::new();
+
+            let mock_response = r#"{
+                "TranscriptionJob": {
+                    "TranscriptionJobName": "test-job-speakers",
+                    "TranscriptionJobStatus": "IN_PROGRESS"
+                }
+            }"#;
+
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
+
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            let audio_config = AudioConfig {
+                format: AudioFormat::Ogg,
+                channels: Some(1), // Single channel
+            };
+
+            let transcription_config = TranscriptionConfig {
+                language: Some("en-AU".to_string()),
+                model: None,
+                diarization: Some(DiarizationConfig {
+                    enabled: true,
+                    max_speakers: 2,
+                }),
+                enable_multi_channel: false,
+                vocabulary: vec![],
+            };
+
+            let _result = transcribe_client
+                .start_transcription_job(
+                    "test-job-speakers",
+                    "s3://bucket/meeting.ogg",
+                    &audio_config,
+                    Some(&transcription_config),
+                    None,
+                )
+                .await
+                .unwrap();
+
+            let request = transcribe_client
+                .http_client
+                .last_captured_request()
+                .unwrap();
+            let actual_request: StartTranscriptionJobRequest =
+                serde_json::from_slice(request.body()).unwrap();
+
+            let expected_request = StartTranscriptionJobRequest {
+                content_redaction: None,
+                identify_language: None,
+                identify_multiple_languages: None,
+                job_execution_settings: None,
+                kms_encryption_context: None,
+                language_code: Some("en-AU".to_string()),
+                language_id_settings: None,
+                language_options: None,
+                media: Media {
+                    media_file_uri: "s3://bucket/meeting.ogg".to_string(),
+                    redacted_media_file_uri: None,
+                },
+                media_format: Some("ogg".to_string()),
+                media_sample_rate_hertz: None,
+                model_settings: None,
+                output_bucket_name: None,
+                output_encryption_kms_key_id: None,
+                output_key: None,
+                settings: Some(Settings {
+                    channel_identification: None, // Single channel
+                    max_alternatives: None,
+                    max_speaker_labels: Some(2), // Set for speaker diarization
+                    show_alternatives: None,
+                    show_speaker_labels: Some(true), // Enable speaker labels
+                    vocabulary_filter_method: None,
+                    vocabulary_filter_name: None,
+                    vocabulary_name: None,
+                }),
+                subtitles: None,
+                tags: None,
+                toxicity_detection: None,
+                transcription_job_name: "test-job-speakers".to_string(),
+            };
+
+            assert_eq!(
+                actual_request, expected_request,
+                "Request with speaker diarization should match expected structure"
+            );
+        });
+    }
+
+    #[test]
+    fn test_start_transcription_job_with_multi_channel() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "ca-central-1";
+
+            let mock_client = MockHttpClient::new();
+
+            let mock_response = r#"{
+                "TranscriptionJob": {
+                    "TranscriptionJobName": "test-job-channels",
+                    "TranscriptionJobStatus": "COMPLETED"
+                }
+            }"#;
+
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
+
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            let audio_config = AudioConfig {
+                format: AudioFormat::Wav,
+                channels: Some(2), // Multi-channel audio
+            };
+
+            let transcription_config = TranscriptionConfig {
+                language: Some("en-CA".to_string()),
+                model: Some("telephony-model".to_string()),
+                diarization: Some(DiarizationConfig {
+                    enabled: true,
+                    max_speakers: 4,
+                }),
+                enable_multi_channel: true, // Both multi-channel and speaker diarization
+                vocabulary: vec!["A".to_string(), "B".to_string()],
+            };
+
+            let _result = transcribe_client
+                .start_transcription_job(
+                    "test-job-channels",
+                    "s3://bucket/call-recording.wav",
+                    &audio_config,
+                    Some(&transcription_config),
+                    Some("telephony-vocab"),
+                )
+                .await
+                .unwrap();
+
+            let request = transcribe_client
+                .http_client
+                .last_captured_request()
+                .unwrap();
+            let actual_request: StartTranscriptionJobRequest =
+                serde_json::from_slice(request.body()).unwrap();
+
+            let expected_request = StartTranscriptionJobRequest {
+                content_redaction: None,
+                identify_language: None,
+                identify_multiple_languages: None,
+                job_execution_settings: None,
+                kms_encryption_context: None,
+                language_code: Some("en-CA".to_string()),
+                language_id_settings: None,
+                language_options: None,
+                media: Media {
+                    media_file_uri: "s3://bucket/call-recording.wav".to_string(),
+                    redacted_media_file_uri: None,
+                },
+                media_format: Some("wav".to_string()),
+                media_sample_rate_hertz: None,
+                model_settings: Some(ModelSettings {
+                    language_model_name: "telephony-model".to_string(),
+                }),
+                output_bucket_name: None,
+                output_encryption_kms_key_id: None,
+                output_key: None,
+                settings: Some(Settings {
+                    channel_identification: Some(true), // Multi-channel
+                    max_alternatives: None,
+                    max_speaker_labels: Some(4), // Speaker diarization
+                    show_alternatives: None,
+                    show_speaker_labels: Some(true), // Speaker diarization
+                    vocabulary_filter_method: None,
+                    vocabulary_filter_name: None,
+                    vocabulary_name: Some("telephony-vocab".to_string()),
+                }),
+                subtitles: None,
+                tags: None,
+                toxicity_detection: None,
+                transcription_job_name: "test-job-channels".to_string(),
+            };
+
+            assert_eq!(
+            actual_request, expected_request,
+            "Request with multi-channel and speaker diarization should match expected structure"
+        );
+        });
+    }
+
+    #[test]
+    fn test_start_transcription_job_identify_language_ignores_vocabulary_and_model_settings() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
+
+            let mock_client = MockHttpClient::new();
+
+            let mock_response = r#"{
+               "TranscriptionJob": {
+                   "TranscriptionJobName": "test-job-identify",
+                   "TranscriptionJobStatus": "IN_PROGRESS"
+               }
+           }"#;
+
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
+
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            let audio_config = AudioConfig {
+                format: AudioFormat::Mp3,
+                channels: Some(1),
+            };
+
+            let transcription_config = TranscriptionConfig {
+                language: None, // means identify language
+                model: Some("telephony-model".to_string()),
+                diarization: None,
+                enable_multi_channel: false,
+                vocabulary: vec!["A".to_string(), "B".to_string()],
+            };
+
+            let _result = transcribe_client
+                .start_transcription_job(
+                    "test-job-identify",
+                    "s3://bucket/unknown-language.mp3",
+                    &audio_config,
+                    Some(&transcription_config),
+                    Some("some-vocab"), // This should be ignored
+                )
+                .await
+                .unwrap();
+
+            let request = transcribe_client
+                .http_client
+                .last_captured_request()
+                .unwrap();
+            let actual_request: StartTranscriptionJobRequest =
+                serde_json::from_slice(request.body()).unwrap();
+
+            let expected_request = StartTranscriptionJobRequest {
+                content_redaction: None,
+                identify_language: Some(true), // Should be true
+                identify_multiple_languages: None,
+                job_execution_settings: None,
+                kms_encryption_context: None,
+                language_code: None, // Should be None
+                language_id_settings: None,
+                language_options: None,
+                media: Media {
+                    media_file_uri: "s3://bucket/unknown-language.mp3".to_string(),
+                    redacted_media_file_uri: None,
+                },
+                media_format: Some("mp3".to_string()),
+                media_sample_rate_hertz: None,
+                model_settings: None, // Should be None for identify_language
+                output_bucket_name: None,
+                output_encryption_kms_key_id: None,
+                output_key: None,
+                settings: None, // Vocabulary should be ignored, so settings should be None
+                subtitles: None,
+                tags: None,
+                toxicity_detection: None,
+                transcription_job_name: "test-job-identify".to_string(),
+            };
+
+            assert_eq!(
+                actual_request, expected_request,
+                "Request with identify_language should ignore vocabulary and model settings"
+            );
+        });
+    }
+
+    #[test]
+    fn test_transcribe_delete_transcription_job_request() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
+
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(vec![])
+                    .unwrap(),
+            );
+
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            let transcription_job_name = "test-job-name".to_string();
+            let result = transcribe_client
+                .delete_transcription_job(&transcription_job_name)
+                .await;
+
+            assert!(result.is_ok());
+
+            let request = transcribe_client
+                .http_client
+                .last_captured_request()
+                .unwrap();
+            assert_eq!(request.method(), "POST");
+            assert_eq!(
+                request.uri().to_string(),
+                format!("https://transcribe.{region}.amazonaws.com/")
+            );
+            assert_eq!(
+                request.headers().get("content-type").unwrap(),
+                "application/x-amz-json-1.1"
+            );
+            assert_eq!(
+                request.headers().get("x-amz-target").unwrap(),
+                "com.amazonaws.transcribe.Transcribe.DeleteTranscriptionJob"
+            );
+
+            let expected_request = DeleteTranscriptionJobRequest {
+                transcription_job_name,
+            };
+
+            let actual_request: DeleteTranscriptionJobRequest =
+                serde_json::from_slice(request.body()).unwrap();
+            assert_eq!(actual_request, expected_request);
+
+            assert!(request.headers().contains_key("x-amz-date"));
+            assert!(request.headers().contains_key("x-amz-content-sha256"));
+            assert!(request.headers().contains_key("authorization"));
+
+            let auth_header = request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
+            assert!(auth_header.contains("Credential="));
+            assert!(auth_header.contains("SignedHeaders="));
+            assert!(auth_header.contains("Signature="));
+        });
+    }
+
+    #[test]
+    fn test_wait_for_vocabulary_ready_success() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
+
+            let mock_client = MockHttpClient::new();
+
+            // First call - vocabulary is still PENDING
+            let pending_response = r#"{
+               "VocabularyName": "test-vocab",
+               "LanguageCode": "en-US",
+               "VocabularyState": "PENDING",
+               "LastModifiedTime": 1234567890.0
+           }"#;
+
+            // Second call - vocabulary is READY
+            let ready_response = r#"{
+               "VocabularyName": "test-vocab",
+               "LanguageCode": "en-US",
+               "VocabularyState": "READY",
+               "LastModifiedTime": 1234567891.0,
+               "DownloadUri": "s3://bucket/vocab.txt"
+           }"#;
+
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(pending_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
+
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(ready_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
+
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            transcribe_client
+                .wait_for_vocabulary_ready("test-vocab", Duration::from_secs(300))
+                .await
+                .unwrap();
+
+            assert_eq!(transcribe_client.http_client.captured_request_count(), 2);
+
+            let sleep_calls = transcribe_client.runtime.get_sleep_calls();
+            assert!(
+                !sleep_calls.is_empty(),
+                "Should have called sleep at least once"
+            );
+
+            let captured_requests = transcribe_client.http_client.get_captured_requests();
+            for request in captured_requests.iter() {
+                assert_eq!(request.method(), "POST");
+                assert_eq!(
+                    request.headers().get("x-amz-target").unwrap(),
+                    "com.amazonaws.transcribe.Transcribe.GetVocabulary"
+                );
+
+                assert!(request.headers().contains_key("x-amz-date"));
+                assert!(request.headers().contains_key("x-amz-content-sha256"));
+                assert!(request.headers().contains_key("authorization"));
+
+                let auth_header = request
+                    .headers()
+                    .get("authorization")
+                    .unwrap()
+                    .to_str()
+                    .unwrap();
+                assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
+                assert!(auth_header.contains("Credential="));
+                assert!(auth_header.contains("SignedHeaders="));
+                assert!(auth_header.contains("Signature="));
+
+                let request_body: GetVocabularyRequest =
+                    serde_json::from_slice(request.body()).unwrap();
+                assert_eq!(request_body.vocabulary_name, "test-vocab");
+            }
+        });
+    }
+
+    #[test]
+    fn test_wait_for_vocabulary_ready_failure() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
+
+            let mock_client = MockHttpClient::new();
+
+            // Vocabulary creation failed
+            let failed_response = r#"{
                 "VocabularyName": "test-vocab",
                 "LanguageCode": "en-US",
                 "VocabularyState": "FAILED",
@@ -1940,134 +1960,138 @@ mod tests {
                 "FailureReason": "Invalid vocabulary format"
             }"#;
 
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(failed_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(failed_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
 
-        let result = transcribe_client
-            .wait_for_vocabulary_ready("test-vocab", Duration::from_secs(300))
-            .await;
+            let result = transcribe_client
+                .wait_for_vocabulary_ready("test-vocab", Duration::from_secs(300))
+                .await;
 
-        // Should fail with the specific error
-        assert!(result.is_err());
-        let error = result.unwrap_err();
-        match error {
-            golem_ai_stt::error::Error::APIBadRequest {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "test-vocab");
-                assert!(provider_error.contains("Invalid vocabulary format"));
+            // Should fail with the specific error
+            assert!(result.is_err());
+            let error = result.unwrap_err();
+            match error {
+                golem_ai_stt::error::Error::APIBadRequest {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "test-vocab");
+                    assert!(provider_error.contains("Invalid vocabulary format"));
+                }
+                _ => panic!("Expected APIBadRequest error"),
             }
-            _ => panic!("Expected APIBadRequest error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_wait_for_vocabulary_ready_timeout() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
+    #[test]
+    fn test_wait_for_vocabulary_ready_timeout() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
 
-        let mock_client = MockHttpClient::new();
+            let mock_client = MockHttpClient::new();
 
-        // Always return PENDING to simulate timeout
-        let pending_response = r#"{
+            // Always return PENDING to simulate timeout
+            let pending_response = r#"{
                 "VocabularyName": "test-vocab",
                 "LanguageCode": "en-US",
                 "VocabularyState": "PENDING",
                 "LastModifiedTime": 1234567890.0
             }"#;
 
-        // Add multiple responses to allow polling before timeout
-        for _ in 0..100 {
-            mock_client.expect_response(
-                Response::builder()
-                    .status(200)
-                    .body(pending_response.as_bytes().to_vec())
-                    .unwrap(),
-            );
-        }
+            // Add multiple responses to allow polling before timeout
+            for _ in 0..100 {
+                mock_client.expect_response(
+                    Response::builder()
+                        .status(200)
+                        .body(pending_response.as_bytes().to_vec())
+                        .unwrap(),
+                );
+            }
 
-        struct MockRuntime {
-            elapsed_time: std::cell::RefCell<Duration>,
-        }
+            struct MockRuntime {
+                elapsed_time: std::cell::RefCell<Duration>,
+            }
 
-        impl MockRuntime {
-            fn new() -> Self {
-                Self {
-                    elapsed_time: std::cell::RefCell::new(Duration::from_secs(0)),
+            impl MockRuntime {
+                fn new() -> Self {
+                    Self {
+                        elapsed_time: std::cell::RefCell::new(Duration::from_secs(0)),
+                    }
                 }
             }
-        }
 
-        impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
-            async fn sleep(&self, duration: Duration) {
-                // Simulate time passing
-                let mut elapsed = self.elapsed_time.borrow_mut();
-                *elapsed += duration;
+            impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
+                async fn sleep(&self, duration: Duration) {
+                    // Simulate time passing
+                    let mut elapsed = self.elapsed_time.borrow_mut();
+                    *elapsed += duration;
+                }
             }
-        }
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
 
-        let result = transcribe_client
-            .wait_for_vocabulary_ready(
-                "test-vocab",
-                Duration::from_millis(5), // Very short timeout
-            )
-            .await;
+            let result = transcribe_client
+                .wait_for_vocabulary_ready(
+                    "test-vocab",
+                    Duration::from_millis(5), // Very short timeout
+                )
+                .await;
 
-        assert!(
-            transcribe_client.runtime.elapsed_time.borrow().as_millis() > 0,
-            "Elapsed time should be greater than zero"
-        );
+            assert!(
+                transcribe_client.runtime.elapsed_time.borrow().as_millis() > 0,
+                "Elapsed time should be greater than zero"
+            );
 
-        assert!(result.is_err());
-        let error = result.unwrap_err();
-        match error {
-            golem_ai_stt::error::Error::APIBadRequest {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "test-vocab");
-                assert!(provider_error.contains("timed out"));
+            assert!(result.is_err());
+            let error = result.unwrap_err();
+            match error {
+                golem_ai_stt::error::Error::APIBadRequest {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "test-vocab");
+                    assert!(provider_error.contains("timed out"));
+                }
+                _ => panic!("Expected APIBadRequest timeout error"),
             }
-            _ => panic!("Expected APIBadRequest timeout error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_wait_for_transcription_job_completion_success() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
+    #[test]
+    fn test_wait_for_transcription_job_completion_success() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
 
-        let mock_client = MockHttpClient::new();
+            let mock_client = MockHttpClient::new();
 
-        // First call - job is IN_PROGRESS
-        let in_progress_response = r#"{
+            // First call - job is IN_PROGRESS
+            let in_progress_response = r#"{
                 "TranscriptionJob": {
                     "TranscriptionJobName": "test-job",
                     "TranscriptionJobStatus": "IN_PROGRESS",
@@ -2081,8 +2105,8 @@ mod tests {
                 }
             }"#;
 
-        // Second call - job is COMPLETED
-        let completed_response = r#"{
+            // Second call - job is COMPLETED
+            let completed_response = r#"{
                 "TranscriptionJob": {
                     "TranscriptionJobName": "test-job",
                     "TranscriptionJobStatus": "COMPLETED",
@@ -2100,94 +2124,96 @@ mod tests {
                 }
             }"#;
 
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(in_progress_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(completed_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
-
-        let response = transcribe_client
-            .wait_for_transcription_job_completion("test-job", Duration::from_secs(3600))
-            .await
-            .unwrap();
-
-        assert_eq!(
-            response.transcription_job.transcription_job_status,
-            "COMPLETED"
-        );
-        assert!(response.transcription_job.transcript.is_some());
-        assert!(response
-            .transcription_job
-            .transcript
-            .unwrap()
-            .transcript_file_uri
-            .is_some());
-
-        // Should have made exactly 2 API calls
-        assert_eq!(transcribe_client.http_client.captured_request_count(), 2);
-
-        // Should have called sleep at least once
-        let sleep_calls = transcribe_client.runtime.get_sleep_calls();
-        assert!(!sleep_calls.is_empty());
-
-        // Verify the requests were get_transcription_job calls
-        let captured_requests = transcribe_client.http_client.get_captured_requests();
-        for request in captured_requests.iter() {
-            assert_eq!(request.method(), "POST");
-            assert_eq!(
-                request.headers().get("x-amz-target").unwrap(),
-                "com.amazonaws.transcribe.Transcribe.GetTranscriptionJob"
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(in_progress_response.as_bytes().to_vec())
+                    .unwrap(),
             );
 
-            assert!(request.headers().contains_key("x-amz-date"));
-            assert!(request.headers().contains_key("x-amz-content-sha256"));
-            assert!(request.headers().contains_key("authorization"));
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(completed_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-            let auth_header = request
-                .headers()
-                .get("authorization")
-                .unwrap()
-                .to_str()
+            let mock_runtime = MockRuntime::new();
+
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
+
+            let response = transcribe_client
+                .wait_for_transcription_job_completion("test-job", Duration::from_secs(3600))
+                .await
                 .unwrap();
-            assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
-            assert!(auth_header.contains("Credential="));
-            assert!(auth_header.contains("SignedHeaders="));
-            assert!(auth_header.contains("Signature="));
 
-            let request_body: GetTranscriptionJobRequest =
-                serde_json::from_slice(request.body()).unwrap();
-            assert_eq!(request_body.transcription_job_name, "test-job");
-        }
+            assert_eq!(
+                response.transcription_job.transcription_job_status,
+                "COMPLETED"
+            );
+            assert!(response.transcription_job.transcript.is_some());
+            assert!(response
+                .transcription_job
+                .transcript
+                .unwrap()
+                .transcript_file_uri
+                .is_some());
+
+            // Should have made exactly 2 API calls
+            assert_eq!(transcribe_client.http_client.captured_request_count(), 2);
+
+            // Should have called sleep at least once
+            let sleep_calls = transcribe_client.runtime.get_sleep_calls();
+            assert!(!sleep_calls.is_empty());
+
+            // Verify the requests were get_transcription_job calls
+            let captured_requests = transcribe_client.http_client.get_captured_requests();
+            for request in captured_requests.iter() {
+                assert_eq!(request.method(), "POST");
+                assert_eq!(
+                    request.headers().get("x-amz-target").unwrap(),
+                    "com.amazonaws.transcribe.Transcribe.GetTranscriptionJob"
+                );
+
+                assert!(request.headers().contains_key("x-amz-date"));
+                assert!(request.headers().contains_key("x-amz-content-sha256"));
+                assert!(request.headers().contains_key("authorization"));
+
+                let auth_header = request
+                    .headers()
+                    .get("authorization")
+                    .unwrap()
+                    .to_str()
+                    .unwrap();
+                assert!(auth_header.starts_with("AWS4-HMAC-SHA256"));
+                assert!(auth_header.contains("Credential="));
+                assert!(auth_header.contains("SignedHeaders="));
+                assert!(auth_header.contains("Signature="));
+
+                let request_body: GetTranscriptionJobRequest =
+                    serde_json::from_slice(request.body()).unwrap();
+                assert_eq!(request_body.transcription_job_name, "test-job");
+            }
+        });
     }
 
-    #[wstd::test]
-    async fn test_wait_for_transcription_job_completion_failure() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
+    #[test]
+    fn test_wait_for_transcription_job_completion_failure() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
 
-        let mock_client = MockHttpClient::new();
+            let mock_client = MockHttpClient::new();
 
-        // Job failed
-        let failed_response = r#"{
+            // Job failed
+            let failed_response = r#"{
                 "TranscriptionJob": {
                     "TranscriptionJobName": "test-job",
                     "TranscriptionJobStatus": "FAILED",
@@ -2203,52 +2229,54 @@ mod tests {
                 }
             }"#;
 
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(failed_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(failed_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
 
-        let result = transcribe_client
-            .wait_for_transcription_job_completion("test-job", Duration::from_secs(3600))
-            .await;
+            let result = transcribe_client
+                .wait_for_transcription_job_completion("test-job", Duration::from_secs(3600))
+                .await;
 
-        // Should fail with the specific error
-        assert!(result.is_err());
-        let error = result.unwrap_err();
-        match error {
-            golem_ai_stt::error::Error::APIBadRequest {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "test-job");
-                assert!(provider_error.contains("Unsupported audio format"));
+            // Should fail with the specific error
+            assert!(result.is_err());
+            let error = result.unwrap_err();
+            match error {
+                golem_ai_stt::error::Error::APIBadRequest {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "test-job");
+                    assert!(provider_error.contains("Unsupported audio format"));
+                }
+                _ => panic!("Expected APIBadRequest error"),
             }
-            _ => panic!("Expected APIBadRequest error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_wait_for_transcription_job_completion_timeout() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
+    #[test]
+    fn test_wait_for_transcription_job_completion_timeout() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
 
-        let mock_client = MockHttpClient::new();
+            let mock_client = MockHttpClient::new();
 
-        // Always return IN_PROGRESS to simulate timeout
-        let in_progress_response = r#"{
+            // Always return IN_PROGRESS to simulate timeout
+            let in_progress_response = r#"{
             "TranscriptionJob": {
                 "TranscriptionJobName": "test-job",
                 "TranscriptionJobStatus": "IN_PROGRESS",
@@ -2262,79 +2290,81 @@ mod tests {
             }
         }"#;
 
-        // Add multiple responses to allow polling before timeout
-        for _ in 0..100 {
-            mock_client.expect_response(
-                Response::builder()
-                    .status(200)
-                    .body(in_progress_response.as_bytes().to_vec())
-                    .unwrap(),
-            );
-        }
+            // Add multiple responses to allow polling before timeout
+            for _ in 0..100 {
+                mock_client.expect_response(
+                    Response::builder()
+                        .status(200)
+                        .body(in_progress_response.as_bytes().to_vec())
+                        .unwrap(),
+                );
+            }
 
-        struct MockRuntime {
-            elapsed_time: std::cell::RefCell<Duration>,
-        }
+            struct MockRuntime {
+                elapsed_time: std::cell::RefCell<Duration>,
+            }
 
-        impl MockRuntime {
-            fn new() -> Self {
-                Self {
-                    elapsed_time: std::cell::RefCell::new(Duration::from_secs(0)),
+            impl MockRuntime {
+                fn new() -> Self {
+                    Self {
+                        elapsed_time: std::cell::RefCell::new(Duration::from_secs(0)),
+                    }
                 }
             }
-        }
 
-        impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
-            async fn sleep(&self, duration: Duration) {
-                // Simulate time passing
-                let mut elapsed = self.elapsed_time.borrow_mut();
-                *elapsed += duration;
+            impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
+                async fn sleep(&self, duration: Duration) {
+                    // Simulate time passing
+                    let mut elapsed = self.elapsed_time.borrow_mut();
+                    *elapsed += duration;
+                }
             }
-        }
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
 
-        let result = transcribe_client
-            .wait_for_transcription_job_completion(
-                "test-job",
-                Duration::from_millis(5), // Very short timeout
-            )
-            .await;
+            let result = transcribe_client
+                .wait_for_transcription_job_completion(
+                    "test-job",
+                    Duration::from_millis(5), // Very short timeout
+                )
+                .await;
 
-        assert!(
-            transcribe_client.runtime.elapsed_time.borrow().as_millis() > 0,
-            "Elapsed time should be greater than zero"
-        );
+            assert!(
+                transcribe_client.runtime.elapsed_time.borrow().as_millis() > 0,
+                "Elapsed time should be greater than zero"
+            );
 
-        assert!(result.is_err());
-        let error = result.unwrap_err();
-        match error {
-            golem_ai_stt::error::Error::APIBadRequest {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "test-job");
-                assert!(provider_error.contains("timed out"));
+            assert!(result.is_err());
+            let error = result.unwrap_err();
+            match error {
+                golem_ai_stt::error::Error::APIBadRequest {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "test-job");
+                    assert!(provider_error.contains("timed out"));
+                }
+                _ => panic!("Expected APIBadRequest timeout error"),
             }
-            _ => panic!("Expected APIBadRequest timeout error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_download_transcript_json_with_diarization() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
+    #[test]
+    fn test_download_transcript_json_with_diarization() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
 
-        let json_response = r#"{
+            let json_response = r#"{
             "jobName": "my-first-transcription-job",
             "accountId": "111122223333",
             "results": {
@@ -2589,299 +2619,301 @@ mod tests {
             "status": "COMPLETED"
         }"#;
 
-        let expected = TranscribeOutput {
-            job_name: "my-first-transcription-job".to_string(),
-            account_id: "111122223333".to_string(),
-            results: TranscribeResults {
-                transcripts: vec![TranscriptText {
-                    transcript: "I've been on hold for an hour. Sorry about that.".to_string(),
-                }],
-                speaker_labels: Some(SpeakerLabels {
-                    channel_label: Some("ch_0".to_string()),
-                    speakers: 2,
-                    segments: vec![
-                        SpeakerSegment {
-                            start_time: "4.87".to_string(),
-                            speaker_label: "spk_0".to_string(),
-                            end_time: "6.88".to_string(),
-                            items: Some(vec![
-                                SpeakerItem {
-                                    start_time: "4.87".to_string(),
-                                    speaker_label: "spk_0".to_string(),
-                                    end_time: "5.02".to_string(),
-                                },
-                                SpeakerItem {
-                                    start_time: "5.02".to_string(),
-                                    speaker_label: "spk_0".to_string(),
-                                    end_time: "5.17".to_string(),
-                                },
-                                SpeakerItem {
-                                    start_time: "5.17".to_string(),
-                                    speaker_label: "spk_0".to_string(),
-                                    end_time: "5.29".to_string(),
-                                },
-                                SpeakerItem {
-                                    start_time: "5.29".to_string(),
-                                    speaker_label: "spk_0".to_string(),
-                                    end_time: "5.64".to_string(),
-                                },
-                                SpeakerItem {
-                                    start_time: "5.64".to_string(),
-                                    speaker_label: "spk_0".to_string(),
-                                    end_time: "5.84".to_string(),
-                                },
-                                SpeakerItem {
-                                    start_time: "6.11".to_string(),
-                                    speaker_label: "spk_0".to_string(),
-                                    end_time: "6.26".to_string(),
-                                },
-                                SpeakerItem {
-                                    start_time: "6.26".to_string(),
-                                    speaker_label: "spk_0".to_string(),
-                                    end_time: "6.88".to_string(),
-                                },
-                            ]),
+            let expected = TranscribeOutput {
+                job_name: "my-first-transcription-job".to_string(),
+                account_id: "111122223333".to_string(),
+                results: TranscribeResults {
+                    transcripts: vec![TranscriptText {
+                        transcript: "I've been on hold for an hour. Sorry about that.".to_string(),
+                    }],
+                    speaker_labels: Some(SpeakerLabels {
+                        channel_label: Some("ch_0".to_string()),
+                        speakers: 2,
+                        segments: vec![
+                            SpeakerSegment {
+                                start_time: "4.87".to_string(),
+                                speaker_label: "spk_0".to_string(),
+                                end_time: "6.88".to_string(),
+                                items: Some(vec![
+                                    SpeakerItem {
+                                        start_time: "4.87".to_string(),
+                                        speaker_label: "spk_0".to_string(),
+                                        end_time: "5.02".to_string(),
+                                    },
+                                    SpeakerItem {
+                                        start_time: "5.02".to_string(),
+                                        speaker_label: "spk_0".to_string(),
+                                        end_time: "5.17".to_string(),
+                                    },
+                                    SpeakerItem {
+                                        start_time: "5.17".to_string(),
+                                        speaker_label: "spk_0".to_string(),
+                                        end_time: "5.29".to_string(),
+                                    },
+                                    SpeakerItem {
+                                        start_time: "5.29".to_string(),
+                                        speaker_label: "spk_0".to_string(),
+                                        end_time: "5.64".to_string(),
+                                    },
+                                    SpeakerItem {
+                                        start_time: "5.64".to_string(),
+                                        speaker_label: "spk_0".to_string(),
+                                        end_time: "5.84".to_string(),
+                                    },
+                                    SpeakerItem {
+                                        start_time: "6.11".to_string(),
+                                        speaker_label: "spk_0".to_string(),
+                                        end_time: "6.26".to_string(),
+                                    },
+                                    SpeakerItem {
+                                        start_time: "6.26".to_string(),
+                                        speaker_label: "spk_0".to_string(),
+                                        end_time: "6.88".to_string(),
+                                    },
+                                ]),
+                            },
+                            SpeakerSegment {
+                                start_time: "8.49".to_string(),
+                                speaker_label: "spk_1".to_string(),
+                                end_time: "9.24".to_string(),
+                                items: Some(vec![
+                                    SpeakerItem {
+                                        start_time: "8.49".to_string(),
+                                        speaker_label: "spk_1".to_string(),
+                                        end_time: "8.88".to_string(),
+                                    },
+                                    SpeakerItem {
+                                        start_time: "8.88".to_string(),
+                                        speaker_label: "spk_1".to_string(),
+                                        end_time: "9.05".to_string(),
+                                    },
+                                    SpeakerItem {
+                                        start_time: "9.05".to_string(),
+                                        speaker_label: "spk_1".to_string(),
+                                        end_time: "9.24".to_string(),
+                                    },
+                                ]),
+                            },
+                        ],
+                    }),
+                    items: vec![
+                        TranscribeItem {
+                            id: Some(0),
+                            start_time: Some("4.87".to_string()),
+                            end_time: Some("5.02".to_string()),
+                            speaker_label: Some("spk_0".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "I've".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
                         },
-                        SpeakerSegment {
-                            start_time: "8.49".to_string(),
-                            speaker_label: "spk_1".to_string(),
-                            end_time: "9.24".to_string(),
-                            items: Some(vec![
-                                SpeakerItem {
-                                    start_time: "8.49".to_string(),
-                                    speaker_label: "spk_1".to_string(),
-                                    end_time: "8.88".to_string(),
-                                },
-                                SpeakerItem {
-                                    start_time: "8.88".to_string(),
-                                    speaker_label: "spk_1".to_string(),
-                                    end_time: "9.05".to_string(),
-                                },
-                                SpeakerItem {
-                                    start_time: "9.05".to_string(),
-                                    speaker_label: "spk_1".to_string(),
-                                    end_time: "9.24".to_string(),
-                                },
-                            ]),
+                        TranscribeItem {
+                            id: Some(1),
+                            start_time: Some("5.02".to_string()),
+                            end_time: Some("5.17".to_string()),
+                            speaker_label: Some("spk_0".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "been".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(2),
+                            start_time: Some("5.17".to_string()),
+                            end_time: Some("5.29".to_string()),
+                            speaker_label: Some("spk_0".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "on".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(3),
+                            start_time: Some("5.29".to_string()),
+                            end_time: Some("5.64".to_string()),
+                            speaker_label: Some("spk_0".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "hold".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(4),
+                            start_time: Some("5.64".to_string()),
+                            end_time: Some("5.84".to_string()),
+                            speaker_label: Some("spk_0".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "for".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(5),
+                            start_time: Some("6.11".to_string()),
+                            end_time: Some("6.26".to_string()),
+                            speaker_label: Some("spk_0".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "an".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(6),
+                            start_time: Some("6.26".to_string()),
+                            end_time: Some("6.88".to_string()),
+                            speaker_label: Some("spk_0".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "hour".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(7),
+                            start_time: None,
+                            end_time: None,
+                            speaker_label: Some("spk_0".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "0.0".to_string(),
+                                content: ".".to_string(),
+                            }],
+                            item_type: "punctuation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(8),
+                            start_time: Some("8.49".to_string()),
+                            end_time: Some("8.88".to_string()),
+                            speaker_label: Some("spk_1".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "Sorry".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(9),
+                            start_time: Some("8.88".to_string()),
+                            end_time: Some("9.05".to_string()),
+                            speaker_label: Some("spk_1".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "0.902".to_string(),
+                                content: "about".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(10),
+                            start_time: Some("9.05".to_string()),
+                            end_time: Some("9.24".to_string()),
+                            speaker_label: Some("spk_1".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "that".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(11),
+                            start_time: None,
+                            end_time: None,
+                            speaker_label: Some("spk_1".to_string()),
+                            channel_label: None,
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "0.0".to_string(),
+                                content: ".".to_string(),
+                            }],
+                            item_type: "punctuation".to_string(),
+                            vocabulary_filter_match: None,
                         },
                     ],
-                }),
-                items: vec![
-                    TranscribeItem {
-                        id: Some(0),
-                        start_time: Some("4.87".to_string()),
-                        end_time: Some("5.02".to_string()),
-                        speaker_label: Some("spk_0".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "I've".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(1),
-                        start_time: Some("5.02".to_string()),
-                        end_time: Some("5.17".to_string()),
-                        speaker_label: Some("spk_0".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "been".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(2),
-                        start_time: Some("5.17".to_string()),
-                        end_time: Some("5.29".to_string()),
-                        speaker_label: Some("spk_0".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "on".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(3),
-                        start_time: Some("5.29".to_string()),
-                        end_time: Some("5.64".to_string()),
-                        speaker_label: Some("spk_0".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "hold".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(4),
-                        start_time: Some("5.64".to_string()),
-                        end_time: Some("5.84".to_string()),
-                        speaker_label: Some("spk_0".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "for".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(5),
-                        start_time: Some("6.11".to_string()),
-                        end_time: Some("6.26".to_string()),
-                        speaker_label: Some("spk_0".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "an".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(6),
-                        start_time: Some("6.26".to_string()),
-                        end_time: Some("6.88".to_string()),
-                        speaker_label: Some("spk_0".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "hour".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(7),
-                        start_time: None,
-                        end_time: None,
-                        speaker_label: Some("spk_0".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "0.0".to_string(),
-                            content: ".".to_string(),
-                        }],
-                        item_type: "punctuation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(8),
-                        start_time: Some("8.49".to_string()),
-                        end_time: Some("8.88".to_string()),
-                        speaker_label: Some("spk_1".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "Sorry".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(9),
-                        start_time: Some("8.88".to_string()),
-                        end_time: Some("9.05".to_string()),
-                        speaker_label: Some("spk_1".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "0.902".to_string(),
-                            content: "about".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(10),
-                        start_time: Some("9.05".to_string()),
-                        end_time: Some("9.24".to_string()),
-                        speaker_label: Some("spk_1".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "that".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(11),
-                        start_time: None,
-                        end_time: None,
-                        speaker_label: Some("spk_1".to_string()),
-                        channel_label: None,
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "0.0".to_string(),
-                            content: ".".to_string(),
-                        }],
-                        item_type: "punctuation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                ],
-                audio_segments: vec![
-                    AudioSegment {
-                        id: 0,
-                        transcript: "I've been on hold for an hour.".to_string(),
-                        start_time: "4.87".to_string(),
-                        end_time: "6.88".to_string(),
-                        speaker_label: Some("spk_0".to_string()),
-                        channel_label: None,
-                        items: vec![0, 1, 2, 3, 4, 5, 6, 7],
-                    },
-                    AudioSegment {
-                        id: 1,
-                        transcript: "Sorry about that.".to_string(),
-                        start_time: "8.49".to_string(),
-                        end_time: "9.24".to_string(),
-                        speaker_label: Some("spk_1".to_string()),
-                        channel_label: None,
-                        items: vec![8, 9, 10, 11],
-                    },
-                ],
-                channel_labels: None,
-            },
-            status: "COMPLETED".to_string(),
-        };
+                    audio_segments: vec![
+                        AudioSegment {
+                            id: 0,
+                            transcript: "I've been on hold for an hour.".to_string(),
+                            start_time: "4.87".to_string(),
+                            end_time: "6.88".to_string(),
+                            speaker_label: Some("spk_0".to_string()),
+                            channel_label: None,
+                            items: vec![0, 1, 2, 3, 4, 5, 6, 7],
+                        },
+                        AudioSegment {
+                            id: 1,
+                            transcript: "Sorry about that.".to_string(),
+                            start_time: "8.49".to_string(),
+                            end_time: "9.24".to_string(),
+                            speaker_label: Some("spk_1".to_string()),
+                            channel_label: None,
+                            items: vec![8, 9, 10, 11],
+                        },
+                    ],
+                    channel_labels: None,
+                },
+                status: "COMPLETED".to_string(),
+            };
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            http::Response::builder()
-                .status(200)
-                .body(json_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                http::Response::builder()
+                    .status(200)
+                    .body(json_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
 
-        let result = transcribe_client
-            .download_transcript_json("test-job", "https://example.com/transcript.json")
-            .await
-            .expect("Failed to download transcript");
+            let result = transcribe_client
+                .download_transcript_json("test-job", "https://example.com/transcript.json")
+                .await
+                .expect("Failed to download transcript");
 
-        assert_eq!(result, expected);
+            assert_eq!(result, expected);
+        });
     }
 
-    #[wstd::test]
-    async fn test_download_transcript_json_with_multi_channel() {
-        let access_key = "AKIAIOSFODNN7EXAMPLE";
-        let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-        let region = "us-east-1";
+    #[test]
+    fn test_download_transcript_json_with_multi_channel() {
+        futures::executor::block_on(async {
+            let access_key = "AKIAIOSFODNN7EXAMPLE";
+            let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+            let region = "us-east-1";
 
-        let json_response = r#"{
+            let json_response = r#"{
         "jobName": "my-first-transcription-job",
         "accountId": "111122223333",
         "results": {
@@ -3236,391 +3268,392 @@ mod tests {
         "status": "COMPLETED"
     }"#;
 
-        let expected = TranscribeOutput {
-            job_name: "my-first-transcription-job".to_string(),
-            account_id: "111122223333".to_string(),
-            results: TranscribeResults {
-                transcripts: vec![TranscriptText {
-                    transcript: "I've been on hold for an hour. Sorry about that.".to_string(),
-                }],
-                speaker_labels: None,
-                channel_labels: Some(ChannelLabels {
-                    channels: vec![
-                        Channel {
-                            channel_label: "ch_0".to_string(),
-                            items: vec![
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: Some("4.86".to_string()),
-                                    end_time: Some("5.01".to_string()),
-                                    speaker_label: None,
-                                    channel_label: Some("ch_0".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "1.0".to_string(),
-                                        content: "I've".to_string(),
-                                    }],
-                                    item_type: "pronunciation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: Some("5.01".to_string()),
-                                    end_time: Some("5.16".to_string()),
-                                    speaker_label: None,
-                                    channel_label: Some("ch_0".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "1.0".to_string(),
-                                        content: "been".to_string(),
-                                    }],
-                                    item_type: "pronunciation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: Some("5.16".to_string()),
-                                    end_time: Some("5.28".to_string()),
-                                    speaker_label: None,
-                                    channel_label: Some("ch_0".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "1.0".to_string(),
-                                        content: "on".to_string(),
-                                    }],
-                                    item_type: "pronunciation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: Some("5.28".to_string()),
-                                    end_time: Some("5.62".to_string()),
-                                    speaker_label: None,
-                                    channel_label: Some("ch_0".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "1.0".to_string(),
-                                        content: "hold".to_string(),
-                                    }],
-                                    item_type: "pronunciation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: Some("5.62".to_string()),
-                                    end_time: Some("5.83".to_string()),
-                                    speaker_label: None,
-                                    channel_label: Some("ch_0".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "1.0".to_string(),
-                                        content: "for".to_string(),
-                                    }],
-                                    item_type: "pronunciation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: Some("6.1".to_string()),
-                                    end_time: Some("6.25".to_string()),
-                                    speaker_label: None,
-                                    channel_label: Some("ch_0".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "1.0".to_string(),
-                                        content: "an".to_string(),
-                                    }],
-                                    item_type: "pronunciation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: Some("6.25".to_string()),
-                                    end_time: Some("6.87".to_string()),
-                                    speaker_label: None,
-                                    channel_label: Some("ch_0".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "1.0".to_string(),
-                                        content: "hour".to_string(),
-                                    }],
-                                    item_type: "pronunciation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: None,
-                                    end_time: None,
-                                    speaker_label: None,
-                                    channel_label: Some("ch_0".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "0.0".to_string(),
-                                        content: ".".to_string(),
-                                    }],
-                                    item_type: "punctuation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                            ],
+            let expected = TranscribeOutput {
+                job_name: "my-first-transcription-job".to_string(),
+                account_id: "111122223333".to_string(),
+                results: TranscribeResults {
+                    transcripts: vec![TranscriptText {
+                        transcript: "I've been on hold for an hour. Sorry about that.".to_string(),
+                    }],
+                    speaker_labels: None,
+                    channel_labels: Some(ChannelLabels {
+                        channels: vec![
+                            Channel {
+                                channel_label: "ch_0".to_string(),
+                                items: vec![
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: Some("4.86".to_string()),
+                                        end_time: Some("5.01".to_string()),
+                                        speaker_label: None,
+                                        channel_label: Some("ch_0".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "1.0".to_string(),
+                                            content: "I've".to_string(),
+                                        }],
+                                        item_type: "pronunciation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: Some("5.01".to_string()),
+                                        end_time: Some("5.16".to_string()),
+                                        speaker_label: None,
+                                        channel_label: Some("ch_0".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "1.0".to_string(),
+                                            content: "been".to_string(),
+                                        }],
+                                        item_type: "pronunciation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: Some("5.16".to_string()),
+                                        end_time: Some("5.28".to_string()),
+                                        speaker_label: None,
+                                        channel_label: Some("ch_0".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "1.0".to_string(),
+                                            content: "on".to_string(),
+                                        }],
+                                        item_type: "pronunciation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: Some("5.28".to_string()),
+                                        end_time: Some("5.62".to_string()),
+                                        speaker_label: None,
+                                        channel_label: Some("ch_0".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "1.0".to_string(),
+                                            content: "hold".to_string(),
+                                        }],
+                                        item_type: "pronunciation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: Some("5.62".to_string()),
+                                        end_time: Some("5.83".to_string()),
+                                        speaker_label: None,
+                                        channel_label: Some("ch_0".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "1.0".to_string(),
+                                            content: "for".to_string(),
+                                        }],
+                                        item_type: "pronunciation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: Some("6.1".to_string()),
+                                        end_time: Some("6.25".to_string()),
+                                        speaker_label: None,
+                                        channel_label: Some("ch_0".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "1.0".to_string(),
+                                            content: "an".to_string(),
+                                        }],
+                                        item_type: "pronunciation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: Some("6.25".to_string()),
+                                        end_time: Some("6.87".to_string()),
+                                        speaker_label: None,
+                                        channel_label: Some("ch_0".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "1.0".to_string(),
+                                            content: "hour".to_string(),
+                                        }],
+                                        item_type: "pronunciation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: None,
+                                        end_time: None,
+                                        speaker_label: None,
+                                        channel_label: Some("ch_0".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "0.0".to_string(),
+                                            content: ".".to_string(),
+                                        }],
+                                        item_type: "punctuation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                ],
+                            },
+                            Channel {
+                                channel_label: "ch_1".to_string(),
+                                items: vec![
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: Some("8.5".to_string()),
+                                        end_time: Some("8.89".to_string()),
+                                        speaker_label: None,
+                                        channel_label: Some("ch_1".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "1.0".to_string(),
+                                            content: "Sorry".to_string(),
+                                        }],
+                                        item_type: "pronunciation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: Some("8.89".to_string()),
+                                        end_time: Some("9.06".to_string()),
+                                        speaker_label: None,
+                                        channel_label: Some("ch_1".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "0.9176".to_string(),
+                                            content: "about".to_string(),
+                                        }],
+                                        item_type: "pronunciation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: Some("9.06".to_string()),
+                                        end_time: Some("9.25".to_string()),
+                                        speaker_label: None,
+                                        channel_label: Some("ch_1".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "1.0".to_string(),
+                                            content: "that".to_string(),
+                                        }],
+                                        item_type: "pronunciation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                    TranscribeItem {
+                                        id: None,
+                                        start_time: None,
+                                        end_time: None,
+                                        speaker_label: None,
+                                        channel_label: Some("ch_1".to_string()),
+                                        alternatives: vec![TranscribeAlternative {
+                                            confidence: "0.0".to_string(),
+                                            content: ".".to_string(),
+                                        }],
+                                        item_type: "punctuation".to_string(),
+                                        vocabulary_filter_match: None,
+                                    },
+                                ],
+                            },
+                        ],
+                        number_of_channels: 2,
+                    }),
+                    items: vec![
+                        TranscribeItem {
+                            id: Some(0),
+                            start_time: Some("4.86".to_string()),
+                            end_time: Some("5.01".to_string()),
+                            speaker_label: None,
+                            channel_label: Some("ch_0".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "I've".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
                         },
-                        Channel {
-                            channel_label: "ch_1".to_string(),
-                            items: vec![
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: Some("8.5".to_string()),
-                                    end_time: Some("8.89".to_string()),
-                                    speaker_label: None,
-                                    channel_label: Some("ch_1".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "1.0".to_string(),
-                                        content: "Sorry".to_string(),
-                                    }],
-                                    item_type: "pronunciation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: Some("8.89".to_string()),
-                                    end_time: Some("9.06".to_string()),
-                                    speaker_label: None,
-                                    channel_label: Some("ch_1".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "0.9176".to_string(),
-                                        content: "about".to_string(),
-                                    }],
-                                    item_type: "pronunciation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: Some("9.06".to_string()),
-                                    end_time: Some("9.25".to_string()),
-                                    speaker_label: None,
-                                    channel_label: Some("ch_1".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "1.0".to_string(),
-                                        content: "that".to_string(),
-                                    }],
-                                    item_type: "pronunciation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                                TranscribeItem {
-                                    id: None,
-                                    start_time: None,
-                                    end_time: None,
-                                    speaker_label: None,
-                                    channel_label: Some("ch_1".to_string()),
-                                    alternatives: vec![TranscribeAlternative {
-                                        confidence: "0.0".to_string(),
-                                        content: ".".to_string(),
-                                    }],
-                                    item_type: "punctuation".to_string(),
-                                    vocabulary_filter_match: None,
-                                },
-                            ],
+                        TranscribeItem {
+                            id: Some(1),
+                            start_time: Some("5.01".to_string()),
+                            end_time: Some("5.16".to_string()),
+                            speaker_label: None,
+                            channel_label: Some("ch_0".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "been".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(2),
+                            start_time: Some("5.16".to_string()),
+                            end_time: Some("5.28".to_string()),
+                            speaker_label: None,
+                            channel_label: Some("ch_0".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "on".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(3),
+                            start_time: Some("5.28".to_string()),
+                            end_time: Some("5.62".to_string()),
+                            speaker_label: None,
+                            channel_label: Some("ch_0".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "hold".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(4),
+                            start_time: Some("5.62".to_string()),
+                            end_time: Some("5.83".to_string()),
+                            speaker_label: None,
+                            channel_label: Some("ch_0".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "for".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(5),
+                            start_time: Some("6.1".to_string()),
+                            end_time: Some("6.25".to_string()),
+                            speaker_label: None,
+                            channel_label: Some("ch_0".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "an".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(6),
+                            start_time: Some("6.25".to_string()),
+                            end_time: Some("6.87".to_string()),
+                            speaker_label: None,
+                            channel_label: Some("ch_0".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "hour".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(7),
+                            start_time: None,
+                            end_time: None,
+                            speaker_label: None,
+                            channel_label: Some("ch_0".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "0.0".to_string(),
+                                content: ".".to_string(),
+                            }],
+                            item_type: "punctuation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(8),
+                            start_time: Some("8.5".to_string()),
+                            end_time: Some("8.89".to_string()),
+                            speaker_label: None,
+                            channel_label: Some("ch_1".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "Sorry".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(9),
+                            start_time: Some("8.89".to_string()),
+                            end_time: Some("9.06".to_string()),
+                            speaker_label: None,
+                            channel_label: Some("ch_1".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "0.9176".to_string(),
+                                content: "about".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(10),
+                            start_time: Some("9.06".to_string()),
+                            end_time: Some("9.25".to_string()),
+                            speaker_label: None,
+                            channel_label: Some("ch_1".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "1.0".to_string(),
+                                content: "that".to_string(),
+                            }],
+                            item_type: "pronunciation".to_string(),
+                            vocabulary_filter_match: None,
+                        },
+                        TranscribeItem {
+                            id: Some(11),
+                            start_time: None,
+                            end_time: None,
+                            speaker_label: None,
+                            channel_label: Some("ch_1".to_string()),
+                            alternatives: vec![TranscribeAlternative {
+                                confidence: "0.0".to_string(),
+                                content: ".".to_string(),
+                            }],
+                            item_type: "punctuation".to_string(),
+                            vocabulary_filter_match: None,
                         },
                     ],
-                    number_of_channels: 2,
-                }),
-                items: vec![
-                    TranscribeItem {
-                        id: Some(0),
-                        start_time: Some("4.86".to_string()),
-                        end_time: Some("5.01".to_string()),
-                        speaker_label: None,
-                        channel_label: Some("ch_0".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "I've".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(1),
-                        start_time: Some("5.01".to_string()),
-                        end_time: Some("5.16".to_string()),
-                        speaker_label: None,
-                        channel_label: Some("ch_0".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "been".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(2),
-                        start_time: Some("5.16".to_string()),
-                        end_time: Some("5.28".to_string()),
-                        speaker_label: None,
-                        channel_label: Some("ch_0".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "on".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(3),
-                        start_time: Some("5.28".to_string()),
-                        end_time: Some("5.62".to_string()),
-                        speaker_label: None,
-                        channel_label: Some("ch_0".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "hold".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(4),
-                        start_time: Some("5.62".to_string()),
-                        end_time: Some("5.83".to_string()),
-                        speaker_label: None,
-                        channel_label: Some("ch_0".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "for".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(5),
-                        start_time: Some("6.1".to_string()),
-                        end_time: Some("6.25".to_string()),
-                        speaker_label: None,
-                        channel_label: Some("ch_0".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "an".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(6),
-                        start_time: Some("6.25".to_string()),
-                        end_time: Some("6.87".to_string()),
-                        speaker_label: None,
-                        channel_label: Some("ch_0".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "hour".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(7),
-                        start_time: None,
-                        end_time: None,
-                        speaker_label: None,
-                        channel_label: Some("ch_0".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "0.0".to_string(),
-                            content: ".".to_string(),
-                        }],
-                        item_type: "punctuation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(8),
-                        start_time: Some("8.5".to_string()),
-                        end_time: Some("8.89".to_string()),
-                        speaker_label: None,
-                        channel_label: Some("ch_1".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "Sorry".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(9),
-                        start_time: Some("8.89".to_string()),
-                        end_time: Some("9.06".to_string()),
-                        speaker_label: None,
-                        channel_label: Some("ch_1".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "0.9176".to_string(),
-                            content: "about".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(10),
-                        start_time: Some("9.06".to_string()),
-                        end_time: Some("9.25".to_string()),
-                        speaker_label: None,
-                        channel_label: Some("ch_1".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "1.0".to_string(),
-                            content: "that".to_string(),
-                        }],
-                        item_type: "pronunciation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                    TranscribeItem {
-                        id: Some(11),
-                        start_time: None,
-                        end_time: None,
-                        speaker_label: None,
-                        channel_label: Some("ch_1".to_string()),
-                        alternatives: vec![TranscribeAlternative {
-                            confidence: "0.0".to_string(),
-                            content: ".".to_string(),
-                        }],
-                        item_type: "punctuation".to_string(),
-                        vocabulary_filter_match: None,
-                    },
-                ],
-                audio_segments: vec![
-                    AudioSegment {
-                        id: 0,
-                        transcript: "I've been on hold for an hour.".to_string(),
-                        start_time: "4.86".to_string(),
-                        end_time: "6.87".to_string(),
-                        speaker_label: None,
-                        channel_label: Some("ch_0".to_string()),
-                        items: vec![0, 1, 2, 3, 4, 5, 6, 7],
-                    },
-                    AudioSegment {
-                        id: 1,
-                        transcript: "Sorry about that.".to_string(),
-                        start_time: "8.5".to_string(),
-                        end_time: "9.25".to_string(),
-                        speaker_label: None,
-                        channel_label: Some("ch_1".to_string()),
-                        items: vec![8, 9, 10, 11],
-                    },
-                ],
-            },
-            status: "COMPLETED".to_string(),
-        };
+                    audio_segments: vec![
+                        AudioSegment {
+                            id: 0,
+                            transcript: "I've been on hold for an hour.".to_string(),
+                            start_time: "4.86".to_string(),
+                            end_time: "6.87".to_string(),
+                            speaker_label: None,
+                            channel_label: Some("ch_0".to_string()),
+                            items: vec![0, 1, 2, 3, 4, 5, 6, 7],
+                        },
+                        AudioSegment {
+                            id: 1,
+                            transcript: "Sorry about that.".to_string(),
+                            start_time: "8.5".to_string(),
+                            end_time: "9.25".to_string(),
+                            speaker_label: None,
+                            channel_label: Some("ch_1".to_string()),
+                            items: vec![8, 9, 10, 11],
+                        },
+                    ],
+                },
+                status: "COMPLETED".to_string(),
+            };
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            http::Response::builder()
-                .status(200)
-                .body(json_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                http::Response::builder()
+                    .status(200)
+                    .body(json_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        // Create transcribe client
-        let transcribe_client = TranscribeClient::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            region.to_string(),
-            mock_client,
-            mock_runtime,
-        );
+            // Create transcribe client
+            let transcribe_client = TranscribeClient::new(
+                access_key.to_string(),
+                secret_key.to_string(),
+                region.to_string(),
+                mock_client,
+                mock_runtime,
+            );
 
-        let result = transcribe_client
-            .download_transcript_json("test-job", "https://example.com/transcript.json")
-            .await
-            .expect("Failed to download transcript");
+            let result = transcribe_client
+                .download_transcript_json("test-job", "https://example.com/transcript.json")
+                .await
+                .expect("Failed to download transcript");
 
-        assert_eq!(result, expected);
+            assert_eq!(result, expected);
+        });
     }
 }
