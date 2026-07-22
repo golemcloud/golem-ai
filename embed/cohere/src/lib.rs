@@ -23,14 +23,14 @@ pub use config::CohereHostConfig;
 pub struct Cohere;
 
 impl Cohere {
-    fn embeddings(
+    async fn embeddings(
         client: EmbeddingsApi,
         inputs: Vec<ContentPart>,
         config: Config,
     ) -> Result<GolemEmbeddingResponse, Error> {
-        let request = create_embed_request(inputs, config.clone());
+        let request = create_embed_request(inputs, config.clone()).await;
         match request {
-            Ok(request) => match client.generate_embeding(request) {
+            Ok(request) => match client.generate_embeding(request).await {
                 Ok(response) => process_embedding_response(response, config),
                 Err(err) => Err(err),
             },
@@ -38,7 +38,7 @@ impl Cohere {
         }
     }
 
-    fn rerank(
+    async fn rerank(
         client: EmbeddingsApi,
         query: String,
         documents: Vec<String>,
@@ -46,7 +46,7 @@ impl Cohere {
     ) -> Result<RerankResponse, Error> {
         let request = create_rerank_request(query, documents, config.clone());
         match request {
-            Ok(request) => match client.rerank(request) {
+            Ok(request) => match client.rerank(request).await {
                 Ok(response) => process_rerank_response(response, config),
                 Err(err) => Err(err),
             },
@@ -58,17 +58,17 @@ impl Cohere {
 impl EmbeddingProvider for Cohere {
     type ProviderConfig = CohereConfig;
 
-    fn generate(
+    async fn generate(
         provider_config: Self::ProviderConfig,
         inputs: Vec<ContentPart>,
         config: Config,
     ) -> Result<GolemEmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         let client = EmbeddingsApi::new(&provider_config);
-        Self::embeddings(client, inputs, config)
+        Self::embeddings(client, inputs, config).await
     }
 
-    fn rerank(
+    async fn rerank(
         provider_config: Self::ProviderConfig,
         query: String,
         documents: Vec<String>,
@@ -76,7 +76,7 @@ impl EmbeddingProvider for Cohere {
     ) -> Result<RerankResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         let client = EmbeddingsApi::new(&provider_config);
-        Self::rerank(client, query, documents, config)
+        Self::rerank(client, query, documents, config).await
     }
 }
 
