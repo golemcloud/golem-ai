@@ -1821,8 +1821,8 @@ dependencies = [
 name = "golem-ai-graph"
 version = "0.5.2"
 dependencies = [
+ "async-trait",
  "golem-rust",
- "golem-wasi-http",
  "log 0.4.29",
  "regex",
  "serde_json",

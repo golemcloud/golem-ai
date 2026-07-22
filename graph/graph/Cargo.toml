@@ -12,7 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 golem-rust = { workspace = true, optional = true }
-golem-wasi-http = { workspace = true }
+async-trait = "0.1.89"
 log = { workspace = true }
 regex = "1.11.1"
 serde_json = { workspace = true }
