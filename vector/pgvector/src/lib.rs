@@ -38,7 +38,7 @@ pub use crate::config::PgvectorHostConfig;
 pub struct PgVector;
 
 impl ExtendedVectorProvider for PgVector {
-    fn connect_internal(
+    async fn connect_internal(
         provider_config: <Self as ConnectionProvider>::ProviderConfig,
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -54,7 +54,7 @@ impl ExtendedVectorProvider for PgVector {
 impl ConnectionProvider for PgVector {
     type ProviderConfig = PgvectorConfig;
 
-    fn connect(
+    async fn connect(
         provider_config: Self::ProviderConfig,
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -66,11 +66,11 @@ impl ConnectionProvider for PgVector {
         Ok(())
     }
 
-    fn disconnect(_provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
+    async fn disconnect(_provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
         Ok(())
     }
 
-    fn get_connection_status(
+    async fn get_connection_status(
         provider_config: Self::ProviderConfig,
     ) -> Result<ConnectionStatus, VectorError> {
         let client = PgVectorClient::new(&provider_config);
@@ -92,7 +92,7 @@ impl ConnectionProvider for PgVector {
         }
     }
 
-    fn test_connection(
+    async fn test_connection(
         provider_config: Self::ProviderConfig,
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -110,7 +110,7 @@ impl ConnectionProvider for PgVector {
 impl CollectionProvider for PgVector {
     type ProviderConfig = PgvectorConfig;
 
-    fn upsert_collection(
+    async fn upsert_collection(
         provider_config: Self::ProviderConfig,
         name: String,
         _description: Option<String>,
@@ -141,7 +141,9 @@ impl CollectionProvider for PgVector {
         }
     }
 
-    fn list_collections(provider_config: Self::ProviderConfig) -> Result<Vec<String>, VectorError> {
+    async fn list_collections(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<String>, VectorError> {
         let client = PgVectorClient::new(&provider_config);
 
         match client.list_tables() {
@@ -150,7 +152,7 @@ impl CollectionProvider for PgVector {
         }
     }
 
-    fn get_collection(
+    async fn get_collection(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<CollectionInfo, VectorError> {
@@ -166,16 +168,16 @@ impl CollectionProvider for PgVector {
         )
     }
 
-    fn update_collection(
+    async fn update_collection(
         provider_config: Self::ProviderConfig,
         name: String,
         _description: Option<String>,
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
-        Self::get_collection(provider_config, name)
+        Self::get_collection(provider_config, name).await
     }
 
-    fn delete_collection(
+    async fn delete_collection(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<(), VectorError> {
@@ -187,7 +189,7 @@ impl CollectionProvider for PgVector {
         }
     }
 
-    fn collection_exists(
+    async fn collection_exists(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<bool, VectorError> {
@@ -203,7 +205,7 @@ impl CollectionProvider for PgVector {
 impl VectorsProvider for PgVector {
     type ProviderConfig = PgvectorConfig;
 
-    fn upsert_vectors(
+    async fn upsert_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -228,7 +230,7 @@ impl VectorsProvider for PgVector {
         }
     }
 
-    fn upsert_vector(
+    async fn upsert_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -242,7 +244,8 @@ impl VectorsProvider for PgVector {
             metadata,
         };
 
-        let result = Self::upsert_vectors(provider_config, collection, vec![record], namespace)?;
+        let result =
+            Self::upsert_vectors(provider_config, collection, vec![record], namespace).await?;
 
         if result.success_count > 0 {
             Ok(())
@@ -253,7 +256,7 @@ impl VectorsProvider for PgVector {
         }
     }
 
-    fn get_vectors(
+    async fn get_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
@@ -289,7 +292,7 @@ impl VectorsProvider for PgVector {
         }
     }
 
-    fn get_vector(
+    async fn get_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -302,11 +305,12 @@ impl VectorsProvider for PgVector {
             namespace,
             Some(true),
             Some(true),
-        )?;
+        )
+        .await?;
         Ok(vectors.into_iter().next())
     }
 
-    fn update_vector(
+    async fn update_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -324,6 +328,7 @@ impl VectorsProvider for PgVector {
                 metadata,
                 namespace,
             )
+            .await
         } else {
             Err(VectorError::InvalidParams(
                 "Vector data is required for update".to_string(),
@@ -331,7 +336,7 @@ impl VectorsProvider for PgVector {
         }
     }
 
-    fn delete_vectors(
+    async fn delete_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
@@ -350,7 +355,7 @@ impl VectorsProvider for PgVector {
         }
     }
 
-    fn delete_by_filter(
+    async fn delete_by_filter(
         provider_config: Self::ProviderConfig,
         collection: String,
         filter: FilterExpression,
@@ -371,7 +376,7 @@ impl VectorsProvider for PgVector {
         }
     }
 
-    fn delete_namespace(
+    async fn delete_namespace(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,
@@ -381,7 +386,7 @@ impl VectorsProvider for PgVector {
         ))
     }
 
-    fn list_vectors(
+    async fn list_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         _namespace: Option<String>,
@@ -436,7 +441,7 @@ impl VectorsProvider for PgVector {
         }
     }
 
-    fn count_vectors(
+    async fn count_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         _filter: Option<FilterExpression>,
@@ -454,7 +459,7 @@ impl VectorsProvider for PgVector {
 impl SearchProvider for PgVector {
     type ProviderConfig = PgvectorConfig;
 
-    fn search_vectors(
+    async fn search_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         query: SearchQuery,
@@ -508,7 +513,7 @@ impl SearchProvider for PgVector {
         }
     }
 
-    fn find_similar(
+    async fn find_similar(
         provider_config: Self::ProviderConfig,
         collection: String,
         vector: VectorData,
@@ -528,9 +533,10 @@ impl SearchProvider for PgVector {
             None,
             Some(vec![("metric".to_string(), "cosine".to_string())]),
         )
+        .await
     }
 
-    fn batch_search(
+    async fn batch_search(
         provider_config: Self::ProviderConfig,
         collection: String,
         queries: Vec<SearchQuery>,
@@ -556,7 +562,8 @@ impl SearchProvider for PgVector {
                 None,
                 None,
                 search_params.clone(),
-            )?;
+            )
+            .await?;
             results.push(result);
         }
 
@@ -567,7 +574,7 @@ impl SearchProvider for PgVector {
 impl SearchExtendedProvider for PgVector {
     type ProviderConfig = PgvectorConfig;
 
-    fn recommend_vectors(
+    async fn recommend_vectors(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _positive: Vec<RecommendationExample>,
@@ -584,7 +591,7 @@ impl SearchExtendedProvider for PgVector {
         ))
     }
 
-    fn discover_vectors(
+    async fn discover_vectors(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _target: Option<RecommendationExample>,
@@ -600,7 +607,7 @@ impl SearchExtendedProvider for PgVector {
         ))
     }
 
-    fn search_groups(
+    async fn search_groups(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _query: SearchQuery,
@@ -617,7 +624,7 @@ impl SearchExtendedProvider for PgVector {
         ))
     }
 
-    fn search_range(
+    async fn search_range(
         provider_config: Self::ProviderConfig,
         collection: String,
         vector: VectorData,
@@ -694,7 +701,7 @@ impl SearchExtendedProvider for PgVector {
         }
     }
 
-    fn search_text(
+    async fn search_text(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _query_text: String,
@@ -711,7 +718,7 @@ impl SearchExtendedProvider for PgVector {
 impl AnalyticsProvider for PgVector {
     type ProviderConfig = PgvectorConfig;
 
-    fn get_collection_stats(
+    async fn get_collection_stats(
         provider_config: Self::ProviderConfig,
         collection: String,
         _namespace: Option<String>,
@@ -738,7 +745,7 @@ impl AnalyticsProvider for PgVector {
         Ok(count_response_to_export_stats(&count_response, dimension))
     }
 
-    fn get_field_stats(
+    async fn get_field_stats(
         provider_config: Self::ProviderConfig,
         collection: String,
         field: String,
@@ -764,7 +771,7 @@ impl AnalyticsProvider for PgVector {
         }
     }
 
-    fn get_field_distribution(
+    async fn get_field_distribution(
         provider_config: Self::ProviderConfig,
         collection: String,
         field: String,
@@ -809,7 +816,7 @@ impl AnalyticsProvider for PgVector {
 impl NamespacesProvider for PgVector {
     type ProviderConfig = PgvectorConfig;
 
-    fn upsert_namespace(
+    async fn upsert_namespace(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,
@@ -820,7 +827,7 @@ impl NamespacesProvider for PgVector {
         ))
     }
 
-    fn list_namespaces(
+    async fn list_namespaces(
         _provider_config: Self::ProviderConfig,
         _collection: String,
     ) -> Result<Vec<NamespaceInfo>, VectorError> {
@@ -829,7 +836,7 @@ impl NamespacesProvider for PgVector {
         ))
     }
 
-    fn get_namespace(
+    async fn get_namespace(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,
@@ -839,7 +846,7 @@ impl NamespacesProvider for PgVector {
         ))
     }
 
-    fn delete_namespace(
+    async fn delete_namespace(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,
@@ -849,7 +856,7 @@ impl NamespacesProvider for PgVector {
         ))
     }
 
-    fn namespace_exists(
+    async fn namespace_exists(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,

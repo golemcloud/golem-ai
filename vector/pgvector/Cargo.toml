@@ -19,7 +19,6 @@ golem = ["golem-ai-vector/golem"]
 [dependencies]
 golem-rust = { workspace = true }
 golem-ai-vector = { workspace = true }
-golem-wasi-http = { workspace = true }
 
 base64 = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }

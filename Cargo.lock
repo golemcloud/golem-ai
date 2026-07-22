@@ -2334,7 +2334,6 @@ dependencies = [
  "chrono",
  "golem-ai-vector",
  "golem-rust",
- "golem-wasi-http",
  "log 0.4.29",
  "serde",
  "serde_json",
