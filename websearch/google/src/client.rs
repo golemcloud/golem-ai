@@ -1,8 +1,7 @@
+use golem_ai_http::{Client, Method, Response, Url};
 use golem_ai_web_search::config::SecretSource;
 use golem_ai_web_search::error::from_reqwest_error;
 use golem_ai_web_search::model::web_search::SearchError;
-use golem_wasi_http::Url;
-use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +14,7 @@ const BASE_URL: &str = "https://www.googleapis.com/customsearch/v1";
 /// its source — which in golem mode is the agent host — right before
 /// each outgoing HTTP request. This is what lets host-side secret
 /// rotation take effect on the very next request.
+#[derive(Clone)]
 pub struct GoogleSearchApi {
     client: Client,
     api_key: SecretSource,
@@ -35,7 +35,7 @@ impl GoogleSearchApi {
         }
     }
 
-    pub fn search(&self, request: SearchRequest) -> Result<SearchResponse, SearchError> {
+    pub async fn search(&self, request: SearchRequest) -> Result<SearchResponse, SearchError> {
         trace!("Sending request to Google Custom Search API: {request:?}");
 
         // Resolve the API key right before issuing the request so that
@@ -85,9 +85,10 @@ impl GoogleSearchApi {
             .client
             .request(Method::GET, url.as_str())
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Failed to send request", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 }
 
@@ -189,11 +190,12 @@ struct ErrorResponseDetails {
     pub message: String,
 }
 
-fn parse_response(response: Response) -> Result<SearchResponse, SearchError> {
+async fn parse_response(response: Response) -> Result<SearchResponse, SearchError> {
     let status = response.status();
     if status.is_success() {
         let google_response: GoogleApiResponse = response
             .json()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))?;
 
         trace!("Received response from Google Custom Search API: {google_response:?}");
@@ -249,7 +251,7 @@ fn parse_response(response: Response) -> Result<SearchResponse, SearchError> {
         })
     } else {
         // Try to parse error response
-        match response.json::<ErrorResponse>() {
+        match response.json::<ErrorResponse>().await {
             Ok(error_body) => {
                 trace!("Received {status} response from Google Custom Search API: {error_body:?}");
 
