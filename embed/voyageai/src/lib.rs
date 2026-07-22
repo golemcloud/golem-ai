@@ -23,14 +23,14 @@ pub use config::VoyageAiHostConfig;
 pub struct VoyageAI;
 
 impl VoyageAI {
-    fn embeddings(
+    async fn embeddings(
         client: VoyageAIApi,
         inputs: Vec<ContentPart>,
         config: Config,
     ) -> Result<EmbeddingResponse, Error> {
         let request = create_embedding_request(inputs, config.clone());
         match request {
-            Ok(request) => match client.generate_embedding(request) {
+            Ok(request) => match client.generate_embedding(request).await {
                 Ok(response) => process_embedding_response(config.output_dtype, response),
                 Err(err) => Err(err),
             },
@@ -38,7 +38,7 @@ impl VoyageAI {
         }
     }
 
-    fn rerank(
+    async fn rerank(
         client: VoyageAIApi,
         query: String,
         documents: Vec<String>,
@@ -46,7 +46,7 @@ impl VoyageAI {
     ) -> Result<RerankResponse, Error> {
         let request = create_rerank_request(query, documents, config);
         match request {
-            Ok(request) => match client.rerank(request) {
+            Ok(request) => match client.rerank(request).await {
                 Ok(response) => process_rerank_response(response),
                 Err(err) => Err(err),
             },
@@ -58,17 +58,17 @@ impl VoyageAI {
 impl EmbeddingProvider for VoyageAI {
     type ProviderConfig = VoyageAiConfig;
 
-    fn generate(
+    async fn generate(
         provider_config: Self::ProviderConfig,
         inputs: Vec<ContentPart>,
         config: Config,
     ) -> Result<EmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         let client = VoyageAIApi::new(&provider_config);
-        Self::embeddings(client, inputs, config)
+        Self::embeddings(client, inputs, config).await
     }
 
-    fn rerank(
+    async fn rerank(
         provider_config: Self::ProviderConfig,
         query: String,
         documents: Vec<String>,
@@ -76,7 +76,7 @@ impl EmbeddingProvider for VoyageAI {
     ) -> Result<RerankResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         let client = VoyageAIApi::new(&provider_config);
-        Self::rerank(client, query, documents, config)
+        Self::rerank(client, query, documents, config).await
     }
 }
 
