@@ -11,7 +11,7 @@ use golem_ai_web_search::durability::ExtendedWebSearchProvider;
 use golem_ai_web_search::model::web_search::{
     SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
-use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
+use golem_ai_web_search::{SearchPageFuture, SearchSessionInterface, WebSearchProvider};
 
 pub use config::BraveConfig;
 #[cfg(feature = "golem")]
@@ -19,7 +19,7 @@ pub use config::BraveHostConfig;
 
 // Define a custom ReplayState struct
 #[cfg(feature = "golem")]
-#[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[derive(Debug, Clone, PartialEq, golem_rust::FromSchema, golem_rust::IntoSchema)]
 pub struct BraveReplayState {
     pub current_offset: u32,
     pub metadata: Option<SearchMetadata>,
@@ -45,24 +45,6 @@ impl BraveSearchSessionImpl {
         }
     }
 
-    fn next_page(&mut self) -> Result<Vec<SearchResult>, SearchError> {
-        if self.finished {
-            return Ok(Vec::new());
-        }
-
-        // Update request with current offset
-        let request = params_to_request(&self.params, self.current_offset)?;
-
-        let response = self.client.search(request)?;
-        let (results, metadata) = response_to_results(&response, &self.params, self.current_offset);
-
-        self.finished = !response.query.more_results_available;
-        self.current_offset += 1;
-        self.metadata = Some(metadata);
-
-        Ok(results)
-    }
-
     fn get_metadata(&self) -> Option<SearchMetadata> {
         self.metadata.clone()
     }
@@ -86,9 +68,31 @@ impl SearchSessionInterface for BraveSearchSession {
         self
     }
 
-    fn next_page(&self) -> Result<Vec<SearchResult>, SearchError> {
-        let mut search = self.0.borrow_mut();
-        search.next_page()
+    fn next_page(&self) -> SearchPageFuture<'_> {
+        Box::pin(async move {
+            let (client, params, current_offset) = {
+                let search = self.0.borrow();
+                if search.finished {
+                    return Ok(Vec::new());
+                }
+                (
+                    search.client.clone(),
+                    search.params.clone(),
+                    search.current_offset,
+                )
+            };
+
+            let request = params_to_request(&params, current_offset)?;
+            let response = client.search(request).await?;
+            let (results, metadata) = response_to_results(&response, &params, current_offset);
+
+            let mut search = self.0.borrow_mut();
+            search.finished = !response.query.more_results_available;
+            search.current_offset += 1;
+            search.metadata = Some(metadata);
+
+            Ok(results)
+        })
     }
 
     fn get_metadata(&self) -> Option<SearchMetadata> {
@@ -100,7 +104,7 @@ impl SearchSessionInterface for BraveSearchSession {
 pub struct BraveSearch;
 
 impl BraveSearch {
-    fn execute_search(
+    async fn execute_search(
         provider_config: &BraveConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, SearchMetadata), SearchError> {
@@ -109,7 +113,7 @@ impl BraveSearch {
         let client = BraveSearchApi::new(provider_config);
         let request = params_to_request(&params, 0)?;
 
-        let response = client.search(request)?;
+        let response = client.search(request).await?;
         let (results, metadata) = response_to_results(&response, &params, 0);
 
         Ok((results, metadata))
@@ -138,11 +142,11 @@ impl WebSearchProvider for BraveSearch {
         Self::start_search_session(&provider_config, params).map(SearchSession::new)
     }
 
-    fn search_once(
+    async fn search_once(
         provider_config: Self::ProviderConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        let (results, metadata) = Self::execute_search(&provider_config, params)?;
+        let (results, metadata) = Self::execute_search(&provider_config, params).await?;
         Ok((results, Some(metadata)))
     }
 }
