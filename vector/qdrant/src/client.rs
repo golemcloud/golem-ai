@@ -1,13 +1,19 @@
 use crate::config::QdrantConfig;
+use golem_ai_http::{Client, Error, Method, RequestBuilder, Response, Timeouts};
 use golem_ai_vector::config::{get_max_retries_config, get_timeout_config, SecretSource};
 use golem_ai_vector::model::types::VectorError;
-use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::future::Future;
 use std::time::Duration;
+
+async fn wait_for(delay: Duration) {
+    let delay_nanos = u64::try_from(delay.as_nanos()).unwrap_or(u64::MAX);
+    wasip3::clocks::monotonic_clock::wait_for(delay_nanos).await;
+}
 
 /// Qdrant Vector API client
 /// based on https://qdrant.tech/documentation/
@@ -20,10 +26,16 @@ pub struct QdrantClient {
 
 impl QdrantClient {
     pub fn new(config: &QdrantConfig) -> Self {
+        let timeout = Duration::from_secs(get_timeout_config());
         let client = Client::builder()
-            .timeout(Duration::from_secs(get_timeout_config()))
+            .timeouts(
+                Timeouts::new()
+                    .connect(timeout)
+                    .first_byte(timeout)
+                    .between_bytes(timeout),
+            )
             .build()
-            .unwrap();
+            .expect("Failed to initialize HTTP client");
 
         Self {
             client,
@@ -46,12 +58,8 @@ impl QdrantClient {
         req.header("Content-Type", "application/json")
     }
 
-    fn should_retry_error(&self, error: &golem_wasi_http::Error) -> bool {
-        if let Some(status) = error.status() {
-            matches!(status.as_u16(), 429 | 500 | 502 | 503 | 504)
-        } else {
-            error.is_timeout()
-        }
+    fn should_retry_error(&self, error: &Error) -> bool {
+        error.is_timeout() || error.is_request()
     }
 
     fn calculate_backoff_delay(attempt: u32, is_rate_limited: bool) -> Duration {
@@ -60,30 +68,31 @@ impl QdrantClient {
         Duration::from_millis(delay_ms.min(30000))
     }
 
-    fn execute_with_retry_sync<F>(&self, operation: F) -> Result<Response, VectorError>
+    async fn execute_with_retry<F, Fut>(&self, operation: F) -> Result<Response, VectorError>
     where
-        F: Fn() -> Result<Response, golem_wasi_http::Error> + Send + Sync,
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<Response, Error>>,
     {
         let max_retries = get_max_retries_config();
 
         for attempt in 0..=max_retries {
-            match operation() {
+            match operation().await {
                 Ok(response) => {
                     if response.status().is_success() {
                         return Ok(response);
                     } else if response.status().as_u16() == 429 && attempt < max_retries {
                         let delay = Self::calculate_backoff_delay(attempt, true);
-                        std::thread::sleep(delay);
+                        wait_for(delay).await;
                         continue;
                     } else {
-                        return Err(handle_qdrant_error(response, "operation"));
+                        return Err(handle_qdrant_error(response, "operation").await);
                     }
                 }
                 Err(e) => {
                     if attempt < max_retries && self.should_retry_error(&e) {
                         let is_rate_limited = e.status().is_some_and(|s| s.as_u16() == 429);
                         let delay = Self::calculate_backoff_delay(attempt, is_rate_limited);
-                        std::thread::sleep(delay);
+                        wait_for(delay).await;
                         continue;
                     } else {
                         return Err(VectorError::ProviderError(format!("Request failed: {}", e)));
@@ -97,14 +106,14 @@ impl QdrantClient {
         ))
     }
 
-    pub fn list_collections(&self) -> Result<ListCollectionsResponse, VectorError> {
+    pub async fn list_collections(&self) -> Result<ListCollectionsResponse, VectorError> {
         let request = || self.create_request(Method::GET, "/collections").send();
 
-        let response = self.execute_with_retry_sync(request)?;
-        parse_response(response, "list_collections")
+        let response = self.execute_with_retry(request).await?;
+        parse_response(response, "list_collections").await
     }
 
-    pub fn create_collection(
+    pub async fn create_collection(
         &self,
         request: &CreateCollectionRequest,
     ) -> Result<CreateCollectionResponse, VectorError> {
@@ -115,11 +124,11 @@ impl QdrantClient {
                 .send()
         };
 
-        let response = self.execute_with_retry_sync(request_fn)?;
-        parse_response(response, "create_collection")
+        let response = self.execute_with_retry(request_fn).await?;
+        parse_response(response, "create_collection").await
     }
 
-    pub fn get_collection(
+    pub async fn get_collection(
         &self,
         collection_name: &str,
     ) -> Result<GetCollectionResponse, VectorError> {
@@ -128,11 +137,11 @@ impl QdrantClient {
                 .send()
         };
 
-        let response = self.execute_with_retry_sync(request)?;
-        parse_response(response, "get_collection")
+        let response = self.execute_with_retry(request).await?;
+        parse_response(response, "get_collection").await
     }
 
-    pub fn delete_collection(
+    pub async fn delete_collection(
         &self,
         collection_name: &str,
     ) -> Result<DeleteCollectionResponse, VectorError> {
@@ -141,19 +150,19 @@ impl QdrantClient {
                 .send()
         };
 
-        let response = self.execute_with_retry_sync(request)?;
-        parse_response(response, "delete_collection")
+        let response = self.execute_with_retry(request).await?;
+        parse_response(response, "delete_collection").await
     }
 
-    pub fn collection_exists(&self, collection_name: &str) -> Result<bool, VectorError> {
-        match self.get_collection(collection_name) {
+    pub async fn collection_exists(&self, collection_name: &str) -> Result<bool, VectorError> {
+        match self.get_collection(collection_name).await {
             Ok(_) => Ok(true),
             Err(VectorError::NotFound(_)) => Ok(false),
             Err(e) => Err(e),
         }
     }
 
-    pub fn upsert_points(
+    pub async fn upsert_points(
         &self,
         collection_name: &str,
         request: &UpsertRequest,
@@ -167,11 +176,11 @@ impl QdrantClient {
             .send()
         };
 
-        let response = self.execute_with_retry_sync(request_fn)?;
-        parse_response(response, "upsert_points")
+        let response = self.execute_with_retry(request_fn).await?;
+        parse_response(response, "upsert_points").await
     }
 
-    pub fn search_points(
+    pub async fn search_points(
         &self,
         collection_name: &str,
         request: &SearchRequest,
@@ -185,11 +194,11 @@ impl QdrantClient {
             .send()
         };
 
-        let response = self.execute_with_retry_sync(request_fn)?;
-        parse_response(response, "search_points")
+        let response = self.execute_with_retry(request_fn).await?;
+        parse_response(response, "search_points").await
     }
 
-    pub fn get_points(
+    pub async fn get_points(
         &self,
         collection_name: &str,
         request: &GetPointsRequest,
@@ -203,11 +212,11 @@ impl QdrantClient {
             .send()
         };
 
-        let response = self.execute_with_retry_sync(request_fn)?;
-        parse_response(response, "get_points")
+        let response = self.execute_with_retry(request_fn).await?;
+        parse_response(response, "get_points").await
     }
 
-    pub fn delete_points(
+    pub async fn delete_points(
         &self,
         collection_name: &str,
         request: &DeletePointsRequest,
@@ -221,11 +230,11 @@ impl QdrantClient {
             .send()
         };
 
-        let response = self.execute_with_retry_sync(request_fn)?;
-        parse_response(response, "delete_points")
+        let response = self.execute_with_retry(request_fn).await?;
+        parse_response(response, "delete_points").await
     }
 
-    pub fn scroll_points(
+    pub async fn scroll_points(
         &self,
         collection_name: &str,
         request: &ScrollRequest,
@@ -239,11 +248,11 @@ impl QdrantClient {
             .send()
         };
 
-        let response = self.execute_with_retry_sync(request_fn)?;
-        parse_response(response, "scroll_points")
+        let response = self.execute_with_retry(request_fn).await?;
+        parse_response(response, "scroll_points").await
     }
 
-    pub fn count_points(
+    pub async fn count_points(
         &self,
         collection_name: &str,
         request: &CountRequest,
@@ -257,11 +266,11 @@ impl QdrantClient {
             .send()
         };
 
-        let response = self.execute_with_retry_sync(request_fn)?;
-        parse_response(response, "count_points")
+        let response = self.execute_with_retry(request_fn).await?;
+        parse_response(response, "count_points").await
     }
 
-    pub fn batch_search(
+    pub async fn batch_search(
         &self,
         collection_name: &str,
         request: &BatchSearchRequest,
@@ -275,11 +284,11 @@ impl QdrantClient {
             .send()
         };
 
-        let response = self.execute_with_retry_sync(request_fn)?;
-        parse_response(response, "batch_search")
+        let response = self.execute_with_retry(request_fn).await?;
+        parse_response(response, "batch_search").await
     }
 
-    pub fn recommend_points(
+    pub async fn recommend_points(
         &self,
         collection_name: &str,
         request: &RecommendRequest,
@@ -293,11 +302,11 @@ impl QdrantClient {
             .send()
         };
 
-        let response = self.execute_with_retry_sync(request_fn)?;
-        parse_response(response, "recommend_points")
+        let response = self.execute_with_retry(request_fn).await?;
+        parse_response(response, "recommend_points").await
     }
 
-    pub fn discover_points(
+    pub async fn discover_points(
         &self,
         collection_name: &str,
         request: &DiscoverRequest,
@@ -311,11 +320,11 @@ impl QdrantClient {
             .send()
         };
 
-        let response = self.execute_with_retry_sync(request_fn)?;
-        parse_response(response, "discover_points")
+        let response = self.execute_with_retry(request_fn).await?;
+        parse_response(response, "discover_points").await
     }
 
-    pub fn create_field_index(
+    pub async fn create_field_index(
         &self,
         collection_name: &str,
         field_name: &str,
@@ -332,16 +341,18 @@ impl QdrantClient {
             "field_schema": field_type
         });
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(
-                Method::PUT,
-                &format!("/collections/{}/index", collection_name),
-            )
-            .json(&request)
-            .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(
+                    Method::PUT,
+                    &format!("/collections/{}/index", collection_name),
+                )
+                .json(&request)
+                .send()
+            })
+            .await?;
 
-        parse_response::<serde_json::Value>(response, "create_field_index")?;
+        parse_response::<serde_json::Value>(response, "create_field_index").await?;
         Ok(())
     }
 }
@@ -1036,9 +1047,9 @@ fn from_qdrant_error_code(status: u16, message: &str) -> VectorError {
     }
 }
 
-fn handle_qdrant_error(response: Response, operation: &str) -> VectorError {
+async fn handle_qdrant_error(response: Response, operation: &str) -> VectorError {
     let status = response.status().as_u16();
-    let error_message = match response.text() {
+    let error_message = match response.text().await {
         Ok(body) => {
             if let Ok(error_obj) = serde_json::from_str::<serde_json::Value>(&body) {
                 error_obj
@@ -1058,17 +1069,17 @@ fn handle_qdrant_error(response: Response, operation: &str) -> VectorError {
     from_qdrant_error_code(status, &error_message)
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(
+async fn parse_response<T: DeserializeOwned + Debug>(
     response: Response,
     operation: &str,
 ) -> Result<T, VectorError> {
     let status = response.status();
 
     if !status.is_success() {
-        return Err(handle_qdrant_error(response, operation));
+        return Err(handle_qdrant_error(response, operation).await);
     }
 
-    match response.text() {
+    match response.text().await {
         Ok(body) => {
             trace!("Qdrant API response for {}: {}", operation, body);
             serde_json::from_str(&body).map_err(|e| {
