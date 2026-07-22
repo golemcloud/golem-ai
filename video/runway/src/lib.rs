@@ -27,54 +27,57 @@ pub struct Runway;
 impl VideoGenerationProvider for Runway {
     type ProviderConfig = RunwayConfig;
 
-    fn generate(
+    async fn generate(
         provider_config: Self::ProviderConfig,
         input: MediaInput,
         config: GenerationConfig,
     ) -> Result<String, VideoError> {
         let client = RunwayApi::new(&provider_config);
-        generate_video(&client, input, config)
+        generate_video(&client, input, config).await
     }
 
-    fn poll(
+    async fn poll(
         provider_config: Self::ProviderConfig,
         job_id: String,
     ) -> Result<VideoResult, VideoError> {
         let client = RunwayApi::new(&provider_config);
-        poll_video_generation(&client, job_id)
+        poll_video_generation(&client, job_id).await
     }
 
-    fn cancel(provider_config: Self::ProviderConfig, job_id: String) -> Result<String, VideoError> {
+    async fn cancel(
+        provider_config: Self::ProviderConfig,
+        job_id: String,
+    ) -> Result<String, VideoError> {
         let client = RunwayApi::new(&provider_config);
-        cancel_video_generation(&client, job_id)
+        cancel_video_generation(&client, job_id).await
     }
 }
 
 impl LipSyncProvider for Runway {
     type ProviderConfig = RunwayConfig;
 
-    fn generate_lip_sync(
+    async fn generate_lip_sync(
         provider_config: Self::ProviderConfig,
         video: LipSyncVideo,
         audio: AudioSource,
     ) -> Result<String, VideoError> {
         let client = RunwayApi::new(&provider_config);
-        generate_lip_sync_video(&client, video, audio)
+        generate_lip_sync_video(&client, video, audio).await
     }
 
-    fn list_voices(
+    async fn list_voices(
         provider_config: Self::ProviderConfig,
         language: Option<String>,
     ) -> Result<Vec<VoiceInfo>, VideoError> {
         let client = RunwayApi::new(&provider_config);
-        list_available_voices(&client, language)
+        list_available_voices(&client, language).await
     }
 }
 
 impl AdvancedVideoGenerationProvider for Runway {
     type ProviderConfig = RunwayConfig;
 
-    fn extend_video(
+    async fn extend_video(
         provider_config: Self::ProviderConfig,
         options: ExtendVideoOptions,
     ) -> Result<String, VideoError> {
@@ -87,17 +90,18 @@ impl AdvancedVideoGenerationProvider for Runway {
             options.cfg_scale,
             options.provider_options,
         )
+        .await
     }
 
-    fn upscale_video(
+    async fn upscale_video(
         provider_config: Self::ProviderConfig,
         input: BaseVideo,
     ) -> Result<String, VideoError> {
         let client = RunwayApi::new(&provider_config);
-        upscale_video(&client, input)
+        upscale_video(&client, input).await
     }
 
-    fn generate_video_effects(
+    async fn generate_video_effects(
         provider_config: Self::ProviderConfig,
         options: GenerateVideoEffectsOptions,
     ) -> Result<String, VideoError> {
@@ -110,9 +114,10 @@ impl AdvancedVideoGenerationProvider for Runway {
             options.duration,
             options.mode,
         )
+        .await
     }
 
-    fn multi_image_generation(
+    async fn multi_image_generation(
         provider_config: Self::ProviderConfig,
         options: MultImageGenerationOptions,
     ) -> Result<String, VideoError> {
@@ -123,6 +128,7 @@ impl AdvancedVideoGenerationProvider for Runway {
             options.prompt,
             options.config,
         )
+        .await
     }
 }
 

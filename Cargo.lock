@@ -2403,9 +2403,9 @@ name = "golem-ai-video-runway"
 version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
+ "golem-ai-http",
  "golem-ai-video",
  "golem-rust",
- "golem-wasi-http",
  "log 0.4.29",
  "serde",
  "serde_json",

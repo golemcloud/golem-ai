@@ -181,7 +181,7 @@ fn determine_ratio(
     }
 }
 
-pub fn generate_video(
+pub async fn generate_video(
     client: &RunwayApi,
     input: MediaInput,
     config: GenerationConfig,
@@ -189,12 +189,12 @@ pub fn generate_video(
     match input {
         MediaInput::Text(prompt) => {
             // For text input, first generate an image, then use that for video generation
-            generate_text_to_video_via_image(client, prompt, config)
+            generate_text_to_video_via_image(client, prompt, config).await
         }
         MediaInput::Image(_) => {
             // For image input, use existing flow
             let request = media_input_to_request(input, config)?;
-            let response = client.generate_video(request)?;
+            let response = client.generate_video(request).await?;
             Ok(response.id)
         }
         MediaInput::Video(_) => Err(unsupported_feature(
@@ -203,13 +203,13 @@ pub fn generate_video(
     }
 }
 
-fn generate_text_to_video_via_image(
+async fn generate_text_to_video_via_image(
     client: &RunwayApi,
     prompt: String,
     config: GenerationConfig,
 ) -> Result<String, VideoError> {
     // Step 1: Generate image from text
-    let image_task_id = generate_text_to_image(client, prompt.clone(), &config)?;
+    let image_task_id = generate_text_to_image(client, prompt.clone(), &config).await?;
 
     // Step 2: Poll for image completion (with timeout)
     let max_polls = 60; // 5 minutes with 5-second intervals
@@ -222,7 +222,7 @@ fn generate_text_to_video_via_image(
             ));
         }
 
-        match poll_text_to_image_generation(client, &image_task_id)? {
+        match poll_text_to_image_generation(client, &image_task_id).await? {
             Some(url) => break url,
             None => {
                 // Sleep for 5 seconds before next poll
@@ -242,15 +242,15 @@ fn generate_text_to_video_via_image(
     });
 
     let request = media_input_to_request(image_input, config)?;
-    let response = client.generate_video(request)?;
+    let response = client.generate_video(request).await?;
     Ok(response.id)
 }
 
-pub fn poll_video_generation(
+pub async fn poll_video_generation(
     client: &RunwayApi,
     task_id: String,
 ) -> Result<VideoResult, VideoError> {
-    match client.poll_generation(&task_id) {
+    match client.poll_generation(&task_id).await {
         Ok(PollResponse::Processing) => Ok(VideoResult {
             status: JobStatus::Running,
             videos: None,
@@ -281,8 +281,11 @@ pub fn poll_video_generation(
     }
 }
 
-pub fn cancel_video_generation(client: &RunwayApi, task_id: String) -> Result<String, VideoError> {
-    client.cancel_task(&task_id)?;
+pub async fn cancel_video_generation(
+    client: &RunwayApi,
+    task_id: String,
+) -> Result<String, VideoError> {
+    client.cancel_task(&task_id).await?;
     Ok(format!("Task {task_id} canceled successfully"))
 }
 
@@ -343,28 +346,28 @@ fn determine_text_to_image_ratio(
     }
 }
 
-pub fn generate_text_to_image(
+pub async fn generate_text_to_image(
     client: &RunwayApi,
     prompt: String,
     config: &GenerationConfig,
 ) -> Result<String, VideoError> {
     let request = text_to_image_request(prompt, config)?;
-    let response = client.generate_text_to_image(request)?;
+    let response = client.generate_text_to_image(request).await?;
     Ok(response.id)
 }
 
-pub fn poll_text_to_image_generation(
+pub async fn poll_text_to_image_generation(
     client: &RunwayApi,
     task_id: &str,
 ) -> Result<Option<String>, VideoError> {
-    match client.poll_text_to_image(task_id) {
+    match client.poll_text_to_image(task_id).await {
         Ok(ImagePollResponse::Processing) => Ok(None),
         Ok(ImagePollResponse::Complete { image_url }) => Ok(Some(image_url)),
         Err(error) => Err(error),
     }
 }
 
-pub fn upscale_video(
+pub async fn upscale_video(
     client: &RunwayApi,
     input: golem_ai_video::model::types::BaseVideo,
 ) -> Result<String, VideoError> {
@@ -396,7 +399,7 @@ pub fn upscale_video(
         model: "upscale_v1".to_string(),
     };
 
-    let response = client.upscale_video(request)?;
+    let response = client.upscale_video(request).await?;
 
     // Return the task ID directly from Runway API
     Ok(response.id)
@@ -404,7 +407,7 @@ pub fn upscale_video(
 
 // Unsupported features
 
-pub fn generate_video_effects(
+pub async fn generate_video_effects(
     _client: &RunwayApi,
     _input: golem_ai_video::model::types::InputImage,
     _effect: golem_ai_video::model::types::EffectType,
@@ -417,7 +420,7 @@ pub fn generate_video_effects(
     ))
 }
 
-pub fn multi_image_generation(
+pub async fn multi_image_generation(
     _client: &RunwayApi,
     _input_images: Vec<golem_ai_video::model::types::InputImage>,
     _prompt: Option<String>,
@@ -428,7 +431,7 @@ pub fn multi_image_generation(
     ))
 }
 
-pub fn generate_lip_sync_video(
+pub async fn generate_lip_sync_video(
     _client: &RunwayApi,
     _video: golem_ai_video::model::types::LipSyncVideo,
     _audio: golem_ai_video::model::types::AudioSource,
@@ -438,7 +441,7 @@ pub fn generate_lip_sync_video(
     ))
 }
 
-pub fn list_available_voices(
+pub async fn list_available_voices(
     _client: &RunwayApi,
     _language: Option<String>,
 ) -> Result<Vec<golem_ai_video::model::types::VoiceInfo>, VideoError> {
@@ -447,7 +450,7 @@ pub fn list_available_voices(
     ))
 }
 
-pub fn extend_video(
+pub async fn extend_video(
     _client: &RunwayApi,
     _video_id: String,
     _prompt: Option<String>,

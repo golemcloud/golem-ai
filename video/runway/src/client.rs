@@ -1,6 +1,6 @@
+use golem_ai_http::{Client, Method, Response};
 use golem_ai_video::error::{from_reqwest_error, video_error_from_status};
 use golem_ai_video::model::types::VideoError;
-use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
 
@@ -108,7 +108,6 @@ pub struct ImageToVideoRequest {
 impl RunwayApi {
     pub fn new(config: &crate::config::RunwayConfig) -> Self {
         let client = Client::builder()
-            .default_headers(golem_wasi_http::header::HeaderMap::new())
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
@@ -117,7 +116,7 @@ impl RunwayApi {
         }
     }
 
-    pub fn generate_video(
+    pub async fn generate_video(
         &self,
         request: ImageToVideoRequest,
     ) -> Result<GenerationResponse, VideoError> {
@@ -131,12 +130,13 @@ impl RunwayApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn poll_generation(&self, task_id: &str) -> Result<PollResponse, VideoError> {
+    pub async fn poll_generation(&self, task_id: &str) -> Result<PollResponse, VideoError> {
         trace!("Polling generation status for ID: {task_id}");
 
         let response: Response = self
@@ -145,6 +145,7 @@ impl RunwayApi {
             .header("Authorization", format!("Bearer {}", self.api_key.get()))
             .header("X-Runway-Version", API_VERSION)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Poll request failed", err))?;
 
         let status = response.status();
@@ -152,6 +153,7 @@ impl RunwayApi {
         if status.is_success() {
             let task_response: TaskResponse = response
                 .json()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to parse task response", err))?;
 
             match task_response.status.as_str() {
@@ -187,13 +189,14 @@ impl RunwayApi {
         } else {
             let error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read error response", err))?;
 
             Err(video_error_from_status(status, error_body))
         }
     }
 
-    pub fn cancel_task(&self, task_id: &str) -> Result<(), VideoError> {
+    pub async fn cancel_task(&self, task_id: &str) -> Result<(), VideoError> {
         trace!("Canceling task: {task_id}");
 
         let response: Response = self
@@ -202,21 +205,23 @@ impl RunwayApi {
             .header("Authorization", format!("Bearer {}", self.api_key.get()))
             .header("X-Runway-Version", API_VERSION)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Cancel request failed", err))?;
 
-        if response.status().is_success() {
+        let status = response.status();
+        if status.is_success() {
             Ok(())
         } else {
-            let status = response.status();
             let error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read error response", err))?;
 
             Err(video_error_from_status(status, error_body))
         }
     }
 
-    pub fn upscale_video(
+    pub async fn upscale_video(
         &self,
         request: VideoUpscaleRequest,
     ) -> Result<GenerationResponse, VideoError> {
@@ -230,12 +235,13 @@ impl RunwayApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Upscale request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn generate_text_to_image(
+    pub async fn generate_text_to_image(
         &self,
         request: TextToImageRequest,
     ) -> Result<TextToImageResponse, VideoError> {
@@ -249,12 +255,13 @@ impl RunwayApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Text-to-image request failed", err))?;
 
-        parse_text_to_image_response(response)
+        parse_text_to_image_response(response).await
     }
 
-    pub fn poll_text_to_image(&self, task_id: &str) -> Result<ImagePollResponse, VideoError> {
+    pub async fn poll_text_to_image(&self, task_id: &str) -> Result<ImagePollResponse, VideoError> {
         trace!("Polling text-to-image status for ID: {task_id}");
 
         let response: Response = self
@@ -263,6 +270,7 @@ impl RunwayApi {
             .header("Authorization", format!("Bearer {}", self.api_key.get()))
             .header("X-Runway-Version", API_VERSION)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Text-to-image poll request failed", err))?;
 
         let status = response.status();
@@ -270,6 +278,7 @@ impl RunwayApi {
         if status.is_success() {
             let task_response: ImageTaskResponse = response
                 .json()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to parse image task response", err))?;
 
             match task_response.status.as_str() {
@@ -302,6 +311,7 @@ impl RunwayApi {
         } else {
             let error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read error response", err))?;
 
             Err(video_error_from_status(status, error_body))
@@ -309,15 +319,19 @@ impl RunwayApi {
     }
 }
 
-fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {
+async fn parse_response<T: serde::de::DeserializeOwned>(
+    response: Response,
+) -> Result<T, VideoError> {
     let status = response.status();
     if status.is_success() {
         response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         let error_message = format!("Request failed with {status}: {error_body}");
@@ -325,15 +339,19 @@ fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<
     }
 }
 
-fn parse_text_to_image_response(response: Response) -> Result<TextToImageResponse, VideoError> {
+async fn parse_text_to_image_response(
+    response: Response,
+) -> Result<TextToImageResponse, VideoError> {
     let status = response.status();
     if status.is_success() {
         response
             .json::<TextToImageResponse>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode text-to-image response body", err))
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         let error_message = format!("Text-to-image request failed with {status}: {error_body}");
