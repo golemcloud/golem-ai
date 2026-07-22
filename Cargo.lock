@@ -2443,8 +2443,8 @@ dependencies = [
 name = "golem-ai-web-search"
 version = "0.5.2"
 dependencies = [
+ "golem-ai-http",
  "golem-rust",
- "golem-wasi-http",
  "log 0.4.29",
  "serde",
  "serde_json",
