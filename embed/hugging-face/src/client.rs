@@ -5,7 +5,7 @@ use golem_ai_embed::{
     error::{error_code_from_status, from_reqwest_error},
     model::Error,
 };
-use golem_wasi_http::{Client, Method, Response};
+use golem_ai_http::{Client, Method, Response};
 use log::trace;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -37,7 +37,7 @@ impl EmbeddingsApi {
         }
     }
 
-    pub fn generate_embedding(
+    pub async fn generate_embedding(
         &self,
         request: EmbeddingRequest,
         model: &str,
@@ -55,15 +55,17 @@ impl EmbeddingsApi {
             .bearer_auth(&api_key)
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
-        parse_response::<EmbeddingResponse>(response)
+        parse_response::<EmbeddingResponse>(response).await
     }
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {
     let status = response.status();
     let response_text = response
         .text()
+        .await
         .map_err(|err| from_reqwest_error("Failed to read response body", err))?;
     match serde_json::from_str::<T>(&response_text) {
         Ok(response_data) => {

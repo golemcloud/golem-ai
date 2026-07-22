@@ -1765,8 +1765,8 @@ version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-embed",
+ "golem-ai-http",
  "golem-rust",
- "golem-wasi-http",
  "log 0.4.29",
  "serde",
  "serde_json",
