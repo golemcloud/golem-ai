@@ -2159,6 +2159,7 @@ version = "0.5.2"
 dependencies = [
  "bytes",
  "derive_more",
+ "futures",
  "futures-concurrency",
  "golem-ai-stt",
  "golem-rust",
@@ -2169,7 +2170,6 @@ dependencies = [
  "serde",
  "serde_json",
  "url 2.5.8",
- "wstd",
 ]
 
 [[package]]
