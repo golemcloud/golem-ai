@@ -3,6 +3,7 @@ use crate::helpers::{
     parse_vertex_from_document,
 };
 use crate::{conversions, helpers, Transaction};
+use async_trait::async_trait;
 use golem_ai_graph::model::transactions::{
     CreateEdgeOptions, CreateVertexOptions, ExecuteQueryOptions, FindAllPathsOptions,
     FindShortestPathOptions, FindVerticesOptions, GetVerticesAtDistanceOptions, Path,
@@ -21,6 +22,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
+#[async_trait(?Send)]
 impl TransactionInterface for Transaction {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -29,7 +31,7 @@ impl TransactionInterface for Transaction {
         self
     }
 
-    fn execute_query(
+    async fn execute_query(
         &self,
         options: ExecuteQueryOptions,
     ) -> Result<QueryExecutionResult, GraphError> {
@@ -47,7 +49,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query_json)?;
+            .execute_in_transaction(&self.transaction_id, query_json)
+            .await?;
 
         let result_array = if let Some(array) = response.as_array() {
             array.clone()
@@ -79,7 +82,7 @@ impl TransactionInterface for Transaction {
         })
     }
 
-    fn find_shortest_path(
+    async fn find_shortest_path(
         &self,
         options: FindShortestPathOptions,
     ) -> Result<Option<Path>, GraphError> {
@@ -106,7 +109,8 @@ impl TransactionInterface for Transaction {
         });
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, request)?;
+            .execute_in_transaction(&self.transaction_id, request)
+            .await?;
         let arr = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Invalid response for shortest path".to_string())
         })?;
@@ -149,7 +153,7 @@ impl TransactionInterface for Transaction {
         }))
     }
 
-    fn find_all_paths(&self, options: FindAllPathsOptions) -> Result<Vec<Path>, GraphError> {
+    async fn find_all_paths(&self, options: FindAllPathsOptions) -> Result<Vec<Path>, GraphError> {
         if let Some(path_opts) = &options.path {
             if path_opts.vertex_types.is_some()
                 || path_opts.vertex_filters.is_some()
@@ -189,7 +193,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, request)?;
+            .execute_in_transaction(&self.transaction_id, request)
+            .await?;
         let arr = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Invalid response for all paths".to_string())
         })?;
@@ -200,7 +205,10 @@ impl TransactionInterface for Transaction {
             .collect()
     }
 
-    fn get_neighborhood(&self, options: GetNeighborhoodOptions) -> Result<Subgraph, GraphError> {
+    async fn get_neighborhood(
+        &self,
+        options: GetNeighborhoodOptions,
+    ) -> Result<Subgraph, GraphError> {
         let center_id = id_to_aql(&options.center);
         let dir_str = match options.direction {
             Direction::Outgoing => "OUTBOUND",
@@ -228,7 +236,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, request)?;
+            .execute_in_transaction(&self.transaction_id, request)
+            .await?;
         let arr = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Invalid response for neighborhood".to_string())
         })?;
@@ -264,18 +273,19 @@ impl TransactionInterface for Transaction {
         })
     }
 
-    fn path_exists(&self, options: PathExistsOptions) -> Result<bool, GraphError> {
+    async fn path_exists(&self, options: PathExistsOptions) -> Result<bool, GraphError> {
         Ok(!self
             .find_all_paths(FindAllPathsOptions {
                 from_vertex: options.from_vertex,
                 to_vertex: options.to_vertex,
                 path: options.path,
                 limit: Some(1),
-            })?
+            })
+            .await?
             .is_empty())
     }
 
-    fn get_vertices_at_distance(
+    async fn get_vertices_at_distance(
         &self,
         options: GetVerticesAtDistanceOptions,
     ) -> Result<Vec<Vertex>, GraphError> {
@@ -300,7 +310,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, request)?;
+            .execute_in_transaction(&self.transaction_id, request)
+            .await?;
         let arr = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Invalid response for vertices at distance".to_string())
         })?;
@@ -318,7 +329,7 @@ impl TransactionInterface for Transaction {
             .collect()
     }
 
-    fn get_adjacent_vertices(
+    async fn get_adjacent_vertices(
         &self,
         options: GetAdjacentVerticesOptions,
     ) -> Result<Vec<Vertex>, GraphError> {
@@ -344,7 +355,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query)?;
+            .execute_in_transaction(&self.transaction_id, query)
+            .await?;
         let result_array = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Expected array in AQL response".to_string())
         })?;
@@ -365,7 +377,7 @@ impl TransactionInterface for Transaction {
         Ok(vertices)
     }
 
-    fn get_connected_edges(
+    async fn get_connected_edges(
         &self,
         options: GetConnectedEdgesOptions,
     ) -> Result<Vec<Edge>, GraphError> {
@@ -391,7 +403,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query)?;
+            .execute_in_transaction(&self.transaction_id, query)
+            .await?;
         let result_array = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Expected array in AQL response".to_string())
         })?;
@@ -412,7 +425,7 @@ impl TransactionInterface for Transaction {
         Ok(edges)
     }
 
-    fn create_vertex(&self, options: CreateVertexOptions) -> Result<Vertex, GraphError> {
+    async fn create_vertex(&self, options: CreateVertexOptions) -> Result<Vertex, GraphError> {
         if !options.labels.map(|l| l.is_empty()).unwrap_or_default() {
             return Err(GraphError::UnsupportedOperation(
                 "ArangoDB does not support multiple labels per vertex. Use vertex collections instead."
@@ -432,7 +445,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query)?;
+            .execute_in_transaction(&self.transaction_id, query)
+            .await?;
 
         let result_array = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Expected array in AQL response".to_string())
@@ -447,19 +461,19 @@ impl TransactionInterface for Transaction {
         parse_vertex_from_document(vertex_doc, &options.vertex_type)
     }
 
-    fn create_vertices(
+    async fn create_vertices(
         &self,
         vertices: Vec<CreateVertexOptions>,
     ) -> Result<Vec<Vertex>, GraphError> {
         let mut created_vertices = vec![];
         for vertex_options in vertices {
-            let vertex = self.create_vertex(vertex_options)?;
+            let vertex = self.create_vertex(vertex_options).await?;
             created_vertices.push(vertex);
         }
         Ok(created_vertices)
     }
 
-    fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
+    async fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
         let key = helpers::element_id_to_key(&id)?;
         let collection = if let ElementId::StringValue(s) = &id {
             s.split('/').next().unwrap_or_default()
@@ -483,7 +497,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query)?;
+            .execute_in_transaction(&self.transaction_id, query)
+            .await?;
 
         let result_array = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Expected array in AQL response".to_string())
@@ -500,7 +515,7 @@ impl TransactionInterface for Transaction {
         }
     }
 
-    fn update_vertex(&self, options: UpdateVertexOptions) -> Result<Vertex, GraphError> {
+    async fn update_vertex(&self, options: UpdateVertexOptions) -> Result<Vertex, GraphError> {
         let key = helpers::element_id_to_key(&options.id)?;
         let collection = helpers::collection_from_element_id(&options.id)?;
 
@@ -530,7 +545,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query)?;
+            .execute_in_transaction(&self.transaction_id, query)
+            .await?;
         let result_array = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Expected array in AQL response".to_string())
         })?;
@@ -544,7 +560,7 @@ impl TransactionInterface for Transaction {
         helpers::parse_vertex_from_document(vertex_doc, collection)
     }
 
-    fn delete_vertex(&self, id: ElementId, delete_edges: bool) -> Result<(), GraphError> {
+    async fn delete_vertex(&self, id: ElementId, delete_edges: bool) -> Result<(), GraphError> {
         let key = helpers::element_id_to_key(&id)?;
         let collection = if let ElementId::StringValue(s) = &id {
             s.split('/').next().unwrap_or_default()
@@ -562,7 +578,7 @@ impl TransactionInterface for Transaction {
         if delete_edges {
             let vertex_id = helpers::element_id_to_string(&id);
 
-            let collections = self.api.list_collections().unwrap_or_default();
+            let collections = self.api.list_collections().await.unwrap_or_default();
             let edge_collections: Vec<_> = collections
                 .iter()
                 .filter(|c| {
@@ -584,7 +600,8 @@ impl TransactionInterface for Transaction {
                 });
                 let _ = self
                     .api
-                    .execute_in_transaction(&self.transaction_id, delete_edges_query);
+                    .execute_in_transaction(&self.transaction_id, delete_edges_query)
+                    .await;
             }
         }
 
@@ -597,11 +614,12 @@ impl TransactionInterface for Transaction {
         });
 
         self.api
-            .execute_in_transaction(&self.transaction_id, simple_query)?;
+            .execute_in_transaction(&self.transaction_id, simple_query)
+            .await?;
         Ok(())
     }
 
-    fn find_vertices(&self, options: FindVerticesOptions) -> Result<Vec<Vertex>, GraphError> {
+    async fn find_vertices(&self, options: FindVerticesOptions) -> Result<Vec<Vertex>, GraphError> {
         let collection = options.vertex_type.ok_or_else(|| {
             GraphError::InvalidQuery("vertex_type must be provided for find_vertices".to_string())
         })?;
@@ -640,7 +658,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query_json)?;
+            .execute_in_transaction(&self.transaction_id, query_json)
+            .await?;
 
         let result_array = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Expected array in AQL response".to_string())
@@ -657,7 +676,7 @@ impl TransactionInterface for Transaction {
         Ok(vertices)
     }
 
-    fn create_edge(&self, options: CreateEdgeOptions) -> Result<Edge, GraphError> {
+    async fn create_edge(&self, options: CreateEdgeOptions) -> Result<Edge, GraphError> {
         let props = conversions::to_arango_properties(options.properties.unwrap_or_default())?;
         let from_id = helpers::element_id_to_string(&options.from_vertex);
         let to_id = helpers::element_id_to_string(&options.to_vertex);
@@ -674,7 +693,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query)?;
+            .execute_in_transaction(&self.transaction_id, query)
+            .await?;
         let result_array = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Expected array in AQL response".to_string())
         })?;
@@ -688,16 +708,16 @@ impl TransactionInterface for Transaction {
         helpers::parse_edge_from_document(edge_doc, &options.edge_type)
     }
 
-    fn create_edges(&self, edges: Vec<CreateEdgeOptions>) -> Result<Vec<Edge>, GraphError> {
+    async fn create_edges(&self, edges: Vec<CreateEdgeOptions>) -> Result<Vec<Edge>, GraphError> {
         let mut created_edges = vec![];
         for edge_options in edges {
-            let edge = self.create_edge(edge_options)?;
+            let edge = self.create_edge(edge_options).await?;
             created_edges.push(edge);
         }
         Ok(created_edges)
     }
 
-    fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
+    async fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
         let key = helpers::element_id_to_key(&id)?;
         let collection = if let ElementId::StringValue(s) = &id {
             s.split('/').next().unwrap_or_default()
@@ -721,7 +741,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query)?;
+            .execute_in_transaction(&self.transaction_id, query)
+            .await?;
         let result_array = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Expected array in AQL response".to_string())
         })?;
@@ -737,12 +758,13 @@ impl TransactionInterface for Transaction {
         }
     }
 
-    fn update_edge(&self, options: UpdateEdgeOptions) -> Result<Edge, GraphError> {
+    async fn update_edge(&self, options: UpdateEdgeOptions) -> Result<Edge, GraphError> {
         let key = helpers::element_id_to_key(&options.id)?;
         let collection = helpers::collection_from_element_id(&options.id)?;
 
         let current_edge = self
-            .get_edge(options.id.clone())?
+            .get_edge(options.id.clone())
+            .await?
             .ok_or_else(|| GraphError::ElementNotFound(options.id.clone()))?;
 
         let mut props = conversions::to_arango_properties(options.properties)?;
@@ -779,7 +801,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query)?;
+            .execute_in_transaction(&self.transaction_id, query)
+            .await?;
 
         let result_array = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Expected array in AQL response".to_string())
@@ -793,7 +816,7 @@ impl TransactionInterface for Transaction {
         helpers::parse_edge_from_document(edge_doc, collection)
     }
 
-    fn delete_edge(&self, id: ElementId) -> Result<(), GraphError> {
+    async fn delete_edge(&self, id: ElementId) -> Result<(), GraphError> {
         let key = helpers::element_id_to_key(&id)?;
         let collection = if let ElementId::StringValue(s) = &id {
             s.split('/').next().unwrap_or_default()
@@ -816,11 +839,12 @@ impl TransactionInterface for Transaction {
         });
 
         self.api
-            .execute_in_transaction(&self.transaction_id, query)?;
+            .execute_in_transaction(&self.transaction_id, query)
+            .await?;
         Ok(())
     }
 
-    fn find_edges(&self, options: FindEdgesOptions) -> Result<Vec<Edge>, GraphError> {
+    async fn find_edges(&self, options: FindEdgesOptions) -> Result<Vec<Edge>, GraphError> {
         let collection = options
             .edge_types
             .and_then(|mut et| et.pop())
@@ -862,7 +886,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_in_transaction(&self.transaction_id, query_json)?;
+            .execute_in_transaction(&self.transaction_id, query_json)
+            .await?;
 
         let result_array = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Expected array in AQL response".to_string())
@@ -879,19 +904,20 @@ impl TransactionInterface for Transaction {
         Ok(edges)
     }
 
-    fn commit(&self) -> Result<(), GraphError> {
-        self.api.commit_transaction(&self.transaction_id)
+    async fn commit(&self) -> Result<(), GraphError> {
+        self.api.commit_transaction(&self.transaction_id).await?;
+        self.active.set(false);
+        Ok(())
     }
 
-    fn rollback(&self) -> Result<(), GraphError> {
-        self.api.rollback_transaction(&self.transaction_id)
+    async fn rollback(&self) -> Result<(), GraphError> {
+        self.api.rollback_transaction(&self.transaction_id).await?;
+        self.active.set(false);
+        Ok(())
     }
 
     fn is_active(&self) -> bool {
-        self.api
-            .get_transaction_status(&self.transaction_id)
-            .map(|status| status == "running")
-            .unwrap_or(false)
+        self.active.get()
     }
 }
 
