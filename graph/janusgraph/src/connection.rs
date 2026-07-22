@@ -1,4 +1,5 @@
 use crate::{Graph, Transaction};
+use async_trait::async_trait;
 use golem_ai_graph::{
     durability::ProviderGraph,
     model::{
@@ -12,6 +13,7 @@ impl ProviderGraph for Graph {
     type Transaction = Transaction;
 }
 
+#[async_trait(?Send)]
 impl GraphInterface for Graph {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -20,28 +22,28 @@ impl GraphInterface for Graph {
         self
     }
 
-    fn begin_transaction(&self) -> Result<TransactionResource, GraphError> {
-        self.api.execute("g.tx().open()", None)?;
+    async fn begin_transaction(&self) -> Result<TransactionResource, GraphError> {
+        self.api.execute("g.tx().open()", None).await?;
         let transaction = Transaction::new(self.api.clone());
         Ok(TransactionResource::new(transaction))
     }
 
-    fn begin_read_transaction(&self) -> Result<TransactionResource, GraphError> {
-        self.begin_transaction()
+    async fn begin_read_transaction(&self) -> Result<TransactionResource, GraphError> {
+        self.begin_transaction().await
     }
 
-    fn ping(&self) -> Result<(), GraphError> {
-        self.api.execute("1+1", None)?;
+    async fn ping(&self) -> Result<(), GraphError> {
+        self.api.execute("1+1", None).await?;
         Ok(())
     }
 
-    fn close(&self) -> Result<(), GraphError> {
+    async fn close(&self) -> Result<(), GraphError> {
         Ok(())
     }
 
-    fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
-        let vertex_count_res = self.api.execute("g.V().count()", None)?;
-        let edge_count_res = self.api.execute("g.E().count()", None)?;
+    async fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
+        let vertex_count_res = self.api.execute("g.V().count()", None).await?;
+        let edge_count_res = self.api.execute("g.E().count()", None).await?;
 
         fn extract_count(val: &serde_json::Value) -> Option<u64> {
             // The client now returns the data directly

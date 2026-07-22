@@ -3,6 +3,7 @@ use crate::helpers;
 use crate::helpers::{element_id_to_key, parse_path_from_gremlin, parse_vertex_from_gremlin};
 use crate::query_utils;
 use crate::Transaction;
+use async_trait::async_trait;
 use golem_ai_graph::model::transactions::{
     CreateVertexOptions, ExecuteQueryOptions, FindAllPathsOptions, FindEdgesOptions,
     FindShortestPathOptions, FindVerticesOptions, GetAdjacentVerticesOptions,
@@ -55,6 +56,7 @@ fn graphson_map_to_object(data: &Value) -> Result<Value, GraphError> {
     Ok(Value::Object(obj))
 }
 
+#[async_trait(?Send)]
 impl TransactionInterface for Transaction {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -63,7 +65,7 @@ impl TransactionInterface for Transaction {
         self
     }
 
-    fn execute_query(
+    async fn execute_query(
         &self,
         options: ExecuteQueryOptions,
     ) -> Result<QueryExecutionResult, GraphError> {
@@ -94,7 +96,10 @@ impl TransactionInterface for Transaction {
             }
         };
 
-        let response = self.api.execute(&final_query, Some(json!(bindings_map)))?;
+        let response = self
+            .api
+            .execute(&final_query, Some(json!(bindings_map)))
+            .await?;
         let query_result_value = parse_gremlin_response(response)?;
 
         Ok(QueryExecutionResult {
@@ -106,7 +111,7 @@ impl TransactionInterface for Transaction {
         })
     }
 
-    fn find_shortest_path(
+    async fn find_shortest_path(
         &self,
         options: FindShortestPathOptions,
     ) -> Result<Option<Path>, GraphError> {
@@ -117,7 +122,10 @@ impl TransactionInterface for Transaction {
         let gremlin =
             "g.V(from_id).repeat(outE().inV().simplePath()).until(hasId(to_id)).path().limit(1)";
 
-        let resp = self.api.execute(gremlin, Some(Value::Object(bindings)))?;
+        let resp = self
+            .api
+            .execute(gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let data_array = if let Some(data) = resp.as_object() {
             if data.get("@type") == Some(&Value::String("g:List".to_string())) {
@@ -142,7 +150,7 @@ impl TransactionInterface for Transaction {
         Ok(None)
     }
 
-    fn find_all_paths(&self, options: FindAllPathsOptions) -> Result<Vec<Path>, GraphError> {
+    async fn find_all_paths(&self, options: FindAllPathsOptions) -> Result<Vec<Path>, GraphError> {
         if let Some(opts) = &options.path {
             if opts.vertex_types.is_some()
                 || opts.vertex_filters.is_some()
@@ -167,7 +175,10 @@ impl TransactionInterface for Transaction {
             gremlin.push_str(&format!(".limit({lim})"));
         }
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let response = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let data_array = if let Some(data) = response.as_object() {
             if data.get("@type") == Some(&Value::String("g:List".to_string())) {
@@ -186,7 +197,10 @@ impl TransactionInterface for Transaction {
         }
     }
 
-    fn get_neighborhood(&self, options: GetNeighborhoodOptions) -> Result<Subgraph, GraphError> {
+    async fn get_neighborhood(
+        &self,
+        options: GetNeighborhoodOptions,
+    ) -> Result<Subgraph, GraphError> {
         let mut bindings = serde_json::Map::new();
         bindings.insert("center_id".to_string(), id_to_json(options.center.clone()));
 
@@ -203,7 +217,10 @@ impl TransactionInterface for Transaction {
             gremlin.push_str(&format!(".limit({lim})"));
         }
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let response = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let data_array = if let Some(data) = response.as_object() {
             if data.get("@type") == Some(&Value::String("g:List".to_string())) {
@@ -240,17 +257,18 @@ impl TransactionInterface for Transaction {
         }
     }
 
-    fn path_exists(&self, options: PathExistsOptions) -> Result<bool, GraphError> {
+    async fn path_exists(&self, options: PathExistsOptions) -> Result<bool, GraphError> {
         self.find_all_paths(FindAllPathsOptions {
             from_vertex: options.from_vertex,
             to_vertex: options.to_vertex,
             path: options.path,
             limit: Some(1),
         })
+        .await
         .map(|p| !p.is_empty())
     }
 
-    fn get_vertices_at_distance(
+    async fn get_vertices_at_distance(
         &self,
         options: GetVerticesAtDistanceOptions,
     ) -> Result<Vec<Vertex>, GraphError> {
@@ -293,7 +311,10 @@ impl TransactionInterface for Transaction {
             )
         };
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let response = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let data_array = if let Some(data) = response.as_object() {
             if data.get("@type") == Some(&Value::String("g:List".to_string())) {
@@ -312,7 +333,7 @@ impl TransactionInterface for Transaction {
         }
     }
 
-    fn get_adjacent_vertices(
+    async fn get_adjacent_vertices(
         &self,
         options: GetAdjacentVerticesOptions,
     ) -> Result<Vec<Vertex>, GraphError> {
@@ -356,7 +377,10 @@ impl TransactionInterface for Transaction {
 
         gremlin.push_str(".elementMap()");
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let response = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let result_data = if let Some(arr) = response.as_array() {
             arr.clone()
@@ -374,7 +398,7 @@ impl TransactionInterface for Transaction {
             .collect()
     }
 
-    fn get_connected_edges(
+    async fn get_connected_edges(
         &self,
         options: GetConnectedEdgesOptions,
     ) -> Result<Vec<Edge>, GraphError> {
@@ -418,7 +442,10 @@ impl TransactionInterface for Transaction {
 
         gremlin.push_str(".elementMap()");
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let response = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let result_data = if let Some(arr) = response.as_array() {
             arr.clone()
@@ -436,7 +463,7 @@ impl TransactionInterface for Transaction {
             .collect()
     }
 
-    fn create_vertex(&self, options: CreateVertexOptions) -> Result<Vertex, GraphError> {
+    async fn create_vertex(&self, options: CreateVertexOptions) -> Result<Vertex, GraphError> {
         let mut gremlin = "g.addV(vertex_label)".to_string();
         let mut bindings = serde_json::Map::new();
         bindings.insert("vertex_label".to_string(), json!(options.vertex_type));
@@ -454,7 +481,10 @@ impl TransactionInterface for Transaction {
         }
         gremlin.push_str(".elementMap()");
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let response = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let element = if let Some(_graphson_obj) = response.as_object() {
             if response.get("@type") == Some(&json!("g:List")) {
@@ -487,7 +517,7 @@ impl TransactionInterface for Transaction {
         helpers::parse_vertex_from_gremlin(&obj)
     }
 
-    fn create_vertices(
+    async fn create_vertices(
         &self,
         vertices: Vec<CreateVertexOptions>,
     ) -> Result<Vec<Vertex>, GraphError> {
@@ -497,7 +527,7 @@ impl TransactionInterface for Transaction {
 
         if vertices.len() == 1 {
             let mut vertices = vertices;
-            let vertex = self.create_vertex(vertices.pop().unwrap())?;
+            let vertex = self.create_vertex(vertices.pop().unwrap()).await?;
             return Ok(vec![vertex]);
         }
 
@@ -529,7 +559,10 @@ impl TransactionInterface for Transaction {
         gremlin.push_str(&union_parts.join(", "));
         gremlin.push_str(").elementMap()");
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let response = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let result_data = if let Some(arr) = response.as_array() {
             arr.clone()
@@ -547,7 +580,7 @@ impl TransactionInterface for Transaction {
             .collect()
     }
 
-    fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
+    async fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
         let gremlin = "g.V(vertex_id).elementMap()".to_string();
 
         let mut bindings = serde_json::Map::new();
@@ -560,7 +593,10 @@ impl TransactionInterface for Transaction {
             },
         );
 
-        let resp = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let resp = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let list: Vec<Value> = if let Some(arr) = resp.as_array() {
             arr.clone()
@@ -603,7 +639,7 @@ impl TransactionInterface for Transaction {
         }
     }
 
-    fn update_vertex(&self, options: UpdateVertexOptions) -> Result<Vertex, GraphError> {
+    async fn update_vertex(&self, options: UpdateVertexOptions) -> Result<Vertex, GraphError> {
         let mut gremlin = {
             if options.partial.unwrap_or_default() {
                 "g.V(vertex_id)".to_string()
@@ -631,7 +667,10 @@ impl TransactionInterface for Transaction {
 
         gremlin.push_str(".elementMap()");
 
-        let resp = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let resp = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let maybe_row = resp
             .as_array()
@@ -686,7 +725,7 @@ impl TransactionInterface for Transaction {
         helpers::parse_vertex_from_gremlin(&Value::Object(obj))
     }
 
-    fn delete_vertex(&self, id: ElementId, _detach: bool) -> Result<(), GraphError> {
+    async fn delete_vertex(&self, id: ElementId, _detach: bool) -> Result<(), GraphError> {
         let gremlin = "g.V(vertex_id).drop().toList()";
         let mut bindings = serde_json::Map::new();
         bindings.insert(
@@ -701,7 +740,8 @@ impl TransactionInterface for Transaction {
         for attempt in 1..=2 {
             let resp = self
                 .api
-                .execute(gremlin, Some(Value::Object(bindings.clone())));
+                .execute(gremlin, Some(Value::Object(bindings.clone())))
+                .await;
             match resp {
                 Ok(_) => {
                     log::info!("[delete_vertex] dropped vertex {id:?} (attempt {attempt})");
@@ -739,7 +779,7 @@ impl TransactionInterface for Transaction {
         Ok(())
     }
 
-    fn find_vertices(&self, options: FindVerticesOptions) -> Result<Vec<Vertex>, GraphError> {
+    async fn find_vertices(&self, options: FindVerticesOptions) -> Result<Vec<Vertex>, GraphError> {
         let mut gremlin = "g.V()".to_string();
         let mut bindings = serde_json::Map::new();
 
@@ -773,7 +813,10 @@ impl TransactionInterface for Transaction {
 
         gremlin.push_str(".elementMap()");
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let response = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
         trace!("[DEBUG][find_vertices] Raw Gremlin response: {response:?}");
 
         let result_data = if let Some(arr) = response.as_array() {
@@ -798,7 +841,7 @@ impl TransactionInterface for Transaction {
             .collect()
     }
 
-    fn create_edge(&self, options: CreateEdgeOptions) -> Result<Edge, GraphError> {
+    async fn create_edge(&self, options: CreateEdgeOptions) -> Result<Edge, GraphError> {
         let mut gremlin = "g.V(from_id).addE(edge_label).to(__.V(to_id))".to_string();
         let mut bindings = serde_json::Map::new();
         let from_clone = options.from_vertex.clone();
@@ -839,7 +882,8 @@ impl TransactionInterface for Transaction {
 
         let resp = self
             .api
-            .execute(&gremlin, Some(Value::Object(bindings.clone())))?;
+            .execute(&gremlin, Some(Value::Object(bindings.clone())))
+            .await?;
 
         let row = if let Some(arr) = resp.as_array() {
             arr.first().cloned()
@@ -905,14 +949,14 @@ impl TransactionInterface for Transaction {
         helpers::parse_edge_from_gremlin(&Value::Object(edge_json))
     }
 
-    fn create_edges(&self, edges: Vec<CreateEdgeOptions>) -> Result<Vec<Edge>, GraphError> {
+    async fn create_edges(&self, edges: Vec<CreateEdgeOptions>) -> Result<Vec<Edge>, GraphError> {
         if edges.is_empty() {
             return Ok(vec![]);
         }
 
         if edges.len() == 1 {
             let mut edges = edges;
-            let edge = self.create_edge(edges.pop().unwrap())?;
+            let edge = self.create_edge(edges.pop().unwrap()).await?;
             return Ok(vec![edge]);
         }
 
@@ -962,7 +1006,10 @@ impl TransactionInterface for Transaction {
         gremlin.push_str(&union_parts.join(", "));
         gremlin.push_str(").elementMap()");
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let response = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let result_data = if let Some(arr) = response.as_array() {
             arr.clone()
@@ -980,7 +1027,7 @@ impl TransactionInterface for Transaction {
             .collect()
     }
 
-    fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
+    async fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
         let gremlin = "g.E(edge_id).elementMap()".to_string();
         let mut bindings = serde_json::Map::new();
         bindings.insert(
@@ -992,7 +1039,10 @@ impl TransactionInterface for Transaction {
             },
         );
 
-        let resp = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let resp = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let maybe_row = resp
             .as_array()
@@ -1081,7 +1131,7 @@ impl TransactionInterface for Transaction {
         Ok(Some(edge))
     }
 
-    fn update_edge(&self, options: UpdateEdgeOptions) -> Result<Edge, GraphError> {
+    async fn update_edge(&self, options: UpdateEdgeOptions) -> Result<Edge, GraphError> {
         let id_json = match &options.id {
             ElementId::StringValue(s) => json!(s),
             ElementId::Int64(i) => json!(i),
@@ -1107,12 +1157,16 @@ impl TransactionInterface for Transaction {
         }
 
         self.api
-            .execute(&gremlin_update, Some(Value::Object(bindings)))?;
+            .execute(&gremlin_update, Some(Value::Object(bindings)))
+            .await?;
 
         let gremlin_fetch = "g.E(edge_id).elementMap()";
         let fetch_bindings = json!({ "edge_id": id_json });
 
-        let resp = self.api.execute(gremlin_fetch, Some(fetch_bindings))?;
+        let resp = self
+            .api
+            .execute(gremlin_fetch, Some(fetch_bindings))
+            .await?;
 
         let row = resp
             .as_array()
@@ -1184,7 +1238,7 @@ impl TransactionInterface for Transaction {
         Ok(edge)
     }
 
-    fn delete_edge(&self, id: ElementId) -> Result<(), GraphError> {
+    async fn delete_edge(&self, id: ElementId) -> Result<(), GraphError> {
         let gremlin = "g.E(edge_id).drop().toList()".to_string();
 
         let id_json = match id {
@@ -1195,11 +1249,13 @@ impl TransactionInterface for Transaction {
         let mut bindings = serde_json::Map::new();
         bindings.insert("edge_id".to_string(), id_json);
 
-        self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        self.api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
         Ok(())
     }
 
-    fn find_edges(&self, options: FindEdgesOptions) -> Result<Vec<Edge>, GraphError> {
+    async fn find_edges(&self, options: FindEdgesOptions) -> Result<Vec<Edge>, GraphError> {
         let mut gremlin = "g.E()".to_string();
         let mut bindings = serde_json::Map::new();
 
@@ -1235,7 +1291,10 @@ impl TransactionInterface for Transaction {
 
         gremlin.push_str(".elementMap()");
 
-        let response = self.api.execute(&gremlin, Some(Value::Object(bindings)))?;
+        let response = self
+            .api
+            .execute(&gremlin, Some(Value::Object(bindings)))
+            .await?;
 
         let result_data = response.as_array().ok_or_else(|| {
             GraphError::InternalError("Invalid response from Gremlin for find_edges".to_string())
@@ -1247,7 +1306,7 @@ impl TransactionInterface for Transaction {
             .collect()
     }
 
-    fn commit(&self) -> Result<(), GraphError> {
+    async fn commit(&self) -> Result<(), GraphError> {
         {
             let state = self.state.read().unwrap();
             match *state {
@@ -1261,7 +1320,7 @@ impl TransactionInterface for Transaction {
             }
         }
 
-        let result = self.api.commit();
+        let result = self.api.commit().await;
 
         if result.is_ok() {
             let mut state = self.state.write().unwrap();
@@ -1270,7 +1329,7 @@ impl TransactionInterface for Transaction {
         result
     }
 
-    fn rollback(&self) -> Result<(), GraphError> {
+    async fn rollback(&self) -> Result<(), GraphError> {
         {
             let state = self.state.read().unwrap();
             match *state {
@@ -1284,7 +1343,7 @@ impl TransactionInterface for Transaction {
             }
         }
 
-        let result = self.api.rollback();
+        let result = self.api.rollback().await;
 
         if result.is_ok() {
             let mut state = self.state.write().unwrap();
@@ -1296,7 +1355,7 @@ impl TransactionInterface for Transaction {
     fn is_active(&self) -> bool {
         let state = self.state.read().unwrap();
         match *state {
-            crate::TransactionState::Active => self.api.is_session_active(),
+            crate::TransactionState::Active => true,
             crate::TransactionState::Committed | crate::TransactionState::RolledBack => false,
         }
     }

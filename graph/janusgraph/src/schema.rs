@@ -1,4 +1,5 @@
 use crate::{helpers, JanusGraph, SchemaManager};
+use async_trait::async_trait;
 use golem_ai_graph::durability::ExtendedGuest;
 use golem_ai_graph::model::{
     connection::ConnectionConfig,
@@ -15,14 +16,14 @@ use std::sync::Arc;
 impl SchemaManagerProvider for JanusGraph {
     type SchemaManager = SchemaManager;
 
-    fn get_schema_manager(
+    async fn get_schema_manager(
         config: Option<ConnectionConfig>,
     ) -> Result<SchemaManagerResource, GraphError> {
         let final_config = match config {
             Some(provided_config) => provided_config,
             None => helpers::config_from_env()?,
         };
-        let graph = JanusGraph::connect_internal(&final_config)?;
+        let graph = JanusGraph::connect_internal(&final_config).await?;
         let manager = SchemaManager {
             graph: Arc::new(graph),
         };
@@ -30,6 +31,7 @@ impl SchemaManagerProvider for JanusGraph {
     }
 }
 
+#[async_trait(?Send)]
 impl SchemaManagerInterface for SchemaManager {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -38,7 +40,7 @@ impl SchemaManagerInterface for SchemaManager {
         self
     }
 
-    fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
+    async fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
         let mut script = String::new();
 
         for prop in &schema.properties {
@@ -54,11 +56,11 @@ impl SchemaManagerInterface for SchemaManager {
             schema.label, schema.label
         ));
 
-        self.execute_management_query(&script)?;
+        self.execute_management_query(&script).await?;
         Ok(())
     }
 
-    fn define_edge_label(&self, schema: EdgeLabelSchema) -> Result<(), GraphError> {
+    async fn define_edge_label(&self, schema: EdgeLabelSchema) -> Result<(), GraphError> {
         let mut script = String::new();
 
         for prop in &schema.properties {
@@ -74,16 +76,16 @@ impl SchemaManagerInterface for SchemaManager {
             schema.label, schema.label
         ));
 
-        self.execute_management_query(&script)?;
+        self.execute_management_query(&script).await?;
         Ok(())
     }
 
-    fn get_vertex_label_schema(
+    async fn get_vertex_label_schema(
         &self,
         label: String,
     ) -> Result<Option<VertexLabelSchema>, GraphError> {
         let script = "mgmt.getVertexLabels().collect{ it.name() }";
-        let result = self.execute_management_query(script)?;
+        let result = self.execute_management_query(script).await?;
 
         let labels = self.parse_string_list_from_result(result)?;
         let exists = labels.contains(&label);
@@ -99,9 +101,12 @@ impl SchemaManagerInterface for SchemaManager {
         }
     }
 
-    fn get_edge_label_schema(&self, label: String) -> Result<Option<EdgeLabelSchema>, GraphError> {
+    async fn get_edge_label_schema(
+        &self,
+        label: String,
+    ) -> Result<Option<EdgeLabelSchema>, GraphError> {
         let script = format!("mgmt.getEdgeLabel('{label}') != null");
-        let result = self.execute_management_query(&script)?;
+        let result = self.execute_management_query(&script).await?;
 
         let exists = if let Some(graphson_obj) = result.as_object() {
             if let Some(value_array) = graphson_obj.get("@value").and_then(|v| v.as_array()) {
@@ -133,19 +138,19 @@ impl SchemaManagerInterface for SchemaManager {
         }
     }
 
-    fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
+    async fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
         let script = "mgmt.getVertexLabels().collect{ it.name() }";
-        let result = self.execute_management_query(script)?;
+        let result = self.execute_management_query(script).await?;
         self.parse_string_list_from_result(result)
     }
 
-    fn list_edge_labels(&self) -> Result<Vec<String>, GraphError> {
+    async fn list_edge_labels(&self) -> Result<Vec<String>, GraphError> {
         Err(GraphError::UnsupportedOperation(
             "Listing edge labels is not supported in JanusGraph management API".to_string(),
         ))
     }
 
-    fn create_index(&self, index: IndexDefinition) -> Result<(), GraphError> {
+    async fn create_index(&self, index: IndexDefinition) -> Result<(), GraphError> {
         let mut script_parts = Vec::new();
 
         for prop_name in &index.properties {
@@ -181,19 +186,19 @@ impl SchemaManagerInterface for SchemaManager {
         script_parts.push(wrapped_index_builder);
 
         let script = script_parts.join("; ");
-        self.execute_management_query(&script)?;
+        self.execute_management_query(&script).await?;
 
         Ok(())
     }
 
-    fn drop_index(&self, name: String) -> Result<(), GraphError> {
+    async fn drop_index(&self, name: String) -> Result<(), GraphError> {
         let _ = name;
         Err(GraphError::UnsupportedOperation(
             "Dropping an index is not supported in this version.".to_string(),
         ))
     }
 
-    fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
+    async fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
         let script = "
             def results = [];
             mgmt.getGraphIndexes(Vertex.class).each { index ->
@@ -219,16 +224,16 @@ impl SchemaManagerInterface for SchemaManager {
             results
         ";
 
-        let result = self.execute_management_query(script)?;
+        let result = self.execute_management_query(script).await?;
         self.parse_index_list_from_result(result)
     }
 
-    fn get_index(&self, name: String) -> Result<Option<IndexDefinition>, GraphError> {
-        let indexes = self.list_indexes()?;
+    async fn get_index(&self, name: String) -> Result<Option<IndexDefinition>, GraphError> {
+        let indexes = self.list_indexes().await?;
         Ok(indexes.into_iter().find(|i| i.name == name))
     }
 
-    fn define_edge_type(&self, definition: EdgeTypeDefinition) -> Result<(), GraphError> {
+    async fn define_edge_type(&self, definition: EdgeTypeDefinition) -> Result<(), GraphError> {
         let mut script_parts = Vec::new();
         for from_label in &definition.from_collections {
             for to_label in &definition.to_collections {
@@ -246,17 +251,18 @@ impl SchemaManagerInterface for SchemaManager {
             }
         }
 
-        self.execute_management_query(&script_parts.join("\n"))?;
+        self.execute_management_query(&script_parts.join("\n"))
+            .await?;
         Ok(())
     }
 
-    fn list_edge_types(&self) -> Result<Vec<EdgeTypeDefinition>, GraphError> {
+    async fn list_edge_types(&self) -> Result<Vec<EdgeTypeDefinition>, GraphError> {
         Err(GraphError::UnsupportedOperation(
             "Schema management is not supported in this version.".to_string(),
         ))
     }
 
-    fn create_container(
+    async fn create_container(
         &self,
         _name: String,
         _container_type: golem_ai_graph::model::schema::ContainerType,
@@ -266,7 +272,7 @@ impl SchemaManagerInterface for SchemaManager {
         ))
     }
 
-    fn list_containers(&self) -> Result<Vec<ContainerInfo>, GraphError> {
+    async fn list_containers(&self) -> Result<Vec<ContainerInfo>, GraphError> {
         Err(GraphError::UnsupportedOperation(
             "Schema management is not supported in this version.".to_string(),
         ))
@@ -274,7 +280,7 @@ impl SchemaManagerInterface for SchemaManager {
 }
 
 impl SchemaManager {
-    fn execute_management_query(&self, script: &str) -> Result<Value, GraphError> {
+    async fn execute_management_query(&self, script: &str) -> Result<Value, GraphError> {
         let full_script = format!(
             "
             try {{
@@ -293,7 +299,7 @@ impl SchemaManager {
 
         let mut last_error = None;
         for _attempt in 0..3 {
-            match self.graph.api.execute(&full_script, None) {
+            match self.graph.api.execute(&full_script, None).await {
                 Ok(response) => {
                     let result = response.clone();
                     return Ok(result);
@@ -302,11 +308,11 @@ impl SchemaManager {
                     last_error = Some(GraphError::TransactionFailed(
                         "Management transaction closed, retrying".to_string(),
                     ));
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                    wasip3::clocks::monotonic_clock::wait_for(1_000_000_000).await;
                 }
                 Err(GraphError::TransactionTimeout) => {
                     last_error = Some(GraphError::TransactionTimeout);
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                    wasip3::clocks::monotonic_clock::wait_for(1_000_000_000).await;
                 }
                 Err(e) => {
                     return Err(e);
