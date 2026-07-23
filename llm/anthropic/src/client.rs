@@ -1,9 +1,9 @@
+use golem_ai_http::header::ACCEPT;
+use golem_ai_http::{Client, HeaderValue, Method, Response};
 use golem_ai_llm::config::SecretSource;
 use golem_ai_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
 use golem_ai_llm::event_source::EventSource;
 use golem_ai_llm::model::Error;
-use golem_wasi_http::header::HeaderValue;
-use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -30,7 +30,7 @@ impl MessagesApi {
         }
     }
 
-    pub fn send_messages(&self, request: MessagesRequest) -> Result<MessagesResponse, Error> {
+    pub async fn send_messages(&self, request: MessagesRequest) -> Result<MessagesResponse, Error> {
         trace!("Sending request to Anthropic API: {request:?}");
 
         // Resolve the API key right before issuing the request so that
@@ -43,12 +43,16 @@ impl MessagesApi {
             .header("x-api-key", &api_key)
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn stream_send_messages(&self, request: MessagesRequest) -> Result<EventSource, Error> {
+    pub async fn stream_send_messages(
+        &self,
+        request: MessagesRequest,
+    ) -> Result<EventSource, Error> {
         trace!("Sending request to Anthropic API: {request:?}");
 
         // Resolve the API key right before issuing the request so that
@@ -62,12 +66,10 @@ impl MessagesApi {
             .request(Method::POST, format!("{BASE_URL}/v1/messages"))
             .header("anthropic-version", "2023-06-01")
             .header("x-api-key", &api_key)
-            .header(
-                golem_wasi_http::header::ACCEPT,
-                HeaderValue::from_static("text/event-stream"),
-            )
+            .header(ACCEPT, HeaderValue::from_static("text/event-stream"))
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
         trace!("Initializing SSE stream");
@@ -274,11 +276,12 @@ pub enum ContentBlockDelta {
     InputJsonDelta { partial_json: String },
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {
     let status = response.status();
     if status.is_success() {
         let body = response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))?;
 
         trace!("Received response from Anthropic API: {body:?}");
@@ -287,6 +290,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     } else {
         let error_body = response
             .json::<ErrorResponse>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         trace!("Received {status} response from Anthropic API: {error_body:?}");

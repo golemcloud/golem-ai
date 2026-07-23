@@ -8,6 +8,7 @@ use crate::client::{
 use crate::conversions::{
     convert_usage, events_to_request, process_response, stop_reason_to_finish_reason,
 };
+use futures::lock::Mutex;
 use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
 use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::event_source::EventSource;
@@ -15,11 +16,10 @@ use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, Message, Response, ResponseMetadata,
     Role, StreamDelta, StreamEvent, ToolCall,
 };
-use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::LlmProvider;
 use indoc::indoc;
 use log::trace;
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 pub use config::AnthropicConfig;
@@ -34,7 +34,7 @@ struct JsonFragment {
 }
 
 pub struct AnthropicChatStream {
-    stream: RefCell<Option<EventSource>>,
+    stream: Mutex<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
     json_fragments: RefCell<HashMap<u64, JsonFragment>>,
@@ -44,7 +44,7 @@ pub struct AnthropicChatStream {
 impl AnthropicChatStream {
     pub fn new(stream: EventSource) -> LlmChatStream<Self> {
         LlmChatStream::new(AnthropicChatStream {
-            stream: RefCell::new(Some(stream)),
+            stream: Mutex::new(Some(stream)),
             failure: None,
             finished: RefCell::new(false),
             json_fragments: RefCell::new(HashMap::new()),
@@ -60,7 +60,7 @@ impl AnthropicChatStream {
 
     pub fn failed(error: Error) -> LlmChatStream<Self> {
         LlmChatStream::new(AnthropicChatStream {
-            stream: RefCell::new(None),
+            stream: Mutex::new(None),
             failure: Some(error),
             finished: RefCell::new(false),
             json_fragments: RefCell::new(HashMap::new()),
@@ -88,12 +88,8 @@ impl LlmChatStreamState for AnthropicChatStream {
         *self.finished.borrow_mut() = true;
     }
 
-    fn stream(&self) -> Ref<'_, Option<EventSource>> {
-        self.stream.borrow()
-    }
-
-    fn stream_mut(&self) -> RefMut<'_, Option<EventSource>> {
-        self.stream.borrow_mut()
+    fn stream(&self) -> &Mutex<Option<EventSource>> {
+        &self.stream
     }
 
     fn decode_message(&self, raw: &str) -> Result<Option<StreamEvent>, Error> {
@@ -260,17 +256,17 @@ impl LlmChatStreamState for AnthropicChatStream {
 pub struct Anthropic;
 
 impl Anthropic {
-    fn request(client: MessagesApi, request: MessagesRequest) -> Result<Response, Error> {
-        let response = client.send_messages(request)?;
+    async fn request(client: MessagesApi, request: MessagesRequest) -> Result<Response, Error> {
+        let response = client.send_messages(request).await?;
         process_response(response)
     }
 
-    fn streaming_request(
+    async fn streaming_request(
         client: MessagesApi,
         mut request: MessagesRequest,
     ) -> LlmChatStream<AnthropicChatStream> {
         request.stream = true;
-        match client.stream_send_messages(request) {
+        match client.stream_send_messages(request).await {
             Ok(stream) => AnthropicChatStream::new(stream),
             Err(err) => AnthropicChatStream::failed(err),
         }
@@ -288,7 +284,7 @@ impl LlmProvider for Anthropic {
     ) -> Result<Response, Error> {
         let client = MessagesApi::new(&provider_config);
         let request = events_to_request(events, config)?;
-        Self::request(client, request)
+        Self::request(client, request).await
     }
 
     async fn stream(
@@ -308,7 +304,7 @@ impl ExtendedLlmProvider for Anthropic {
     ) -> LlmChatStream<AnthropicChatStream> {
         let client = MessagesApi::new(&provider_config);
         match events_to_request(events, config) {
-            Ok(request) => Self::streaming_request(client, request),
+            Ok(request) => Self::streaming_request(client, request).await,
             Err(err) => AnthropicChatStream::failed(err),
         }
     }
@@ -366,10 +362,6 @@ impl ExtendedLlmProvider for Anthropic {
             .collect(),
         }));
         extended_events
-    }
-
-    fn subscribe(stream: &Self::ChatStream) -> Pollable {
-        stream.subscribe()
     }
 }
 

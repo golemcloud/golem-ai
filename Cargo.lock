@@ -1914,9 +1914,10 @@ name = "golem-ai-llm-anthropic"
 version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
+ "futures",
+ "golem-ai-http",
  "golem-ai-llm",
  "golem-rust",
- "golem-wasi-http",
  "indoc",
  "log 0.4.29",
  "serde",
