@@ -54,8 +54,7 @@ fn provider_config() -> golem_ai_llm_anthropic::AnthropicConfig {
 }
 #[cfg(feature = "bedrock")]
 fn provider_config() -> golem_ai_llm_bedrock::BedrockConfig {
-    golem_ai_llm_bedrock::BedrockConfig::from_env()
-        .expect("failed to load Bedrock config from env")
+    golem_ai_llm_bedrock::BedrockConfig::from_env().expect("failed to load Bedrock config from env")
 }
 #[cfg(feature = "grok")]
 fn provider_config() -> golem_ai_llm_grok::GrokConfig {
@@ -70,8 +69,6 @@ fn provider_config() -> golem_ai_llm_openrouter::OpenRouterConfig {
 fn provider_config() -> golem_ai_llm_ollama::OllamaConfig {
     golem_ai_llm_ollama::OllamaConfig::from_env().expect("failed to load Ollama config from env")
 }
-
-
 #[cfg(feature = "openai")]
 const MODEL: &str = "gpt-3.5-turbo";
 #[cfg(feature = "bedrock")]
@@ -288,9 +285,7 @@ impl LlmTest for LlmTestImpl {
         }));
 
         println!("Sending request to LLM...");
-        let response1 = Provider::send(
-            provider_config(),
-            events.clone(), config.clone()).await;
+        let response1 = Provider::send(provider_config(), events.clone(), config.clone()).await;
         let tool_request = match response1 {
             Ok(response) => {
                 events.push(Event::Response(response.clone()));
@@ -317,9 +312,7 @@ impl LlmTest for LlmTestImpl {
                 })]));
             }
 
-            let response2 = Provider::send(
-            provider_config(),
-            events, config).await;
+            let response2 = Provider::send(provider_config(), events, config).await;
 
             match response2 {
                 Ok(response) => {
@@ -755,9 +748,7 @@ impl LlmTest for LlmTestImpl {
             )],
         })];
 
-        let stream = Provider::stream(
-            provider_config(),
-            events.clone(), config.clone()).await;
+        let stream = Provider::stream(provider_config(), events.clone(), config.clone()).await;
 
         let mut result = String::new();
 
@@ -779,9 +770,7 @@ impl LlmTest for LlmTestImpl {
 
         println!("Message: {events:?}");
 
-        let stream = Provider::stream(
-            provider_config(),
-            events, config).await;
+        let stream = Provider::stream(provider_config(), events, config).await;
 
         let mut result = String::new();
 

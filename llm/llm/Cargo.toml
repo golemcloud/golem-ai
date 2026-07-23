@@ -26,5 +26,3 @@ wasi-logger = "0.1.2"
 [features]
 default = ["golem"]
 golem = ["dep:golem-rust", "golem-rust/durability", "golem-rust/export_golem_agentic"]
-# Temporary compatibility for llm/bedrock; P3 streaming no longer polls.
-nopoll = []

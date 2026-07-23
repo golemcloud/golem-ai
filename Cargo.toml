@@ -71,14 +71,12 @@ golem-ai-vector = { path = "vector/vector", version = "0.0.0", default-features 
 golem-ai-embed = { path = "embed/embed", version = "0.0.0", default-features = false}
 futures = "0.3.31"
 golem-rust = { path = "../golem/sdks/rust/golem-rust", version = "=0.0.0" }
-golem-wasi-http = { version = "0.2.0", features = ["json"] }
 log = { version = "0.4.29", features = ["kv"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0.145" }
 wasi = "=0.14.7+wasi-0.2.4"
 wstd = "=0.6.5"
 wit-bindgen = "=0.53.1"
-wasip2 = "1.0.2"
 wasip3 = { version = "=0.7.0", features = ["http-compat"] }
 base64 = { version = "0.22.1" }
 mime_guess = { version = "2.0.5" }
