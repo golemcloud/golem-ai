@@ -1,6 +1,7 @@
 use golem_ai_search::model::*;
 use golem_ai_search::SearchProvider;
 use golem_rust::{agent_definition, agent_implementation};
+use std::time::Duration;
 
 #[cfg(feature = "algolia")]
 type Provider = golem_ai_search_algolia::DurableAlgolia;
@@ -129,13 +130,18 @@ fn needs_explicit_index_creation() -> bool {
         || TEST_INDEX == "test-opensearch-index"
 }
 
-fn maybe_create_index(index_name: &str, results: &mut Vec<String>) -> Result<(), String> {
+async fn maybe_create_index(index_name: &str, results: &mut Vec<String>) -> Result<(), String> {
     if needs_explicit_index_creation() {
         println!("Setting up index: {}", index_name);
-        match Provider::create_index(provider_config(), CreateIndexOptions {
-            index_name: index_name.to_string(),
-            schema: Some(create_test_schema()),
-        }) {
+        match Provider::create_index(
+            provider_config(),
+            CreateIndexOptions {
+                index_name: index_name.to_string(),
+                schema: Some(create_test_schema()),
+            },
+        )
+        .await
+        {
             Ok(_) => {
                 results.push("✓ Index created successfully".to_string());
                 Ok(())
@@ -148,16 +154,21 @@ fn maybe_create_index(index_name: &str, results: &mut Vec<String>) -> Result<(),
     }
 }
 
+async fn sleep(duration: Duration) {
+    let nanoseconds = u64::try_from(duration.as_nanos()).unwrap_or(u64::MAX);
+    wasip3::clocks::monotonic_clock::wait_for(nanoseconds).await;
+}
+
 #[agent_definition]
 pub trait SearchTest {
     fn new(name: String) -> Self;
-    fn test1(&self) -> String;
-    fn test2(&self) -> String;
-    fn test3(&self) -> String;
-    fn test4(&self) -> String;
-    fn test5(&self) -> String;
-    fn test6(&self) -> String;
-    fn test7(&self) -> String;
+    async fn test1(&self) -> String;
+    async fn test2(&self) -> String;
+    async fn test3(&self) -> String;
+    async fn test4(&self) -> String;
+    async fn test5(&self) -> String;
+    async fn test6(&self) -> String;
+    async fn test7(&self) -> String;
 }
 
 struct SearchTestImpl {
@@ -170,16 +181,18 @@ impl SearchTest for SearchTestImpl {
         Self { _name: name }
     }
 
-    fn test1(&self) -> String {
+    async fn test1(&self) -> String {
         let index_name = format!("{}-test1", TEST_INDEX);
         let mut results = Vec::new();
 
-        if let Err(e) = maybe_create_index(&index_name, &mut results) {
+        if let Err(e) = maybe_create_index(&index_name, &mut results).await {
             return e;
         }
 
         println!("Setting up index : {}", index_name);
-        match Provider::update_schema(provider_config(), index_name.clone(), create_test_schema()) {
+        match Provider::update_schema(provider_config(), index_name.clone(), create_test_schema())
+            .await
+        {
             Ok(_) => results.push("✓ Index schema configured successfully".to_string()),
             Err(SearchError::Unsupported) => {
                 results.push("✓ Schema configuration not required (auto-detected)".to_string())
@@ -191,7 +204,7 @@ impl SearchTest for SearchTestImpl {
 
         let docs = create_test_documents();
         println!("Inserting {} documents", docs.len());
-        match Provider::upsert_many(provider_config(), index_name.clone(), docs) {
+        match Provider::upsert_many(provider_config(), index_name.clone(), docs).await {
             Ok(_) => results.push("✓ Documents inserted successfull".to_string()),
             Err(e) => {
                 results.push(format!("✗ Document insertion failed: {:?}", e));
@@ -202,7 +215,7 @@ impl SearchTest for SearchTestImpl {
         println!("Retrieving document with ID: doc1");
         let mut retrieval_success = false;
         for attempt in 1..=5 {
-            match Provider::get(provider_config(), index_name.clone(), "doc1".to_string()) {
+            match Provider::get(provider_config(), index_name.clone(), "doc1".to_string()).await {
                 Ok(Some(doc)) => {
                     results.push(format!(
                         "✓ Document retrieved: {} (attempt {})",
@@ -216,7 +229,7 @@ impl SearchTest for SearchTestImpl {
                         results.push("✗ Document not found after 5 attempts".to_string());
                     } else {
                         println!("Document not found, retrying... (attempt {}/5)", attempt);
-                        std::thread::sleep(std::time::Duration::from_millis(1000));
+                        sleep(Duration::from_millis(1000)).await;
                     }
                 }
                 Err(e) => {
@@ -228,12 +241,19 @@ impl SearchTest for SearchTestImpl {
 
         if retrieval_success {
             println!("Deleting document with ID: doc1");
-            match Provider::delete(provider_config(), index_name.clone(), "doc1".to_string()) {
+            match Provider::delete(provider_config(), index_name.clone(), "doc1".to_string()).await
+            {
                 Ok(_) => {
                     results.push("✓ Document deleted successfully".to_string());
 
                     for attempt in 1..=5 {
-                        match Provider::get(provider_config(), index_name.clone(), "doc1".to_string()) {
+                        match Provider::get(
+                            provider_config(),
+                            index_name.clone(),
+                            "doc1".to_string(),
+                        )
+                        .await
+                        {
                             Ok(None) | Err(_) => {
                                 results.push(format!(
                                     "✓ Document deletion verified (attempt {})",
@@ -246,7 +266,7 @@ impl SearchTest for SearchTestImpl {
                                     results
                                         .push("⚠ Document still exists after deletion".to_string());
                                 } else {
-                                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                                    sleep(Duration::from_millis(1000)).await;
                                 }
                             }
                         }
@@ -257,20 +277,24 @@ impl SearchTest for SearchTestImpl {
         }
 
         println!("Deleting index: {}", index_name);
-        match Provider::delete_index(provider_config(), index_name.clone()) {
+        match Provider::delete_index(provider_config(), index_name.clone()).await {
             Ok(_) => results.push("✓ Index deleted successfully".to_string()),
             Err(e) => results.push(format!("✗ Index deletion failed: {:?}", e)),
         }
 
-        Provider::delete_index(provider_config(), index_name).ok();
+        Provider::delete_index(provider_config(), index_name)
+            .await
+            .ok();
         results.join("\n")
     }
 
-    fn test2(&self) -> String {
+    async fn test2(&self) -> String {
         let index_name = format!("{}-test2", TEST_INDEX);
         let mut results = Vec::new();
 
-        match Provider::update_schema(provider_config(), index_name.clone(), create_test_schema()) {
+        match Provider::update_schema(provider_config(), index_name.clone(), create_test_schema())
+            .await
+        {
             Ok(_) => {}
             Err(SearchError::Unsupported) => {
                 println!("Schema setup not required (auto-detected on first document)");
@@ -281,8 +305,10 @@ impl SearchTest for SearchTestImpl {
         }
 
         let docs = create_test_documents();
-        if let Err(e) = Provider::upsert_many(provider_config(), index_name.clone(), docs) {
-            Provider::delete_index(provider_config(), index_name).ok();
+        if let Err(e) = Provider::upsert_many(provider_config(), index_name.clone(), docs).await {
+            Provider::delete_index(provider_config(), index_name)
+                .await
+                .ok();
             return format!("Document insertion failed: {:?}", e);
         }
 
@@ -301,7 +327,7 @@ impl SearchTest for SearchTestImpl {
 
         let mut _search_success = false;
         for attempt in 1..=10 {
-            match Provider::search(provider_config(), index_name.clone(), query.clone()) {
+            match Provider::search(provider_config(), index_name.clone(), query.clone()).await {
                 Ok(search_results) if !search_results.hits.is_empty() => {
                     results.push(format!(
                         "✓ Search returned {} hits (attempt {})",
@@ -325,7 +351,7 @@ impl SearchTest for SearchTestImpl {
                             "Search returned no hits, retrying... (attempt {}/10)",
                             attempt
                         );
-                        std::thread::sleep(std::time::Duration::from_millis(1000));
+                        sleep(Duration::from_millis(1000)).await;
                     }
                 }
                 Err(e) => {
@@ -360,7 +386,7 @@ impl SearchTest for SearchTestImpl {
                 config: None,
             };
 
-            match Provider::search(provider_config(), index_name.clone(), filtered_query) {
+            match Provider::search(provider_config(), index_name.clone(), filtered_query).await {
                 Ok(search_results) => {
                     results.push(format!(
                         "✓ Filtered search returned {} hits (syntax: {})",
@@ -405,7 +431,7 @@ impl SearchTest for SearchTestImpl {
                 config: None,
             };
 
-            match Provider::search(provider_config(), index_name.clone(), fallback_query) {
+            match Provider::search(provider_config(), index_name.clone(), fallback_query).await {
                 Ok(search_results) => {
                     results.push(format!(
                         "✓ Fallback text search for 'fiction' returned {} hits",
@@ -416,27 +442,33 @@ impl SearchTest for SearchTestImpl {
             }
         }
 
-        Provider::delete_index(provider_config(), index_name).ok();
+        Provider::delete_index(provider_config(), index_name)
+            .await
+            .ok();
         results.join("\n")
     }
 
-    fn test3(&self) -> String {
+    async fn test3(&self) -> String {
         let index_name = format!("{}-test3", TEST_INDEX);
         let mut results = Vec::new();
 
-        if let Err(e) = maybe_create_index(&index_name, &mut results) {
+        if let Err(e) = maybe_create_index(&index_name, &mut results).await {
             return e;
         }
 
-        match Provider::update_schema(provider_config(), index_name.clone(), create_test_schema()) {
+        match Provider::update_schema(provider_config(), index_name.clone(), create_test_schema())
+            .await
+        {
             Ok(_) => {}
             Err(SearchError::Unsupported) => {}
             Err(_) => {}
         }
 
         let docs = create_test_documents();
-        if let Err(e) = Provider::upsert_many(provider_config(), index_name.clone(), docs) {
-            Provider::delete_index(provider_config(), index_name).ok();
+        if let Err(e) = Provider::upsert_many(provider_config(), index_name.clone(), docs).await {
+            Provider::delete_index(provider_config(), index_name)
+                .await
+                .ok();
             return format!("Document insertion failed: {:?}", e);
         }
 
@@ -453,7 +485,7 @@ impl SearchTest for SearchTestImpl {
             config: None,
         };
 
-        match Provider::search(provider_config(), index_name.clone(), sorted_query) {
+        match Provider::search(provider_config(), index_name.clone(), sorted_query).await {
             Ok(search_results) => {
                 results.push(format!(
                     "✓ Sorted search returned {} hits",
@@ -480,7 +512,7 @@ impl SearchTest for SearchTestImpl {
             config: None,
         };
 
-        match Provider::search(provider_config(), index_name.clone(), paginated_query) {
+        match Provider::search(provider_config(), index_name.clone(), paginated_query).await {
             Ok(search_results) => {
                 results.push(format!(
                     "✓ Paginated search returned {} hits",
@@ -496,27 +528,33 @@ impl SearchTest for SearchTestImpl {
             Err(e) => results.push(format!("✗ Paginated search failed: {:?}", e)),
         }
 
-        Provider::delete_index(provider_config(), index_name).ok();
+        Provider::delete_index(provider_config(), index_name)
+            .await
+            .ok();
         results.join("\n")
     }
 
-    fn test4(&self) -> String {
+    async fn test4(&self) -> String {
         let index_name = format!("{}-test4th", TEST_INDEX);
         let mut results = Vec::new();
 
-        if let Err(e) = maybe_create_index(&index_name, &mut results) {
+        if let Err(e) = maybe_create_index(&index_name, &mut results).await {
             return e;
         }
 
-        match Provider::update_schema(provider_config(), index_name.clone(), create_test_schema()) {
+        match Provider::update_schema(provider_config(), index_name.clone(), create_test_schema())
+            .await
+        {
             Ok(_) => {}
             Err(SearchError::Unsupported) => {}
             Err(_) => {}
         }
 
         let docs = create_test_documents();
-        if let Err(e) = Provider::upsert_many(provider_config(), index_name.clone(), docs) {
-            Provider::delete_index(provider_config(), index_name).ok();
+        if let Err(e) = Provider::upsert_many(provider_config(), index_name.clone(), docs).await {
+            Provider::delete_index(provider_config(), index_name)
+                .await
+                .ok();
             return format!("Document insertion failed: {:?}", e);
         }
 
@@ -538,7 +576,7 @@ impl SearchTest for SearchTestImpl {
             config: None,
         };
 
-        match Provider::search(provider_config(), index_name.clone(), highlight_query) {
+        match Provider::search(provider_config(), index_name.clone(), highlight_query).await {
             Ok(search_results) => {
                 results.push(format!(
                     "✓ Highlighted search returned {} hits",
@@ -565,21 +603,29 @@ impl SearchTest for SearchTestImpl {
             Err(e) => results.push(format!("✗ Highlighted search failed: {:?}", e)),
         }
 
-        Provider::delete_index(provider_config(), index_name).ok();
+        Provider::delete_index(provider_config(), index_name)
+            .await
+            .ok();
         results.join("\n")
     }
 
-    fn test5(&self) -> String {
+    async fn test5(&self) -> String {
         let index_name = format!("{}-test5", TEST_INDEX);
         let mut results = Vec::new();
 
-        if let Err(e) = maybe_create_index(&index_name, &mut results) {
+        if let Err(e) = maybe_create_index(&index_name, &mut results).await {
             return e;
         }
 
         println!("Setting up index with predefined schema");
         let original_schema = create_test_schema();
-        match Provider::update_schema(provider_config(), index_name.clone(), original_schema.clone()) {
+        match Provider::update_schema(
+            provider_config(),
+            index_name.clone(),
+            original_schema.clone(),
+        )
+        .await
+        {
             Ok(_) => results.push("✓ Index schema configured successfully".to_string()),
             Err(SearchError::Unsupported) => {
                 results.push(
@@ -587,7 +633,9 @@ impl SearchTest for SearchTestImpl {
                         .to_string(),
                 );
                 let test_docs = vec![create_test_documents().into_iter().next().unwrap()];
-                if let Err(e) = Provider::upsert_many(provider_config(), index_name.clone(), test_docs) {
+                if let Err(e) =
+                    Provider::upsert_many(provider_config(), index_name.clone(), test_docs).await
+                {
                     return format!("Document insertion failed: {:?}", e);
                 }
             }
@@ -598,14 +646,16 @@ impl SearchTest for SearchTestImpl {
                 ));
 
                 let test_docs = vec![create_test_documents().into_iter().next().unwrap()];
-                if let Err(e) = Provider::upsert_many(provider_config(), index_name.clone(), test_docs) {
+                if let Err(e) =
+                    Provider::upsert_many(provider_config(), index_name.clone(), test_docs).await
+                {
                     return format!("Document insertion failed: {:?}", e);
                 }
             }
         }
 
         println!("Retrieving index schema");
-        match Provider::get_schema(provider_config(), index_name.clone()) {
+        match Provider::get_schema(provider_config(), index_name.clone()).await {
             Ok(retrieved_schema) => {
                 results.push("✓ Schema retrieved successfully".to_string());
                 results.push(format!("  Fields count: {}", retrieved_schema.fields.len()));
@@ -637,7 +687,7 @@ impl SearchTest for SearchTestImpl {
             index: true,
         });
 
-        match Provider::update_schema(provider_config(), index_name.clone(), updated_schema) {
+        match Provider::update_schema(provider_config(), index_name.clone(), updated_schema).await {
             Ok(_) => results.push("✓ Schema updated successfully".to_string()),
             Err(SearchError::Unsupported) => {
                 results.push("  ⚠ Schema updates not supported by this provider".to_string())
@@ -645,19 +695,23 @@ impl SearchTest for SearchTestImpl {
             Err(e) => results.push(format!("✗ Schema update failed: {:?}", e)),
         }
 
-        Provider::delete_index(provider_config(), index_name).ok();
+        Provider::delete_index(provider_config(), index_name)
+            .await
+            .ok();
         results.join("\n")
     }
 
-    fn test6(&self) -> String {
+    async fn test6(&self) -> String {
         let index_name = format!("{}-test6", TEST_INDEX);
         let mut results = Vec::new();
 
-        if let Err(e) = maybe_create_index(&index_name, &mut results) {
+        if let Err(e) = maybe_create_index(&index_name, &mut results).await {
             return e;
         }
 
-        match Provider::update_schema(provider_config(), index_name.clone(), create_test_schema()) {
+        match Provider::update_schema(provider_config(), index_name.clone(), create_test_schema())
+            .await
+        {
             Ok(_) => {}
             Err(SearchError::Unsupported) => {}
             Err(_) => {}
@@ -671,8 +725,10 @@ impl SearchTest for SearchTestImpl {
             });
         }
 
-        if let Err(e) = Provider::upsert_many(provider_config(), index_name.clone(), docs) {
-            Provider::delete_index(provider_config(), index_name).ok();
+        if let Err(e) = Provider::upsert_many(provider_config(), index_name.clone(), docs).await {
+            Provider::delete_index(provider_config(), index_name)
+                .await
+                .ok();
             return format!("Document insertion failed: {:?}", e);
         }
 
@@ -689,7 +745,9 @@ impl SearchTest for SearchTestImpl {
             config: None,
         };
 
-        match Provider::stream_search(provider_config(), index_name.clone(), stream_query.clone()) {
+        match Provider::stream_search(provider_config(), index_name.clone(), stream_query.clone())
+            .await
+        {
             Ok(stream) => {
                 results.push("✓ Search stream created successfully".to_string());
 
@@ -697,7 +755,9 @@ impl SearchTest for SearchTestImpl {
                 let mut batch_count = 0;
 
                 for _ in 0..5 {
-                    let hits = stream.blocking_get_next();
+                    let Some(hits) = stream.get_next().await else {
+                        break;
+                    };
                     if hits.is_empty() {
                         break;
                     }
@@ -715,7 +775,7 @@ impl SearchTest for SearchTestImpl {
             Err(SearchError::Unsupported) => {
                 results.push("⚠ Streaming search not supported by this provider".to_string());
 
-                match Provider::search(provider_config(), index_name.clone(), stream_query) {
+                match Provider::search(provider_config(), index_name.clone(), stream_query).await {
                     Ok(search_results) => {
                         results.push(format!(
                             "  Fallback: Regular search returned {} hits",
@@ -728,11 +788,13 @@ impl SearchTest for SearchTestImpl {
             Err(e) => results.push(format!("✗ Streaming search failed: {:?}", e)),
         }
 
-        Provider::delete_index(provider_config(), index_name).ok();
+        Provider::delete_index(provider_config(), index_name)
+            .await
+            .ok();
         results.join("\n")
     }
 
-    fn test7(&self) -> String {
+    async fn test7(&self) -> String {
         let mut results = Vec::new();
 
         results.push("=== Testing Unsupported Operations ===".to_string());
@@ -742,10 +804,15 @@ impl SearchTest for SearchTestImpl {
 
         if needs_explicit_index_creation() {
             println!("Setting up index: {}", test_index);
-            match Provider::create_index(provider_config(), CreateIndexOptions {
-                index_name: test_index.clone(),
-                schema: Some(create_test_schema()),
-            }) {
+            match Provider::create_index(
+                provider_config(),
+                CreateIndexOptions {
+                    index_name: test_index.clone(),
+                    schema: Some(create_test_schema()),
+                },
+            )
+            .await
+            {
                 Ok(_) => results.push("✓ Index created successfully".to_string()),
                 Err(e) => return format!("✗ Index creation failed: {:?}", e),
             }
@@ -753,7 +820,7 @@ impl SearchTest for SearchTestImpl {
             println!("Setting up index: {}", test_index);
         }
 
-        match Provider::update_schema(provider_config(), test_index.clone(), schema.clone()) {
+        match Provider::update_schema(provider_config(), test_index.clone(), schema.clone()).await {
             Ok(()) => results.push("✓ Schema update supported and successful".to_string()),
             Err(SearchError::Unsupported) => {
                 results.push("✓ Schema update gracefully reports as unsupported".to_string())
@@ -778,7 +845,13 @@ impl SearchTest for SearchTestImpl {
             config: None,
         };
 
-        match Provider::search(provider_config(), test_index.clone(), advanced_query.clone()) {
+        match Provider::search(
+            provider_config(),
+            test_index.clone(),
+            advanced_query.clone(),
+        )
+        .await
+        {
             Ok(_) => results.push("✓ Advanced search features supported".to_string()),
             Err(SearchError::Unsupported) => {
                 results.push("✓ Advanced search gracefully reports as unsupported".to_string())
@@ -789,7 +862,7 @@ impl SearchTest for SearchTestImpl {
             Err(e) => results.push(format!("⚠ Advanced search failed: {:?}", e)),
         }
 
-        match Provider::stream_search(provider_config(), test_index.clone(), advanced_query) {
+        match Provider::stream_search(provider_config(), test_index.clone(), advanced_query).await {
             Ok(_) => results.push("✓ Streaming search supported".to_string()),
             Err(SearchError::Unsupported) => {
                 results.push("✓ Streaming search gracefully reports as unsupported".to_string())
@@ -807,7 +880,7 @@ impl SearchTest for SearchTestImpl {
             content: r#"{"invalid": json, "malformed": true"#.to_string(),
         };
 
-        match Provider::upsert(provider_config(), test_index.clone(), invalid_doc) {
+        match Provider::upsert(provider_config(), test_index.clone(), invalid_doc).await {
             Ok(()) => results.push("⚠ Invalid JSON was accepted (lenient validation)".to_string()),
             Err(SearchError::InvalidQuery(msg)) => {
                 results.push(format!("✓ Invalid JSON rejected: {}", msg))
@@ -827,7 +900,7 @@ impl SearchTest for SearchTestImpl {
             config: None,
         };
 
-        match Provider::search(provider_config(), test_index.clone(), invalid_query) {
+        match Provider::search(provider_config(), test_index.clone(), invalid_query).await {
             Ok(_) => results.push("⚠ Invalid query was accepted (lenient parsing)".to_string()),
             Err(SearchError::InvalidQuery(msg)) => {
                 results.push(format!("✓ Invalid query rejected: {}", msg))
@@ -842,7 +915,13 @@ impl SearchTest for SearchTestImpl {
 
         let nonexistent_index = "definitely-does-not-exist-12345".to_string();
 
-        match Provider::get(provider_config(), nonexistent_index.clone(), "any-id".to_string()) {
+        match Provider::get(
+            provider_config(),
+            nonexistent_index.clone(),
+            "any-id".to_string(),
+        )
+        .await
+        {
             Ok(None) => results.push("✓ Non-existent document properly returns None".to_string()),
             Err(SearchError::IndexNotFound) => {
                 results.push("✓ Non-existent index properly reports IndexNotFound".to_string())
@@ -853,7 +932,13 @@ impl SearchTest for SearchTestImpl {
             }
         }
 
-        match Provider::delete(provider_config(), nonexistent_index.clone(), "non-existent-doc".to_string()) {
+        match Provider::delete(
+            provider_config(),
+            nonexistent_index.clone(),
+            "non-existent-doc".to_string(),
+        )
+        .await
+        {
             Ok(()) => {
                 results.push("✓ Deleting non-existent document succeeds (idempotent)".to_string())
             }
@@ -863,7 +948,7 @@ impl SearchTest for SearchTestImpl {
             Err(e) => results.push(format!("✓ Delete non-existent handled: {:?}", e)),
         }
 
-        match Provider::get_schema(provider_config(), nonexistent_index.clone()) {
+        match Provider::get_schema(provider_config(), nonexistent_index.clone()).await {
             Ok(_) => results.push("⚠ Schema retrieved from non-existent index".to_string()),
             Err(SearchError::IndexNotFound) => {
                 results.push("✓ Schema request properly reports IndexNotFound".to_string())
@@ -881,7 +966,7 @@ impl SearchTest for SearchTestImpl {
             content: "{}".to_string(),
         };
 
-        match Provider::upsert(provider_config(), test_index.clone(), empty_doc) {
+        match Provider::upsert(provider_config(), test_index.clone(), empty_doc).await {
             Ok(()) => results.push("✓ Empty document accepted".to_string()),
             Err(e) => results.push(format!("✓ Empty document handled: {:?}", e)),
         }
@@ -891,7 +976,7 @@ impl SearchTest for SearchTestImpl {
             content: r#"{"test": "value"}"#.to_string(),
         };
 
-        match Provider::upsert(provider_config(), test_index.clone(), long_id_doc) {
+        match Provider::upsert(provider_config(), test_index.clone(), long_id_doc).await {
             Ok(()) => results.push("✓ Long document ID accepted".to_string()),
             Err(SearchError::InvalidQuery(msg)) => {
                 results.push(format!("✓ Long ID rejected: {}", msg))
@@ -911,7 +996,7 @@ impl SearchTest for SearchTestImpl {
             config: None,
         };
 
-        match Provider::search(provider_config(), test_index.clone(), empty_query) {
+        match Provider::search(provider_config(), test_index.clone(), empty_query).await {
             Ok(results_obj) => results.push(format!(
                 "✓ Empty query executed, returned {} hits",
                 results_obj.hits.len()
@@ -925,18 +1010,27 @@ impl SearchTest for SearchTestImpl {
         results.push("\n=== Testing Error Consistency ===".to_string());
 
         let ops_results = vec![
-            ("list_indexes", Provider::list_indexes(provider_config()).is_ok()),
+            (
+                "list_indexes",
+                Provider::list_indexes(provider_config()).await.is_ok(),
+            ),
             (
                 "create_index",
-                Provider::create_index(provider_config(), CreateIndexOptions {
-                    index_name: "test-create".to_string(),
-                    schema: Some(schema.clone()),
-                })
+                Provider::create_index(
+                    provider_config(),
+                    CreateIndexOptions {
+                        index_name: "test-create".to_string(),
+                        schema: Some(schema.clone()),
+                    },
+                )
+                .await
                 .is_ok(),
             ),
             (
                 "delete_index",
-                Provider::delete_index(provider_config(), "non-existent".to_string()).is_ok(),
+                Provider::delete_index(provider_config(), "non-existent".to_string())
+                    .await
+                    .is_ok(),
             ),
         ];
 
@@ -959,7 +1053,7 @@ impl SearchTest for SearchTestImpl {
                 content: format!(r#"{{"value": {}, "test": "stress"}}"#, i),
             };
 
-            match Provider::upsert(provider_config(), stress_index.clone(), doc) {
+            match Provider::upsert(provider_config(), stress_index.clone(), doc).await {
                 Ok(()) => stress_results.push(true),
                 Err(_) => stress_results.push(false),
             }
@@ -972,9 +1066,9 @@ impl SearchTest for SearchTestImpl {
             stress_results.len()
         ));
 
-        let _ = Provider::delete_index(provider_config(), test_index);
-        let _ = Provider::delete_index(provider_config(), stress_index);
-        let _ = Provider::delete_index(provider_config(), "test-create".to_string());
+        let _ = Provider::delete_index(provider_config(), test_index).await;
+        let _ = Provider::delete_index(provider_config(), stress_index).await;
+        let _ = Provider::delete_index(provider_config(), "test-create".to_string()).await;
 
         results.push("\n=== Error Handling Test Complete ===".to_string());
         results.join("\n")
