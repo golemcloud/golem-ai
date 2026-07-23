@@ -1,9 +1,9 @@
+use golem_ai_http::header::ACCEPT;
+use golem_ai_http::{Client, HeaderValue, Method, Response};
 use golem_ai_llm::config::SecretSource;
 use golem_ai_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
 use golem_ai_llm::event_source::EventSource;
 use golem_ai_llm::model::{Error, ErrorCode};
-use golem_wasi_http::header::HeaderValue;
-use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ impl ResponsesApi {
         }
     }
 
-    pub fn create_model_response(
+    pub async fn create_model_response(
         &self,
         request: CreateModelResponseRequest,
     ) -> Result<CreateModelResponseResponse, Error> {
@@ -58,12 +58,13 @@ impl ResponsesApi {
             .bearer_auth(&api_key)
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn stream_model_response(
+    pub async fn stream_model_response(
         &self,
         request: CreateModelResponseRequest,
     ) -> Result<EventSource, Error> {
@@ -79,12 +80,10 @@ impl ResponsesApi {
             .client
             .request(Method::POST, format!("{}/responses", self.openai_base_url))
             .bearer_auth(&api_key)
-            .header(
-                golem_wasi_http::header::ACCEPT,
-                HeaderValue::from_static("text/event-stream"),
-            )
+            .header(ACCEPT, HeaderValue::from_static("text/event-stream"))
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
         trace!("Initializing SSE stream");
@@ -302,11 +301,12 @@ pub struct ResponseOutputItemDone {
     pub output_index: u32,
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {
     let status = response.status();
     if status.is_success() {
         let body_text = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive response body", err))?;
 
         let body = serde_json::from_str::<T>(&body_text).map_err(|err| Error {
@@ -321,6 +321,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     } else {
         let body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         trace!("Received {status} response from OpenAI API: {body:?}");
