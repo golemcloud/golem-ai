@@ -2007,14 +2007,13 @@ dependencies = [
 name = "golem-ai-search"
 version = "0.5.2"
 dependencies = [
+ "golem-ai-http",
  "golem-rust",
- "golem-wasi-http",
  "log 0.4.29",
  "mime 0.3.17",
  "nom",
  "thiserror 2.0.18",
  "wasi-logger",
- "wasip2",
 ]
 
 [[package]]

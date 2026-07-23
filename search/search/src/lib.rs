@@ -2,22 +2,25 @@ pub mod config;
 pub mod durability;
 pub mod error;
 pub mod model;
-pub mod wasi_compat;
 
 use crate::model::{
     CreateIndexOptions, Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery,
     SearchResults, SearchStream,
 };
 use std::cell::RefCell;
+use std::future::Future;
+use std::pin::Pin;
 use std::str::FromStr;
+
+pub type SearchFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 pub trait SearchStreamInterface: 'static {
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
-    fn get_next(&self) -> Option<Vec<SearchHit>>;
-    fn blocking_get_next(&self) -> Vec<SearchHit>;
+    fn get_next(&self) -> SearchFuture<'_, Option<Vec<SearchHit>>>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait SearchProvider {
     type SearchStream: SearchStreamInterface;
 
@@ -27,55 +30,57 @@ pub trait SearchProvider {
     /// `golem_ai_search_algolia::AlgoliaConfig`.
     type ProviderConfig: Clone + 'static;
 
-    fn create_index(
+    async fn create_index(
         provider_config: Self::ProviderConfig,
         options: CreateIndexOptions,
     ) -> Result<(), SearchError>;
-    fn delete_index(
+    async fn delete_index(
         provider_config: Self::ProviderConfig,
         name: IndexName,
     ) -> Result<(), SearchError>;
-    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError>;
-    fn upsert(
+    async fn list_indexes(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<IndexName>, SearchError>;
+    async fn upsert(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         doc: Doc,
     ) -> Result<(), SearchError>;
-    fn upsert_many(
+    async fn upsert_many(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         docs: Vec<Doc>,
     ) -> Result<(), SearchError>;
-    fn delete(
+    async fn delete(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         id: DocumentId,
     ) -> Result<(), SearchError>;
-    fn delete_many(
+    async fn delete_many(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         ids: Vec<DocumentId>,
     ) -> Result<(), SearchError>;
-    fn get(
+    async fn get(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         id: DocumentId,
     ) -> Result<Option<Doc>, SearchError>;
-    fn search(
+    async fn search(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
     ) -> Result<SearchResults, SearchError>;
-    fn stream_search(
+    async fn stream_search(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
     ) -> Result<SearchStream, SearchError>;
-    fn get_schema(
+    async fn get_schema(
         provider_config: Self::ProviderConfig,
         index: IndexName,
     ) -> Result<Schema, SearchError>;
-    fn update_schema(
+    async fn update_schema(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         schema: Schema,

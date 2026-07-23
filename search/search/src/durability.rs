@@ -1,5 +1,4 @@
 use crate::model::{IndexName, SearchHit, SearchQuery};
-use crate::wasi_compat::Pollable;
 use crate::SearchProvider;
 use std::marker::PhantomData;
 
@@ -7,38 +6,28 @@ pub struct DurableSearch<Impl> {
     phantom: PhantomData<Impl>,
 }
 
+#[allow(async_fn_in_trait)]
 pub trait ExtendedSearchProvider: SearchProvider + 'static {
-    fn unwrapped_stream(
+    async fn unwrapped_stream(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
     ) -> Self::SearchStream;
 
-    /// Creates the retry query with the original query and any partial results received.
-    /// There is a default implementation here, but it can be overridden with provider-specific
-    /// queries if needed.
     fn retry_query(original_query: &SearchQuery, partial_hits: &[SearchHit]) -> SearchQuery {
         let mut retry_query = original_query.clone();
-
-        // If we have partial results, we might want to exclude already seen document IDs
-        // or adjust pagination to continue from where we left off
         if !partial_hits.is_empty() {
-            let current_offset = original_query.offset.unwrap_or(0);
-            let received_count = partial_hits.len() as u32;
-            retry_query.offset = Some(current_offset + received_count);
+            retry_query.offset = Some(
+                original_query.offset.unwrap_or(0) + u32::try_from(partial_hits.len()).unwrap(),
+            );
         }
-
         retry_query
     }
-
-    fn subscribe(stream: &Self::SearchStream) -> Pollable;
 }
 
-/// When the durability feature flag is off, `DurableSearch<Impl>` is a transparent wrapper that
-/// forwards every call to the inner provider without any oplog persistence.
 #[cfg(not(feature = "golem"))]
 mod passthrough_impl {
-    use crate::durability::{DurableSearch, ExtendedSearchProvider};
+    use super::{DurableSearch, ExtendedSearchProvider};
     use crate::init_logging;
     use crate::model::{
         CreateIndexOptions, Doc, DocumentId, IndexName, Schema, SearchError, SearchQuery,
@@ -50,203 +39,183 @@ mod passthrough_impl {
         type SearchStream = Impl::SearchStream;
         type ProviderConfig = Impl::ProviderConfig;
 
-        fn create_index(
-            provider_config: Self::ProviderConfig,
-            options: CreateIndexOptions,
+        async fn create_index(
+            c: Self::ProviderConfig,
+            o: CreateIndexOptions,
         ) -> Result<(), SearchError> {
             init_logging();
-            Impl::create_index(provider_config, options)
+            Impl::create_index(c, o).await
         }
-
-        fn delete_index(
-            provider_config: Self::ProviderConfig,
-            name: IndexName,
-        ) -> Result<(), SearchError> {
+        async fn delete_index(c: Self::ProviderConfig, name: IndexName) -> Result<(), SearchError> {
             init_logging();
-            Impl::delete_index(provider_config, name)
+            Impl::delete_index(c, name).await
         }
-
-        fn list_indexes(
-            provider_config: Self::ProviderConfig,
-        ) -> Result<Vec<IndexName>, SearchError> {
+        async fn list_indexes(c: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
             init_logging();
-            Impl::list_indexes(provider_config)
+            Impl::list_indexes(c).await
         }
-
-        fn upsert(
-            provider_config: Self::ProviderConfig,
+        async fn upsert(
+            c: Self::ProviderConfig,
             index: IndexName,
             doc: Doc,
         ) -> Result<(), SearchError> {
             init_logging();
-            Impl::upsert(provider_config, index, doc)
+            Impl::upsert(c, index, doc).await
         }
-
-        fn upsert_many(
-            provider_config: Self::ProviderConfig,
+        async fn upsert_many(
+            c: Self::ProviderConfig,
             index: IndexName,
             docs: Vec<Doc>,
         ) -> Result<(), SearchError> {
             init_logging();
-            Impl::upsert_many(provider_config, index, docs)
+            Impl::upsert_many(c, index, docs).await
         }
-
-        fn delete(
-            provider_config: Self::ProviderConfig,
+        async fn delete(
+            c: Self::ProviderConfig,
             index: IndexName,
             id: DocumentId,
         ) -> Result<(), SearchError> {
             init_logging();
-            Impl::delete(provider_config, index, id)
+            Impl::delete(c, index, id).await
         }
-
-        fn delete_many(
-            provider_config: Self::ProviderConfig,
+        async fn delete_many(
+            c: Self::ProviderConfig,
             index: IndexName,
             ids: Vec<DocumentId>,
         ) -> Result<(), SearchError> {
             init_logging();
-            Impl::delete_many(provider_config, index, ids)
+            Impl::delete_many(c, index, ids).await
         }
-
-        fn get(
-            provider_config: Self::ProviderConfig,
+        async fn get(
+            c: Self::ProviderConfig,
             index: IndexName,
             id: DocumentId,
         ) -> Result<Option<Doc>, SearchError> {
             init_logging();
-            Impl::get(provider_config, index, id)
+            Impl::get(c, index, id).await
         }
-
-        fn search(
-            provider_config: Self::ProviderConfig,
+        async fn search(
+            c: Self::ProviderConfig,
             index: IndexName,
             query: SearchQuery,
         ) -> Result<SearchResults, SearchError> {
             init_logging();
-            Impl::search(provider_config, index, query)
+            Impl::search(c, index, query).await
         }
-
-        fn stream_search(
-            provider_config: Self::ProviderConfig,
+        async fn stream_search(
+            c: Self::ProviderConfig,
             index: IndexName,
             query: SearchQuery,
         ) -> Result<SearchStream, SearchError> {
             init_logging();
-            Impl::stream_search(provider_config, index, query)
+            Impl::stream_search(c, index, query).await
         }
-
-        fn get_schema(
-            provider_config: Self::ProviderConfig,
+        async fn get_schema(
+            c: Self::ProviderConfig,
             index: IndexName,
         ) -> Result<Schema, SearchError> {
             init_logging();
-            Impl::get_schema(provider_config, index)
+            Impl::get_schema(c, index).await
         }
-
-        fn update_schema(
-            provider_config: Self::ProviderConfig,
+        async fn update_schema(
+            c: Self::ProviderConfig,
             index: IndexName,
             schema: Schema,
         ) -> Result<(), SearchError> {
             init_logging();
-            Impl::update_schema(provider_config, index, schema)
+            Impl::update_schema(c, index, schema).await
         }
     }
 }
 
-/// When the durability feature flag is on, wrapping with `DurableSearch` adds custom durability
-/// on top of the provider-specific search implementation using Golem's special host functions and
-/// the `golem-rust` helper library.
-///
-/// The `provider_config` is intentionally **not** persisted in the input payloads because it
-/// can carry secrets (API keys etc.). Instead, every replay path expects the caller to supply
-/// a fresh `provider_config`. For the streaming case, the `provider_config` is captured inside
-/// the `DurableSearchStream` so that subsequent stream-continuation HTTP calls can re-resolve
-/// any contained secrets right before each request.
 #[cfg(feature = "golem")]
 mod durable_impl {
-    use crate::durability::{DurableSearch, ExtendedSearchProvider};
-    use crate::model::{CreateIndexOptions, SearchStream};
+    use super::{DurableSearch, ExtendedSearchProvider};
+    use crate::init_logging;
     use crate::model::{
-        Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
+        CreateIndexOptions, Doc, DocumentId, IndexName, Schema, SearchError, SearchHit,
+        SearchQuery, SearchResults, SearchStream,
     };
-    use crate::wasi_compat::Pollable;
-    use crate::{init_logging, SearchProvider, SearchStreamInterface};
-    use golem_rust::bindings::golem::durability::durability::{
-        DurableFunctionType, LazyInitializedPollable,
+    use crate::{SearchFuture, SearchProvider, SearchStreamInterface};
+    use golem_rust::durability::{Durability, DurableFunctionType};
+    use golem_rust::{
+        with_persistence_level, with_persistence_level_async, FromSchema, IntoSchema,
+        PersistenceLevel,
     };
-    use golem_rust::durability::Durability;
-    use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};
+    use std::rc::Rc;
 
-    #[derive(Debug, Clone, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct DeleteIndexInput {
         name: IndexName,
     }
-
-    #[derive(Debug, Clone, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct UpsertInput {
         index: IndexName,
         doc: Doc,
     }
-
-    #[derive(Debug, Clone, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct UpsertManyInput {
         index: IndexName,
         docs: Vec<Doc>,
     }
-
-    #[derive(Debug, Clone, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct DeleteInput {
         index: IndexName,
         id: DocumentId,
     }
-
-    #[derive(Debug, Clone, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct DeleteManyInput {
         index: IndexName,
         ids: Vec<DocumentId>,
     }
-
-    #[derive(Debug, Clone, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct GetInput {
         index: IndexName,
         id: DocumentId,
     }
-
-    #[derive(Debug, Clone, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct SearchInput {
         index: IndexName,
         query: SearchQuery,
     }
-
-    #[derive(Debug, Clone, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct StreamSearchInput {
         index: IndexName,
         query: SearchQuery,
     }
-
-    #[derive(Debug, Clone, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct GetSchemaInput {
         index: IndexName,
     }
-
-    #[derive(Debug, Clone, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct UpdateSchemaInput {
         index: IndexName,
         schema: Schema,
     }
-
-    #[derive(Debug, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct NoInput;
-
-    #[derive(Debug, Clone, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct NoOutput;
-
-    #[derive(Debug, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct UnusedError;
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
+    struct ListIndexesOutput {
+        names: Vec<IndexName>,
+    }
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
+    struct GetDocOutput {
+        doc: Option<Doc>,
+    }
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
+    struct SearchOutput {
+        results: SearchResults,
+    }
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
+    struct GetSchemaOutput {
+        schema: Schema,
+    }
 
     impl Display for UnusedError {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -254,370 +223,280 @@ mod durable_impl {
         }
     }
 
-    #[derive(Debug, Clone, FromValueAndType, IntoValue)]
-    struct ListIndexesOutput {
-        names: Vec<IndexName>,
-    }
-
-    #[derive(Debug, Clone, FromValueAndType, IntoValue)]
-    struct GetDocOutput {
-        doc: Option<Doc>,
-    }
-
-    #[derive(Debug, Clone, FromValueAndType, IntoValue)]
-    struct SearchOutput {
-        results: SearchResults,
-    }
-
-    #[derive(Debug, Clone, FromValueAndType, IntoValue)]
-    struct GetSchemaOutput {
-        schema: Schema,
-    }
-
     impl<Impl: ExtendedSearchProvider> SearchProvider for DurableSearch<Impl> {
         type SearchStream = DurableSearchStream<Impl>;
         type ProviderConfig = Impl::ProviderConfig;
 
-        fn create_index(
-            provider_config: Self::ProviderConfig,
+        async fn create_index(
+            c: Self::ProviderConfig,
             options: CreateIndexOptions,
         ) -> Result<(), SearchError> {
             init_logging();
-
-            let durability = Durability::<NoOutput, SearchError>::new(
+            let d = Durability::<NoOutput, SearchError>::new(
                 "golem_ai_search",
                 "create_index",
                 DurableFunctionType::WriteRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::create_index(provider_config, options.clone()).map(|()| NoOutput)
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(options, result).map(|_: NoOutput| ())
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::create_index(c, options.clone())
+                })
+                .await
+                .map(|()| NoOutput);
+                d.persist(options, r).map(|_| ())
             } else {
-                durability.replay().map(|_: NoOutput| ())
+                d.replay().map(|_: NoOutput| ())
             }
         }
-
-        fn delete_index(
-            provider_config: Self::ProviderConfig,
-            name: IndexName,
-        ) -> Result<(), SearchError> {
+        async fn delete_index(c: Self::ProviderConfig, name: IndexName) -> Result<(), SearchError> {
             init_logging();
-
-            let durability = Durability::<NoOutput, SearchError>::new(
+            let d = Durability::<NoOutput, SearchError>::new(
                 "golem_ai_search",
                 "delete_index",
                 DurableFunctionType::WriteRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_index(provider_config, name.clone()).map(|()| NoOutput)
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(DeleteIndexInput { name }, result)
-                    .map(|_: NoOutput| ())
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::delete_index(c, name.clone())
+                })
+                .await
+                .map(|()| NoOutput);
+                d.persist(DeleteIndexInput { name }, r).map(|_| ())
             } else {
-                durability.replay().map(|_: NoOutput| ())
+                d.replay().map(|_: NoOutput| ())
             }
         }
-
-        fn list_indexes(
-            provider_config: Self::ProviderConfig,
-        ) -> Result<Vec<IndexName>, SearchError> {
+        async fn list_indexes(c: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
             init_logging();
-
-            let durability = Durability::<ListIndexesOutput, SearchError>::new(
+            let d = Durability::<ListIndexesOutput, SearchError>::new(
                 "golem_ai_search",
                 "list_indexes",
                 DurableFunctionType::ReadRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::list_indexes(provider_config).map(|names| ListIndexesOutput { names })
-                });
-                durability
-                    .persist(NoInput, result)
-                    .map(|result| result.names)
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::list_indexes(c)
+                })
+                .await
+                .map(|names| ListIndexesOutput { names });
+                d.persist(NoInput, r).map(|x| x.names)
             } else {
-                durability
-                    .replay()
-                    .map(|result: ListIndexesOutput| result.names)
+                d.replay().map(|x: ListIndexesOutput| x.names)
             }
         }
-
-        fn upsert(
-            provider_config: Self::ProviderConfig,
+        async fn upsert(
+            c: Self::ProviderConfig,
             index: IndexName,
             doc: Doc,
         ) -> Result<(), SearchError> {
             init_logging();
-
-            let durability = Durability::<NoOutput, SearchError>::new(
+            let d = Durability::<NoOutput, SearchError>::new(
                 "golem_ai_search",
                 "upsert",
                 DurableFunctionType::WriteRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert(provider_config, index.clone(), doc.clone()).map(|()| NoOutput)
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(UpsertInput { index, doc }, result)
-                    .map(|_: NoOutput| ())
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::upsert(c, index.clone(), doc.clone())
+                })
+                .await
+                .map(|()| NoOutput);
+                d.persist(UpsertInput { index, doc }, r).map(|_| ())
             } else {
-                durability.replay().map(|_: NoOutput| ())
+                d.replay().map(|_: NoOutput| ())
             }
         }
-
-        fn upsert_many(
-            provider_config: Self::ProviderConfig,
+        async fn upsert_many(
+            c: Self::ProviderConfig,
             index: IndexName,
             docs: Vec<Doc>,
         ) -> Result<(), SearchError> {
             init_logging();
-
-            let durability = Durability::<NoOutput, SearchError>::new(
+            let d = Durability::<NoOutput, SearchError>::new(
                 "golem_ai_search",
                 "upsert_many",
                 DurableFunctionType::WriteRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert_many(provider_config, index.clone(), docs.clone())
-                        .map(|_| NoOutput)
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(UpsertManyInput { index, docs }, result)
-                    .map(|_: NoOutput| ())
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::upsert_many(c, index.clone(), docs.clone())
+                })
+                .await
+                .map(|()| NoOutput);
+                d.persist(UpsertManyInput { index, docs }, r).map(|_| ())
             } else {
-                durability.replay().map(|_: NoOutput| {})
+                d.replay().map(|_: NoOutput| ())
             }
         }
-
-        fn delete(
-            provider_config: Self::ProviderConfig,
+        async fn delete(
+            c: Self::ProviderConfig,
             index: IndexName,
             id: DocumentId,
         ) -> Result<(), SearchError> {
             init_logging();
-
-            let durability = Durability::<NoOutput, SearchError>::new(
+            let d = Durability::<NoOutput, SearchError>::new(
                 "golem_ai_search",
                 "delete",
                 DurableFunctionType::WriteRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete(provider_config, index.clone(), id.clone()).map(|()| NoOutput)
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(DeleteInput { index, id }, result)
-                    .map(|_: NoOutput| ())
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::delete(c, index.clone(), id.clone())
+                })
+                .await
+                .map(|()| NoOutput);
+                d.persist(DeleteInput { index, id }, r).map(|_| ())
             } else {
-                durability.replay().map(|_: NoOutput| ())
+                d.replay().map(|_: NoOutput| ())
             }
         }
-
-        fn delete_many(
-            provider_config: Self::ProviderConfig,
+        async fn delete_many(
+            c: Self::ProviderConfig,
             index: IndexName,
             ids: Vec<DocumentId>,
         ) -> Result<(), SearchError> {
             init_logging();
-
-            let durability = Durability::<NoOutput, SearchError>::new(
+            let d = Durability::<NoOutput, SearchError>::new(
                 "golem_ai_search",
                 "delete_many",
                 DurableFunctionType::WriteRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_many(provider_config, index.clone(), ids.clone()).map(|_| NoOutput)
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(DeleteManyInput { index, ids }, result)
-                    .map(|_: NoOutput| ())
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::delete_many(c, index.clone(), ids.clone())
+                })
+                .await
+                .map(|()| NoOutput);
+                d.persist(DeleteManyInput { index, ids }, r).map(|_| ())
             } else {
-                durability.replay().map(|_: NoOutput| ())
+                d.replay().map(|_: NoOutput| ())
             }
         }
-
-        fn get(
-            provider_config: Self::ProviderConfig,
+        async fn get(
+            c: Self::ProviderConfig,
             index: IndexName,
             id: DocumentId,
         ) -> Result<Option<Doc>, SearchError> {
             init_logging();
-
-            let durability = Durability::<GetDocOutput, SearchError>::new(
+            let d = Durability::<GetDocOutput, SearchError>::new(
                 "golem_ai_search",
                 "get",
                 DurableFunctionType::ReadRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get(provider_config, index.clone(), id.clone())
-                        .map(|doc| GetDocOutput { doc })
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(GetInput { index, id }, result)
-                    .map(|result| result.doc)
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::get(c, index.clone(), id.clone())
+                })
+                .await
+                .map(|doc| GetDocOutput { doc });
+                d.persist(GetInput { index, id }, r).map(|x| x.doc)
             } else {
-                durability.replay().map(|result: GetDocOutput| result.doc)
+                d.replay().map(|x: GetDocOutput| x.doc)
             }
         }
-
-        fn search(
-            provider_config: Self::ProviderConfig,
+        async fn search(
+            c: Self::ProviderConfig,
             index: IndexName,
             query: SearchQuery,
         ) -> Result<SearchResults, SearchError> {
             init_logging();
-
-            let durability = Durability::<SearchOutput, SearchError>::new(
+            let d = Durability::<SearchOutput, SearchError>::new(
                 "golem_ai_search",
                 "search",
                 DurableFunctionType::ReadRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::search(provider_config, index.clone(), query.clone())
-                        .map(|results| SearchOutput { results })
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(SearchInput { index, query }, result)
-                    .map(|result| result.results)
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::search(c, index.clone(), query.clone())
+                })
+                .await
+                .map(|results| SearchOutput { results });
+                d.persist(SearchInput { index, query }, r)
+                    .map(|x| x.results)
             } else {
-                durability
-                    .replay()
-                    .map(|results: SearchOutput| results.results)
+                d.replay().map(|x: SearchOutput| x.results)
             }
         }
-
-        fn stream_search(
-            provider_config: Self::ProviderConfig,
+        async fn stream_search(
+            c: Self::ProviderConfig,
             index: IndexName,
             query: SearchQuery,
         ) -> Result<SearchStream, SearchError> {
             init_logging();
-
-            let durability = Durability::<NoOutput, UnusedError>::new(
+            let d = Durability::<NoOutput, UnusedError>::new(
                 "golem_ai_search",
                 "stream_search",
                 DurableFunctionType::ReadRemote,
             );
-            if durability.is_live() {
-                let provider_config_for_stream = provider_config.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    SearchStream::new(DurableSearchStream::<Impl>::live(
-                        provider_config_for_stream.clone(),
-                        Impl::unwrapped_stream(
-                            provider_config_for_stream,
-                            index.clone(),
-                            query.clone(),
-                        ),
-                    ))
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                let _ = durability.persist_infallible(StreamSearchInput { index, query }, NoOutput);
-                Ok(result)
+            if d.is_live() {
+                let stream = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::unwrapped_stream(c.clone(), index.clone(), query.clone())
+                })
+                .await;
+                let _ = d.persist_infallible(StreamSearchInput { index, query }, NoOutput);
+                Ok(SearchStream::new(DurableSearchStream::<Impl>::live(
+                    c, stream,
+                )))
             } else {
-                let _: NoOutput = durability.replay_infallible();
+                let _: NoOutput = d.replay_infallible();
                 Ok(SearchStream::new(DurableSearchStream::<Impl>::replay(
-                    provider_config,
-                    index,
-                    query,
+                    c, index, query,
                 )))
             }
         }
-
-        fn get_schema(
-            provider_config: Self::ProviderConfig,
+        async fn get_schema(
+            c: Self::ProviderConfig,
             index: IndexName,
         ) -> Result<Schema, SearchError> {
             init_logging();
-
-            let durability = Durability::<GetSchemaOutput, SearchError>::new(
+            let d = Durability::<GetSchemaOutput, SearchError>::new(
                 "golem_ai_search",
                 "get_schema",
                 DurableFunctionType::ReadRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_schema(provider_config, index.clone())
-                        .map(|schema| GetSchemaOutput { schema })
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(GetSchemaInput { index }, result)
-                    .map(|schema| schema.schema)
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::get_schema(c, index.clone())
+                })
+                .await
+                .map(|schema| GetSchemaOutput { schema });
+                d.persist(GetSchemaInput { index }, r).map(|x| x.schema)
             } else {
-                durability
-                    .replay()
-                    .map(|schema: GetSchemaOutput| schema.schema)
+                d.replay().map(|x: GetSchemaOutput| x.schema)
             }
         }
-
-        fn update_schema(
-            provider_config: Self::ProviderConfig,
+        async fn update_schema(
+            c: Self::ProviderConfig,
             index: IndexName,
             schema: Schema,
         ) -> Result<(), SearchError> {
             init_logging();
-
-            let durability = Durability::<NoOutput, SearchError>::new(
+            let d = Durability::<NoOutput, SearchError>::new(
                 "golem_ai_search",
                 "update_schema",
                 DurableFunctionType::WriteRemote,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::update_schema(provider_config, index.clone(), schema.clone())
-                        .map(|()| NoOutput)
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(UpdateSchemaInput { index, schema }, result)
-                    .map(|_: NoOutput| ())
+            if d.is_live() {
+                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::update_schema(c, index.clone(), schema.clone())
+                })
+                .await
+                .map(|()| NoOutput);
+                d.persist(UpdateSchemaInput { index, schema }, r)
+                    .map(|_| ())
             } else {
-                durability.replay().map(|_: NoOutput| ())
+                d.replay().map(|_: NoOutput| ())
             }
         }
     }
 
-    /// Represents the durable search stream's state
-    ///
-    /// In live mode it directly calls the underlying Search stream which is implemented on
-    /// top of a streaming search response.
-    ///
-    /// In replay mode it buffers the replayed search hits, and also tracks the created pollables
-    /// to be able to reattach them to the new live stream when the switch to live mode
-    /// happens.
-    ///
-    /// When reaching the end of the replay mode, if the replayed stream was not finished yet,
-    /// the retry query implemented in `ExtendedSearchProvider` is used to create a new Search
-    /// response stream and continue the search seamlessly. The `provider_config` (which carries
-    /// any secrets) is kept inside this struct so that subsequent live requests can re-resolve
-    /// those secrets immediately before each HTTP call.
     enum DurableSearchStreamState<Impl: ExtendedSearchProvider> {
         Live {
-            stream: Impl::SearchStream,
-            pollables: Vec<LazyInitializedPollable>,
+            stream: Rc<Impl::SearchStream>,
         },
         Replay {
             index: IndexName,
             query: Box<SearchQuery>,
-            pollables: Vec<LazyInitializedPollable>,
             partial_result: Vec<SearchHit>,
             finished: bool,
         },
@@ -626,7 +505,6 @@ mod durable_impl {
     pub struct DurableSearchStream<Impl: ExtendedSearchProvider> {
         provider_config: Impl::ProviderConfig,
         state: RefCell<Option<DurableSearchStreamState<Impl>>>,
-        subscription: RefCell<Option<Pollable>>,
     }
 
     impl<Impl: ExtendedSearchProvider> DurableSearchStream<Impl> {
@@ -634,13 +512,10 @@ mod durable_impl {
             Self {
                 provider_config,
                 state: RefCell::new(Some(DurableSearchStreamState::Live {
-                    stream,
-                    pollables: Vec::new(),
+                    stream: Rc::new(stream),
                 })),
-                subscription: RefCell::new(None),
             }
         }
-
         fn replay(
             provider_config: Impl::ProviderConfig,
             index: IndexName,
@@ -651,169 +526,126 @@ mod durable_impl {
                 state: RefCell::new(Some(DurableSearchStreamState::Replay {
                     index,
                     query: Box::new(query),
-                    pollables: Vec::new(),
                     partial_result: Vec::new(),
                     finished: false,
                 })),
-                subscription: RefCell::new(None),
-            }
-        }
-
-        fn subscribe(&self) -> Pollable {
-            let mut state = self.state.borrow_mut();
-            match &mut *state {
-                Some(DurableSearchStreamState::Live { stream, .. }) => Impl::subscribe(stream),
-                Some(DurableSearchStreamState::Replay { pollables, .. }) => {
-                    let lazy_pollable = LazyInitializedPollable::new();
-                    let pollable = lazy_pollable.subscribe();
-                    pollables.push(lazy_pollable);
-                    pollable
-                }
-                None => {
-                    unreachable!()
-                }
             }
         }
     }
 
     impl<Impl: ExtendedSearchProvider> Drop for DurableSearchStream<Impl> {
         fn drop(&mut self) {
-            let _ = self.subscription.take();
-            match self.state.take() {
-                Some(DurableSearchStreamState::Live {
-                    mut pollables,
-                    stream,
-                }) => {
-                    with_persistence_level(PersistenceLevel::PersistNothing, move || {
-                        pollables.clear();
-                        drop(stream);
-                    });
-                }
-                Some(DurableSearchStreamState::Replay { mut pollables, .. }) => {
-                    pollables.clear();
-                }
-                None => {}
+            if let Some(DurableSearchStreamState::Live { stream }) = self.state.take() {
+                with_persistence_level(PersistenceLevel::PersistNothing, || drop(stream));
             }
         }
+    }
+
+    enum LiveAction<S> {
+        Stream(Rc<S>),
+        Continue(IndexName, Box<SearchQuery>),
+        Finished,
     }
 
     impl<Impl: ExtendedSearchProvider> SearchStreamInterface for DurableSearchStream<Impl> {
         fn as_any(&self) -> &dyn std::any::Any {
             self
         }
-
         fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
             self
         }
 
-        fn get_next(&self) -> Option<Vec<SearchHit>> {
-            let durability = Durability::<Option<Vec<SearchHit>>, UnusedError>::new(
-                "golem_ai_search",
-                "get_next",
-                DurableFunctionType::ReadRemote,
-            );
-            if durability.is_live() {
-                let mut state = self.state.borrow_mut();
-                let (result, new_live_stream) = match &*state {
-                    Some(DurableSearchStreamState::Live { stream, .. }) => {
-                        let result =
-                            with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                stream.get_next()
-                            });
-                        (durability.persist_infallible(NoInput, result.clone()), None)
-                    }
-                    Some(DurableSearchStreamState::Replay {
-                        index,
-                        query,
-                        pollables,
-                        partial_result,
-                        finished,
-                    }) => {
-                        if *finished {
-                            (None, None)
-                        } else {
-                            let extended_query = Impl::retry_query(query, partial_result);
-
-                            let (stream, first_live_result) =
-                                with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                    let stream = <Impl as ExtendedSearchProvider>::unwrapped_stream(
-                                        self.provider_config.clone(),
-                                        index.clone(),
-                                        extended_query,
-                                    );
-
-                                    for lazy_initialized_pollable in pollables {
-                                        lazy_initialized_pollable.set(Impl::subscribe(&stream));
-                                    }
-
-                                    let next = stream.get_next();
-                                    (stream, next)
-                                });
-                            durability.persist_infallible(NoInput, first_live_result.clone());
-
-                            (first_live_result, Some(stream))
+        fn get_next(&self) -> SearchFuture<'_, Option<Vec<SearchHit>>> {
+            Box::pin(async move {
+                let durability = Durability::<Option<Vec<SearchHit>>, UnusedError>::new(
+                    "golem_ai_search",
+                    "get_next",
+                    DurableFunctionType::ReadRemote,
+                );
+                if !durability.is_live() {
+                    let result: Option<Vec<SearchHit>> = durability.replay_infallible();
+                    let mut state = self.state.borrow_mut();
+                    match state.as_mut().unwrap() {
+                        DurableSearchStreamState::Replay {
+                            partial_result,
+                            finished,
+                            ..
+                        } => {
+                            if let Some(hits) = &result {
+                                partial_result.extend_from_slice(hits);
+                            } else {
+                                *finished = true;
+                            }
+                        }
+                        DurableSearchStreamState::Live { .. } => {
+                            unreachable!("Durable search stream cannot be live during replay")
                         }
                     }
-                    None => {
-                        unreachable!()
+                    return result;
+                }
+
+                let action = {
+                    let state = self.state.borrow();
+                    match state.as_ref().unwrap() {
+                        DurableSearchStreamState::Live { stream } => {
+                            LiveAction::Stream(Rc::clone(stream))
+                        }
+                        DurableSearchStreamState::Replay {
+                            index,
+                            query,
+                            partial_result,
+                            finished,
+                        } => {
+                            if *finished {
+                                LiveAction::Finished
+                            } else {
+                                LiveAction::Continue(
+                                    index.clone(),
+                                    Box::new(Impl::retry_query(query, partial_result)),
+                                )
+                            }
+                        }
                     }
                 };
 
-                if let Some(stream) = new_live_stream {
-                    let pollables = match state.take() {
-                        Some(DurableSearchStreamState::Live { pollables, .. }) => pollables,
-                        Some(DurableSearchStreamState::Replay { pollables, .. }) => pollables,
-                        None => {
-                            unreachable!()
-                        }
-                    };
-                    *state = Some(DurableSearchStreamState::Live { stream, pollables });
-                }
-
-                result
-            } else {
-                let result: Option<Vec<SearchHit>> = durability.replay_infallible();
-                let mut state = self.state.borrow_mut();
-                match &mut *state {
-                    Some(DurableSearchStreamState::Live { .. }) => {
-                        unreachable!("Durable search stream cannot be in live mode during replay")
+                match action {
+                    LiveAction::Finished => None,
+                    LiveAction::Stream(stream) => {
+                        let result = with_persistence_level_async(
+                            PersistenceLevel::PersistNothing,
+                            || async move { stream.get_next().await },
+                        )
+                        .await;
+                        durability.persist_infallible(NoInput, result.clone())
                     }
-                    Some(DurableSearchStreamState::Replay {
-                        partial_result,
-                        finished,
-                        ..
-                    }) => {
-                        if let Some(ref result) = result {
-                            partial_result.extend_from_slice(result);
+                    LiveAction::Continue(index, query) => {
+                        let config = self.provider_config.clone();
+                        let (stream, result) = with_persistence_level_async(
+                            PersistenceLevel::PersistNothing,
+                            || async move {
+                                let stream =
+                                    Rc::new(Impl::unwrapped_stream(config, index, *query).await);
+                                let result = stream.get_next().await;
+                                (stream, result)
+                            },
+                        )
+                        .await;
+                        let result = durability.persist_infallible(NoInput, result.clone());
+                        let mut state = self.state.borrow_mut();
+                        if matches!(
+                            state.as_ref(),
+                            Some(DurableSearchStreamState::Replay { .. })
+                        ) {
+                            *state = Some(DurableSearchStreamState::Live { stream });
                         } else {
-                            *finished = true;
+                            with_persistence_level(PersistenceLevel::PersistNothing, || {
+                                drop(stream)
+                            });
                         }
-                    }
-                    None => {
-                        unreachable!()
+                        result
                     }
                 }
-                result
-            }
-        }
-
-        fn blocking_get_next(&self) -> Vec<SearchHit> {
-            let mut subscription = self.subscription.borrow_mut();
-            if subscription.is_none() {
-                *subscription = Some(self.subscribe());
-            }
-            let subscription = subscription.as_mut().unwrap();
-            let mut result = Vec::new();
-            loop {
-                subscription.block();
-                match self.get_next() {
-                    Some(hits) => {
-                        result.extend(hits);
-                        break result;
-                    }
-                    None => continue,
-                }
-            }
+            })
         }
     }
 }
