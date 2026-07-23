@@ -10,7 +10,6 @@ use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, Event, Message, Response, Role, StreamDelta,
 };
-use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::LlmProvider;
 use indoc::indoc;
 use stream::BedrockChatStream;
@@ -109,12 +108,6 @@ impl ExtendedLlmProvider for Bedrock {
             .collect(),
         }));
         extended_events
-    }
-
-    fn subscribe(_stream: &Self::ChatStream) -> Pollable {
-        // this function will never get called in the bedrock implementation because of the
-        // `golem-ai-llm/nopoll` feature flag.
-        golem_ai_llm::wasi_compat::subscribe_zero()
     }
 }
 

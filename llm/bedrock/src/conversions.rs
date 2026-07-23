@@ -7,9 +7,9 @@ use aws_sdk_bedrockruntime::types::{
     SystemContentBlock, Tool, ToolConfiguration, ToolInputSchema, ToolSpecification, ToolUseBlock,
 };
 use aws_smithy_types::{Document, Number};
+use golem_ai_http::Client;
 use golem_ai_llm::model as llm;
 use std::collections::HashMap;
-use wstd::http;
 
 #[derive(Debug)]
 pub struct BedrockInput {
@@ -278,13 +278,8 @@ async fn get_image_content_block_from_url(
 }
 
 async fn get_bytes_from_url(url: &str) -> Result<Vec<u8>, llm::Error> {
-    let client = http::Client::new();
-
-    let request = http::Request::get(url)
-        .body(http::Body::empty())
-        .expect("Valid request should be formed");
-
-    let mut response = client.send(request).await.map_err(|err| {
+    let client = Client::new();
+    let response = client.get(url).send().await.map_err(|err| {
         custom_error(
             llm::ErrorCode::InvalidRequest,
             format!("Could not read image bytes from url: {url}, cause: {err}"),
@@ -300,7 +295,7 @@ async fn get_bytes_from_url(url: &str) -> Result<Vec<u8>, llm::Error> {
         ));
     }
 
-    let bytes = response.body_mut().contents().await.map_err(|err| {
+    let bytes = response.bytes().await.map_err(|err| {
         custom_error(
             llm::ErrorCode::InvalidRequest,
             format!("Could not read image bytes from url: {url}, cause: {err}"),

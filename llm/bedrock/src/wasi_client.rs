@@ -8,7 +8,7 @@ use aws_smithy_runtime_api::{
     http::{Headers, Response, StatusCode},
 };
 use aws_smithy_types::body::SdkBody;
-use wstd::http::{self, Body, Method};
+use golem_ai_http::{Bytes, Client, ClientBuilder, Response as HttpResponse};
 
 use crate::async_utils::UnsafeFuture;
 
@@ -27,15 +27,19 @@ impl config::HttpClient for WasiClient {
         settings: &HttpConnectorSettings,
         _components: &config::RuntimeComponents,
     ) -> SharedHttpConnector {
-        let mut client = http::Client::new();
+        let mut client = ClientBuilder::new();
 
         if let Some(conn_timeout) = settings.connect_timeout() {
-            client.set_connect_timeout(conn_timeout);
+            client = client.connect_timeout(conn_timeout);
         }
         if let Some(read_timeout) = settings.read_timeout() {
-            client.set_first_byte_timeout(read_timeout);
+            client = client.first_byte_timeout(read_timeout);
         }
-        let connector = SharedWasiConnector::new(client);
+        let connector = SharedWasiConnector::new(
+            client
+                .build()
+                .expect("AWS Smithy HTTP timeout configuration is valid"),
+        );
         SharedHttpConnector::new(connector)
     }
 }
@@ -49,7 +53,7 @@ struct SharedWasiConnector {
 }
 
 impl SharedWasiConnector {
-    fn new(client: http::Client) -> Self {
+    fn new(client: Client) -> Self {
         Self {
             inner: Arc::new(WasiConnector(client)),
         }
@@ -57,7 +61,7 @@ impl SharedWasiConnector {
 }
 
 #[derive(Debug)]
-struct WasiConnector(http::Client);
+struct WasiConnector(Client);
 
 unsafe impl Send for WasiConnector {}
 unsafe impl Sync for WasiConnector {}
@@ -66,25 +70,13 @@ impl WasiConnector {
     async fn handle(
         &self,
         request: config::http::HttpRequest,
-    ) -> Result<http::Response<Body>, ConnectorError> {
-        let method = Method::from_bytes(request.method().as_bytes()).expect("Valid http method");
-        let url = request.uri().to_owned();
-        let parts = request.into_parts();
-
-        let body_bytes = sdk_body_to_vec(parts.body);
-
-        let mut request = http::Request::builder().uri(url).method(method);
-
-        for header in parts.headers.iter() {
-            request = request.header(header.0, header.1);
-        }
-
+    ) -> Result<HttpResponse, ConnectorError> {
         let request = request
-            .body(body_bytes)
-            .expect("Valid request should be formed");
-
+            .map(|body| Bytes::from(sdk_body_to_vec(body)))
+            .try_into_http1x()
+            .map_err(|e| ConnectorError::other(e.into(), None))?;
         self.0
-            .send(request)
+            .execute(request)
             .await
             .map_err(|e| ConnectorError::other(e.into(), None))
     }
@@ -100,11 +92,9 @@ impl HttpConnector for SharedWasiConnector {
 
             let status_code: StatusCode = response.status().into();
             let headers_map = response.headers().clone();
-            let extensions = response.extensions().clone();
 
             let body_bytes = response
-                .into_body()
-                .contents()
+                .bytes()
                 .await
                 .map(|body| {
                     if body.is_empty() {
@@ -126,7 +116,6 @@ impl HttpConnector for SharedWasiConnector {
 
             let mut sdk_response = Response::new(status_code, body_bytes);
             *sdk_response.headers_mut() = headers;
-            sdk_response.add_extension(extensions);
 
             Ok(sdk_response)
         };

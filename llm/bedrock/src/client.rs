@@ -12,8 +12,6 @@ use aws_sdk_bedrockruntime::operation::converse_stream::builders::ConverseStream
 use aws_types::region;
 use golem_ai_llm::model::{Config, Error, Event, Response};
 use log::trace;
-use wasi::clocks::monotonic_clock;
-use wstd::runtime::Reactor;
 
 #[derive(Debug)]
 pub struct Bedrock {
@@ -129,11 +127,8 @@ impl WasiSleep {
 
 impl AsyncSleep for WasiSleep {
     fn sleep(&self, duration: std::time::Duration) -> Sleep {
-        let reactor = Reactor::current();
         let nanos = duration.as_nanos() as u64;
-        let pollable = reactor.schedule(monotonic_clock::subscribe_duration(nanos));
-
-        let fut = pollable.wait_for();
+        let fut = wasip3::clocks::monotonic_clock::wait_for(nanos);
         Sleep::new(Box::pin(UnsafeFuture::new(fut)))
     }
 }
