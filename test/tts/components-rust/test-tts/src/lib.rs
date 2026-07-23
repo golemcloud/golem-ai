@@ -12,7 +12,6 @@ use golem_ai_tts::{
     AdvancedTtsProvider, StreamingVoiceProvider, SynthesizeProvider, VoiceProvider,
 };
 use golem_rust::{agent_definition, agent_implementation, mark_atomic_operation};
-use std::thread;
 use std::time::Duration;
 
 #[cfg(feature = "elevenlabs")]
@@ -92,37 +91,38 @@ impl TestHelper for TestHelperImpl {
 pub trait TtsTest {
     fn new(name: String) -> Self;
 
-    fn test0(&self) -> String;
-    fn test2(&self) -> String;
-    fn test3(&self) -> String;
-    fn test4(&self) -> String;
-    fn test5(&self) -> String;
-    fn test6(&self) -> String;
-    fn test7(&self) -> String;
-    fn test8(&self) -> String;
-    fn test9(&self) -> String;
-    fn test10(&self) -> String;
+    async fn test0(&self) -> String;
+    async fn test2(&self) -> String;
+    async fn test3(&self) -> String;
+    async fn test4(&self) -> String;
+    async fn test5(&self) -> String;
+    async fn test6(&self) -> String;
+    async fn test7(&self) -> String;
+    async fn test8(&self) -> String;
+    async fn test9(&self) -> String;
+    async fn test10(&self) -> String;
     async fn test11(&self) -> String;
-    fn test12(&self) -> String;
+    async fn test12(&self) -> String;
 }
 
 struct TtsTestImpl {
     _name: String,
 }
 
-fn get_test_voice() -> Result<Voice, String> {
-    match Provider::list_voices(provider_config(), None) {
+async fn get_test_voice() -> Result<Voice, String> {
+    match Provider::list_voices(provider_config(), None).await {
         Ok(voice_results) => {
             if voice_results.has_more() {
-                match voice_results.get_next() {
+                match voice_results.get_next().await {
                     Ok(voices) => {
                         if let Some(voice_info) = voices.first() {
-                            match Provider::get_voice(provider_config(), voice_info.id.clone()) {
+                            match Provider::get_voice(provider_config(), voice_info.id.clone())
+                                .await
+                            {
                                 Ok(voice) => Ok(voice),
-                                Err(e) => Err(format!(
-                                    "Failed to get voice {}: {:?}",
-                                    voice_info.id, e
-                                )),
+                                Err(e) => {
+                                    Err(format!("Failed to get voice {}: {:?}", voice_info.id, e))
+                                }
                             }
                         } else {
                             Err("No voices available".to_string())
@@ -136,6 +136,11 @@ fn get_test_voice() -> Result<Voice, String> {
         }
         Err(e) => Err(format!("Failed to list voices: {:?}", e)),
     }
+}
+
+async fn sleep(duration: Duration) {
+    let nanoseconds = u64::try_from(duration.as_nanos()).unwrap_or(u64::MAX);
+    wasip3::clocks::monotonic_clock::wait_for(nanoseconds).await;
 }
 
 fn save_audio_result(audio_data: &[u8], test_name: &str, extension: &str) {
@@ -161,18 +166,18 @@ impl TtsTest for TtsTestImpl {
         Self { _name: name }
     }
 
-    fn test0(&self) -> String {
+    async fn test0(&self) -> String {
         println!("Test0: Voice discovery and metadata retrieval");
         let mut results = Vec::new();
 
         println!("Listing all available voices...");
-        match Provider::list_voices(provider_config(), None) {
+        match Provider::list_voices(provider_config(), None).await {
             Ok(voice_results) => {
                 results.push("✓ Voice listing successful".to_string());
 
                 let mut voice_count = 0;
                 while voice_results.has_more() {
-                    match voice_results.get_next() {
+                    match voice_results.get_next().await {
                         Ok(voices) => {
                             voice_count += voices.len();
                             for voice_info in voices.iter() {
@@ -210,7 +215,7 @@ impl TtsTest for TtsTestImpl {
             search_query: None,
         };
 
-        match Provider::list_voices(provider_config(), Some(filter)) {
+        match Provider::list_voices(provider_config(), Some(filter)).await {
             Ok(filtered_results) => {
                 results.push("✓ Voice filtering successful".to_string());
                 if let Some(total) = filtered_results.get_total_count() {
@@ -221,7 +226,7 @@ impl TtsTest for TtsTestImpl {
         }
 
         println!("Testing language discovery...");
-        match Provider::list_languages(provider_config(), ) {
+        match Provider::list_languages(provider_config()).await {
             Ok(languages) => {
                 results.push(format!("✓ Found {} supported languages", languages.len()));
                 for lang in languages.iter().take(5) {
@@ -243,7 +248,7 @@ impl TtsTest for TtsTestImpl {
             provider: None,
             search_query: Some("natural".to_string()),
         };
-        match Provider::search_voices(provider_config(), Some(search_filter)) {
+        match Provider::search_voices(provider_config(), Some(search_filter)).await {
             Ok(search_results) => {
                 results.push(format!(
                     "✓ Voice search found {} results",
@@ -256,11 +261,11 @@ impl TtsTest for TtsTestImpl {
         results.join("\n")
     }
 
-    fn test2(&self) -> String {
+    async fn test2(&self) -> String {
         println!("Test2: Basic text-to-speech synthesis");
         let mut results = Vec::new();
 
-        let voice = match get_test_voice() {
+        let voice = match get_test_voice().await {
             Ok(v) => v,
             Err(e) => return format!("Failed to get test voice: {}", e),
         };
@@ -273,7 +278,8 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), text_input.clone(), voice_borrow, None) {
+        match Provider::synthesize(provider_config(), text_input.clone(), voice_borrow, None).await
+        {
             Ok(result) => {
                 results.push("✓ Basic synthesis successful".to_string());
                 save_audio_result(&result.audio_data, "test2-basic", "mp3");
@@ -301,7 +307,8 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(options)) {
+        match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(options)).await
+        {
             Ok(result) => {
                 results.push("✓ Synthesis with audio config successful".to_string());
                 save_audio_result(&result.audio_data, "test2-config", "wav");
@@ -340,7 +347,14 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(voice_options)) {
+        match Provider::synthesize(
+            provider_config(),
+            text_input,
+            voice_borrow,
+            Some(voice_options),
+        )
+        .await
+        {
             Ok(result) => {
                 results.push("✓ Synthesis with voice settings successful".to_string());
                 save_audio_result(&result.audio_data, "test2-voice-settings", "mp3");
@@ -351,11 +365,11 @@ impl TtsTest for TtsTestImpl {
         results.join("\n")
     }
 
-    fn test3(&self) -> String {
+    async fn test3(&self) -> String {
         println!("Test3: SSML support and advanced text processing");
         let mut results = Vec::new();
 
-        let voice = match get_test_voice() {
+        let voice = match get_test_voice().await {
             Ok(v) => v,
             Err(e) => return format!("Failed to get test voice: {}", e),
         };
@@ -368,7 +382,8 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), ssml_input.clone(), voice_borrow, None) {
+        match Provider::synthesize(provider_config(), ssml_input.clone(), voice_borrow, None).await
+        {
             Ok(result) => {
                 results.push("✓ SSML synthesis successful".to_string());
                 results.push(format!(
@@ -382,12 +397,9 @@ impl TtsTest for TtsTestImpl {
 
         println!("Testing input validation...");
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::validate_input(provider_config(), ssml_input.clone(), voice_borrow) {
+        match Provider::validate_input(provider_config(), ssml_input.clone(), voice_borrow).await {
             Ok(validation) => {
-                results.push(format!(
-                    "✓ Input validation: valid={}",
-                    validation.is_valid
-                ));
+                results.push(format!("✓ Input validation: valid={}", validation.is_valid));
                 results.push(format!("✓ Character count: {}", validation.character_count));
                 if let Some(duration) = validation.estimated_duration {
                     results.push(format!("✓ Estimated duration: {:.2}s", duration));
@@ -401,7 +413,7 @@ impl TtsTest for TtsTestImpl {
 
         println!("Testing timing marks extraction...");
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::get_timing_marks(provider_config(), ssml_input, voice_borrow) {
+        match Provider::get_timing_marks(provider_config(), ssml_input, voice_borrow).await {
             Ok(timing_marks) => {
                 results.push(format!("✓ Retrieved {} timing marks", timing_marks.len()));
                 for (i, mark) in timing_marks.iter().take(3).enumerate() {
@@ -431,7 +443,8 @@ impl TtsTest for TtsTestImpl {
         ];
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize_batch(provider_config(), batch_inputs, voice_borrow, None) {
+        match Provider::synthesize_batch(provider_config(), batch_inputs, voice_borrow, None).await
+        {
             Ok(batch_results) => {
                 results.push(format!(
                     "✓ Batch synthesis completed: {} items",
@@ -447,11 +460,11 @@ impl TtsTest for TtsTestImpl {
         results.join("\n")
     }
 
-    fn test4(&self) -> String {
+    async fn test4(&self) -> String {
         println!("Test4: Streaming synthesis lifecycle");
         let mut results = Vec::new();
 
-        let voice = match get_test_voice() {
+        let voice = match get_test_voice().await {
             Ok(v) => v,
             Err(e) => return format!("Failed to get test voice: {}", e),
         };
@@ -474,11 +487,11 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::create_stream(provider_config(), voice_borrow, Some(stream_options)) {
+        match Provider::create_stream(provider_config(), voice_borrow, Some(stream_options)).await {
             Ok(stream) => {
                 results.push("✓ Streaming session created".to_string());
 
-                let text_chunks = vec![
+                let text_chunks = [
                     "This is the first chunk of streaming text. ",
                     "Here comes the second chunk with more content. ",
                     "And finally, the third chunk to complete the stream.",
@@ -491,7 +504,7 @@ impl TtsTest for TtsTestImpl {
                         language: Some("en-US".to_string()),
                     };
 
-                    match stream.send_text(text_input) {
+                    match stream.send_text(text_input).await {
                         Ok(_) => println!("Sent chunk {}", i + 1),
                         Err(e) => {
                             results.push(format!("✗ Failed to send chunk {}: {:?}", i + 1, e));
@@ -500,7 +513,7 @@ impl TtsTest for TtsTestImpl {
                     }
                 }
 
-                match stream.finish() {
+                match stream.finish().await {
                     Ok(_) => results.push("✓ Stream finished successfully".to_string()),
                     Err(e) => results.push(format!("✗ Stream finish failed: {:?}", e)),
                 }
@@ -517,7 +530,7 @@ impl TtsTest for TtsTestImpl {
                         break;
                     }
 
-                    match stream.receive_chunk() {
+                    match stream.receive_chunk().await {
                         Ok(Some(chunk)) => {
                             chunk_count += 1;
                             audio_data.extend_from_slice(&chunk.data);
@@ -531,7 +544,7 @@ impl TtsTest for TtsTestImpl {
                             }
                         }
                         Ok(None) => {
-                            thread::sleep(Duration::from_millis(100));
+                            sleep(Duration::from_millis(100)).await;
                         }
                         Err(e) => {
                             results.push(format!("✗ Chunk reception failed: {:?}", e));
@@ -557,7 +570,7 @@ impl TtsTest for TtsTestImpl {
         results.join("\n")
     }
 
-    fn test5(&self) -> String {
+    async fn test5(&self) -> String {
         println!("Test5: Voice cloning and custom voice creation");
         let mut results = Vec::new();
 
@@ -568,11 +581,14 @@ impl TtsTest for TtsTestImpl {
             quality_rating: Some(8),
         }];
 
-        match Provider::create_voice_clone(provider_config(), 
+        match Provider::create_voice_clone(
+            provider_config(),
             "test-clone-voice".to_string(),
             audio_samples,
             Some("A test cloned voice".to_string()),
-        ) {
+        )
+        .await
+        {
             Ok(cloned_voice) => {
                 results.push("✓ Voice cloning successful".to_string());
 
@@ -583,7 +599,8 @@ impl TtsTest for TtsTestImpl {
                 };
 
                 let voice_borrow = VoiceBorrow::new(&*cloned_voice);
-                match Provider::synthesize(provider_config(), text_input, voice_borrow, None) {
+                match Provider::synthesize(provider_config(), text_input, voice_borrow, None).await
+                {
                     Ok(result) => {
                         results.push("✓ Synthesis with cloned voice successful".to_string());
                         save_audio_result(&result.audio_data, "test5-cloned", "mp3");
@@ -593,7 +610,7 @@ impl TtsTest for TtsTestImpl {
                     }
                 }
 
-                match cloned_voice.delete() {
+                match cloned_voice.delete().await {
                     Ok(_) => results.push("✓ Cloned voice deleted successfully".to_string()),
                     Err(e) => results.push(format!("⚠ Cloned voice deletion failed: {:?}", e)),
                 }
@@ -613,13 +630,16 @@ impl TtsTest for TtsTestImpl {
             reference_voice: None,
         };
 
-        match Provider::design_voice(provider_config(), "test-designed-voice".to_string(), design_params) {
+        match Provider::design_voice(
+            provider_config(),
+            "test-designed-voice".to_string(),
+            design_params,
+        )
+        .await
+        {
             Ok(designed_voice) => {
                 results.push("✓ Voice design successful".to_string());
-                results.push(format!(
-                    "✓ Designed voice ID: {}",
-                    designed_voice.get_id()
-                ));
+                results.push(format!("✓ Designed voice ID: {}", designed_voice.get_id()));
 
                 let text_input = TextInput {
                     content: "Testing synthesis with designed voice.".to_string(),
@@ -628,20 +648,18 @@ impl TtsTest for TtsTestImpl {
                 };
 
                 let voice_borrow = VoiceBorrow::new(&*designed_voice);
-                match Provider::synthesize(provider_config(), text_input, voice_borrow, None) {
+                match Provider::synthesize(provider_config(), text_input, voice_borrow, None).await
+                {
                     Ok(result) => {
                         results.push("✓ Synthesis with designed voice successful".to_string());
                         save_audio_result(&result.audio_data, "test5-designed", "mp3");
                     }
                     Err(e) => {
-                        results.push(format!(
-                            "✗ Synthesis with designed voice failed: {:?}",
-                            e
-                        ))
+                        results.push(format!("✗ Synthesis with designed voice failed: {:?}", e))
                     }
                 }
 
-                let _ = designed_voice.delete();
+                let _ = designed_voice.delete().await;
             }
             Err(TtsError::UnsupportedOperation(_)) => {
                 results.push("⚠ Voice design not supported by provider".to_string());
@@ -652,11 +670,11 @@ impl TtsTest for TtsTestImpl {
         results.join("\n")
     }
 
-    fn test6(&self) -> String {
+    async fn test6(&self) -> String {
         println!("Test6: Audio format validation and quality verification");
         let mut results = Vec::new();
 
-        let voice = match get_test_voice() {
+        let voice = match get_test_voice().await {
             Ok(v) => v,
             Err(e) => return format!("Failed to get test voice: {}", e),
         };
@@ -695,7 +713,9 @@ impl TtsTest for TtsTestImpl {
             };
 
             let voice_borrow = VoiceBorrow::new(&*voice);
-            match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(options)) {
+            match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(options))
+                .await
+            {
                 Ok(result) => {
                     results.push(format!(
                         "✓ {} format synthesis successful",
@@ -748,14 +768,12 @@ impl TtsTest for TtsTestImpl {
             };
 
             let voice_borrow = VoiceBorrow::new(&*voice);
-            match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(options)) {
+            match Provider::synthesize(provider_config(), text_input, voice_borrow, Some(options))
+                .await
+            {
                 Ok(result) => {
                     results.push(format!("✓ {}Hz sample rate successful", rate));
-                    save_audio_result(
-                        &result.audio_data,
-                        &format!("test6-{}hz", rate),
-                        "wav",
-                    );
+                    save_audio_result(&result.audio_data, &format!("test6-{}hz", rate), "wav");
                 }
                 Err(e) => results.push(format!("✗ {}Hz sample rate failed: {:?}", rate, e)),
             }
@@ -764,7 +782,7 @@ impl TtsTest for TtsTestImpl {
         results.join("\n")
     }
 
-    fn test7(&self) -> String {
+    async fn test7(&self) -> String {
         println!("Test7: Custom pronunciation and lexicon management");
         let mut results = Vec::new();
 
@@ -784,23 +802,29 @@ impl TtsTest for TtsTestImpl {
 
         results.push(TEST_PROVIDER.to_string());
 
-        match Provider::create_lexicon(provider_config(), 
+        match Provider::create_lexicon(
+            provider_config(),
             "testlexicon".to_string(),
             "en-US".to_string(),
             Some(pronunciation_entries),
-        ) {
+        )
+        .await
+        {
             Ok(lexicon) => {
                 results.push("✓ Lexicon creation successful".to_string());
                 results.push(format!("✓ Lexicon name: {}", lexicon.get_name()));
                 results.push(format!("✓ Lexicon language: {}", lexicon.get_language()));
                 results.push(format!("✓ Entry count: {}", lexicon.get_entry_count()));
 
-                match lexicon.add_entry("synthesis".to_string(), "SIN-thuh-sis".to_string()) {
+                match lexicon
+                    .add_entry("synthesis".to_string(), "SIN-thuh-sis".to_string())
+                    .await
+                {
                     Ok(_) => results.push("✓ Entry addition successful".to_string()),
                     Err(e) => results.push(format!("✗ Entry addition failed: {:?}", e)),
                 }
 
-                match lexicon.export_content() {
+                match lexicon.export_content().await {
                     Ok(content) => {
                         results.push("✓ Lexicon export successful".to_string());
                         results.push(format!("  Content length: {} characters", content.len()));
@@ -808,7 +832,7 @@ impl TtsTest for TtsTestImpl {
                     Err(e) => results.push(format!("✗ Lexicon export failed: {:?}", e)),
                 }
 
-                match lexicon.remove_entry("API".to_string()) {
+                match lexicon.remove_entry("API".to_string()).await {
                     Ok(_) => results.push("✓ Entry removal successful".to_string()),
                     Err(e) => results.push(format!("✗ Entry removal failed: {:?}", e)),
                 }
@@ -820,11 +844,14 @@ impl TtsTest for TtsTestImpl {
         }
 
         println!("Testing sound effect generation...");
-        match Provider::generate_sound_effect(provider_config(), 
+        match Provider::generate_sound_effect(
+            provider_config(),
             "Ocean waves gently lapping against the shore".to_string(),
             Some(5.0),
             Some(0.7),
-        ) {
+        )
+        .await
+        {
             Ok(sound_effect) => {
                 results.push("✓ Sound effect generation successful".to_string());
                 results.push(format!("✓ Sound effect size: {} bytes", sound_effect.len()));
@@ -839,12 +866,12 @@ impl TtsTest for TtsTestImpl {
         results.join("\n")
     }
 
-    fn test8(&self) -> String {
+    async fn test8(&self) -> String {
         println!("Test8: Authentication and authorization scenarios");
         let mut results = Vec::new();
 
         println!("Testing authentication scenarios...");
-        match Provider::list_voices(provider_config(), None) {
+        match Provider::list_voices(provider_config(), None).await {
             Ok(_) => results.push("✓ Authentication successful".to_string()),
             Err(TtsError::Unauthorized(msg)) => {
                 results.push(format!("✗ Unauthorized access: {}", msg));
@@ -856,7 +883,7 @@ impl TtsTest for TtsTestImpl {
         }
 
         println!("Testing quota scenarios...");
-        let voice = match get_test_voice() {
+        let voice = match get_test_voice().await {
             Ok(v) => v,
             Err(e) => return format!("Failed to get test voice: {}", e),
         };
@@ -869,13 +896,10 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), text_input, voice_borrow, None) {
+        match Provider::synthesize(provider_config(), text_input, voice_borrow, None).await {
             Ok(result) => {
                 results.push("✓ Large text synthesis successful".to_string());
-                results.push(format!(
-                    "  Characters: {}",
-                    result.metadata.character_count
-                ));
+                results.push(format!("  Characters: {}", result.metadata.character_count));
                 save_audio_result(&result.audio_data, "test8-large", "mp3");
             }
             Err(TtsError::QuotaExceeded(quota_info)) => {
@@ -900,11 +924,11 @@ impl TtsTest for TtsTestImpl {
         results.join("\n")
     }
 
-    fn test9(&self) -> String {
+    async fn test9(&self) -> String {
         println!("Test9: Error handling for malformed inputs and edge cases");
         let mut results = Vec::new();
 
-        let voice = match get_test_voice() {
+        let voice = match get_test_voice().await {
             Ok(v) => v,
             Err(e) => return format!("Failed to get test voice: {}", e),
         };
@@ -917,7 +941,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), empty_input, voice_borrow, None) {
+        match Provider::synthesize(provider_config(), empty_input, voice_borrow, None).await {
             Ok(_) => results.push("✓ Empty text handled gracefully".to_string()),
             Err(TtsError::InvalidText(msg)) => {
                 results.push(format!("✓ Empty text properly rejected: {}", msg));
@@ -933,7 +957,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), bad_ssml, voice_borrow, None) {
+        match Provider::synthesize(provider_config(), bad_ssml, voice_borrow, None).await {
             Ok(_) => results.push("⚠ Malformed SSML was accepted".to_string()),
             Err(TtsError::InvalidSsml(msg)) => {
                 results.push(format!("✓ Malformed SSML properly rejected: {}", msg));
@@ -949,7 +973,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), unsupported_lang, voice_borrow, None) {
+        match Provider::synthesize(provider_config(), unsupported_lang, voice_borrow, None).await {
             Ok(_) => results.push("⚠ Unsupported language was accepted".to_string()),
             Err(TtsError::UnsupportedLanguage(msg)) => {
                 results.push(format!("✓ Unsupported language properly rejected: {}", msg));
@@ -985,11 +1009,10 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), test_input, voice_borrow, Some(options)) {
+        match Provider::synthesize(provider_config(), test_input, voice_borrow, Some(options)).await
+        {
             Ok(_) => {
-                results.push(
-                    "⚠ Invalid voice settings were accepted (may be clamped)".to_string(),
-                )
+                results.push("⚠ Invalid voice settings were accepted (may be clamped)".to_string())
             }
             Err(TtsError::InvalidConfiguration(msg)) => {
                 results.push(format!("✓ Invalid settings properly rejected: {}", msg));
@@ -998,7 +1021,9 @@ impl TtsTest for TtsTestImpl {
         }
 
         println!("Testing non-existent voice handling...");
-        match Provider::get_voice(provider_config(), "non-existent-voice-id-12345".to_string()) {
+        match Provider::get_voice(provider_config(), "non-existent-voice-id-12345".to_string())
+            .await
+        {
             Ok(_) => results.push("⚠ Non-existent voice was found".to_string()),
             Err(TtsError::VoiceNotFound(msg)) => {
                 results.push(format!("✓ Non-existent voice properly rejected: {}", msg));
@@ -1009,14 +1034,14 @@ impl TtsTest for TtsTestImpl {
         results.join("\n")
     }
 
-    fn test10(&self) -> String {
+    async fn test10(&self) -> String {
         println!("Test10: Long-form content synthesis");
         let mut results = Vec::new();
 
         let long_content = LONG_TEXT.repeat(25);
         results.push(format!("Testing with {} characters", long_content.len()));
 
-        let voice = match get_test_voice() {
+        let voice = match get_test_voice().await {
             Ok(v) => v,
             Err(e) => return format!("Failed to get test voice: {}", e),
         };
@@ -1029,7 +1054,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), text_input, voice_borrow, None) {
+        match Provider::synthesize(provider_config(), text_input, voice_borrow, None).await {
             Ok(result) => {
                 results.push("✓ Long-form synthesis successful".to_string());
                 results.push(format!(
@@ -1055,12 +1080,15 @@ impl TtsTest for TtsTestImpl {
         let chapter_breaks = Some(vec![1000, 2000, 3000, 4000]);
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize_long_form(provider_config(), 
+        match Provider::synthesize_long_form(
+            provider_config(),
             long_content,
             voice_borrow,
             "/output/test10-long-form.mp3".to_string(),
             chapter_breaks,
-        ) {
+        )
+        .await
+        {
             Ok(operation) => {
                 results.push("✓ Long-form operation started".to_string());
 
@@ -1068,24 +1096,23 @@ impl TtsTest for TtsTestImpl {
                 let max_attempts = 30;
 
                 while attempts < max_attempts {
-                    match operation.get_status() {
-                        OperationStatus::Pending => {
+                    match operation.get_status().await {
+                        Ok(OperationStatus::Pending) => {
                             results.push("⏳ Long-form operation pending...".to_string());
                         }
-                        OperationStatus::Processing => {
-                            let progress = operation.get_progress();
-                            results.push(format!(
-                                "⏳ Long-form processing: {:.1}%",
-                                progress * 100.0
-                            ));
-                        }
-                        OperationStatus::Completed => match operation.get_result() {
+                        Ok(OperationStatus::Processing) => match operation.get_progress().await {
+                            Ok(progress) => results
+                                .push(format!("⏳ Long-form processing: {:.1}%", progress * 100.0)),
+                            Err(e) => {
+                                results.push(format!("✗ Long-form progress error: {:?}", e));
+                                break;
+                            }
+                        },
+                        Ok(OperationStatus::Completed) => match operation.get_result().await {
                             Ok(result) => {
                                 results.push("✓ Long-form synthesis completed".to_string());
-                                results.push(format!(
-                                    "✓ Output location: {}",
-                                    result.output_location
-                                ));
+                                results
+                                    .push(format!("✓ Output location: {}", result.output_location));
                                 results.push(format!(
                                     "✓ Total duration: {:.2}s",
                                     result.total_duration
@@ -1100,23 +1127,27 @@ impl TtsTest for TtsTestImpl {
                                 break;
                             }
                         },
-                        OperationStatus::Failed => {
+                        Ok(OperationStatus::Failed) => {
                             results.push("✗ Long-form operation failed".to_string());
                             break;
                         }
-                        OperationStatus::Cancelled => {
+                        Ok(OperationStatus::Cancelled) => {
                             results.push("⚠ Long-form operation cancelled".to_string());
+                            break;
+                        }
+                        Err(e) => {
+                            results.push(format!("✗ Long-form status error: {:?}", e));
                             break;
                         }
                     }
 
-                    thread::sleep(Duration::from_secs(2));
+                    sleep(Duration::from_secs(2)).await;
                     attempts += 1;
                 }
 
                 if attempts >= max_attempts {
                     results.push("⚠ Long-form operation timeout".to_string());
-                    let _ = operation.cancel();
+                    let _ = operation.cancel().await;
                 }
             }
             Err(TtsError::UnsupportedOperation(_)) => {
@@ -1132,7 +1163,7 @@ impl TtsTest for TtsTestImpl {
         println!("Test11: Durability semantics verification");
         let mut results = Vec::new();
 
-        let voice = match get_test_voice() {
+        let voice = match get_test_voice().await {
             Ok(v) => v,
             Err(e) => return format!("Failed to get test voice: {}", e),
         };
@@ -1159,7 +1190,7 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::create_stream(provider_config(), voice_borrow, Some(stream_options)) {
+        match Provider::create_stream(provider_config(), voice_borrow, Some(stream_options)).await {
             Ok(stream) => {
                 results.push("✓ Streaming session created for durability test".to_string());
 
@@ -1169,7 +1200,7 @@ impl TtsTest for TtsTestImpl {
                     language: Some("en-US".to_string()),
                 };
 
-                match stream.send_text(text_input) {
+                match stream.send_text(text_input).await {
                     Ok(_) => results.push("✓ Initial text sent".to_string()),
                     Err(e) => {
                         results.push(format!("✗ Failed to send initial text: {:?}", e));
@@ -1194,12 +1225,12 @@ impl TtsTest for TtsTestImpl {
                     language: Some("en-US".to_string()),
                 };
 
-                match stream.send_text(text_input2) {
+                match stream.send_text(text_input2).await {
                     Ok(_) => results.push("✓ Text sent after recovery successful".to_string()),
                     Err(e) => results.push(format!("⚠ Text after recovery failed: {:?}", e)),
                 }
 
-                match stream.finish() {
+                match stream.finish().await {
                     Ok(_) => results.push("✓ Stream finished after recovery".to_string()),
                     Err(e) => {
                         results.push(format!("⚠ Stream finish after recovery failed: {:?}", e))
@@ -1212,19 +1243,17 @@ impl TtsTest for TtsTestImpl {
                     && (stream.has_pending_audio()
                         || !matches!(stream.get_status(), StreamStatus::Finished))
                 {
-                    match stream.receive_chunk() {
+                    match stream.receive_chunk().await {
                         Ok(Some(chunk)) => {
                             audio_data.extend_from_slice(&chunk.data);
                             if chunk.is_final {
                                 break;
                             }
                         }
-                        Ok(None) => thread::sleep(Duration::from_millis(100)),
+                        Ok(None) => sleep(Duration::from_millis(100)).await,
                         Err(e) => {
-                            results.push(format!(
-                                "⚠ Chunk reception after recovery failed: {:?}",
-                                e
-                            ));
+                            results
+                                .push(format!("⚠ Chunk reception after recovery failed: {:?}", e));
                             break;
                         }
                     }
@@ -1249,11 +1278,11 @@ impl TtsTest for TtsTestImpl {
         results.join("\n")
     }
 
-    fn test12(&self) -> String {
+    async fn test12(&self) -> String {
         println!("Test12: Provider-specific features and comprehensive integration");
         let mut results = Vec::new();
 
-        let voice = match get_test_voice() {
+        let voice = match get_test_voice().await {
             Ok(v) => v,
             Err(e) => return format!("Failed to get test voice: {}", e),
         };
@@ -1273,7 +1302,10 @@ impl TtsTest for TtsTestImpl {
         results.push(format!("Supported formats: {:?}", formats));
 
         println!("Testing voice preview...");
-        match voice.preview("This is a voice preview sample.".to_string()) {
+        match voice
+            .preview("This is a voice preview sample.".to_string())
+            .await
+        {
             Ok(preview_audio) => {
                 results.push("✓ Voice preview successful".to_string());
                 results.push(format!(
@@ -1290,7 +1322,7 @@ impl TtsTest for TtsTestImpl {
             Ok(cloned) => {
                 results.push("✓ Voice cloning successful".to_string());
                 results.push(format!("✓ Cloned voice ID: {}", cloned.get_id()));
-                let _ = cloned.delete();
+                let _ = cloned.delete().await;
             }
             Err(TtsError::UnsupportedOperation(_)) => {
                 results.push("⚠ Voice cloning not supported".to_string());
@@ -1301,7 +1333,9 @@ impl TtsTest for TtsTestImpl {
         println!("Testing voice-to-voice conversion...");
         let input_audio = create_dummy_audio_data();
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::convert_voice(provider_config(), input_audio, voice_borrow, Some(true)) {
+        match Provider::convert_voice(provider_config(), input_audio, voice_borrow, Some(true))
+            .await
+        {
             Ok(converted_audio) => {
                 results.push("✓ Voice conversion successful".to_string());
                 results.push(format!(
@@ -1318,14 +1352,15 @@ impl TtsTest for TtsTestImpl {
 
         println!("Testing voice conversion streaming...");
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::create_voice_conversion_stream(provider_config(), voice_borrow, None) {
+        match Provider::create_voice_conversion_stream(provider_config(), voice_borrow, None).await
+        {
             Ok(conversion_stream) => {
                 results.push("✓ Voice conversion stream created".to_string());
 
                 let audio_chunks = vec![create_dummy_audio_data(), create_dummy_audio_data()];
 
                 for (i, chunk) in audio_chunks.into_iter().enumerate() {
-                    match conversion_stream.send_audio(chunk) {
+                    match conversion_stream.send_audio(chunk).await {
                         Ok(_) => println!("Sent audio chunk {}", i + 1),
                         Err(e) => {
                             results.push(format!(
@@ -1338,29 +1373,24 @@ impl TtsTest for TtsTestImpl {
                     }
                 }
 
-                match conversion_stream.finish() {
+                match conversion_stream.finish().await {
                     Ok(_) => results.push("✓ Conversion stream finished".to_string()),
-                    Err(e) => {
-                        results.push(format!("✗ Conversion stream finish failed: {:?}", e))
-                    }
+                    Err(e) => results.push(format!("✗ Conversion stream finish failed: {:?}", e)),
                 }
 
                 let mut converted_data = Vec::new();
                 let mut attempts = 0;
                 while attempts < 10 {
-                    match conversion_stream.receive_converted() {
+                    match conversion_stream.receive_converted().await {
                         Ok(Some(chunk)) => {
                             converted_data.extend_from_slice(&chunk.data);
                             if chunk.is_final {
                                 break;
                             }
                         }
-                        Ok(None) => thread::sleep(Duration::from_millis(100)),
+                        Ok(None) => sleep(Duration::from_millis(100)).await,
                         Err(e) => {
-                            results.push(format!(
-                                "⚠ Conversion chunk reception failed: {:?}",
-                                e
-                            ));
+                            results.push(format!("⚠ Conversion chunk reception failed: {:?}", e));
                             break;
                         }
                     }
@@ -1423,7 +1453,14 @@ impl TtsTest for TtsTestImpl {
         };
 
         let voice_borrow = VoiceBorrow::new(&*voice);
-        match Provider::synthesize(provider_config(), comprehensive_text, voice_borrow, Some(comprehensive_options)) {
+        match Provider::synthesize(
+            provider_config(),
+            comprehensive_text,
+            voice_borrow,
+            Some(comprehensive_options),
+        )
+        .await
+        {
             Ok(result) => {
                 results.push("✓ Comprehensive synthesis successful".to_string());
                 results.push(format!(
@@ -1431,10 +1468,7 @@ impl TtsTest for TtsTestImpl {
                     result.metadata.duration_seconds
                 ));
                 results.push(format!("✓ Words: {}", result.metadata.word_count));
-                results.push(format!(
-                    "✓ Characters: {}",
-                    result.metadata.character_count
-                ));
+                results.push(format!("✓ Characters: {}", result.metadata.character_count));
                 results.push(format!(
                     "✓ Audio size: {} bytes",
                     result.metadata.audio_size_bytes
