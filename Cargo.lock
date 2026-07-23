@@ -2271,17 +2271,16 @@ name = "golem-ai-tts-elevenlabs"
 version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
- "bytes",
  "chrono",
- "futures-util",
+ "golem-ai-http",
  "golem-ai-tts",
  "golem-rust",
- "golem-wasi-http",
  "log 0.4.29",
  "serde",
  "serde_json",
  "urlencoding",
  "uuid",
+ "wasip3 0.7.0+wasi-0.3.0",
 ]
 
 [[package]]

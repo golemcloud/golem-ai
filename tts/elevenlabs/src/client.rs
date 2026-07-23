@@ -1,15 +1,21 @@
 use crate::config::ElevenLabsConfig;
+use golem_ai_http::{Client, Method, RequestBuilder, Response, Timeouts};
 use golem_ai_tts::config::{
     get_endpoint_config, get_max_retries_config, get_timeout_config, SecretSource,
 };
 use golem_ai_tts::error::{from_reqwest_error, internal_error, tts_error_from_status};
 use golem_ai_tts::model::types::TtsError;
-use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::future::Future;
 use std::time::Duration;
+
+async fn wait_for(delay: Duration) {
+    let delay_nanos = u64::try_from(delay.as_nanos()).unwrap_or(u64::MAX);
+    wasip3::clocks::monotonic_clock::wait_for(delay_nanos).await;
+}
 
 #[derive(Debug, Clone)]
 pub struct RateLimitConfig {
@@ -68,22 +74,27 @@ pub struct ElevenLabsTtsApi {
 }
 
 impl ElevenLabsTtsApi {
-    pub fn new(config: &ElevenLabsConfig) -> Self {
-        let timeout_secs = get_timeout_config();
+    pub fn new(config: &ElevenLabsConfig) -> Result<Self, TtsError> {
+        let timeout = Duration::from_secs(get_timeout_config());
         let client = Client::builder()
-            .timeout(Duration::from_secs(timeout_secs))
+            .timeouts(
+                Timeouts::new()
+                    .connect(timeout)
+                    .first_byte(timeout)
+                    .between_bytes(timeout),
+            )
             .build()
-            .expect("Failed to initialize HTTP client");
+            .map_err(|err| from_reqwest_error("Failed to create HTTP client", err))?;
 
         let base_url = get_endpoint_config("https://api.elevenlabs.io");
 
-        Self {
+        Ok(Self {
             api_key: config.api_key.clone(),
             client,
             base_url,
             rate_limit_config: RateLimitConfig::default(),
             model_version: config.model_version.clone(),
-        }
+        })
     }
 
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
@@ -99,15 +110,16 @@ impl ElevenLabsTtsApi {
         &self.model_version
     }
 
-    fn execute_with_retry<F>(&self, operation: F) -> Result<Response, TtsError>
+    async fn execute_with_retry<F, Fut>(&self, operation: F) -> Result<Response, TtsError>
     where
-        F: Fn() -> Result<Response, TtsError>,
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<Response, TtsError>>,
     {
         let mut attempt = 0;
         let mut delay = self.rate_limit_config.initial_delay;
 
         loop {
-            match operation() {
+            match operation().await {
                 Ok(response) => {
                     let status = response.status();
 
@@ -142,7 +154,7 @@ impl ElevenLabsTtsApi {
                             delay
                         };
 
-                        std::thread::sleep(retry_delay);
+                        wait_for(retry_delay).await;
 
                         attempt += 1;
                         delay = std::cmp::min(
@@ -162,15 +174,16 @@ impl ElevenLabsTtsApi {
         }
     }
 
-    fn execute_stream_with_retry<F>(&self, operation: F) -> Result<Response, TtsError>
+    async fn execute_stream_with_retry<F, Fut>(&self, operation: F) -> Result<Response, TtsError>
     where
-        F: Fn() -> Result<Response, TtsError>,
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<Response, TtsError>>,
     {
         let mut attempt = 0;
         let mut delay = self.rate_limit_config.initial_delay;
 
         loop {
-            match operation() {
+            match operation().await {
                 Ok(response) => {
                     let status = response.status();
 
@@ -193,7 +206,7 @@ impl ElevenLabsTtsApi {
                             self.rate_limit_config.max_retries
                         );
 
-                        std::thread::sleep(delay);
+                        wait_for(delay).await;
 
                         attempt += 1;
                         delay = std::cmp::min(
@@ -213,7 +226,7 @@ impl ElevenLabsTtsApi {
         }
     }
 
-    pub fn list_voices(
+    pub async fn list_voices(
         &self,
         params: Option<ListVoicesParams>,
     ) -> Result<ListVoicesResponse, TtsError> {
@@ -258,30 +271,36 @@ impl ElevenLabsTtsApi {
             }
         }
 
-        let response = self.execute_with_retry(|| {
-            self.create_request(Method::GET, &url)
-                .send()
-                .map_err(|e| internal_error(format!("Failed to list voices: {e}")))
-        })?;
+        let response = self
+            .execute_with_retry(|| async {
+                self.create_request(Method::GET, &url)
+                    .send()
+                    .await
+                    .map_err(|e| internal_error(format!("Failed to list voices: {e}")))
+            })
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn get_voice(&self, voice_id: &str) -> Result<Voice, TtsError> {
+    pub async fn get_voice(&self, voice_id: &str) -> Result<Voice, TtsError> {
         trace!("Getting voice: {voice_id}");
 
         let url = format!("{}/v1/voices/{}", self.base_url, voice_id);
 
-        let response = self.execute_with_retry(|| {
-            self.create_request(Method::GET, &url)
-                .send()
-                .map_err(|e| internal_error(format!("Failed to get voice: {e}")))
-        })?;
+        let response = self
+            .execute_with_retry(|| async {
+                self.create_request(Method::GET, &url)
+                    .send()
+                    .await
+                    .map_err(|e| internal_error(format!("Failed to get voice: {e}")))
+            })
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn text_to_speech(
+    pub async fn text_to_speech(
         &self,
         voice_id: &str,
         request: &TextToSpeechRequest,
@@ -313,22 +332,27 @@ impl ElevenLabsTtsApi {
             }
         }
 
-        let response = self.execute_with_retry(|| {
-            self.create_request(Method::POST, &url)
-                .json(request)
-                .send()
-                .map_err(|e| internal_error(format!("Failed to synthesize speech: {e}")))
-        })?;
+        let response = self
+            .execute_with_retry(|| async {
+                self.create_request(Method::POST, &url)
+                    .json(request)
+                    .send()
+                    .await
+                    .map_err(|e| internal_error(format!("Failed to synthesize speech: {e}")))
+            })
+            .await?;
 
         if response.status().is_success() {
             let audio_data = response
                 .bytes()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read audio response", err))?;
             Ok(audio_data.to_vec())
         } else {
             let status = response.status();
             let error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
             trace!("Received {status} response from ElevenLabs API: {error_body:?}");
@@ -336,7 +360,7 @@ impl ElevenLabsTtsApi {
         }
     }
 
-    pub fn synthesize_long_form_batch(
+    pub async fn synthesize_long_form_batch(
         &self,
         voice_id: &str,
         content: &str,
@@ -386,11 +410,13 @@ impl ElevenLabsTtsApi {
                 use_pvc_as_ivc: Some(false),
             };
 
-            let audio_data = self.text_to_speech(voice_id, &request, options.cloned())?;
+            let audio_data = self
+                .text_to_speech(voice_id, &request, options.cloned())
+                .await?;
             audio_chunks.push(audio_data);
 
             if i < chunks.len() - 1 {
-                std::thread::sleep(Duration::from_millis(100));
+                wait_for(Duration::from_millis(100)).await;
             }
         }
 
@@ -475,26 +501,29 @@ impl ElevenLabsTtsApi {
     }
 
     #[allow(dead_code)]
-    pub fn get_quota_info(&self) -> Result<QuotaInfo, TtsError> {
+    pub async fn get_quota_info(&self) -> Result<QuotaInfo, TtsError> {
         trace!("Getting user quota information");
 
         let url = format!("{}/v1/user", self.base_url);
 
-        let response = self.execute_with_retry(|| {
-            self.create_request(Method::GET, &url)
-                .send()
-                .map_err(|e| internal_error(format!("Failed to get quota info: {e}")))
-        })?;
+        let response = self
+            .execute_with_retry(|| async {
+                self.create_request(Method::GET, &url)
+                    .send()
+                    .await
+                    .map_err(|e| internal_error(format!("Failed to get quota info: {e}")))
+            })
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn text_to_speech_stream(
+    pub async fn text_to_speech_stream(
         &self,
         voice_id: &str,
         request: &TextToSpeechRequest,
         params: Option<TextToSpeechParams>,
-    ) -> Result<golem_wasi_http::Response, TtsError> {
+    ) -> Result<Response, TtsError> {
         trace!("Streaming text to speech with voice: {voice_id}");
 
         let mut url = format!("{}/v1/text-to-speech/{}/stream", self.base_url, voice_id);
@@ -521,12 +550,17 @@ impl ElevenLabsTtsApi {
             }
         }
 
-        let response = self.execute_stream_with_retry(|| {
-            self.create_request(Method::POST, &url)
-                .json(request)
-                .send()
-                .map_err(|e| internal_error(format!("Failed to start streaming synthesis: {e}")))
-        })?;
+        let response = self
+            .execute_stream_with_retry(|| async {
+                self.create_request(Method::POST, &url)
+                    .json(request)
+                    .send()
+                    .await
+                    .map_err(|e| {
+                        internal_error(format!("Failed to start streaming synthesis: {e}"))
+                    })
+            })
+            .await?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -536,36 +570,42 @@ impl ElevenLabsTtsApi {
         Ok(response)
     }
 
-    pub fn get_models(&self) -> Result<Vec<Model>, TtsError> {
+    pub async fn get_models(&self) -> Result<Vec<Model>, TtsError> {
         trace!("Getting available models");
 
         let url = format!("{}/v1/models", self.base_url);
 
-        let response = self.execute_with_retry(|| {
-            self.create_request(Method::GET, &url)
-                .send()
-                .map_err(|e| internal_error(format!("Failed to get models: {e}")))
-        })?;
+        let response = self
+            .execute_with_retry(|| async {
+                self.create_request(Method::GET, &url)
+                    .send()
+                    .await
+                    .map_err(|e| internal_error(format!("Failed to get models: {e}")))
+            })
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
     #[allow(dead_code)]
-    pub fn get_user_subscription(&self) -> Result<UserSubscription, TtsError> {
+    pub async fn get_user_subscription(&self) -> Result<UserSubscription, TtsError> {
         trace!("Getting user subscription info");
 
         let url = format!("{}/v1/user/subscription", self.base_url);
 
-        let response = self.execute_with_retry(|| {
-            self.create_request(Method::GET, &url)
-                .send()
-                .map_err(|e| internal_error(format!("Failed to get user subscription: {e}")))
-        })?;
+        let response = self
+            .execute_with_retry(|| async {
+                self.create_request(Method::GET, &url)
+                    .send()
+                    .await
+                    .map_err(|e| internal_error(format!("Failed to get user subscription: {e}")))
+            })
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn create_voice(&self, request: &CreateVoiceRequest) -> Result<Voice, TtsError> {
+    pub async fn create_voice(&self, request: &CreateVoiceRequest) -> Result<Voice, TtsError> {
         trace!("Creating voice clone: {}", request.name);
 
         let url = format!("{}/v1/voices/add", self.base_url);
@@ -609,55 +649,60 @@ impl ElevenLabsTtsApi {
 
         form_data.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
 
-        let response = self.execute_with_retry(|| {
-            // Resolve the API key right before issuing the request so that
-            // hot-rotated host secrets take effect on the next request.
-            let api_key = self.api_key.get();
-            let request = self
-                .client
-                .post(&url)
-                .header("xi-api-key", api_key)
-                .header(
-                    "Content-Type",
-                    format!("multipart/form-data; boundary={}", boundary),
-                )
-                .body(form_data.clone());
+        let response = self
+            .execute_with_retry(|| async {
+                // Resolve the API key right before issuing the request so that
+                // hot-rotated host secrets take effect on the next request.
+                let api_key = self.api_key.get();
+                let request = self
+                    .client
+                    .post(&url)
+                    .header("xi-api-key", api_key)
+                    .header(
+                        "Content-Type",
+                        format!("multipart/form-data; boundary={}", boundary),
+                    )
+                    .body(form_data.clone());
 
-            match request.send() {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        Ok(response)
-                    } else {
-                        let status = response.status();
-                        match response.text() {
-                            Ok(error_body) => Err(internal_error(format!(
-                                "Failed to create voice: status code {} - {}",
-                                status, error_body
-                            ))),
-                            Err(_) => Err(internal_error(format!(
-                                "Failed to create voice: status code {}",
-                                status
-                            ))),
+                match request.send().await {
+                    Ok(response) => {
+                        if response.status().is_success() {
+                            Ok(response)
+                        } else {
+                            let status = response.status();
+                            match response.text().await {
+                                Ok(error_body) => Err(internal_error(format!(
+                                    "Failed to create voice: status code {} - {}",
+                                    status, error_body
+                                ))),
+                                Err(_) => Err(internal_error(format!(
+                                    "Failed to create voice: status code {}",
+                                    status
+                                ))),
+                            }
                         }
                     }
+                    Err(e) => Err(internal_error(format!("Failed to create voice: {e}"))),
                 }
-                Err(e) => Err(internal_error(format!("Failed to create voice: {e}"))),
-            }
-        })?;
+            })
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_voice(&self, voice_id: &str) -> Result<(), TtsError> {
+    pub async fn delete_voice(&self, voice_id: &str) -> Result<(), TtsError> {
         trace!("Deleting voice: {voice_id}");
 
         let url = format!("{}/v1/voices/{}", self.base_url, voice_id);
 
-        let response = self.execute_with_retry(|| {
-            self.create_request(Method::DELETE, &url)
-                .send()
-                .map_err(|e| internal_error(format!("Failed to delete voice: {e}")))
-        })?;
+        let response = self
+            .execute_with_retry(|| async {
+                self.create_request(Method::DELETE, &url)
+                    .send()
+                    .await
+                    .map_err(|e| internal_error(format!("Failed to delete voice: {e}")))
+            })
+            .await?;
 
         if response.status().is_success() {
             Ok(())
@@ -666,7 +711,7 @@ impl ElevenLabsTtsApi {
         }
     }
 
-    pub fn speech_to_speech(
+    pub async fn speech_to_speech(
         &self,
         voice_id: &str,
         request: &SpeechToSpeechRequest,
@@ -717,22 +762,27 @@ impl ElevenLabsTtsApi {
             seed: request.seed,
         };
 
-        let response = self.execute_with_retry(|| {
-            self.create_request(Method::POST, &url)
-                .json(&json_request)
-                .send()
-                .map_err(|e| internal_error(format!("Failed to convert speech: {e}")))
-        })?;
+        let response = self
+            .execute_with_retry(|| async {
+                self.create_request(Method::POST, &url)
+                    .json(&json_request)
+                    .send()
+                    .await
+                    .map_err(|e| internal_error(format!("Failed to convert speech: {e}")))
+            })
+            .await?;
 
         if response.status().is_success() {
             let audio_data = response
                 .bytes()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read audio response", err))?;
             Ok(audio_data.to_vec())
         } else {
             let status = response.status();
             let error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
             trace!("Received {status} response from ElevenLabs API: {error_body:?}");
@@ -740,7 +790,7 @@ impl ElevenLabsTtsApi {
         }
     }
 
-    pub fn create_sound_effect(
+    pub async fn create_sound_effect(
         &self,
         request: &SoundEffectRequest,
         params: Option<SoundEffectParams>,
@@ -762,22 +812,27 @@ impl ElevenLabsTtsApi {
             }
         }
 
-        let response = self.execute_with_retry(|| {
-            self.create_request(Method::POST, &url)
-                .json(request)
-                .send()
-                .map_err(|e| internal_error(format!("Failed to create sound effect: {e}")))
-        })?;
+        let response = self
+            .execute_with_retry(|| async {
+                self.create_request(Method::POST, &url)
+                    .json(request)
+                    .send()
+                    .await
+                    .map_err(|e| internal_error(format!("Failed to create sound effect: {e}")))
+            })
+            .await?;
 
         if response.status().is_success() {
             let audio_data = response
                 .bytes()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read audio response", err))?;
             Ok(audio_data.to_vec())
         } else {
             let status = response.status();
             let error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
             trace!("Received {status} response from ElevenLabs API: {error_body:?}");
@@ -1011,7 +1066,7 @@ pub struct SoundEffectParams {
     pub output_format: Option<String>,
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, TtsError> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, TtsError> {
     let status = response.status();
 
     trace!("Received response from ElevenLabs API: {response:?}");
@@ -1019,6 +1074,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     if status.is_success() {
         let body = response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))?;
 
         trace!("Received response from ElevenLabs API: {body:?}");
@@ -1027,6 +1083,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         trace!("Received {status} response from ElevenLabs API: {error_body:?}");
