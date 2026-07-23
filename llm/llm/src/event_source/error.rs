@@ -1,9 +1,5 @@
-use crate::wasi_compat::StreamError as WasiStreamError;
 use core::fmt;
-use golem_wasi_http::header::HeaderValue;
-use golem_wasi_http::Error as ReqwestError;
-use golem_wasi_http::Response;
-use golem_wasi_http::StatusCode;
+use golem_ai_http::{Error as HttpError, HeaderValue, Response, StatusCode};
 use nom::error::Error as NomError;
 use std::string::FromUtf8Error;
 use thiserror::Error;
@@ -34,7 +30,7 @@ pub enum Error {
     Parser(NomError<String>),
     /// The HTTP Request could not be completed
     #[error(transparent)]
-    Transport(ReqwestError),
+    Transport(HttpError),
     /// Underlying HTTP response stream error
     #[error("Transport stream error: {0}")]
     TransportStream(String),
@@ -52,27 +48,12 @@ pub enum Error {
     StreamEnded,
 }
 
-impl From<StreamError<ReqwestError>> for Error {
-    fn from(err: StreamError<ReqwestError>) -> Self {
+impl From<StreamError<HttpError>> for Error {
+    fn from(err: StreamError<HttpError>) -> Self {
         match err {
             StreamError::Utf8(err) => Self::Utf8(err),
             StreamError::Parser(err) => Self::Parser(err),
             StreamError::Transport(err) => Self::Transport(err),
-        }
-    }
-}
-
-impl From<StreamError<WasiStreamError>> for Error {
-    fn from(err: StreamError<WasiStreamError>) -> Self {
-        match err {
-            StreamError::Utf8(err) => Self::Utf8(err),
-            StreamError::Parser(err) => Self::Parser(err),
-            StreamError::Transport(err) => match err {
-                WasiStreamError::Closed => Self::StreamEnded,
-                WasiStreamError::LastOperationFailed(err) => {
-                    Self::TransportStream(err.to_debug_string())
-                }
-            },
         }
     }
 }

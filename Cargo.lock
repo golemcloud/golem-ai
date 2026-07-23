@@ -1898,16 +1898,15 @@ dependencies = [
 name = "golem-ai-llm"
 version = "0.5.2"
 dependencies = [
- "async-trait",
+ "futures",
+ "golem-ai-http",
  "golem-rust",
- "golem-wasi-http",
  "indoc",
  "log 0.4.29",
  "mime 0.3.17",
  "nom",
  "thiserror 2.0.18",
  "wasi-logger",
- "wasip2",
 ]
 
 [[package]]

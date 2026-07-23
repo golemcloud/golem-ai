@@ -1,10 +1,8 @@
 use crate::event_source::parser::{is_bom, is_lf, line, RawEventLine};
 use crate::event_source::utf8_stream::Utf8Stream;
 use crate::event_source::MessageEvent;
-use crate::wasi_compat::{InputStream, Pollable, StreamError};
 use core::time::Duration;
 use log::trace;
-use std::task::Poll;
 
 use super::stream::{LlmStream, StreamError as EventStreamError};
 
@@ -121,7 +119,6 @@ impl EventStreamState {
 /// A Stream of events
 pub struct EventStream {
     stream: Utf8Stream,
-    body: golem_wasi_http::IncomingBody,
     buffer: String,
     builder: EventBuilder,
     state: EventStreamState,
@@ -130,10 +127,9 @@ pub struct EventStream {
 
 impl LlmStream for EventStream {
     /// Initialize the EventStream with a Stream
-    fn new(stream: InputStream, body: golem_wasi_http::IncomingBody) -> Self {
+    fn new(body: golem_ai_http::ResponseBody) -> Self {
         Self {
-            stream: Utf8Stream::new(stream),
-            body,
+            stream: Utf8Stream::new(body),
             buffer: String::new(),
             builder: EventBuilder::default(),
             state: EventStreamState::NotStarted,
@@ -152,29 +148,27 @@ impl LlmStream for EventStream {
         &self.last_event_id
     }
 
-    fn subscribe(&self) -> Pollable {
-        self.stream.subscribe()
-    }
-
-    fn poll_next(&mut self) -> Poll<Option<Result<MessageEvent, EventStreamError<StreamError>>>> {
+    async fn next(
+        &mut self,
+    ) -> Option<Result<MessageEvent, EventStreamError<golem_ai_http::Error>>> {
         trace!("Polling for next event");
 
         match parse_event(&mut self.buffer, &mut self.builder) {
             Ok(Some(event)) => {
                 self.last_event_id = event.id.clone();
-                return Poll::Ready(Some(Ok(event)));
+                return Some(Ok(event));
             }
-            Err(err) => return Poll::Ready(Some(Err(err))),
+            Err(err) => return Some(Err(err)),
             _ => {}
         }
 
         if self.state.is_terminated() {
-            return Poll::Ready(None);
+            return None;
         }
 
         loop {
-            match self.stream.poll_next() {
-                Poll::Ready(Some(Ok(string))) => {
+            match self.stream.next().await {
+                Some(Ok(string)) => {
                     if string.is_empty() {
                         continue;
                     }
@@ -184,7 +178,7 @@ impl LlmStream for EventStream {
                     } else {
                         self.state = EventStreamState::Started;
                         if is_bom(string.chars().next().unwrap()) {
-                            &string[1..]
+                            &string['\u{feff}'.len_utf8()..]
                         } else {
                             &string
                         }
@@ -194,18 +188,17 @@ impl LlmStream for EventStream {
                     match parse_event(&mut self.buffer, &mut self.builder) {
                         Ok(Some(event)) => {
                             self.last_event_id = event.id.clone();
-                            return Poll::Ready(Some(Ok(event)));
+                            return Some(Ok(event));
                         }
-                        Err(err) => return Poll::Ready(Some(Err(err))),
+                        Err(err) => return Some(Err(err)),
                         _ => {}
                     }
                 }
-                Poll::Ready(Some(Err(err))) => return Poll::Ready(Some(Err(err.into()))),
-                Poll::Ready(None) => {
+                Some(Err(err)) => return Some(Err(err.into())),
+                None => {
                     self.state = EventStreamState::Terminated;
-                    return Poll::Ready(None);
+                    return None;
                 }
-                Poll::Pending => return Poll::Pending,
             }
         }
     }

@@ -1,12 +1,10 @@
-use core::fmt;
-use std::{string::FromUtf8Error, task::Poll};
-
 use super::{
     event_stream::EventStream, ndjson_stream::NdJsonStream, utf8_stream::Utf8StreamError,
     MessageEvent,
 };
-use crate::wasi_compat::{InputStream, Pollable, StreamError as WasiStreamError};
+use core::fmt;
 use nom::error::Error as NomError;
+use std::string::FromUtf8Error;
 
 pub enum StreamType {
     EventStream(EventStream),
@@ -14,50 +12,39 @@ pub enum StreamType {
 }
 
 pub trait LlmStream {
-    fn new(stream: InputStream, body: golem_wasi_http::IncomingBody) -> Self;
+    fn new(body: golem_ai_http::ResponseBody) -> Self;
     fn set_last_event_id(&mut self, id: impl Into<String>);
     fn last_event_id(&self) -> &str;
-    fn subscribe(&self) -> Pollable;
-    fn poll_next(&mut self) -> Poll<Option<Result<MessageEvent, StreamError<WasiStreamError>>>>;
+    async fn next(&mut self) -> Option<Result<MessageEvent, StreamError<golem_ai_http::Error>>>;
 }
 
-/// Error thrown while parsing an event line
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum StreamError<E> {
-    /// Source stream is not valid UTF8
     Utf8(FromUtf8Error),
-    /// Source stream is not a valid EventStream
     Parser(NomError<String>),
-    /// Underlying source stream error
     Transport(E),
 }
 
 impl<E> From<Utf8StreamError<E>> for StreamError<E> {
     fn from(err: Utf8StreamError<E>) -> Self {
         match err {
-            Utf8StreamError::Utf8(err) => Self::Utf8(err),
-            Utf8StreamError::Transport(err) => Self::Transport(err),
+            Utf8StreamError::Utf8(e) => Self::Utf8(e),
+            Utf8StreamError::Transport(e) => Self::Transport(e),
         }
     }
 }
-
 impl<E> From<NomError<&str>> for StreamError<E> {
     fn from(err: NomError<&str>) -> Self {
-        StreamError::Parser(NomError::new(err.input.to_string(), err.code))
+        Self::Parser(NomError::new(err.input.to_string(), err.code))
     }
 }
-
-impl<E> fmt::Display for StreamError<E>
-where
-    E: fmt::Display,
-{
+impl<E: fmt::Display> fmt::Display for StreamError<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Utf8(err) => f.write_fmt(format_args!("UTF8 error: {err}")),
-            Self::Parser(err) => f.write_fmt(format_args!("Parse error: {err}")),
-            Self::Transport(err) => f.write_fmt(format_args!("Transport error: {err}")),
+            Self::Utf8(e) => write!(f, "UTF8 error: {e}"),
+            Self::Parser(e) => write!(f, "Parse error: {e}"),
+            Self::Transport(e) => write!(f, "Transport error: {e}"),
         }
     }
 }
-
-impl<E> std::error::Error for StreamError<E> where E: fmt::Display + fmt::Debug + Send + Sync {}
+impl<E: fmt::Display + fmt::Debug> std::error::Error for StreamError<E> {}

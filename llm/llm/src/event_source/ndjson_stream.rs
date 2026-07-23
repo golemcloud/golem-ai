@@ -1,9 +1,7 @@
 use super::stream::{LlmStream, StreamError as NdJsonStreamError};
 use crate::event_source::utf8_stream::Utf8Stream;
 use crate::event_source::MessageEvent;
-use crate::wasi_compat::{InputStream, Pollable, StreamError};
 use log::trace;
-use std::task::Poll;
 
 #[derive(Debug, Clone, Copy)]
 pub enum NdJsonStreamState {
@@ -21,7 +19,6 @@ impl NdJsonStreamState {
 /// A Stream of NDJSON events (newline-delimited JSON)
 pub struct NdJsonStream {
     stream: Utf8Stream,
-    body: golem_wasi_http::IncomingBody,
     buffer: String,
     state: NdJsonStreamState,
     last_event_id: String,
@@ -29,10 +26,9 @@ pub struct NdJsonStream {
 
 impl LlmStream for NdJsonStream {
     /// Initialize the NdJsonStream with a Stream
-    fn new(stream: InputStream, body: golem_wasi_http::IncomingBody) -> Self {
+    fn new(body: golem_ai_http::ResponseBody) -> Self {
         Self {
-            stream: Utf8Stream::new(stream),
-            body,
+            stream: Utf8Stream::new(body),
             buffer: String::new(),
             state: NdJsonStreamState::NotStarted,
             last_event_id: String::new(),
@@ -49,25 +45,25 @@ impl LlmStream for NdJsonStream {
         &self.last_event_id
     }
 
-    fn subscribe(&self) -> Pollable {
-        self.stream.subscribe()
-    }
-
-    fn poll_next(&mut self) -> Poll<Option<Result<MessageEvent, NdJsonStreamError<StreamError>>>> {
+    async fn next(
+        &mut self,
+    ) -> Option<Result<MessageEvent, NdJsonStreamError<golem_ai_http::Error>>> {
         trace!("Polling for next NDJSON event");
 
         // Try to parse a complete line from the current buffer
-        if let Some(event) = try_parse_line(self)? {
-            return Poll::Ready(Some(Ok(event)));
+        match try_parse_line(self) {
+            Ok(Some(event)) => return Some(Ok(event)),
+            Ok(None) => {}
+            Err(error) => return Some(Err(error)),
         }
 
         if self.state.is_terminated() {
-            return Poll::Ready(None);
+            return None;
         }
 
         loop {
-            match self.stream.poll_next() {
-                Poll::Ready(Some(Ok(string))) => {
+            match self.stream.next().await {
+                Some(Ok(string)) => {
                     if string.is_empty() {
                         continue;
                     }
@@ -79,12 +75,14 @@ impl LlmStream for NdJsonStream {
                     self.buffer.push_str(&string);
 
                     // Try to parse complete lines from the updated buffer
-                    if let Some(event) = try_parse_line(self)? {
-                        return Poll::Ready(Some(Ok(event)));
+                    match try_parse_line(self) {
+                        Ok(Some(event)) => return Some(Ok(event)),
+                        Ok(None) => {}
+                        Err(error) => return Some(Err(error)),
                     }
                 }
-                Poll::Ready(Some(Err(err))) => return Poll::Ready(Some(Err(err.into()))),
-                Poll::Ready(None) => {
+                Some(Err(err)) => return Some(Err(err.into())),
+                None => {
                     self.state = NdJsonStreamState::Terminated;
 
                     // Process any remaining content in buffer before terminating
@@ -96,12 +94,11 @@ impl LlmStream for NdJsonStream {
                             id: self.last_event_id.clone(),
                             retry: None,
                         };
-                        return Poll::Ready(Some(Ok(event)));
+                        return Some(Ok(event));
                     }
 
-                    return Poll::Ready(None);
+                    return None;
                 }
-                Poll::Pending => return Poll::Pending,
             }
         }
     }
@@ -113,9 +110,9 @@ impl LlmStream for NdJsonStream {
 /// Returns Err if there was a parsing error
 fn try_parse_line(
     stream: &mut NdJsonStream,
-) -> Result<Option<MessageEvent>, NdJsonStreamError<StreamError>> {
-    // Look for a complete line (ending with \n)
-    if let Some(newline_pos) = stream.buffer.find('\n') {
+) -> Result<Option<MessageEvent>, NdJsonStreamError<golem_ai_http::Error>> {
+    // Consume empty lines without waiting for another body chunk.
+    while let Some(newline_pos) = stream.buffer.find('\n') {
         // Extract the line (without the newline)
         let line = stream.buffer[..newline_pos].trim().to_string();
 
@@ -124,7 +121,7 @@ fn try_parse_line(
 
         // Skip empty lines
         if line.is_empty() {
-            return Ok(None);
+            continue;
         }
 
         trace!("Parsed NDJSON line: {line}");
