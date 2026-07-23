@@ -9,8 +9,7 @@ use golem_ai_search::model::{CreateIndexOptions, SearchStream};
 use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
-use golem_ai_search::wasi_compat::{subscribe_zero, Pollable};
-use golem_ai_search::{SearchProvider, SearchStreamInterface};
+use golem_ai_search::{SearchFuture, SearchProvider, SearchStreamInterface};
 use std::cell::{Cell, RefCell};
 
 mod client;
@@ -43,10 +42,6 @@ impl MeilisearchSearchStream {
             last_response: RefCell::new(None),
         }
     }
-
-    pub fn subscribe(&self) -> Pollable {
-        subscribe_zero()
-    }
 }
 
 impl SearchStreamInterface for MeilisearchSearchStream {
@@ -58,57 +53,60 @@ impl SearchStreamInterface for MeilisearchSearchStream {
         self
     }
 
-    fn get_next(&self) -> Option<Vec<SearchHit>> {
-        if self.finished.get() {
-            return Some(vec![]);
-        }
+    fn get_next(&self) -> SearchFuture<'_, Option<Vec<SearchHit>>> {
+        Box::pin(async move {
+            if self.finished.get() {
+                return Some(vec![]);
+            }
 
-        let mut search_query = self.query.clone();
-        let current_page = self.current_page.get();
-        let limit = search_query.per_page.unwrap_or(20);
+            let mut search_query = self.query.clone();
+            let current_page = self.current_page.get();
+            let limit = search_query.per_page.unwrap_or(20);
 
-        search_query.offset = Some(current_page * limit);
+            search_query.offset = Some(current_page * limit);
 
-        let meilisearch_request = search_query_to_meilisearch_request(search_query);
+            let meilisearch_request = search_query_to_meilisearch_request(search_query);
 
-        match self.client.search(&self.index_name, &meilisearch_request) {
-            Ok(response) => {
-                let search_results = meilisearch_response_to_search_results(response);
+            match self
+                .client
+                .search(&self.index_name, &meilisearch_request)
+                .await
+            {
+                Ok(response) => {
+                    let search_results = meilisearch_response_to_search_results(response);
 
-                if search_results.hits.is_empty() {
-                    self.finished.set(true);
-                    return Some(vec![]);
-                }
+                    if search_results.hits.is_empty() {
+                        self.finished.set(true);
+                        return Some(vec![]);
+                    }
 
-                if let (Some(total), Some(per_page)) =
-                    (search_results.total, search_results.per_page)
-                {
-                    let current_offset = current_page * per_page;
-                    let next_offset = current_offset + per_page;
-                    if next_offset >= total {
+                    if let (Some(total), Some(per_page)) =
+                        (search_results.total, search_results.per_page)
+                    {
+                        let current_offset = current_page * per_page;
+                        let next_offset = current_offset + per_page;
+                        if next_offset >= total {
+                            self.finished.set(true);
+                        }
+                    }
+
+                    if (search_results.hits.len() as u32) < limit {
                         self.finished.set(true);
                     }
-                }
 
-                if (search_results.hits.len() as u32) < limit {
+                    self.current_page.set(current_page + 1);
+
+                    let hits = search_results.hits.clone();
+                    *self.last_response.borrow_mut() = Some(search_results);
+
+                    Some(hits)
+                }
+                Err(_) => {
                     self.finished.set(true);
+                    Some(vec![])
                 }
-
-                self.current_page.set(current_page + 1);
-
-                let hits = search_results.hits.clone();
-                *self.last_response.borrow_mut() = Some(search_results);
-
-                Some(hits)
             }
-            Err(_) => {
-                self.finished.set(true);
-                Some(vec![])
-            }
-        }
-    }
-    fn blocking_get_next(&self) -> Vec<SearchHit> {
-        self.get_next().unwrap_or_default()
+        })
     }
 }
 
@@ -118,7 +116,7 @@ impl SearchProvider for Meilisearch {
     type SearchStream = MeilisearchSearchStream;
     type ProviderConfig = MeilisearchConfig;
 
-    fn create_index(
+    async fn create_index(
         provider_config: Self::ProviderConfig,
         options: CreateIndexOptions,
     ) -> Result<(), SearchError> {
@@ -129,35 +127,39 @@ impl SearchProvider for Meilisearch {
             primary_key: Some("id".to_string()), // Default primary key
         };
 
-        let task = client.create_index(&create_request)?;
+        let task = client.create_index(&create_request).await?;
 
-        client.wait_for_task(task.task_uid)?;
+        client.wait_for_task(task.task_uid).await?;
 
         if let Some(schema) = options.schema {
             let settings = schema_to_meilisearch_settings(schema);
-            let settings_task = client.update_settings(&options.index_name, &settings)?;
-            client.wait_for_task(settings_task.task_uid)?;
+            let settings_task = client
+                .update_settings(&options.index_name, &settings)
+                .await?;
+            client.wait_for_task(settings_task.task_uid).await?;
         }
 
         Ok(())
     }
 
-    fn delete_index(
+    async fn delete_index(
         provider_config: Self::ProviderConfig,
         name: IndexName,
     ) -> Result<(), SearchError> {
         let client = MeilisearchApi::new(&provider_config);
 
-        let task = client.delete_index(&name)?;
-        client.wait_for_task(task.task_uid)?;
+        let task = client.delete_index(&name).await?;
+        client.wait_for_task(task.task_uid).await?;
 
         Ok(())
     }
 
-    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
+    async fn list_indexes(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<IndexName>, SearchError> {
         let client = MeilisearchApi::new(&provider_config);
 
-        let response = client.list_indexes()?;
+        let response = client.list_indexes().await?;
         Ok(response
             .results
             .into_iter()
@@ -165,7 +167,7 @@ impl SearchProvider for Meilisearch {
             .collect())
     }
 
-    fn upsert(
+    async fn upsert(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         doc: Doc,
@@ -174,13 +176,13 @@ impl SearchProvider for Meilisearch {
         let meilisearch_doc =
             doc_to_meilisearch_document(doc).map_err(SearchError::InvalidQuery)?;
 
-        let task = client.add_documents(&index, &[meilisearch_doc])?;
-        client.wait_for_task(task.task_uid)?;
+        let task = client.add_documents(&index, &[meilisearch_doc]).await?;
+        client.wait_for_task(task.task_uid).await?;
 
         Ok(())
     }
 
-    fn upsert_many(
+    async fn upsert_many(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         docs: Vec<Doc>,
@@ -194,52 +196,52 @@ impl SearchProvider for Meilisearch {
             meilisearch_docs.push(meilisearch_doc);
         }
 
-        let task = client.add_documents(&index, &meilisearch_docs)?;
-        client.wait_for_task(task.task_uid)?;
+        let task = client.add_documents(&index, &meilisearch_docs).await?;
+        client.wait_for_task(task.task_uid).await?;
 
         Ok(())
     }
 
-    fn delete(
+    async fn delete(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         id: DocumentId,
     ) -> Result<(), SearchError> {
         let client = MeilisearchApi::new(&provider_config);
 
-        let task = client.delete_document(&index, &id)?;
-        client.wait_for_task(task.task_uid)?;
+        let task = client.delete_document(&index, &id).await?;
+        client.wait_for_task(task.task_uid).await?;
 
         Ok(())
     }
 
-    fn delete_many(
+    async fn delete_many(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         ids: Vec<DocumentId>,
     ) -> Result<(), SearchError> {
         let client = MeilisearchApi::new(&provider_config);
 
-        let task = client.delete_documents(&index, &ids)?;
-        client.wait_for_task(task.task_uid)?;
+        let task = client.delete_documents(&index, &ids).await?;
+        client.wait_for_task(task.task_uid).await?;
 
         Ok(())
     }
 
-    fn get(
+    async fn get(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         id: DocumentId,
     ) -> Result<Option<Doc>, SearchError> {
         let client = MeilisearchApi::new(&provider_config);
 
-        match client.get_document(&index, &id)? {
+        match client.get_document(&index, &id).await? {
             Some(meilisearch_doc) => Ok(Some(meilisearch_document_to_doc(meilisearch_doc))),
             None => Ok(None),
         }
     }
 
-    fn search(
+    async fn search(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -247,11 +249,11 @@ impl SearchProvider for Meilisearch {
         let client = MeilisearchApi::new(&provider_config);
         let meilisearch_request = search_query_to_meilisearch_request(query);
 
-        let response = client.search(&index, &meilisearch_request)?;
+        let response = client.search(&index, &meilisearch_request).await?;
         Ok(meilisearch_response_to_search_results(response))
     }
 
-    fn stream_search(
+    async fn stream_search(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -261,17 +263,17 @@ impl SearchProvider for Meilisearch {
         Ok(SearchStream::new(stream))
     }
 
-    fn get_schema(
+    async fn get_schema(
         provider_config: Self::ProviderConfig,
         index: IndexName,
     ) -> Result<Schema, SearchError> {
         let client = MeilisearchApi::new(&provider_config);
 
-        let settings = client.get_settings(&index)?;
+        let settings = client.get_settings(&index).await?;
         Ok(meilisearch_settings_to_schema(settings))
     }
 
-    fn update_schema(
+    async fn update_schema(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         schema: Schema,
@@ -279,14 +281,14 @@ impl SearchProvider for Meilisearch {
         let client = MeilisearchApi::new(&provider_config);
         let settings = schema_to_meilisearch_settings(schema);
 
-        let _task = client.update_settings(&index, &settings)?;
+        let _task = client.update_settings(&index, &settings).await?;
 
         Ok(())
     }
 }
 
 impl ExtendedSearchProvider for Meilisearch {
-    fn unwrapped_stream(
+    async fn unwrapped_stream(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -297,10 +299,6 @@ impl ExtendedSearchProvider for Meilisearch {
 
     fn retry_query(original_query: &SearchQuery, partial_hits: &[SearchHit]) -> SearchQuery {
         create_retry_query(original_query, partial_hits)
-    }
-
-    fn subscribe(stream: &Self::SearchStream) -> Pollable {
-        stream.subscribe()
     }
 }
 
