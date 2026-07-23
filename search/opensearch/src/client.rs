@@ -1,12 +1,13 @@
+use golem_ai_http::{Client, Error, Method, RequestBuilder, Response, Timeouts};
 use golem_ai_search::config::{get_max_retries_config, get_timeout_config};
 use golem_ai_search::error::{from_reqwest_error, internal_error, search_error_from_status};
 use golem_ai_search::model::SearchError;
-use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::fmt::Debug;
+use std::future::Future;
 use std::time::Duration;
 
 /// The OpenSearch API client for managing indices and performing search
@@ -182,9 +183,15 @@ impl OpenSearchApi {
     pub fn new(config: &crate::config::OpenSearchConfig) -> Self {
         let timeout_secs = get_timeout_config();
         let max_retries = get_max_retries_config();
+        let timeout = Duration::from_secs(timeout_secs);
 
         let client = Client::builder()
-            .timeout(Duration::from_secs(timeout_secs))
+            .timeouts(
+                Timeouts::new()
+                    .connect(timeout)
+                    .first_byte(timeout)
+                    .between_bytes(timeout),
+            )
             .build()
             .expect("Failed to initialize HTTP client");
 
@@ -198,7 +205,7 @@ impl OpenSearchApi {
         }
     }
 
-    fn should_retry_error(&self, error: &golem_wasi_http::Error) -> bool {
+    fn should_retry_error(&self, error: &Error) -> bool {
         error.is_timeout() || error.is_request()
     }
 
@@ -211,14 +218,15 @@ impl OpenSearchApi {
         Duration::from_millis(delay_ms)
     }
 
-    fn execute_with_retry_sync<F>(&self, operation: F) -> Result<Response, SearchError>
+    async fn execute_with_retry<F, Fut>(&self, operation: F) -> Result<Response, SearchError>
     where
-        F: Fn() -> Result<Response, golem_wasi_http::Error> + Send + Sync,
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<Response, Error>>,
     {
         let mut last_error = None;
 
         for attempt in 0..=self.max_retries {
-            match operation() {
+            match operation().await {
                 Ok(response) => {
                     match response.status().as_u16() {
                         429 if attempt < self.max_retries => {
@@ -230,7 +238,7 @@ impl OpenSearchApi {
                                 attempt + 1,
                                 self.max_retries + 1
                             );
-                            std::thread::sleep(delay);
+                            Self::wait(delay).await;
                             continue;
                         }
                         502..=504 if attempt < self.max_retries => {
@@ -243,7 +251,7 @@ impl OpenSearchApi {
                                 attempt + 1,
                                 self.max_retries + 1
                             );
-                            std::thread::sleep(delay);
+                            Self::wait(delay).await;
                             continue;
                         }
                         _ => return Ok(response),
@@ -264,7 +272,7 @@ impl OpenSearchApi {
                                 self.max_retries + 1,
                                 error
                             );
-                            std::thread::sleep(delay);
+                            Self::wait(delay).await;
                         } else if !self.should_retry_error(error) {
                             trace!("Request failed with non-retryable error: {error:?}");
                             break;
@@ -280,6 +288,11 @@ impl OpenSearchApi {
             self.max_retries + 1,
             error
         )))
+    }
+
+    async fn wait(delay: Duration) {
+        let delay_nanos = u64::try_from(delay.as_nanos()).unwrap_or(u64::MAX);
+        wasip3::clocks::monotonic_clock::wait_for(delay_nanos).await;
     }
 
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
@@ -323,7 +336,7 @@ impl OpenSearchApi {
         builder
     }
 
-    pub fn create_index(
+    pub async fn create_index(
         &self,
         index_name: &str,
         settings: Option<OpenSearchSettings>,
@@ -332,15 +345,17 @@ impl OpenSearchApi {
 
         let url = format!("{}/{}", self.base_url, index_name);
 
-        let response = self.execute_with_retry_sync(|| {
-            let mut request = self.create_request(Method::PUT, &url);
+        let response = self
+            .execute_with_retry(|| {
+                let mut request = self.create_request(Method::PUT, &url);
 
-            if let Some(ref settings) = settings {
-                request = request.json(settings);
-            }
+                if let Some(ref settings) = settings {
+                    request = request.json(settings);
+                }
 
-            request.send()
-        })?;
+                request.send()
+            })
+            .await?;
 
         if response.status().is_success() {
             Ok(())
@@ -349,13 +364,14 @@ impl OpenSearchApi {
         }
     }
 
-    pub fn delete_index(&self, index_name: &str) -> Result<(), SearchError> {
+    pub async fn delete_index(&self, index_name: &str) -> Result<(), SearchError> {
         trace!("Deleting index: {index_name}");
 
         let url = format!("{}/{}", self.base_url, index_name);
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::DELETE, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::DELETE, &url).send())
+            .await?;
 
         if response.status().is_success() {
             Ok(())
@@ -364,18 +380,19 @@ impl OpenSearchApi {
         }
     }
 
-    pub fn list_indices(&self) -> Result<Vec<OpenSearchIndexInfo>, SearchError> {
+    pub async fn list_indices(&self) -> Result<Vec<OpenSearchIndexInfo>, SearchError> {
         trace!("Listing indices");
 
         let url = format!("{}/_cat/indices?format=json", self.base_url);
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::GET, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::GET, &url).send())
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn index_document(
+    pub async fn index_document(
         &self,
         index_name: &str,
         id: &str,
@@ -385,9 +402,9 @@ impl OpenSearchApi {
 
         let url = format!("{}/{}/_doc/{}", self.base_url, index_name, id);
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::PUT, &url).json(document).send()
-        })?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::PUT, &url).json(document).send())
+            .await?;
 
         if response.status().is_success() {
             Ok(())
@@ -396,27 +413,33 @@ impl OpenSearchApi {
         }
     }
 
-    pub fn bulk_index(&self, operations: &str) -> Result<OpenSearchBulkResponse, SearchError> {
+    pub async fn bulk_index(
+        &self,
+        operations: &str,
+    ) -> Result<OpenSearchBulkResponse, SearchError> {
         trace!("Performing bulk index operation");
 
         let url = format!("{}/_bulk", self.base_url);
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request_with_content_type(Method::POST, &url, "application/x-ndjson")
-                .body(operations.to_string())
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request_with_content_type(Method::POST, &url, "application/x-ndjson")
+                    .body(operations.to_string())
+                    .send()
+            })
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_document(&self, index_name: &str, id: &str) -> Result<(), SearchError> {
+    pub async fn delete_document(&self, index_name: &str, id: &str) -> Result<(), SearchError> {
         trace!("Deleting document {id} from index: {index_name}");
 
         let url = format!("{}/{}/_doc/{}", self.base_url, index_name, id);
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::DELETE, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::DELETE, &url).send())
+            .await?;
 
         if response.status().is_success() {
             Ok(())
@@ -425,18 +448,23 @@ impl OpenSearchApi {
         }
     }
 
-    pub fn get_document(&self, index_name: &str, id: &str) -> Result<Option<Value>, SearchError> {
+    pub async fn get_document(
+        &self,
+        index_name: &str,
+        id: &str,
+    ) -> Result<Option<Value>, SearchError> {
         trace!("Getting document {id} from index: {index_name}");
 
         let url = format!("{}/{}/_doc/{}", self.base_url, index_name, id);
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::GET, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::GET, &url).send())
+            .await?;
 
         if response.status() == 404 {
             Ok(None)
         } else if response.status().is_success() {
-            let doc: Value = parse_response(response)?;
+            let doc: Value = parse_response(response).await?;
             if let Some(source) = doc.get("_source") {
                 Ok(Some(source.clone()))
             } else {
@@ -447,7 +475,7 @@ impl OpenSearchApi {
         }
     }
 
-    pub fn search(
+    pub async fn search(
         &self,
         index_name: &str,
         query: &OpenSearchQuery,
@@ -456,14 +484,14 @@ impl OpenSearchApi {
 
         let url = format!("{}/{}/_search", self.base_url, index_name);
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, &url).json(query).send()
-        })?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::POST, &url).json(query).send())
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn search_with_scroll(
+    pub async fn search_with_scroll(
         &self,
         index_name: &str,
         query: &OpenSearchQuery,
@@ -476,14 +504,14 @@ impl OpenSearchApi {
             self.base_url, index_name, scroll_timeout
         );
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, &url).json(query).send()
-        })?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::POST, &url).json(query).send())
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn scroll(
+    pub async fn scroll(
         &self,
         scroll_id: &str,
         scroll_timeout: &str,
@@ -492,21 +520,23 @@ impl OpenSearchApi {
 
         let url = format!("{}/_search/scroll", self.base_url);
 
-        let response = self.execute_with_retry_sync(|| {
-            let scroll_request = ScrollRequest {
-                scroll: scroll_timeout.to_string(),
-                scroll_id: scroll_id.to_string(),
-            };
+        let response = self
+            .execute_with_retry(|| {
+                let scroll_request = ScrollRequest {
+                    scroll: scroll_timeout.to_string(),
+                    scroll_id: scroll_id.to_string(),
+                };
 
-            self.create_request(Method::POST, &url)
-                .json(&scroll_request)
-                .send()
-        })?;
+                self.create_request(Method::POST, &url)
+                    .json(&scroll_request)
+                    .send()
+            })
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn clear_scroll(&self, scroll_id: &str) -> Result<(), SearchError> {
+    pub async fn clear_scroll(&self, scroll_id: &str) -> Result<(), SearchError> {
         trace!("Clearing scroll: {scroll_id}");
 
         let url = format!("{}/_search/scroll", self.base_url);
@@ -514,11 +544,13 @@ impl OpenSearchApi {
             "scroll_id": scroll_id
         });
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::DELETE, &url)
-                .json(&request_body)
-                .send()
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_request(Method::DELETE, &url)
+                    .json(&request_body)
+                    .send()
+            })
+            .await?;
 
         if response.status().is_success() {
             Ok(())
@@ -527,18 +559,19 @@ impl OpenSearchApi {
         }
     }
 
-    pub fn get_mappings(&self, index_name: &str) -> Result<Value, SearchError> {
+    pub async fn get_mappings(&self, index_name: &str) -> Result<Value, SearchError> {
         trace!("Getting mappings for index: {index_name}");
 
         let url = format!("{}/{}/_mapping", self.base_url, index_name);
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::GET, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::GET, &url).send())
+            .await?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn put_mappings(
+    pub async fn put_mappings(
         &self,
         index_name: &str,
         mappings: &OpenSearchMappings,
@@ -547,9 +580,9 @@ impl OpenSearchApi {
 
         let url = format!("{}/{}/_mapping", self.base_url, index_name);
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::PUT, &url).json(mappings).send()
-        })?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::PUT, &url).json(mappings).send())
+            .await?;
 
         if response.status().is_success() {
             Ok(())
@@ -559,7 +592,7 @@ impl OpenSearchApi {
     }
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, SearchError> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, SearchError> {
     let status = response.status();
 
     trace!("Received response from OpenSearch API: {response:?}");
@@ -567,6 +600,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     if status.is_success() {
         let body = response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))?;
 
         trace!("Received response from OpenSearch API: {body:?}");
@@ -575,6 +609,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         trace!("Received {status} response from OpenSearch API: {error_body:?}");
