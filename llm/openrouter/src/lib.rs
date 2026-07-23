@@ -10,6 +10,8 @@ use crate::client::{ChatCompletionChunk, CompletionsApi, CompletionsRequest, Fun
 use crate::conversions::{
     convert_finish_reason, convert_usage, events_to_request, process_response,
 };
+use futures::lock::Mutex;
+use golem_ai_http::StatusCode;
 use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
 use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::error::error_code_from_status;
@@ -18,11 +20,9 @@ use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Message, Response,
     ResponseMetadata, Role, StreamDelta, StreamEvent, ToolCall,
 };
-use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::LlmProvider;
-use golem_wasi_http::StatusCode;
 use log::trace;
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Default)]
@@ -33,7 +33,7 @@ struct JsonFragment {
 }
 
 pub struct OpenRouterChatStream {
-    stream: RefCell<Option<EventSource>>,
+    stream: Mutex<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
     finish_reason: RefCell<Option<FinishReason>>,
@@ -43,7 +43,7 @@ pub struct OpenRouterChatStream {
 impl OpenRouterChatStream {
     pub fn new(stream: EventSource) -> LlmChatStream<Self> {
         LlmChatStream::new(OpenRouterChatStream {
-            stream: RefCell::new(Some(stream)),
+            stream: Mutex::new(Some(stream)),
             failure: None,
             finished: RefCell::new(false),
             finish_reason: RefCell::new(None),
@@ -53,7 +53,7 @@ impl OpenRouterChatStream {
 
     pub fn failed(error: Error) -> LlmChatStream<Self> {
         LlmChatStream::new(OpenRouterChatStream {
-            stream: RefCell::new(None),
+            stream: Mutex::new(None),
             failure: Some(error),
             finished: RefCell::new(false),
             finish_reason: RefCell::new(None),
@@ -75,12 +75,8 @@ impl LlmChatStreamState for OpenRouterChatStream {
         *self.finished.borrow_mut() = true;
     }
 
-    fn stream(&self) -> Ref<'_, Option<EventSource>> {
-        self.stream.borrow()
-    }
-
-    fn stream_mut(&self) -> RefMut<'_, Option<EventSource>> {
-        self.stream.borrow_mut()
+    fn stream(&self) -> &Mutex<Option<EventSource>> {
+        &self.stream
     }
 
     fn decode_message(&self, raw: &str) -> Result<Option<StreamEvent>, Error> {
@@ -242,17 +238,20 @@ impl LlmChatStreamState for OpenRouterChatStream {
 pub struct OpenRouter;
 
 impl OpenRouter {
-    fn request(client: CompletionsApi, request: CompletionsRequest) -> Result<Response, Error> {
-        let response = client.send_messages(request)?;
+    async fn request(
+        client: CompletionsApi,
+        request: CompletionsRequest,
+    ) -> Result<Response, Error> {
+        let response = client.send_messages(request).await?;
         process_response(response)
     }
 
-    fn streaming_request(
+    async fn streaming_request(
         client: CompletionsApi,
         mut request: CompletionsRequest,
     ) -> LlmChatStream<OpenRouterChatStream> {
         request.stream = Some(true);
-        match client.stream_send_messages(request) {
+        match client.stream_send_messages(request).await {
             Ok(stream) => OpenRouterChatStream::new(stream),
             Err(err) => OpenRouterChatStream::failed(err),
         }
@@ -270,7 +269,7 @@ impl LlmProvider for OpenRouter {
     ) -> Result<Response, Error> {
         let client = CompletionsApi::new(&provider_config);
         let request = events_to_request(events, config)?;
-        Self::request(client, request)
+        Self::request(client, request).await
     }
 
     async fn stream(
@@ -290,7 +289,7 @@ impl ExtendedLlmProvider for OpenRouter {
     ) -> LlmChatStream<OpenRouterChatStream> {
         let client = CompletionsApi::new(&provider_config);
         match events_to_request(events, config) {
-            Ok(request) => Self::streaming_request(client, request),
+            Ok(request) => Self::streaming_request(client, request).await,
             Err(err) => OpenRouterChatStream::failed(err),
         }
     }
@@ -349,10 +348,6 @@ impl ExtendedLlmProvider for OpenRouter {
             .collect(),
         }));
         extended_events
-    }
-
-    fn subscribe(stream: &Self::ChatStream) -> Pollable {
-        stream.subscribe()
     }
 }
 
