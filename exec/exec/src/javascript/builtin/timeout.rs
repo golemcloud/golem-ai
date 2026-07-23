@@ -99,10 +99,9 @@ async fn scheduled_task(
             .catch(&ctx)
             .expect("Failed to run scheduled task");
     } else {
-        let duration = wstd::time::Duration::from_millis(delay as u64);
-
         loop {
-            wstd::task::sleep(duration).await;
+            wasip3::clocks::monotonic_clock::wait_for(u64::from(delay).saturating_mul(1_000_000))
+                .await;
 
             run_scheduled_task(ctx.clone(), code_or_fn.clone(), args.clone())
                 .catch(&ctx)

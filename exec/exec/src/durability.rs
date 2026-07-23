@@ -10,12 +10,11 @@ pub use snapshot::{EmptySnapshot, SessionSnapshot};
 
 #[cfg(feature = "golem")]
 mod snapshot {
-    use golem_rust::value_and_type::{FromValueAndType, IntoValue};
-    use golem_rust::{FromValueAndType, IntoValue};
+    use golem_rust::{FromSchema, IntoSchema};
     use std::fmt::Debug;
 
     pub trait SessionSnapshot<Session> {
-        type Snapshot: Debug + Clone + IntoValue + FromValueAndType;
+        type Snapshot: Debug + Clone + IntoSchema + FromSchema;
 
         fn supports_snapshot(session: &Session) -> bool;
 
@@ -23,7 +22,7 @@ mod snapshot {
         fn restore_snapshot(session: &Session, snapshot: Self::Snapshot);
     }
 
-    #[derive(Debug, Clone, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, IntoSchema, FromSchema)]
     pub struct EmptySnapshot {}
 }
 
@@ -57,12 +56,8 @@ mod durable_impl {
     use crate::model::{Error, ExecResult, File, Language, RunOptions};
     use crate::{ExecutionProvider, ExecutionSession};
     use async_trait::async_trait;
-    use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
-    use golem_rust::durability::Durability;
-    use golem_rust::value_and_type::{
-        FromValueAndType, IntoValue, NodeBuilder, TypeNodeBuilder, WitValueExtractor,
-    };
-    use golem_rust::{use_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
+    use golem_rust::durability::{Durability, DurableFunctionType};
+    use golem_rust::{use_persistence_level, FromSchema, IntoSchema, PersistenceLevel};
     use std::fmt::{Debug, Display, Formatter};
 
     #[async_trait(?Send)]
@@ -207,7 +202,7 @@ mod durable_impl {
         }
     }
 
-    #[derive(Debug, IntoValue)]
+    #[derive(Debug, IntoSchema)]
     struct RunInput {
         language: Language,
         modules: Vec<String>,
@@ -215,46 +210,13 @@ mod durable_impl {
         options: RunOptions,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema)]
     struct SessionRunResult<Snapshot: Debug + Clone> {
         result: Result<ExecResult, Error>,
         snapshot: Option<Snapshot>,
     }
 
-    impl<Snapshot: IntoValue + Debug + Clone> IntoValue for SessionRunResult<Snapshot> {
-        fn add_to_builder<T: NodeBuilder>(self, builder: T) -> T::Result {
-            let builder = builder.record();
-            let builder = self.result.add_to_builder(builder.item());
-            let builder = self.snapshot.add_to_builder(builder.item());
-            builder.finish()
-        }
-
-        fn add_to_type_builder<T: TypeNodeBuilder>(builder: T) -> T::Result {
-            let builder = builder.record(Some("SessionRunResult".to_string()), None);
-            let builder = Result::<ExecResult, Error>::add_to_type_builder(builder.field("result"));
-            let builder = Option::<Snapshot>::add_to_type_builder(builder.field("snapshot"));
-            builder.finish()
-        }
-    }
-
-    impl<Snapshot: FromValueAndType + Debug + Clone> FromValueAndType for SessionRunResult<Snapshot> {
-        fn from_extractor<'a, 'b>(
-            extractor: &'a impl WitValueExtractor<'a, 'b>,
-        ) -> Result<Self, String> {
-            Ok(SessionRunResult {
-                result: Result::<ExecResult, Error>::from_extractor(
-                    &extractor
-                        .field(0)
-                        .ok_or_else(|| "Missing result field".to_string())?,
-                )?,
-                snapshot: Option::<Snapshot>::from_extractor(
-                    &extractor.field(1).ok_or("Missing snapshot field")?,
-                )?,
-            })
-        }
-    }
-
-    #[derive(Debug, FromValueAndType, IntoValue)]
+    #[derive(Debug, FromSchema, IntoSchema)]
     struct UnusedError;
 
     impl Display for UnusedError {

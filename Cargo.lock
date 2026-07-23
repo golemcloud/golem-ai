@@ -1812,9 +1812,8 @@ dependencies = [
  "log 0.4.29",
  "rquickjs",
  "rustpython",
- "wasi 0.14.7+wasi-0.2.4",
  "wasi-logger",
- "wstd",
+ "wasip3 0.7.0+wasi-0.3.0",
 ]
 
 [[package]]
