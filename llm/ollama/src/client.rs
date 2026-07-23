@@ -1,14 +1,14 @@
 use std::{collections::HashMap, fmt::Debug, fs, path::Path};
 
 use base64::{engine::general_purpose, Engine};
+use golem_ai_http::{
+    header::{HeaderMap, HeaderValue, CONTENT_TYPE},
+    Client, Method, Response, StatusCode,
+};
 use golem_ai_llm::{
     error::{error_code_from_status, from_event_source_error},
     event_source::EventSource,
     model::ErrorCode,
-};
-use golem_wasi_http::{
-    header::{HeaderMap, HeaderValue, CONTENT_TYPE},
-    Client, Method, Response, StatusCode,
 };
 use log::trace;
 
@@ -38,7 +38,10 @@ impl OllamaApi {
         }
     }
 
-    pub fn send_chat(&self, params: CompletionsRequest) -> Result<CompletionsResponse, Error> {
+    pub async fn send_chat(
+        &self,
+        params: CompletionsRequest,
+    ) -> Result<CompletionsResponse, Error> {
         trace!("Sending request to Ollama API: {params:?}");
 
         let mut modified_params = params;
@@ -57,12 +60,13 @@ impl OllamaApi {
             .headers(headers)
             .json(&modified_params)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        handle_response::<CompletionsResponse>(response)
+        handle_response::<CompletionsResponse>(response).await
     }
 
-    pub fn send_chat_stream(&self, params: CompletionsRequest) -> Result<EventSource, Error> {
+    pub async fn send_chat_stream(&self, params: CompletionsRequest) -> Result<EventSource, Error> {
         trace!("Sending request to Ollama API: {params:?}");
 
         let mut modified_params = params;
@@ -88,6 +92,7 @@ impl OllamaApi {
             .headers(headers)
             .body(json_body)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
         EventSource::new(response)
             .map_err(|err| from_event_source_error("Failed to create EventSource stream", err))
@@ -276,13 +281,14 @@ pub struct OllamaRequestError {
     error_message: Option<String>,
 }
 
-pub fn handle_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {
+pub async fn handle_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {
     let status = response.status();
 
     match status {
         StatusCode::OK => {
             let raw_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to receive response body", err))?;
 
             match serde_json::from_str::<T>(&raw_body) {
@@ -297,6 +303,7 @@ pub fn handle_response<T: DeserializeOwned + Debug>(response: Response) -> Resul
         _ => {
             let raw_error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
             trace!("Received {status} response from OpenRouter API: {raw_error_body:?}");
 
@@ -316,12 +323,12 @@ pub fn handle_response<T: DeserializeOwned + Debug>(response: Response) -> Resul
     }
 }
 
-pub fn image_to_base64(source: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn image_to_base64(source: &str) -> Result<String, Box<dyn std::error::Error>> {
     let bytes = if Url::parse(source).is_ok() {
         let client = Client::new();
-        let response = client.get(source).send()?;
+        let response = client.get(source).send().await?;
 
-        response.bytes()?.to_vec()
+        response.bytes().await?.to_vec()
     } else {
         let path = Path::new(source);
 
@@ -332,7 +339,7 @@ pub fn image_to_base64(source: &str) -> Result<String, Box<dyn std::error::Error
     Ok(base64_data)
 }
 
-pub fn from_reqwest_error(context: &str, err: golem_wasi_http::Error) -> Error {
+pub fn from_reqwest_error(context: &str, err: golem_ai_http::Error) -> Error {
     Error {
         code: ErrorCode::InternalError,
         message: format!("{context}: {err}"),

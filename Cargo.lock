@@ -1964,12 +1964,13 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-llm-ollama"
-version = "0.5.2"
+version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
+ "futures",
+ "golem-ai-http",
  "golem-ai-llm",
  "golem-rust",
- "golem-wasi-http",
  "indoc",
  "log 0.4.29",
  "mime_guess 2.0.5",
