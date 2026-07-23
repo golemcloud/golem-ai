@@ -2237,9 +2237,9 @@ version = "0.5.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
+ "golem-ai-http",
  "golem-ai-tts",
  "golem-rust",
- "golem-wasi-http",
  "hex",
  "hmac 0.12.1",
  "hmac-sha256",
@@ -2248,6 +2248,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "url 2.5.8",
+ "wasip3 0.7.0+wasi-0.3.0",
 ]
 
 [[package]]

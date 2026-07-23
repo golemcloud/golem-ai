@@ -1,20 +1,26 @@
 use crate::config::AwsConfig;
 use chrono::Utc;
+use golem_ai_http::{Client, Error, Method, Response, Timeouts};
 use golem_ai_tts::config::{
     get_endpoint_config, get_max_retries_config, get_timeout_config, SecretSource,
 };
 use golem_ai_tts::error::{from_reqwest_error, internal_error, tts_error_from_status};
 use golem_ai_tts::model::types::TtsError;
-use golem_wasi_http::{Client, Method, Response};
 use hmac::{Hmac, Mac};
 use log::{error, trace};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt::Debug;
+use std::future::Future;
 use std::time::Duration;
 
 type HmacSha256 = Hmac<Sha256>;
+
+async fn wait_for(delay: Duration) {
+    let delay_nanos = u64::try_from(delay.as_nanos()).unwrap_or(u64::MAX);
+    wasip3::clocks::monotonic_clock::wait_for(delay_nanos).await;
+}
 
 fn hmac_sha256(key: &[u8], data: &[u8]) -> Vec<u8> {
     let mut mac = HmacSha256::new_from_slice(key).expect("HMAC can take key of any size");
@@ -125,7 +131,12 @@ impl AwsPollyTtsApi {
             get_endpoint_config(format!("https://polly.{}.amazonaws.com", config.region));
 
         let client = Client::builder()
-            .timeout(timeout)
+            .timeouts(
+                Timeouts::new()
+                    .connect(timeout)
+                    .first_byte(timeout)
+                    .between_bytes(timeout),
+            )
             .build()
             .map_err(|err| from_reqwest_error("Failed to create HTTP client", err))?;
 
@@ -164,7 +175,7 @@ impl AwsPollyTtsApi {
         Ok(())
     }
 
-    fn create_authenticated_request<T: Serialize>(
+    async fn create_authenticated_request<T: Serialize>(
         &self,
         method: Method,
         path: &str,
@@ -172,16 +183,17 @@ impl AwsPollyTtsApi {
         query_params: Option<&[(&str, &str)]>,
     ) -> Result<Response, TtsError> {
         self.make_rest_request(method, path, body, query_params)
+            .await
             .map_err(|e| from_reqwest_error("Failed to send request", e))
     }
 
-    fn make_rest_request<T: Serialize>(
+    async fn make_rest_request<T: Serialize>(
         &self,
         method: Method,
         path: &str,
         body: Option<&T>,
         query_params: Option<&[(&str, &str)]>,
-    ) -> Result<Response, golem_wasi_http::Error> {
+    ) -> Result<Response, Error> {
         let mut url = format!("{}{}", self.base_url, path);
 
         if let Some(params) = query_params {
@@ -222,17 +234,18 @@ impl AwsPollyTtsApi {
                 .body(request_body);
         }
 
-        request_builder.send()
+        request_builder.send().await
     }
 
-    fn execute_with_retry<F>(&self, operation: F) -> Result<Response, TtsError>
+    async fn execute_with_retry<F, Fut>(&self, operation: F) -> Result<Response, TtsError>
     where
-        F: Fn() -> Result<Response, TtsError>,
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<Response, TtsError>>,
     {
         let mut delay = self.rate_limit_config.initial_delay;
 
         for attempt in 0..=self.rate_limit_config.max_retries {
-            match operation() {
+            match operation().await {
                 Ok(response) => {
                     if response.status().is_success() {
                         return Ok(response);
@@ -245,7 +258,7 @@ impl AwsPollyTtsApi {
                             response.status(),
                             delay
                         );
-                        std::thread::sleep(delay);
+                        wait_for(delay).await;
                         delay = std::cmp::min(
                             Duration::from_millis(
                                 (delay.as_millis() as f64
@@ -266,7 +279,7 @@ impl AwsPollyTtsApi {
                             e,
                             delay
                         );
-                        std::thread::sleep(delay);
+                        wait_for(delay).await;
                         delay = std::cmp::min(
                             Duration::from_millis(
                                 (delay.as_millis() as f64
@@ -285,7 +298,7 @@ impl AwsPollyTtsApi {
         Err(internal_error("Max retries exceeded"))
     }
 
-    pub fn describe_voices(
+    pub async fn describe_voices(
         &self,
         params: Option<DescribeVoicesParams>,
     ) -> Result<DescribeVoicesResponse, TtsError> {
@@ -326,28 +339,41 @@ impl AwsPollyTtsApi {
             Some(query_params.as_slice())
         };
 
-        self.execute_with_retry(|| {
-            self.create_authenticated_request(Method::GET, "/v1/voices", None::<&()>, query_slice)
-        })
-        .and_then(parse_response)
+        let response = self
+            .execute_with_retry(|| {
+                self.create_authenticated_request(
+                    Method::GET,
+                    "/v1/voices",
+                    None::<&()>,
+                    query_slice,
+                )
+            })
+            .await?;
+        parse_response(response).await
     }
 
-    pub fn synthesize_speech(&self, params: SynthesizeSpeechParams) -> Result<Vec<u8>, TtsError> {
+    pub async fn synthesize_speech(
+        &self,
+        params: SynthesizeSpeechParams,
+    ) -> Result<Vec<u8>, TtsError> {
         trace!("Synthesizing speech");
 
         self.validate_credentials()?;
 
-        let response = self.execute_with_retry(|| {
-            self.create_authenticated_request(Method::POST, "/v1/speech", Some(&params), None)
-        })?;
+        let response = self
+            .execute_with_retry(|| {
+                self.create_authenticated_request(Method::POST, "/v1/speech", Some(&params), None)
+            })
+            .await?;
 
         response
             .bytes()
+            .await
             .map_err(|e| from_reqwest_error("Failed to read audio data", e))
             .map(|bytes| bytes.to_vec())
     }
 
-    pub fn start_speech_synthesis_task(
+    pub async fn start_speech_synthesis_task(
         &self,
         params: StartSpeechSynthesisTaskParams,
     ) -> Result<SpeechSynthesisTask, TtsError> {
@@ -355,37 +381,37 @@ impl AwsPollyTtsApi {
 
         self.validate_credentials()?;
 
-        self.execute_with_retry(|| {
-            self.create_authenticated_request(
-                Method::POST,
-                "/v1/synthesisTasks",
-                Some(&params),
-                None,
-            )
-        })
-        .and_then(parse_response)
+        let response = self
+            .execute_with_retry(|| {
+                self.create_authenticated_request(
+                    Method::POST,
+                    "/v1/synthesisTasks",
+                    Some(&params),
+                    None,
+                )
+            })
+            .await?;
+        parse_response(response).await
     }
 
-    pub fn get_speech_synthesis_task(
+    pub async fn get_speech_synthesis_task(
         &self,
         task_id: &str,
     ) -> Result<SpeechSynthesisTask, TtsError> {
         trace!("Getting speech synthesis task: {}", task_id);
 
         self.validate_credentials()?;
+        let path = format!("/v1/synthesisTasks/{}", task_id);
 
-        self.execute_with_retry(|| {
-            self.create_authenticated_request(
-                Method::GET,
-                &format!("/v1/synthesisTasks/{}", task_id),
-                None::<&()>,
-                None,
-            )
-        })
-        .and_then(parse_response)
+        let response = self
+            .execute_with_retry(|| {
+                self.create_authenticated_request(Method::GET, &path, None::<&()>, None)
+            })
+            .await?;
+        parse_response(response).await
     }
 
-    pub fn put_lexicon(&self, name: &str, content: &str) -> Result<(), TtsError> {
+    pub async fn put_lexicon(&self, name: &str, content: &str) -> Result<(), TtsError> {
         trace!("Putting lexicon: {}", name);
 
         self.validate_credentials()?;
@@ -394,19 +420,16 @@ impl AwsPollyTtsApi {
             name: name.to_string(),
             content: content.to_string(),
         };
+        let path = format!("/v1/lexicons/{}", name);
 
         self.execute_with_retry(|| {
-            self.create_authenticated_request(
-                Method::PUT,
-                &format!("/v1/lexicons/{}", name),
-                Some(&request),
-                None,
-            )
+            self.create_authenticated_request(Method::PUT, &path, Some(&request), None)
         })
+        .await
         .map(|_| ())
     }
 
-    pub fn get_s3_object_metadata(&self, s3_uri: &str) -> Result<S3ObjectMetadata, TtsError> {
+    pub async fn get_s3_object_metadata(&self, s3_uri: &str) -> Result<S3ObjectMetadata, TtsError> {
         trace!("Getting S3 object metadata for: {}", s3_uri);
 
         let (bucket, key) = parse_s3_uri(s3_uri)?;
@@ -416,7 +439,9 @@ impl AwsPollyTtsApi {
 
         self.validate_credentials()?;
 
-        let response = self.execute_s3_request(Method::HEAD, &s3_endpoint, &path, None::<&()>)?;
+        let response = self
+            .execute_s3_request(Method::HEAD, &s3_endpoint, &path, None::<&()>)
+            .await?;
 
         let content_length = response
             .headers()
@@ -446,7 +471,7 @@ impl AwsPollyTtsApi {
         })
     }
 
-    fn execute_s3_request<T: Serialize>(
+    async fn execute_s3_request<T: Serialize>(
         &self,
         method: Method,
         endpoint: &str,
@@ -482,6 +507,7 @@ impl AwsPollyTtsApi {
 
         request_builder
             .send()
+            .await
             .map_err(|e| from_reqwest_error("Failed to send S3 request", e))
     }
 
@@ -818,7 +844,7 @@ fn parse_s3_uri(s3_uri: &str) -> Result<(&str, &str), TtsError> {
     Ok((parts[0], parts[1]))
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, TtsError> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, TtsError> {
     let status = response.status();
     if !status.is_success() {
         return Err(tts_error_from_status(status));
@@ -826,6 +852,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
 
     let response_text = response
         .text()
+        .await
         .map_err(|e| from_reqwest_error("Failed to read response", e))?;
 
     trace!("AWS Polly API response: {}", response_text);
