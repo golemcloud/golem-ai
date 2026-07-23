@@ -1,6 +1,8 @@
 use golem_ai_exec::model::*;
 use golem_ai_exec::{DurableExecution, ExecutionProvider, ExecutionSession};
-use golem_rust::{agent_definition, agent_implementation, generate_idempotency_key, mark_atomic_operation};
+use golem_rust::{
+    agent_definition, agent_implementation, generate_idempotency_key, mark_atomic_operation,
+};
 use indoc::indoc;
 
 type Provider = DurableExecution;
@@ -97,7 +99,8 @@ impl ExecJsTest for ExecJsTestImpl {
             "# }
             .to_string(),
             empty_run_options(),
-        ).await;
+        )
+        .await;
 
         restart.here().await;
 
@@ -148,7 +151,8 @@ impl ExecJsTest for ExecJsTestImpl {
                 stdin: Some("1\n2\n3\n".to_string()),
                 ..empty_run_options()
             },
-        ).await;
+        )
+        .await;
 
         restart.here().await;
 
@@ -200,7 +204,8 @@ impl ExecJsTest for ExecJsTestImpl {
                 stdin: Some("1\n2\n3\n".to_string()),
                 ..empty_run_options()
             },
-        ).await;
+        )
+        .await;
 
         restart.here().await;
 
@@ -234,7 +239,8 @@ impl ExecJsTest for ExecJsTestImpl {
                 args: Some(vec!["arg1".to_string(), "arg2".to_string()]),
                 ..empty_run_options()
             },
-        ).await;
+        )
+        .await;
 
         restart.here().await;
 
@@ -268,7 +274,8 @@ impl ExecJsTest for ExecJsTestImpl {
                 env: Some(vec![("INPUT".to_string(), "test_value".to_string())]),
                 ..empty_run_options()
             },
-        ).await;
+        )
+        .await;
 
         restart.here().await;
 
@@ -306,7 +313,8 @@ impl ExecJsTest for ExecJsTestImpl {
             "# }
             .to_string(),
             empty_run_options(),
-        ).await;
+        )
+        .await;
 
         match result {
             Ok(result) => {
@@ -527,19 +535,17 @@ impl ExecJsTest for ExecJsTestImpl {
 
         restart.here().await;
 
-        let r3 = session
-            .download("test/output.txt".to_string())
-            .map_or_else(
-                |err| {
-                    println!("Error downloading file: {}", err);
-                    false
-                },
-                |file| {
-                    let content = String::from_utf8(file).unwrap_or_default();
-                    println!("Downloaded file content: {}", content);
-                    content == "Hello, Golem! - Processed by Golem"
-                },
-            );
+        let r3 = session.download("test/output.txt".to_string()).map_or_else(
+            |err| {
+                println!("Error downloading file: {}", err);
+                false
+            },
+            |file| {
+                let content = String::from_utf8(file).unwrap_or_default();
+                println!("Downloaded file content: {}", content);
+                content == "Hello, Golem! - Processed by Golem"
+            },
+        );
 
         r1 && r2 && r3
     }
@@ -604,29 +610,25 @@ impl ExecJsTest for ExecJsTestImpl {
 
         restart.here().await;
 
-        let r3 = session
-            .download("test/output.txt".to_string())
-            .map_or_else(
-                |err| {
-                    println!("Error downloading file: {}", err);
-                    false
-                },
-                |file| {
-                    let content = String::from_utf8(file).unwrap_or_default();
-                    println!("Downloaded file content: {}", content);
-                    content == "Hello, Golem! - Processed by Golem"
-                },
-            );
+        let r3 = session.download("test/output.txt".to_string()).map_or_else(
+            |err| {
+                println!("Error downloading file: {}", err);
+                false
+            },
+            |file| {
+                let content = String::from_utf8(file).unwrap_or_default();
+                println!("Downloaded file content: {}", content);
+                content == "Hello, Golem! - Processed by Golem"
+            },
+        );
 
-        let r4 = session
-            .set_working_dir("test".to_string())
-            .map_or_else(
-                |err| {
-                    println!("Error setting working directory: {}", err);
-                    false
-                },
-                |_| true,
-            );
+        let r4 = session.set_working_dir("test".to_string()).map_or_else(
+            |err| {
+                println!("Error setting working directory: {}", err);
+                false
+            },
+            |_| true,
+        );
 
         let r5 = session
             .run(
@@ -706,7 +708,9 @@ impl ExecJsTest for ExecJsTestImpl {
                 }),
                 ..empty_run_options()
             },
-        ).await {
+        )
+        .await
+        {
             Ok(result) => {
                 println!("Result: {:?}", result);
                 false
@@ -777,18 +781,16 @@ impl ExecJsTest for ExecJsTestImpl {
                 |_result| false,
             );
 
-        let r3 = session
-            .list_files("".to_string())
-            .map_or_else(
-                |err| {
-                    println!("Error listing files: {}", err);
-                    false
-                },
-                |files| {
-                    println!("List of files: {files:?}");
-                    files == vec!["output.bin".to_string()]
-                },
-            );
+        let r3 = session.list_files("".to_string()).map_or_else(
+            |err| {
+                println!("Error listing files: {}", err);
+                false
+            },
+            |files| {
+                println!("List of files: {files:?}");
+                files == vec!["output.bin".to_string()]
+            },
+        );
 
         r1 && r2 && r3
     }
