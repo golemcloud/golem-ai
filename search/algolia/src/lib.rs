@@ -9,8 +9,7 @@ use golem_ai_search::model::{CreateIndexOptions, SearchStream};
 use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
-use golem_ai_search::wasi_compat::{subscribe_zero, Pollable};
-use golem_ai_search::{SearchProvider, SearchStreamInterface};
+use golem_ai_search::{SearchFuture, SearchProvider, SearchStreamInterface};
 use std::cell::{Cell, RefCell};
 
 mod client;
@@ -41,10 +40,6 @@ impl AlgoliaSearchStream {
             last_response: RefCell::new(None),
         }
     }
-
-    pub fn subscribe(&self) -> Pollable {
-        subscribe_zero()
-    }
 }
 
 impl SearchStreamInterface for AlgoliaSearchStream {
@@ -56,49 +51,47 @@ impl SearchStreamInterface for AlgoliaSearchStream {
         self
     }
 
-    fn get_next(&self) -> Option<Vec<SearchHit>> {
-        if self.finished.get() {
-            return Some(vec![]);
-        }
+    fn get_next(&self) -> SearchFuture<'_, Option<Vec<SearchHit>>> {
+        Box::pin(async move {
+            if self.finished.get() {
+                return Some(vec![]);
+            }
 
-        let mut search_query = self.query.clone();
-        search_query.page = Some(self.current_page.get());
+            let mut search_query = self.query.clone();
+            search_query.page = Some(self.current_page.get());
 
-        let algolia_query = search_query_to_algolia_query(search_query);
+            let algolia_query = search_query_to_algolia_query(search_query);
 
-        match self.client.search(&self.index_name, &algolia_query) {
-            Ok(response) => {
-                let search_results = algolia_response_to_search_results(response);
+            match self.client.search(&self.index_name, &algolia_query).await {
+                Ok(response) => {
+                    let search_results = algolia_response_to_search_results(response);
 
-                let current_page = self.current_page.get();
-                let total_pages = if let (Some(total), Some(per_page)) =
-                    (search_results.total, search_results.per_page)
-                {
-                    total.div_ceil(per_page)
-                } else {
-                    current_page + 1
-                };
+                    let current_page = self.current_page.get();
+                    let total_pages = if let (Some(total), Some(per_page)) =
+                        (search_results.total, search_results.per_page)
+                    {
+                        total.div_ceil(per_page)
+                    } else {
+                        current_page + 1
+                    };
 
-                if current_page >= total_pages || search_results.hits.is_empty() {
-                    self.finished.set(true);
+                    if current_page >= total_pages || search_results.hits.is_empty() {
+                        self.finished.set(true);
+                    }
+
+                    self.current_page.set(current_page + 1);
+
+                    let hits = search_results.hits.clone();
+                    *self.last_response.borrow_mut() = Some(search_results);
+
+                    Some(hits)
                 }
-
-                self.current_page.set(current_page + 1);
-
-                let hits = search_results.hits.clone();
-                *self.last_response.borrow_mut() = Some(search_results);
-
-                Some(hits)
+                Err(_) => {
+                    self.finished.set(true);
+                    Some(vec![])
+                }
             }
-            Err(_) => {
-                self.finished.set(true);
-                Some(vec![])
-            }
-        }
-    }
-
-    fn blocking_get_next(&self) -> Vec<SearchHit> {
-        self.get_next().unwrap_or_default()
+        })
     }
 }
 
@@ -108,7 +101,7 @@ impl SearchProvider for Algolia {
     type SearchStream = AlgoliaSearchStream;
     type ProviderConfig = AlgoliaConfig;
 
-    fn create_index(
+    async fn create_index(
         _provider_config: Self::ProviderConfig,
         _options: CreateIndexOptions,
     ) -> Result<(), SearchError> {
@@ -118,13 +111,13 @@ impl SearchProvider for Algolia {
         Err(SearchError::Unsupported)
     }
 
-    fn delete_index(
+    async fn delete_index(
         provider_config: Self::ProviderConfig,
         name: IndexName,
     ) -> Result<(), SearchError> {
         let client = AlgoliaSearchApi::new(&provider_config);
 
-        match client.delete_index(&name) {
+        match client.delete_index(&name).await {
             Ok(response) => {
                 let _ = response;
                 Ok(())
@@ -133,16 +126,18 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
+    async fn list_indexes(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<IndexName>, SearchError> {
         let client = AlgoliaSearchApi::new(&provider_config);
 
-        match client.list_indexes() {
+        match client.list_indexes().await {
             Ok(response) => Ok(response.items.into_iter().map(|item| item.name).collect()),
             Err(e) => Err(e),
         }
     }
 
-    fn upsert(
+    async fn upsert(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         doc: Doc,
@@ -150,7 +145,7 @@ impl SearchProvider for Algolia {
         let client = AlgoliaSearchApi::new(&provider_config);
         let algolia_object = doc_to_algolia_object(doc).map_err(SearchError::InvalidQuery)?;
 
-        match client.save_object(&index, &algolia_object) {
+        match client.save_object(&index, &algolia_object).await {
             Ok(response) => {
                 let _ = response;
                 Ok(())
@@ -159,7 +154,7 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn upsert_many(
+    async fn upsert_many(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         docs: Vec<Doc>,
@@ -172,7 +167,7 @@ impl SearchProvider for Algolia {
             algolia_objects.push(algolia_object);
         }
 
-        match client.save_objects(&index, &algolia_objects) {
+        match client.save_objects(&index, &algolia_objects).await {
             Ok(response) => {
                 let _ = response;
                 Ok(())
@@ -181,14 +176,14 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn delete(
+    async fn delete(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         id: DocumentId,
     ) -> Result<(), SearchError> {
         let client = AlgoliaSearchApi::new(&provider_config);
 
-        match client.delete_object(&index, &id) {
+        match client.delete_object(&index, &id).await {
             Ok(response) => {
                 let _ = response;
                 Ok(())
@@ -197,14 +192,14 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn delete_many(
+    async fn delete_many(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         ids: Vec<DocumentId>,
     ) -> Result<(), SearchError> {
         let client = AlgoliaSearchApi::new(&provider_config);
 
-        match client.delete_objects(&index, &ids) {
+        match client.delete_objects(&index, &ids).await {
             Ok(response) => {
                 let _ = response;
                 Ok(())
@@ -213,21 +208,21 @@ impl SearchProvider for Algolia {
         }
     }
 
-    fn get(
+    async fn get(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         id: DocumentId,
     ) -> Result<Option<Doc>, SearchError> {
         let client = AlgoliaSearchApi::new(&provider_config);
 
-        match client.get_object(&index, &id) {
+        match client.get_object(&index, &id).await {
             Ok(Some(algolia_object)) => Ok(Some(algolia_object_to_doc(algolia_object))),
             Ok(None) => Ok(None),
             Err(e) => Err(e),
         }
     }
 
-    fn search(
+    async fn search(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -235,13 +230,13 @@ impl SearchProvider for Algolia {
         let client = AlgoliaSearchApi::new(&provider_config);
         let algolia_query = search_query_to_algolia_query(query);
 
-        match client.search(&index, &algolia_query) {
+        match client.search(&index, &algolia_query).await {
             Ok(response) => Ok(algolia_response_to_search_results(response)),
             Err(e) => Err(e),
         }
     }
 
-    fn stream_search(
+    async fn stream_search(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -251,19 +246,19 @@ impl SearchProvider for Algolia {
         Ok(SearchStream::new(stream))
     }
 
-    fn get_schema(
+    async fn get_schema(
         provider_config: Self::ProviderConfig,
         index: IndexName,
     ) -> Result<Schema, SearchError> {
         let client = AlgoliaSearchApi::new(&provider_config);
 
-        match client.get_settings(&index) {
+        match client.get_settings(&index).await {
             Ok(settings) => Ok(algolia_settings_to_schema(settings)),
             Err(e) => Err(e),
         }
     }
 
-    fn update_schema(
+    async fn update_schema(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         schema: Schema,
@@ -271,14 +266,14 @@ impl SearchProvider for Algolia {
         let client = AlgoliaSearchApi::new(&provider_config);
         let settings = schema_to_algolia_settings(schema);
 
-        client.set_settings(&index, &settings)?;
+        client.set_settings(&index, &settings).await?;
 
         Ok(())
     }
 }
 
 impl ExtendedSearchProvider for Algolia {
-    fn unwrapped_stream(
+    async fn unwrapped_stream(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -289,10 +284,6 @@ impl ExtendedSearchProvider for Algolia {
 
     fn retry_query(original_query: &SearchQuery, partial_hits: &[SearchHit]) -> SearchQuery {
         create_retry_query(original_query, partial_hits)
-    }
-
-    fn subscribe(stream: &Self::SearchStream) -> Pollable {
-        stream.subscribe()
     }
 }
 
