@@ -31,23 +31,6 @@ pub trait ExtendedTtsProvider:
     + AdvancedTtsProvider<ProviderConfig = <Self as VoiceProvider>::ProviderConfig>
     + 'static
 {
-    fn unwrapped_synthesis_stream(
-        provider_config: <Self as VoiceProvider>::ProviderConfig,
-        voice: crate::model::voices::VoiceBorrow<'_>,
-        options: Option<SynthesisOptions>,
-    ) -> Self::SynthesisStream;
-
-    fn unwrapped_voice_conversion_stream(
-        provider_config: <Self as VoiceProvider>::ProviderConfig,
-        target_voice: crate::model::voices::VoiceBorrow<'_>,
-        options: Option<SynthesisOptions>,
-    ) -> Self::VoiceConversionStream;
-
-    fn subscribe_synthesis_stream(stream: &Self::SynthesisStream) -> crate::wasi_compat::Pollable;
-
-    fn subscribe_voice_conversion_stream(
-        stream: &Self::VoiceConversionStream,
-    ) -> crate::wasi_compat::Pollable;
 }
 
 /// When the durability feature flag is off, `DurableTts<Impl>` is a transparent wrapper that
@@ -70,77 +53,77 @@ mod passthrough_impl {
         type VoiceResults = Impl::VoiceResults;
         type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
-        fn list_voices(
+        async fn list_voices(
             provider_config: Self::ProviderConfig,
             filter: Option<VoiceFilter>,
         ) -> Result<VoiceResults, TtsError> {
             init_logging();
-            Impl::list_voices(provider_config, filter)
+            Impl::list_voices(provider_config, filter).await
         }
 
-        fn get_voice(
+        async fn get_voice(
             provider_config: Self::ProviderConfig,
             voice_id: String,
         ) -> Result<Voice, TtsError> {
             init_logging();
-            Impl::get_voice(provider_config, voice_id)
+            Impl::get_voice(provider_config, voice_id).await
         }
 
-        fn search_voices(
+        async fn search_voices(
             provider_config: Self::ProviderConfig,
             filter: Option<VoiceFilter>,
         ) -> Result<Vec<VoiceInfo>, TtsError> {
             init_logging();
-            Impl::search_voices(provider_config, filter)
+            Impl::search_voices(provider_config, filter).await
         }
 
-        fn list_languages(
+        async fn list_languages(
             provider_config: Self::ProviderConfig,
         ) -> Result<Vec<LanguageInfo>, TtsError> {
             init_logging();
-            Impl::list_languages(provider_config)
+            Impl::list_languages(provider_config).await
         }
     }
 
     impl<Impl: ExtendedTtsProvider> SynthesizeProvider for DurableTts<Impl> {
         type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
-        fn synthesize(
+        async fn synthesize(
             provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisResult, TtsError> {
             init_logging();
-            Impl::synthesize(provider_config, input, voice, options)
+            Impl::synthesize(provider_config, input, voice, options).await
         }
 
-        fn synthesize_batch(
+        async fn synthesize_batch(
             provider_config: Self::ProviderConfig,
             inputs: Vec<TextInput>,
             voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<Vec<SynthesisResult>, TtsError> {
             init_logging();
-            Impl::synthesize_batch(provider_config, inputs, voice, options)
+            Impl::synthesize_batch(provider_config, inputs, voice, options).await
         }
 
-        fn get_timing_marks(
+        async fn get_timing_marks(
             provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
         ) -> Result<Vec<TimingInfo>, TtsError> {
             init_logging();
-            Impl::get_timing_marks(provider_config, input, voice)
+            Impl::get_timing_marks(provider_config, input, voice).await
         }
 
-        fn validate_input(
+        async fn validate_input(
             provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
         ) -> Result<ValidationResult, TtsError> {
             init_logging();
-            Impl::validate_input(provider_config, input, voice)
+            Impl::validate_input(provider_config, input, voice).await
         }
     }
 
@@ -149,22 +132,22 @@ mod passthrough_impl {
         type VoiceConversionStream = Impl::VoiceConversionStream;
         type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
-        fn create_stream(
+        async fn create_stream(
             provider_config: Self::ProviderConfig,
             voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisStream, TtsError> {
             init_logging();
-            Impl::create_stream(provider_config, voice, options)
+            Impl::create_stream(provider_config, voice, options).await
         }
 
-        fn create_voice_conversion_stream(
+        async fn create_voice_conversion_stream(
             provider_config: Self::ProviderConfig,
             target_voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<VoiceConversionStream, TtsError> {
             init_logging();
-            Impl::create_voice_conversion_stream(provider_config, target_voice, options)
+            Impl::create_voice_conversion_stream(provider_config, target_voice, options).await
         }
     }
 
@@ -173,36 +156,36 @@ mod passthrough_impl {
         type LongFormOperation = Impl::LongFormOperation;
         type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
-        fn create_voice_clone(
+        async fn create_voice_clone(
             provider_config: Self::ProviderConfig,
             name: String,
             audio_samples: Vec<AudioSample>,
             description: Option<String>,
         ) -> Result<Voice, TtsError> {
             init_logging();
-            Impl::create_voice_clone(provider_config, name, audio_samples, description)
+            Impl::create_voice_clone(provider_config, name, audio_samples, description).await
         }
 
-        fn design_voice(
+        async fn design_voice(
             provider_config: Self::ProviderConfig,
             name: String,
             characteristics: VoiceDesignParams,
         ) -> Result<Voice, TtsError> {
             init_logging();
-            Impl::design_voice(provider_config, name, characteristics)
+            Impl::design_voice(provider_config, name, characteristics).await
         }
 
-        fn convert_voice(
+        async fn convert_voice(
             provider_config: Self::ProviderConfig,
             input_audio: Vec<u8>,
             target_voice: crate::model::voices::VoiceBorrow<'_>,
             preserve_timing: Option<bool>,
         ) -> Result<Vec<u8>, TtsError> {
             init_logging();
-            Impl::convert_voice(provider_config, input_audio, target_voice, preserve_timing)
+            Impl::convert_voice(provider_config, input_audio, target_voice, preserve_timing).await
         }
 
-        fn generate_sound_effect(
+        async fn generate_sound_effect(
             provider_config: Self::ProviderConfig,
             description: String,
             duration_seconds: Option<f32>,
@@ -215,19 +198,20 @@ mod passthrough_impl {
                 duration_seconds,
                 style_influence,
             )
+            .await
         }
 
-        fn create_lexicon(
+        async fn create_lexicon(
             provider_config: Self::ProviderConfig,
             name: String,
             language: LanguageCode,
             entries: Option<Vec<PronunciationEntry>>,
         ) -> Result<PronunciationLexicon, TtsError> {
             init_logging();
-            Impl::create_lexicon(provider_config, name, language, entries)
+            Impl::create_lexicon(provider_config, name, language, entries).await
         }
 
-        fn synthesize_long_form(
+        async fn synthesize_long_form(
             provider_config: Self::ProviderConfig,
             content: String,
             voice: crate::model::voices::VoiceBorrow<'_>,
@@ -242,6 +226,7 @@ mod passthrough_impl {
                 output_location,
                 chapter_breaks,
             )
+            .await
         }
     }
 }
@@ -269,74 +254,72 @@ mod durable_impl {
     };
 
     use crate::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
-    use crate::wasi_compat::Pollable;
     use crate::{
         init_logging, AdvancedTtsProvider, LongFormOperationInterface,
-        PronunciationLexiconInterface, StreamingVoiceProvider, SynthesizeProvider,
-        VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
+        PronunciationLexiconInterface, StreamingVoiceProvider, SynthesizeProvider, TtsFuture,
+        VoiceInterface, VoiceProvider, VoiceResultsInterface,
     };
-    use golem_rust::bindings::golem::durability::durability::{
-        DurableFunctionType, LazyInitializedPollable,
+    use golem_rust::durability::{Durability, DurableFunctionType};
+    use golem_rust::{
+        with_persistence_level, with_persistence_level_async, FromSchema, IntoSchema,
+        PersistenceLevel,
     };
-    use golem_rust::durability::Durability;
-    use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
-    use std::cell::RefCell;
     use std::fmt::{Display, Formatter};
     use std::marker::PhantomData;
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct ListVoicesInput {
         filter: Option<VoiceFilter>,
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct GetVoiceInput {
         voice_id: String,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct SearchVoicesInput {
         filter: Option<VoiceFilter>,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct SynthesizeInput {
         input: TextInput,
         options: Option<SynthesisOptions>,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct SynthesizeBatchInput {
         inputs: Vec<TextInput>,
         options: Option<SynthesisOptions>,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct GetTimingMarksInput {
         input: TextInput,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct ValidateInputInput {
         input: TextInput,
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct CreateStreamInput {
         options: Option<SynthesisOptions>,
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct CreateVoiceConversionStreamInput {
         options: Option<SynthesisOptions>,
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct CreateVoiceCloneInput {
         name: String,
         audio_samples: Vec<AudioSample>,
@@ -344,19 +327,19 @@ mod durable_impl {
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct DesignVoiceInput {
         name: String,
         characteristics: VoiceDesignParams,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct ConvertVoiceInput {
         input_audio: Vec<u8>,
         preserve_timing: Option<bool>,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct GenerateSoundEffectInput {
         description: String,
         duration_seconds: Option<f32>,
@@ -364,7 +347,7 @@ mod durable_impl {
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct CreateLexiconInput {
         name: String,
         language: LanguageCode,
@@ -372,55 +355,55 @@ mod durable_impl {
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct SynthesizeLongFormInput {
         content: String,
         output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct NoInput;
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct NoOutput;
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct PronunciationEntryInput {
         word: String,
         pronunciation: String,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct RemoveEntryInput {
         word: String,
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct PronunciationEntryListOutput {
         entries: Vec<PronunciationEntry>,
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct LongFormResultOutput {
         result: String,
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct UpdateVoiceSettingsInput {
         settings: VoiceSettings,
     }
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct PreviewVoiceInput {
         text: String,
     }
 
-    #[derive(Debug, FromValueAndType, IntoValue)]
+    #[derive(Debug, FromSchema, IntoSchema)]
     struct UnusedError;
 
     impl Display for UnusedError {
@@ -429,47 +412,47 @@ mod durable_impl {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct VoiceInfoListOutput {
         voices: Vec<VoiceInfo>,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct LanguageInfoListOutput {
         languages: Vec<LanguageInfo>,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct SynthesisResultOutput {
         result: SynthesisResult,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct SynthesisResultListOutput {
         results: Vec<SynthesisResult>,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct TimingInfoListOutput {
         timing: Vec<TimingInfo>,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct ValidationResultOutput {
         result: ValidationResult,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct AudioDataOutput {
         audio: Vec<u8>,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct VoiceResultsOutput {
         voices: Vec<VoiceInfo>,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct VoiceOutput {
         id: String,
         name: String,
@@ -484,14 +467,14 @@ mod durable_impl {
         supported_formats: Vec<AudioFormat>,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct PronunciationLexiconOutput {
         name: String,
         language: LanguageCode,
         entries: Option<Vec<PronunciationEntry>>,
     }
 
-    #[derive(Debug, Clone, PartialEq, FromValueAndType, IntoValue)]
+    #[derive(Debug, Clone, PartialEq, FromSchema, IntoSchema)]
     struct LongFormOperationOutput {
         content: String,
         output_location: String,
@@ -509,7 +492,7 @@ mod durable_impl {
         type VoiceResults = Impl::VoiceResults;
         type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
-        fn list_voices(
+        async fn list_voices(
             provider_config: Self::ProviderConfig,
             filter: Option<VoiceFilter>,
         ) -> Result<VoiceResults, TtsError> {
@@ -523,13 +506,15 @@ mod durable_impl {
             if durability.is_live() {
                 let provider_config_for_call = provider_config.clone();
                 let filter_for_call = filter.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::list_voices(provider_config_for_call, filter_for_call)
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::list_voices(provider_config_for_call, filter_for_call).await
+                    })
+                    .await;
                 let voices = match &result {
                     Ok(voice_results) => {
                         let guest = voice_results.get::<Impl::VoiceResults>();
-                        guest.get_next().unwrap_or_default()
+                        guest.get_next().await.unwrap_or_default()
                     }
                     Err(_) => Vec::new(),
                 };
@@ -559,7 +544,7 @@ mod durable_impl {
             }
         }
 
-        fn get_voice(
+        async fn get_voice(
             provider_config: Self::ProviderConfig,
             voice_id: String,
         ) -> Result<Voice, TtsError> {
@@ -573,9 +558,11 @@ mod durable_impl {
             if durability.is_live() {
                 let provider_config_for_call = provider_config.clone();
                 let voice_id_for_call = voice_id.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::get_voice(provider_config_for_call, voice_id_for_call)
-                });
+                let result =
+                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                        Impl::get_voice(provider_config_for_call, voice_id_for_call).await
+                    })
+                    .await;
                 let voice_data = match &result {
                     Ok(voice) => {
                         let guest = voice.get::<Impl::Voice>();
@@ -636,7 +623,7 @@ mod durable_impl {
             }
         }
 
-        fn search_voices(
+        async fn search_voices(
             provider_config: Self::ProviderConfig,
             filter: Option<VoiceFilter>,
         ) -> Result<Vec<VoiceInfo>, TtsError> {
@@ -648,7 +635,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::search_voices(provider_config, filter.clone());
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::search_voices(provider_config, filter.clone())
+                })
+                .await;
                 let result = result.map(|v| VoiceInfoListOutput { voices: v });
                 // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
@@ -661,7 +651,7 @@ mod durable_impl {
             }
         }
 
-        fn list_languages(
+        async fn list_languages(
             provider_config: Self::ProviderConfig,
         ) -> Result<Vec<LanguageInfo>, TtsError> {
             init_logging();
@@ -672,7 +662,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::list_languages(provider_config);
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::list_languages(provider_config)
+                })
+                .await;
                 let result = result.map(|l| LanguageInfoListOutput { languages: l });
                 // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
@@ -689,7 +682,7 @@ mod durable_impl {
     impl<Impl: ExtendedTtsProvider> SynthesizeProvider for DurableTts<Impl> {
         type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
-        fn synthesize(
+        async fn synthesize(
             provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
@@ -703,8 +696,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result =
-                    Impl::synthesize(provider_config, input.clone(), voice, options.clone());
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::synthesize(provider_config, input.clone(), voice, options.clone())
+                })
+                .await;
                 let result = result.map(|r| SynthesisResultOutput { result: r });
                 // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
@@ -717,7 +712,7 @@ mod durable_impl {
             }
         }
 
-        fn synthesize_batch(
+        async fn synthesize_batch(
             provider_config: Self::ProviderConfig,
             inputs: Vec<TextInput>,
             voice: crate::model::voices::VoiceBorrow<'_>,
@@ -731,8 +726,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result =
-                    Impl::synthesize_batch(provider_config, inputs.clone(), voice, options.clone());
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::synthesize_batch(provider_config, inputs.clone(), voice, options.clone())
+                })
+                .await;
                 let result = result.map(|r| SynthesisResultListOutput { results: r });
                 // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
@@ -745,7 +742,7 @@ mod durable_impl {
             }
         }
 
-        fn get_timing_marks(
+        async fn get_timing_marks(
             provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
@@ -758,7 +755,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::get_timing_marks(provider_config, input.clone(), voice);
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::get_timing_marks(provider_config, input.clone(), voice)
+                })
+                .await;
                 let result = result.map(|t| TimingInfoListOutput { timing: t });
                 // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
@@ -771,7 +771,7 @@ mod durable_impl {
             }
         }
 
-        fn validate_input(
+        async fn validate_input(
             provider_config: Self::ProviderConfig,
             input: TextInput,
             voice: crate::model::voices::VoiceBorrow<'_>,
@@ -784,7 +784,10 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::validate_input(provider_config, input.clone(), voice);
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::validate_input(provider_config, input.clone(), voice)
+                })
+                .await;
                 let result = result.map(|v| ValidationResultOutput { result: v });
                 // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
@@ -803,173 +806,28 @@ mod durable_impl {
         type VoiceConversionStream = Impl::VoiceConversionStream;
         type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
-        fn create_stream(
+        async fn create_stream(
             provider_config: Self::ProviderConfig,
             voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisStream, TtsError> {
             init_logging();
-            Impl::create_stream(provider_config, voice, options)
+            with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                Impl::create_stream(provider_config, voice, options)
+            })
+            .await
         }
 
-        fn create_voice_conversion_stream(
+        async fn create_voice_conversion_stream(
             provider_config: Self::ProviderConfig,
             target_voice: crate::model::voices::VoiceBorrow<'_>,
             options: Option<SynthesisOptions>,
         ) -> Result<VoiceConversionStream, TtsError> {
             init_logging();
-            Impl::create_voice_conversion_stream(provider_config, target_voice, options)
-        }
-    }
-
-    #[allow(dead_code)]
-    enum DurableVoiceConversionStreamState<Impl: ExtendedTtsProvider> {
-        Live {
-            stream: Impl::VoiceConversionStream,
-            pollables: Vec<LazyInitializedPollable>,
-        },
-        Replay {
-            options: Box<Option<SynthesisOptions>>,
-            pollables: Vec<LazyInitializedPollable>,
-            partial_result: Vec<AudioChunk>,
-            #[allow(dead_code)]
-            finished: bool,
-        },
-    }
-
-    #[allow(dead_code)]
-    pub struct DurableVoiceConversionStream<Impl: ExtendedTtsProvider> {
-        state: RefCell<Option<DurableVoiceConversionStreamState<Impl>>>,
-        subscription: RefCell<Option<Pollable>>,
-    }
-
-    impl<Impl: ExtendedTtsProvider> Drop for DurableVoiceConversionStream<Impl> {
-        fn drop(&mut self) {
-            let _ = self.subscription.take();
-            match self.state.take() {
-                Some(DurableVoiceConversionStreamState::Live {
-                    mut pollables,
-                    stream,
-                }) => {
-                    with_persistence_level(PersistenceLevel::PersistNothing, move || {
-                        pollables.clear();
-                        drop(stream);
-                    });
-                }
-                Some(DurableVoiceConversionStreamState::Replay { mut pollables, .. }) => {
-                    pollables.clear();
-                }
-                None => {}
-            }
-        }
-    }
-
-    impl<Impl: ExtendedTtsProvider> VoiceConversionStreamInterface
-        for DurableVoiceConversionStream<Impl>
-    {
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
-        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-            self
-        }
-
-        fn send_audio(&self, audio_data: Vec<u8>) -> Result<(), TtsError> {
-            let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_ai_tts",
-                "voice_conversion_stream_send_audio",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let state = self.state.borrow();
-                let result = match &*state {
-                    Some(DurableVoiceConversionStreamState::Live { stream, .. }) => {
-                        with_persistence_level(PersistenceLevel::PersistNothing, || {
-                            stream.send_audio(audio_data.clone())
-                        })
-                    }
-                    _ => Err(TtsError::InternalError(
-                        "Stream not in live mode".to_string(),
-                    )),
-                };
-                let result = result.map(|_| NoOutput);
-                durability
-                    .persist(AudioDataOutput { audio: audio_data }, result)
-                    .map(|_| ())
-            } else {
-                let _: NoOutput = durability.replay::<NoOutput, TtsError>()?;
-                Ok(())
-            }
-        }
-
-        fn receive_converted(&self) -> Result<Option<AudioChunk>, TtsError> {
-            let durability = Durability::<Option<AudioChunk>, TtsError>::new(
-                "golem_ai_tts",
-                "voice_conversion_stream_receive_converted",
-                DurableFunctionType::ReadRemote,
-            );
-            if durability.is_live() {
-                let state = self.state.borrow();
-                let result = match &*state {
-                    Some(DurableVoiceConversionStreamState::Live { stream, .. }) => {
-                        with_persistence_level(PersistenceLevel::PersistNothing, || {
-                            stream.receive_converted()
-                        })
-                    }
-                    Some(DurableVoiceConversionStreamState::Replay { partial_result, .. }) => {
-                        if partial_result.is_empty() {
-                            Ok(None)
-                        } else {
-                            Ok(Some(partial_result[0].clone()))
-                        }
-                    }
-                    _ => Ok(None),
-                };
-                durability.persist(NoInput, result)
-            } else {
-                durability.replay()
-            }
-        }
-
-        fn finish(&self) -> Result<(), TtsError> {
-            let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_ai_tts",
-                "voice_conversion_stream_finish",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let state = self.state.borrow();
-                let result = match &*state {
-                    Some(DurableVoiceConversionStreamState::Live { stream, .. }) => {
-                        with_persistence_level(PersistenceLevel::PersistNothing, || stream.finish())
-                    }
-                    _ => Ok(()),
-                };
-                let result = result.map(|_| NoOutput);
-                durability.persist(NoInput, result).map(|_| ())
-            } else {
-                let _: NoOutput = durability.replay::<NoOutput, TtsError>()?;
-                Ok(())
-            }
-        }
-
-        fn close(&self) {
-            let mut state = self.state.borrow_mut();
-            match state.take() {
-                Some(DurableVoiceConversionStreamState::Live {
-                    mut pollables,
-                    stream,
-                }) => {
-                    with_persistence_level(PersistenceLevel::PersistNothing, move || {
-                        pollables.clear();
-                        stream.close();
-                    });
-                }
-                Some(DurableVoiceConversionStreamState::Replay { mut pollables, .. }) => {
-                    pollables.clear();
-                }
-                None => {}
-            }
+            with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                Impl::create_voice_conversion_stream(provider_config, target_voice, options)
+            })
+            .await
         }
     }
 
@@ -1005,83 +863,52 @@ mod durable_impl {
         }
 
         fn has_more(&self) -> bool {
-            if self.cached_voices.is_some() {
-                return false;
-            }
-
-            let durability = Durability::<bool, UnusedError>::new(
-                "golem_ai_tts",
-                "voice_results_has_more",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let provider_config = self.provider_config.clone();
-                let filter = self.filter.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let underlying_results = Impl::list_voices(provider_config, filter);
-                    match underlying_results {
-                        Ok(results) => results.get::<Impl::VoiceResults>().has_more(),
-                        Err(_) => false,
-                    }
-                });
-                durability.persist_infallible(NoInput, result)
-            } else {
-                durability.replay_infallible()
-            }
+            false
         }
 
-        fn get_next(&self) -> Result<Vec<VoiceInfo>, TtsError> {
-            if let Some(ref cached_voices) = self.cached_voices {
-                return Ok(cached_voices.clone());
-            }
+        fn get_next(&self) -> TtsFuture<'_, Vec<VoiceInfo>> {
+            Box::pin(async move {
+                if let Some(ref cached_voices) = self.cached_voices {
+                    return Ok(cached_voices.clone());
+                }
 
-            let durability = Durability::<VoiceInfoListOutput, TtsError>::new(
-                "golem_ai_tts",
-                "voice_results_get_next",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let provider_config = self.provider_config.clone();
-                let filter = self.filter.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let underlying_results = Impl::list_voices(provider_config, filter)?;
-                    let voices = underlying_results.get::<Impl::VoiceResults>().get_next()?;
-                    Ok(VoiceInfoListOutput { voices })
-                });
-                durability
-                    .persist(NoInput, result)
-                    .map(|output| output.voices)
-            } else {
-                durability
-                    .replay()
-                    .map(|output: VoiceInfoListOutput| output.voices)
-            }
+                let durability = Durability::<VoiceInfoListOutput, TtsError>::new(
+                    "golem_ai_tts",
+                    "voice_results_get_next",
+                    DurableFunctionType::WriteRemote,
+                );
+                if durability.is_live() {
+                    let provider_config = self.provider_config.clone();
+                    let filter = self.filter.clone();
+                    let result =
+                        with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                            let underlying_results = with_persistence_level_async(
+                                PersistenceLevel::PersistNothing,
+                                || Impl::list_voices(provider_config, filter),
+                            )
+                            .await?;
+                            let voices = underlying_results
+                                .get::<Impl::VoiceResults>()
+                                .get_next()
+                                .await?;
+                            Ok(VoiceInfoListOutput { voices })
+                        })
+                        .await;
+                    durability
+                        .persist(NoInput, result)
+                        .map(|output| output.voices)
+                } else {
+                    durability
+                        .replay()
+                        .map(|output: VoiceInfoListOutput| output.voices)
+                }
+            })
         }
 
         fn get_total_count(&self) -> Option<u32> {
-            if let Some(ref cached_voices) = self.cached_voices {
-                return Some(cached_voices.len() as u32);
-            }
-
-            let durability = Durability::<Option<u32>, UnusedError>::new(
-                "golem_ai_tts",
-                "voice_results_get_total_count",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let provider_config = self.provider_config.clone();
-                let filter = self.filter.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let underlying_results = Impl::list_voices(provider_config, filter);
-                    match underlying_results {
-                        Ok(results) => results.get::<Impl::VoiceResults>().get_total_count(),
-                        Err(_) => None,
-                    }
-                });
-                durability.persist_infallible(NoInput, result)
-            } else {
-                durability.replay_infallible()
-            }
+            self.cached_voices
+                .as_ref()
+                .map(|voices| voices.len() as u32)
         }
     }
 
@@ -1190,34 +1017,38 @@ mod durable_impl {
             self.supported_formats.clone()
         }
 
-        fn update_settings(&self, settings: VoiceSettings) -> Result<(), TtsError> {
-            let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_ai_tts",
-                "voice_update_settings",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = Ok(NoOutput);
-                durability
-                    .persist(UpdateVoiceSettingsInput { settings }, result)
-                    .map(|_| ())
-            } else {
-                durability.replay().map(|_: NoOutput| ())
-            }
+        fn update_settings(&self, settings: VoiceSettings) -> TtsFuture<'_, ()> {
+            Box::pin(async move {
+                let durability = Durability::<NoOutput, TtsError>::new(
+                    "golem_ai_tts",
+                    "voice_update_settings",
+                    DurableFunctionType::WriteRemote,
+                );
+                if durability.is_live() {
+                    let result = Ok(NoOutput);
+                    durability
+                        .persist(UpdateVoiceSettingsInput { settings }, result)
+                        .map(|_| ())
+                } else {
+                    durability.replay().map(|_: NoOutput| ())
+                }
+            })
         }
 
-        fn delete(&self) -> Result<(), TtsError> {
-            let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_ai_tts",
-                "voice_delete",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = Ok(NoOutput);
-                durability.persist(NoInput, result).map(|_| ())
-            } else {
-                durability.replay().map(|_: NoOutput| ())
-            }
+        fn delete(&self) -> TtsFuture<'_, ()> {
+            Box::pin(async move {
+                let durability = Durability::<NoOutput, TtsError>::new(
+                    "golem_ai_tts",
+                    "voice_delete",
+                    DurableFunctionType::WriteRemote,
+                );
+                if durability.is_live() {
+                    let result = Ok(NoOutput);
+                    durability.persist(NoInput, result).map(|_| ())
+                } else {
+                    durability.replay().map(|_: NoOutput| ())
+                }
+            })
         }
 
         fn clone(&self) -> Result<Voice, TtsError> {
@@ -1276,35 +1107,39 @@ mod durable_impl {
             }
         }
 
-        fn preview(&self, text: String) -> Result<Vec<u8>, TtsError> {
-            let durability = Durability::<AudioDataOutput, TtsError>::new(
-                "golem_ai_tts",
-                "voice_preview",
-                DurableFunctionType::ReadRemote,
-            );
-            if durability.is_live() {
-                let provider_config = self.provider_config.clone();
-                let id = self.id.clone();
-                let text_for_call = text.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let voice = Impl::get_voice(provider_config, id)?;
-                    let guest = voice.get::<Impl::Voice>();
-                    guest.preview(text_for_call)
-                });
+        fn preview(&self, text: String) -> TtsFuture<'_, Vec<u8>> {
+            Box::pin(async move {
+                let durability = Durability::<AudioDataOutput, TtsError>::new(
+                    "golem_ai_tts",
+                    "voice_preview",
+                    DurableFunctionType::ReadRemote,
+                );
+                if durability.is_live() {
+                    let provider_config = self.provider_config.clone();
+                    let id = self.id.clone();
+                    let text_for_call = text.clone();
+                    let result =
+                        with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                            let voice = Impl::get_voice(provider_config, id).await?;
+                            let guest = voice.get::<Impl::Voice>();
+                            guest.preview(text_for_call).await
+                        })
+                        .await;
 
-                let audio_data = result?;
-                let output = AudioDataOutput {
-                    audio: audio_data.clone(),
-                };
+                    let audio_data = result?;
+                    let output = AudioDataOutput {
+                        audio: audio_data.clone(),
+                    };
 
-                durability
-                    .persist(PreviewVoiceInput { text }, Ok(output))
-                    .map(|output| output.audio)
-            } else {
-                durability
-                    .replay()
-                    .map(|output: AudioDataOutput| output.audio)
-            }
+                    durability
+                        .persist(PreviewVoiceInput { text }, Ok(output))
+                        .map(|output| output.audio)
+                } else {
+                    durability
+                        .replay()
+                        .map(|output: AudioDataOutput| output.audio)
+                }
+            })
         }
     }
 
@@ -1367,67 +1202,79 @@ mod durable_impl {
             }
         }
 
-        fn add_entry(&self, word: String, pronunciation: String) -> Result<(), TtsError> {
-            let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_ai_tts",
-                "pronunciation_lexicon_add_entry",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let provider_config = self.provider_config.clone();
-                let name = self.name.clone();
-                let language = self.language.clone();
-                let entries = self.entries.clone();
-                let word_for_call = word.clone();
-                let pronunciation_for_call = pronunciation.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    let lexicon = Impl::create_lexicon(provider_config, name, language, entries)?;
-                    let guest = lexicon.get::<Impl::PronunciationLexicon>();
-                    guest.add_entry(word_for_call, pronunciation_for_call)
-                });
-                let result = result.map(|_| NoOutput);
-                durability
-                    .persist(
-                        PronunciationEntryInput {
-                            word,
-                            pronunciation,
-                        },
-                        result,
-                    )
-                    .map(|_| ())
-            } else {
-                durability.replay().map(|_: NoOutput| ())
-            }
+        fn add_entry(&self, word: String, pronunciation: String) -> TtsFuture<'_, ()> {
+            Box::pin(async move {
+                let durability = Durability::<NoOutput, TtsError>::new(
+                    "golem_ai_tts",
+                    "pronunciation_lexicon_add_entry",
+                    DurableFunctionType::WriteRemote,
+                );
+                if durability.is_live() {
+                    let provider_config = self.provider_config.clone();
+                    let name = self.name.clone();
+                    let language = self.language.clone();
+                    let entries = self.entries.clone();
+                    let word_for_call = word.clone();
+                    let pronunciation_for_call = pronunciation.clone();
+                    let result =
+                        with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
+                            let lexicon = with_persistence_level_async(
+                                PersistenceLevel::PersistNothing,
+                                || Impl::create_lexicon(provider_config, name, language, entries),
+                            )
+                            .await?;
+                            let guest = lexicon.get::<Impl::PronunciationLexicon>();
+                            guest.add_entry(word_for_call, pronunciation_for_call).await
+                        })
+                        .await;
+                    let result = result.map(|_| NoOutput);
+                    durability
+                        .persist(
+                            PronunciationEntryInput {
+                                word,
+                                pronunciation,
+                            },
+                            result,
+                        )
+                        .map(|_| ())
+                } else {
+                    durability.replay().map(|_: NoOutput| ())
+                }
+            })
         }
 
-        fn remove_entry(&self, word: String) -> Result<(), TtsError> {
-            let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_ai_tts",
-                "pronunciation_lexicon_remove_entry",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = Ok(NoOutput);
-                durability
-                    .persist(RemoveEntryInput { word }, result)
-                    .map(|_| ())
-            } else {
-                durability.replay().map(|_: NoOutput| ())
-            }
+        fn remove_entry(&self, word: String) -> TtsFuture<'_, ()> {
+            Box::pin(async move {
+                let durability = Durability::<NoOutput, TtsError>::new(
+                    "golem_ai_tts",
+                    "pronunciation_lexicon_remove_entry",
+                    DurableFunctionType::WriteRemote,
+                );
+                if durability.is_live() {
+                    let result = Ok(NoOutput);
+                    durability
+                        .persist(RemoveEntryInput { word }, result)
+                        .map(|_| ())
+                } else {
+                    durability.replay().map(|_: NoOutput| ())
+                }
+            })
         }
 
-        fn export_content(&self) -> Result<String, TtsError> {
-            let durability = Durability::<String, TtsError>::new(
-                "golem_ai_tts",
-                "pronunciation_lexicon_export_content",
-                DurableFunctionType::ReadRemote,
-            );
-            if durability.is_live() {
-                let result = Ok("# Pronunciation Lexicon Export\n".to_string());
-                durability.persist(NoInput, result)
-            } else {
-                durability.replay()
-            }
+        fn export_content(&self) -> TtsFuture<'_, String> {
+            Box::pin(async move {
+                let durability = Durability::<String, TtsError>::new(
+                    "golem_ai_tts",
+                    "pronunciation_lexicon_export_content",
+                    DurableFunctionType::ReadRemote,
+                );
+                if durability.is_live() {
+                    let result = Ok("# Pronunciation Lexicon Export\n".to_string());
+                    durability.persist(NoInput, result)
+                } else {
+                    durability.replay()
+                }
+            })
         }
     }
 
@@ -1463,74 +1310,88 @@ mod durable_impl {
             self
         }
 
-        fn get_status(&self) -> OperationStatus {
-            let durability = Durability::<OperationStatus, UnusedError>::new(
-                "golem_ai_tts",
-                "long_form_operation_get_status",
-                DurableFunctionType::ReadRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    OperationStatus::Completed
-                });
-                durability.persist_infallible(NoInput, result)
-            } else {
-                durability.replay_infallible()
-            }
+        fn get_status(&self) -> TtsFuture<'_, OperationStatus> {
+            Box::pin(async move {
+                Ok({
+                    let durability = Durability::<OperationStatus, UnusedError>::new(
+                        "golem_ai_tts",
+                        "long_form_operation_get_status",
+                        DurableFunctionType::ReadRemote,
+                    );
+                    if durability.is_live() {
+                        let result =
+                            with_persistence_level(PersistenceLevel::PersistNothing, || {
+                                OperationStatus::Completed
+                            });
+                        durability.persist_infallible(NoInput, result)
+                    } else {
+                        durability.replay_infallible()
+                    }
+                })
+            })
         }
 
-        fn get_progress(&self) -> f32 {
-            let durability = Durability::<f32, UnusedError>::new(
-                "golem_ai_tts",
-                "long_form_operation_get_progress",
-                DurableFunctionType::ReadRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || 1.0);
-                durability.persist_infallible(NoInput, result)
-            } else {
-                durability.replay_infallible()
-            }
+        fn get_progress(&self) -> TtsFuture<'_, f32> {
+            Box::pin(async move {
+                Ok({
+                    let durability = Durability::<f32, UnusedError>::new(
+                        "golem_ai_tts",
+                        "long_form_operation_get_progress",
+                        DurableFunctionType::ReadRemote,
+                    );
+                    if durability.is_live() {
+                        let result =
+                            with_persistence_level(PersistenceLevel::PersistNothing, || 1.0);
+                        durability.persist_infallible(NoInput, result)
+                    } else {
+                        durability.replay_infallible()
+                    }
+                })
+            })
         }
 
-        fn cancel(&self) -> Result<(), TtsError> {
-            let durability = Durability::<NoOutput, TtsError>::new(
-                "golem_ai_tts",
-                "long_form_operation_cancel",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = Ok(NoOutput);
-                durability.persist(NoInput, result).map(|_| ())
-            } else {
-                durability.replay().map(|_: NoOutput| ())
-            }
+        fn cancel(&self) -> TtsFuture<'_, ()> {
+            Box::pin(async move {
+                let durability = Durability::<NoOutput, TtsError>::new(
+                    "golem_ai_tts",
+                    "long_form_operation_cancel",
+                    DurableFunctionType::WriteRemote,
+                );
+                if durability.is_live() {
+                    let result = Ok(NoOutput);
+                    durability.persist(NoInput, result).map(|_| ())
+                } else {
+                    durability.replay().map(|_: NoOutput| ())
+                }
+            })
         }
 
-        fn get_result(&self) -> Result<LongFormResult, TtsError> {
-            let durability = Durability::<LongFormResult, TtsError>::new(
-                "golem_ai_tts",
-                "long_form_operation_get_result",
-                DurableFunctionType::ReadRemote,
-            );
-            if durability.is_live() {
-                let result = Ok(LongFormResult {
-                    output_location: self.output_location.clone(),
-                    total_duration: 60.0,
-                    chapter_durations: None,
-                    metadata: crate::model::types::SynthesisMetadata {
-                        duration_seconds: 60.0,
-                        character_count: self.content.len() as u32,
-                        word_count: self.content.split_whitespace().count() as u32,
-                        audio_size_bytes: 1024000,
-                        request_id: "long-form-simulation".to_string(),
-                        provider_info: Some("durable-tts".to_string()),
-                    },
-                });
-                durability.persist(NoInput, result)
-            } else {
-                durability.replay()
-            }
+        fn get_result(&self) -> TtsFuture<'_, LongFormResult> {
+            Box::pin(async move {
+                let durability = Durability::<LongFormResult, TtsError>::new(
+                    "golem_ai_tts",
+                    "long_form_operation_get_result",
+                    DurableFunctionType::ReadRemote,
+                );
+                if durability.is_live() {
+                    let result = Ok(LongFormResult {
+                        output_location: self.output_location.clone(),
+                        total_duration: 60.0,
+                        chapter_durations: None,
+                        metadata: crate::model::types::SynthesisMetadata {
+                            duration_seconds: 60.0,
+                            character_count: self.content.len() as u32,
+                            word_count: self.content.split_whitespace().count() as u32,
+                            audio_size_bytes: 1024000,
+                            request_id: "long-form-simulation".to_string(),
+                            provider_info: Some("durable-tts".to_string()),
+                        },
+                    });
+                    durability.persist(NoInput, result)
+                } else {
+                    durability.replay()
+                }
+            })
         }
     }
 
@@ -1539,7 +1400,7 @@ mod durable_impl {
         type LongFormOperation = DurableLongFormOperation<Impl>;
         type ProviderConfig = <Impl as VoiceProvider>::ProviderConfig;
 
-        fn create_voice_clone(
+        async fn create_voice_clone(
             provider_config: Self::ProviderConfig,
             name: String,
             audio_samples: Vec<AudioSample>,
@@ -1555,12 +1416,15 @@ mod durable_impl {
 
             if durability.is_live() {
                 let provider_config_for_call = provider_config.clone();
-                let result = Impl::create_voice_clone(
-                    provider_config_for_call,
-                    name.clone(),
-                    audio_samples.clone(),
-                    description.clone(),
-                );
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::create_voice_clone(
+                        provider_config_for_call,
+                        name.clone(),
+                        audio_samples.clone(),
+                        description.clone(),
+                    )
+                })
+                .await;
                 let voice_data = match &result {
                     Ok(voice) => {
                         let guest = voice.get::<Impl::Voice>();
@@ -1635,7 +1499,7 @@ mod durable_impl {
             }
         }
 
-        fn design_voice(
+        async fn design_voice(
             provider_config: Self::ProviderConfig,
             name: String,
             characteristics: VoiceDesignParams,
@@ -1650,11 +1514,14 @@ mod durable_impl {
 
             if durability.is_live() {
                 let provider_config_for_call = provider_config.clone();
-                let result = Impl::design_voice(
-                    provider_config_for_call,
-                    name.clone(),
-                    characteristics.clone(),
-                );
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::design_voice(
+                        provider_config_for_call,
+                        name.clone(),
+                        characteristics.clone(),
+                    )
+                })
+                .await;
                 let voice_data = match &result {
                     Ok(voice) => {
                         let guest = voice.get::<Impl::Voice>();
@@ -1729,7 +1596,7 @@ mod durable_impl {
             }
         }
 
-        fn convert_voice(
+        async fn convert_voice(
             provider_config: Self::ProviderConfig,
             input_audio: Vec<u8>,
             target_voice: crate::model::voices::VoiceBorrow<'_>,
@@ -1743,12 +1610,15 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::convert_voice(
-                    provider_config,
-                    input_audio.clone(),
-                    target_voice,
-                    preserve_timing,
-                );
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::convert_voice(
+                        provider_config,
+                        input_audio.clone(),
+                        target_voice,
+                        preserve_timing,
+                    )
+                })
+                .await;
                 let result = result.map(|a| AudioDataOutput { audio: a });
                 // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
@@ -1767,7 +1637,7 @@ mod durable_impl {
             }
         }
 
-        fn generate_sound_effect(
+        async fn generate_sound_effect(
             provider_config: Self::ProviderConfig,
             description: String,
             duration_seconds: Option<f32>,
@@ -1781,12 +1651,15 @@ mod durable_impl {
                 DurableFunctionType::WriteRemote,
             );
             if durability.is_live() {
-                let result = Impl::generate_sound_effect(
-                    provider_config,
-                    description.clone(),
-                    duration_seconds,
-                    style_influence,
-                );
+                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+                    Impl::generate_sound_effect(
+                        provider_config,
+                        description.clone(),
+                        duration_seconds,
+                        style_influence,
+                    )
+                })
+                .await;
                 let result = result.map(|a| AudioDataOutput { audio: a });
                 // NOTE: `provider_config` deliberately not included in the persisted input.
                 durability
@@ -1806,7 +1679,7 @@ mod durable_impl {
             }
         }
 
-        fn create_lexicon(
+        async fn create_lexicon(
             provider_config: Self::ProviderConfig,
             name: String,
             language: LanguageCode,
@@ -1857,7 +1730,7 @@ mod durable_impl {
             }
         }
 
-        fn synthesize_long_form(
+        async fn synthesize_long_form(
             _provider_config: Self::ProviderConfig,
             content: String,
             _voice: crate::model::voices::VoiceBorrow<'_>,
@@ -1912,14 +1785,14 @@ mod durable_impl {
     mod tests {
         use super::*;
         use crate::model::types::{AudioEffects, AudioFormat, TextType, VoiceGender, VoiceQuality};
-        use golem_rust::value_and_type::{FromValueAndType, IntoValueAndType};
+        use golem_rust::{FromSchema, IntoSchema};
 
-        fn roundtrip_test<T>(value: T) -> T
-        where
-            T: IntoValueAndType + FromValueAndType + Clone + std::fmt::Debug + PartialEq,
-        {
-            let vnt = value.clone().into_value_and_type();
-            let deserialized = T::from_value_and_type(vnt).unwrap();
+        fn roundtrip_test<T: IntoSchema + FromSchema + Clone + std::fmt::Debug + PartialEq>(
+            value: T,
+        ) -> T {
+            golem_rust::schema::try_into_schema_graph::<T>().unwrap();
+            let schema_value = value.to_value();
+            let deserialized = T::from_value(&schema_value).unwrap();
             assert_eq!(value, deserialized);
             deserialized
         }

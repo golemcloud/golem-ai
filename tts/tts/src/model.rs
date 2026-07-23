@@ -4,7 +4,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum QuotaUnit {
@@ -16,7 +16,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct QuotaInfo {
@@ -28,7 +28,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum TtsError {
@@ -65,7 +65,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum VoiceGender {
@@ -77,7 +77,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum VoiceQuality {
@@ -90,7 +90,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum TextType {
@@ -101,7 +101,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum AudioFormat {
@@ -117,7 +117,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct AudioConfig {
@@ -129,7 +129,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct VoiceSettings {
@@ -144,7 +144,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum AudioEffects {
@@ -159,7 +159,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct TextInput {
@@ -170,7 +170,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SynthesisMetadata {
@@ -184,7 +184,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SynthesisResult {
@@ -195,7 +195,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum TimingMarkType {
@@ -208,7 +208,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct TimingInfo {
@@ -220,7 +220,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct AudioChunk {
@@ -243,7 +243,7 @@ pub mod voices {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct VoiceFilter {
@@ -257,7 +257,7 @@ pub mod voices {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct VoiceInfo {
@@ -278,7 +278,7 @@ pub mod voices {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct LanguageInfo {
@@ -407,7 +407,7 @@ pub mod synthesis {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SynthesisContext {
@@ -420,7 +420,7 @@ pub mod synthesis {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SynthesisOptions {
@@ -436,7 +436,7 @@ pub mod synthesis {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct ValidationResult {
@@ -464,7 +464,7 @@ pub mod streaming {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum StreamStatus {
@@ -569,7 +569,7 @@ pub mod advanced {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct AudioSample {
@@ -581,7 +581,7 @@ pub mod advanced {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum AgeCategory {
@@ -593,7 +593,7 @@ pub mod advanced {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct VoiceDesignParams {
@@ -606,7 +606,7 @@ pub mod advanced {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct PronunciationEntry {
@@ -618,7 +618,7 @@ pub mod advanced {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum OperationStatus {
@@ -631,7 +631,7 @@ pub mod advanced {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct LongFormResult {
