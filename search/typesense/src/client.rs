@@ -1,6 +1,6 @@
+use golem_ai_http::{Client, Method, RequestBuilder, Response};
 use golem_ai_search::error::{from_reqwest_error, internal_error, search_error_from_status};
 use golem_ai_search::model::SearchError;
-use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -38,7 +38,7 @@ impl TypesenseSearchApi {
             .header("Content-Type", "application/json")
     }
 
-    pub fn create_collection(
+    pub async fn create_collection(
         &self,
         collection_name: &str,
         schema: &CollectionSchema,
@@ -51,12 +51,13 @@ impl TypesenseSearchApi {
             .create_request(Method::POST, &url)
             .json(schema)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to create collection: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_collection(
+    pub async fn delete_collection(
         &self,
         collection_name: &str,
     ) -> Result<DeleteCollectionResponse, SearchError> {
@@ -67,12 +68,13 @@ impl TypesenseSearchApi {
         let response = self
             .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to delete collection: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn list_collections(&self) -> Result<ListCollectionsResponse, SearchError> {
+    pub async fn list_collections(&self) -> Result<ListCollectionsResponse, SearchError> {
         trace!("Listing collections");
 
         let url = format!("{}/collections", self.base_url);
@@ -80,13 +82,14 @@ impl TypesenseSearchApi {
         let response = self
             .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to list collections: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
     #[allow(unused)]
-    pub fn index_document(
+    pub async fn index_document(
         &self,
         collection_name: &str,
         document: &TypesenseDocument,
@@ -102,12 +105,13 @@ impl TypesenseSearchApi {
             .create_request(Method::POST, &url)
             .json(document)
             .send()
+            .await
             .map_err(|e| internal_error(format!("HTTP request failed: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn index_documents(
+    pub async fn index_documents(
         &self,
         collection_name: &str,
         documents: &[TypesenseDocument],
@@ -133,12 +137,13 @@ impl TypesenseSearchApi {
             .header("Content-Type", "text/plain")
             .body(ndjson)
             .send()
+            .await
             .map_err(|e| internal_error(format!("HTTP request failed: {e}")))?;
 
-        parse_bulk_import_response(response)
+        parse_bulk_import_response(response).await
     }
 
-    pub fn upsert_document(
+    pub async fn upsert_document(
         &self,
         collection_name: &str,
         document: &TypesenseDocument,
@@ -154,12 +159,13 @@ impl TypesenseSearchApi {
             .create_request(Method::POST, &url)
             .json(document)
             .send()
+            .await
             .map_err(|e| internal_error(format!("HTTP request failed: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_document(
+    pub async fn delete_document(
         &self,
         collection_name: &str,
         document_id: &str,
@@ -174,12 +180,13 @@ impl TypesenseSearchApi {
         let response = self
             .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("HTTP request failed: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_documents_by_query(
+    pub async fn delete_documents_by_query(
         &self,
         collection_name: &str,
         filter_by: &str,
@@ -194,12 +201,13 @@ impl TypesenseSearchApi {
         let response = self
             .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("HTTP request failed: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn search(
+    pub async fn search(
         &self,
         collection_name: &str,
         query: &SearchQuery,
@@ -221,9 +229,10 @@ impl TypesenseSearchApi {
         let response = self
             .create_request(Method::GET, &full_url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("HTTP request failed: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
     fn build_query_string(&self, query: &SearchQuery) -> Result<String, SearchError> {
@@ -254,7 +263,7 @@ impl TypesenseSearchApi {
     }
 
     #[allow(unused)]
-    pub fn multi_search(
+    pub async fn multi_search(
         &self,
         searches: &MultiSearchQuery,
     ) -> Result<MultiSearchResponse, SearchError> {
@@ -266,13 +275,14 @@ impl TypesenseSearchApi {
             .create_request(Method::POST, &url)
             .json(searches)
             .send()
+            .await
             .map_err(|e| internal_error(format!("HTTP request failed: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, SearchError> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, SearchError> {
     let status = response.status();
 
     trace!("Received response from Typesense API: {response:?}");
@@ -280,6 +290,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     if status.is_success() {
         let body = response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))?;
 
         trace!("Received response from Typesense API: {body:?}");
@@ -288,6 +299,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         trace!("Received {status} response from Typesense API: {error_body:?}");
@@ -296,12 +308,15 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     }
 }
 
-fn parse_bulk_import_response(response: Response) -> Result<IndexDocumentsResponse, SearchError> {
+async fn parse_bulk_import_response(
+    response: Response,
+) -> Result<IndexDocumentsResponse, SearchError> {
     let status = response.status();
 
     if status.is_success() {
         let body_str = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to read response", err))?;
 
         let lines: Vec<&str> = body_str.trim().split('\n').collect();
@@ -337,6 +352,7 @@ fn parse_bulk_import_response(response: Response) -> Result<IndexDocumentsRespon
     } else {
         let _error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         Err(search_error_from_status(status))
