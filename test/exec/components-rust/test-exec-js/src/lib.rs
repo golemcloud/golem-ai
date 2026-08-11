@@ -1,27 +1,39 @@
 use golem_ai_exec::model::*;
 use golem_ai_exec::{DurableExecution, ExecutionProvider, ExecutionSession};
-use golem_rust::{agent_definition, agent_implementation, atomically};
+use golem_rust::bindings::wasi::keyvalue::eventual::{delete, exists, set, Bucket, OutgoingValue};
+use golem_rust::{agent_definition, agent_implementation, atomically, generate_idempotency_key};
 use indoc::indoc;
 
 type Provider = DurableExecution;
 type Session = <Provider as ExecutionProvider>::Session;
 
-struct Restart;
+struct Restart {
+    marker: String,
+}
 
 impl Restart {
     pub fn new() -> Self {
-        Self
+        Self {
+            marker: generate_idempotency_key().to_string(),
+        }
     }
 
     pub async fn here(&self) {
-        let retry_count_before = golem_rust::get_self_metadata().retry_count;
-        assert_eq!(retry_count_before, 0);
+        let bucket = Bucket::open_bucket("golem-ai-exec-test-restarts").unwrap();
 
+        // Values recorded in the oplog, including RPC results, replay identically. The key-value
+        // marker is an external side effect: it survives the atomic rollback, so only the first
+        // execution traps and the retried block can finish.
         atomically(|| {
-            if golem_rust::get_self_metadata().retry_count == retry_count_before {
+            if !exists(&bucket, &self.marker).unwrap() {
+                let value = OutgoingValue::new_outgoing_value();
+                value.outgoing_value_write_body_sync(&[1]).unwrap();
+                set(&bucket, &self.marker, &value).unwrap();
                 panic!("Simulating crash");
             }
         });
+
+        delete(&bucket, &self.marker).unwrap();
     }
 }
 
