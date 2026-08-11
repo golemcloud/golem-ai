@@ -2294,7 +2294,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-web-search-brave"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-http",
@@ -2309,7 +2309,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-web-search-google"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-http",
@@ -2324,7 +2324,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-web-search-serper"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-http",
@@ -2338,7 +2338,7 @@ dependencies = [
 
 [[package]]
 name = "golem-ai-web-search-tavily"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
  "golem-ai-http",
@@ -2354,6 +2354,7 @@ dependencies = [
 [[package]]
 name = "golem-rust"
 version = "0.0.0"
+source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
 dependencies = [
  "async-trait",
  "ctor",
@@ -2373,6 +2374,7 @@ dependencies = [
 [[package]]
 name = "golem-rust-macro"
 version = "0.0.0"
+source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
 dependencies = [
  "heck 0.5.0",
  "humantime",
@@ -2385,6 +2387,7 @@ dependencies = [
 [[package]]
 name = "golem-schema"
 version = "0.0.0"
+source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
 dependencies = [
  "base64 0.22.1",
  "bigdecimal",
@@ -2407,6 +2410,7 @@ dependencies = [
 [[package]]
 name = "golem-schema-derive"
 version = "0.0.0"
+source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
 dependencies = [
  "darling",
  "heck 0.5.0",
