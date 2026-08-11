@@ -1,59 +1,27 @@
 use golem_ai_exec::model::*;
 use golem_ai_exec::{DurableExecution, ExecutionProvider, ExecutionSession};
-use golem_rust::{
-    agent_definition, agent_implementation, generate_idempotency_key, mark_atomic_operation,
-};
+use golem_rust::{agent_definition, agent_implementation, atomically};
 use indoc::indoc;
 
 type Provider = DurableExecution;
 type Session = <Provider as ExecutionProvider>::Session;
 
-#[agent_definition]
-pub trait TestHelper {
-    fn new(name: String) -> Self;
-    fn inc_and_get(&mut self) -> u64;
-}
-
-struct TestHelperImpl {
-    _name: String,
-    total: u64,
-}
-
-#[agent_implementation]
-impl TestHelper for TestHelperImpl {
-    fn new(name: String) -> Self {
-        Self {
-            _name: name,
-            total: 0,
-        }
-    }
-
-    fn inc_and_get(&mut self) -> u64 {
-        self.total += 1;
-        self.total
-    }
-}
-
-struct Restart {
-    name: String,
-}
+struct Restart;
 
 impl Restart {
     pub fn new() -> Self {
-        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
-        let key = generate_idempotency_key();
-        Self {
-            name: format!("{name}-{key}"),
-        }
+        Self
     }
 
     pub async fn here(&self) {
-        let _guard = mark_atomic_operation();
-        let mut client = TestHelperClient::get(self.name.clone());
-        let answer = client.inc_and_get().await;
-        if answer == 1 {
-            panic!("Simulating crash")
-        }
+        let retry_count_before = golem_rust::get_self_metadata().retry_count;
+        assert_eq!(retry_count_before, 0);
+
+        atomically(|| {
+            if golem_rust::get_self_metadata().retry_count == retry_count_before {
+                panic!("Simulating crash");
+            }
+        });
     }
 }
 
