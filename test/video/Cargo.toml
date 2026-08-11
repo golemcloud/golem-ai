@@ -8,7 +8,7 @@ lto = true
 
 [workspace.dependencies]
 
-golem-rust = { path = "../../../golem/sdks/rust/golem-rust", features = [
+golem-rust = { git = "https://github.com/golemcloud/golem", branch = "main", features = [
     "export_golem_agentic",
 #    "golem_ai" # Uncomment to use Golem AI libraries
 ] }

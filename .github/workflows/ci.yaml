@@ -86,10 +86,7 @@ jobs:
       - name: Install cargo-component
         run: cargo binstall --force cargo-component@0.21.1
       - name: Install Golem CLI from main
-        run: |
-          git clone --depth 1 --branch "$GOLEM_BRANCH" "$GOLEM_REPOSITORY" "$RUNNER_TEMP/golem"
-          cargo build --manifest-path "$RUNNER_TEMP/golem/Cargo.toml" --locked --release -p golem-cli --target-dir "$GITHUB_WORKSPACE/target/golem"
-          sudo install "$GITHUB_WORKSPACE/target/golem/release/golem-cli" /usr/local/bin/golem-cli
+        run: cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem-cli
       - name: Install wac-cli
         run: cargo binstall --force wac-cli --locked --no-confirm
       - name: Build all test components
@@ -122,9 +119,7 @@ jobs:
       - name: Install and Run Golem Server from main
         run: |
           set -e
-          git clone --depth 1 --branch "$GOLEM_BRANCH" "$GOLEM_REPOSITORY" "$RUNNER_TEMP/golem"
-          cargo build --manifest-path "$RUNNER_TEMP/golem/Cargo.toml" --locked --release -p golem --target-dir "$GITHUB_WORKSPACE/target/golem"
-          sudo install "$GITHUB_WORKSPACE/target/golem/release/golem" /usr/local/bin/golem
+          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -197,9 +192,7 @@ jobs:
       - name: Install and Run Golem Server from main
         run: |
           set -e
-          git clone --depth 1 --branch "$GOLEM_BRANCH" "$GOLEM_REPOSITORY" "$RUNNER_TEMP/golem"
-          cargo build --manifest-path "$RUNNER_TEMP/golem/Cargo.toml" --locked --release -p golem --target-dir "$GITHUB_WORKSPACE/target/golem"
-          sudo install "$GITHUB_WORKSPACE/target/golem/release/golem" /usr/local/bin/golem
+          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -292,9 +285,7 @@ jobs:
       - name: Install and Run Golem Server from main
         run: |
           set -e
-          git clone --depth 1 --branch "$GOLEM_BRANCH" "$GOLEM_REPOSITORY" "$RUNNER_TEMP/golem"
-          cargo build --manifest-path "$RUNNER_TEMP/golem/Cargo.toml" --locked --release -p golem --target-dir "$GITHUB_WORKSPACE/target/golem"
-          sudo install "$GITHUB_WORKSPACE/target/golem/release/golem" /usr/local/bin/golem
+          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -427,9 +418,7 @@ jobs:
       - name: Install and Run Golem Server from main
         run: |
           set -e
-          git clone --depth 1 --branch "$GOLEM_BRANCH" "$GOLEM_REPOSITORY" "$RUNNER_TEMP/golem"
-          cargo build --manifest-path "$RUNNER_TEMP/golem/Cargo.toml" --locked --release -p golem --target-dir "$GITHUB_WORKSPACE/target/golem"
-          sudo install "$GITHUB_WORKSPACE/target/golem/release/golem" /usr/local/bin/golem
+          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
