@@ -203,19 +203,15 @@ jobs:
       - name: Build and test Ollama integration
         run: |
           set -eo pipefail
+          trap 'docker logs ollama; cat "$GITHUB_WORKSPACE/golem-server.log"' ERR
           cargo make --cwd llm build-ollama
           cd test/llm
           golem deploy --preset ollama-debug --yes
           golem agent new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 'LlmTest("ollama-1")'
-          golem agent invoke 'LlmTest("ollama-1")' test1 --no-stream | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test2 --no-stream | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test3 --no-stream | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test4 --no-stream | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test5 --no-stream | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test6 --no-stream | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test7 --no-stream | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test8 --no-stream | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test9 --no-stream | grep -v "ERROR: "
+          for test_name in test1 test2 test3 test4 test5 test6 test7 test8 test9; do
+            echo "Running $test_name"
+            timeout --foreground 10m golem agent invoke 'LlmTest("ollama-1")' "$test_name" --no-stream | grep -v "ERROR: "
+          done
 
   graph-integration-tests:
     runs-on: ubuntu-latest
