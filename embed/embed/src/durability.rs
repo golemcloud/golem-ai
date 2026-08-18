@@ -53,7 +53,7 @@ mod durable_impl {
     use crate::model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse};
     use crate::EmbeddingProvider;
     use golem_rust::durability::{Durability, DurableFunctionType};
-    use golem_rust::{with_persistence_level_async, FromSchema, IntoSchema, PersistenceLevel};
+    use golem_rust::{FromSchema, IntoSchema};
 
     impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
         type ProviderConfig = Impl::ProviderConfig;
@@ -63,24 +63,20 @@ mod durable_impl {
             inputs: Vec<ContentPart>,
             config: Config,
         ) -> Result<EmbeddingResponse, Error> {
-            let durability = Durability::<EmbeddingResponse, Error>::new(
+            let input = GenerateInput {
+                inputs: inputs.clone(),
+                config: config.clone(),
+            };
+            Durability::<EmbeddingResponse, Error>::new(
                 "golem_ai_embed",
                 "generate",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let inputs_clone = inputs.clone();
-                let config_clone = config.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::generate(provider_config, inputs_clone, config_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(GenerateInput { inputs, config }, result)
-            } else {
-                durability.replay()
-            }
+                &input,
+            )
+            .run_async(|| Impl::generate(provider_config, inputs, config))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
 
         async fn rerank(
@@ -89,32 +85,21 @@ mod durable_impl {
             documents: Vec<String>,
             config: Config,
         ) -> Result<RerankResponse, Error> {
-            let durability = Durability::<RerankResponse, Error>::new(
+            let input = RerankInput {
+                query: query.clone(),
+                documents: documents.clone(),
+                config: config.clone(),
+            };
+            Durability::<RerankResponse, Error>::new(
                 "golem_ai_embed",
                 "rerank",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let query_clone = query.clone();
-                let documents_clone = documents.clone();
-                let config_clone = config.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::rerank(provider_config, query_clone, documents_clone, config_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(
-                    RerankInput {
-                        query,
-                        documents,
-                        config,
-                    },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                &input,
+            )
+            .run_async(|| Impl::rerank(provider_config, query, documents, config))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
     }
 

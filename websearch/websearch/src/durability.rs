@@ -88,13 +88,10 @@ mod durable_impl {
     use crate::model::web_search::{SearchError, SearchMetadata, SearchParams, SearchResult};
     use crate::{init_logging, SearchPageFuture, SearchSessionInterface, WebSearchProvider};
     use golem_rust::durability::{Durability, DurableFunctionType};
-    use golem_rust::{
-        with_persistence_level, with_persistence_level_async, FromSchema, IntoSchema,
-        PersistenceLevel,
-    };
+    use golem_rust::{FromSchema, IntoSchema};
     use std::cell::RefCell;
 
-    #[derive(Debug, IntoSchema)]
+    #[derive(Debug, Clone, IntoSchema)]
     struct NoInput;
 
     #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
@@ -128,44 +125,28 @@ mod durable_impl {
                 "golem_websearch",
                 "start_search",
                 DurableFunctionType::WriteRemote,
+                &StartSearchInput {
+                    params: params.clone(),
+                },
             );
 
-            if durability.is_live() {
-                let provider_config_for_call = provider_config.clone();
-                let params_for_call = params.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::unwrapped_search_session(provider_config_for_call, params_for_call)
-                });
-
-                match result {
-                    Ok(session) => {
-                        let replay_state = Impl::session_to_state(&session);
-                        // NOTE: `provider_config` deliberately not included in the persisted
-                        // input, because it can carry secrets (API keys etc.).
-                        let _ = durability.persist(
-                            StartSearchInput {
-                                params: params.clone(),
-                            },
-                            Ok(replay_state),
-                        );
-                        Ok(SearchSession::new(DurableSearchSession::<Impl>::live(
-                            provider_config,
-                            session,
-                            params,
-                        )))
-                    }
-                    Err(error) => {
-                        let _ = durability.persist(
-                            StartSearchInput {
-                                params: params.clone(),
-                            },
-                            Err(error.clone()),
-                        );
-                        Err(error)
-                    }
-                }
+            let mut session = None;
+            let replay_state = durability.run(|| {
+                let created =
+                    Impl::unwrapped_search_session(provider_config.clone(), params.clone())?;
+                let replay_state = Impl::session_to_state(&created);
+                session = Some(created);
+                Ok(replay_state)
+            })?;
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
+            if let Some(session) = session {
+                Ok(SearchSession::new(DurableSearchSession::<Impl>::live(
+                    provider_config,
+                    session,
+                    params,
+                )))
             } else {
-                let replay_state = durability.replay::<Impl::ReplayState, SearchError>()?;
                 let session =
                     DurableSearchSession::<Impl>::replay(provider_config, replay_state, params)?;
                 Ok(SearchSession::new(session))
@@ -183,20 +164,16 @@ mod durable_impl {
                     "golem_websearch",
                     "search_once",
                     DurableFunctionType::WriteRemote,
+                    &SearchOnceInput {
+                        params: params.clone(),
+                    },
                 );
 
-            if durability.is_live() {
-                let params_for_call = params.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::search_once(provider_config, params_for_call)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(SearchOnceInput { params }, result)
-            } else {
-                durability.replay()
-            }
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
+            durability
+                .run_async(|| Impl::search_once(provider_config, params))
+                .await
         }
     }
 
@@ -279,16 +256,8 @@ mod durable_impl {
 
     impl<Impl: ExtendedWebSearchProvider> Drop for DurableSearchSession<Impl> {
         fn drop(&mut self) {
-            match self.state.take() {
-                Some(DurableSearchSessionState::Live { session }) => {
-                    with_persistence_level(PersistenceLevel::PersistNothing, move || {
-                        drop(session);
-                    });
-                }
-                Some(DurableSearchSessionState::Replay { .. }) => {
-                    // Nothing special to clean up for replay state
-                }
-                None => {}
+            if let Some(DurableSearchSessionState::Live { session }) = self.state.take() {
+                drop(session);
             }
         }
     }
@@ -309,101 +278,46 @@ mod durable_impl {
                         "golem_websearch",
                         "next_page",
                         DurableFunctionType::ReadRemote,
+                        &NoInput,
                     );
 
-                if durability.is_live() {
-                    let mut state = TakenSessionState::take(&self.state);
-                    let current_state = state.get_mut();
-                    match current_state {
-                        DurableSearchSessionState::Live { session } => {
-                            let result = with_persistence_level_async(
-                                PersistenceLevel::PersistNothing,
-                                || session.next_page(),
-                            )
-                            .await;
-
-                            match result {
-                                Ok(value) => {
-                                    let replay_state = Impl::session_to_state(session);
-                                    let persisted_result = durability
-                                        .persist(NoInput, Ok((value.clone(), replay_state)));
-                                    Ok(persisted_result?.0)
-                                }
-                                Err(error) => {
-                                    let _ = durability.persist::<
-                                    _,
-                                    (Vec<SearchResult>, Impl::ReplayState),
-                                    SearchError
-                                >(NoInput, Err(error.clone()));
-                                    Err(error)
-                                }
+                let persisted = durability
+                    .run_async(|| async {
+                        let mut state = TakenSessionState::take(&self.state);
+                        let current_state = state.get_mut();
+                        match current_state {
+                            DurableSearchSessionState::Live { session } => {
+                                let value = session.next_page().await?;
+                                let replay_state = Impl::session_to_state(session);
+                                Ok((value, replay_state))
+                            }
+                            DurableSearchSessionState::Replay { replay_state } => {
+                                let session = Impl::session_from_state(
+                                    self.provider_config.clone(),
+                                    replay_state,
+                                    self.params.clone(),
+                                )?;
+                                let value = session.next_page().await?;
+                                let new_replay_state = Impl::session_to_state(&session);
+                                *current_state = DurableSearchSessionState::Live { session };
+                                Ok((value, new_replay_state))
                             }
                         }
-                        DurableSearchSessionState::Replay { replay_state } => {
-                            let session = Impl::session_from_state(
-                                self.provider_config.clone(),
-                                replay_state,
-                                self.params.clone(),
-                            )?;
-                            let result = with_persistence_level_async(
-                                PersistenceLevel::PersistNothing,
-                                || session.next_page(),
-                            )
-                            .await;
-
-                            match result {
-                                Ok(value) => {
-                                    let new_replay_state = Impl::session_to_state(&session);
-                                    let persisted_result = durability
-                                        .persist(NoInput, Ok((value.clone(), new_replay_state)))?;
-                                    *current_state = DurableSearchSessionState::Live { session };
-                                    Ok(persisted_result.0)
-                                }
-                                Err(error) => {
-                                    let _ = durability.persist::<
-                                    _,
-                                    (Vec<SearchResult>, Impl::ReplayState),
-                                    SearchError
-                                >(NoInput, Err(error.clone()));
-                                    Err(error)
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    let (result, next_replay_state) =
-                        durability
-                            .replay::<(Vec<SearchResult>, Impl::ReplayState), SearchError>()?;
-                    let mut state = self.state.borrow_mut();
-
-                    match &mut *state {
-                        Some(DurableSearchSessionState::Live { .. }) => {
-                            unreachable!(
-                                "Durable search session cannot be in live mode during replay"
-                            );
-                        }
-                        Some(DurableSearchSessionState::Replay { replay_state: _ }) => {
-                            *state = Some(DurableSearchSessionState::Replay {
-                                replay_state: next_replay_state.clone(),
-                            });
-                            Ok(result)
-                        }
-                        None => {
-                            unreachable!();
-                        }
-                    }
+                    })
+                    .await?;
+                if let Some(DurableSearchSessionState::Replay { replay_state }) =
+                    self.state.borrow_mut().as_mut()
+                {
+                    *replay_state = persisted.1.clone();
                 }
+                Ok(persisted.0)
             })
         }
 
         fn get_metadata(&self) -> Option<SearchMetadata> {
             let state = self.state.borrow();
             match &*state {
-                Some(DurableSearchSessionState::Live { session }) => {
-                    with_persistence_level(PersistenceLevel::PersistNothing, || {
-                        session.get_metadata()
-                    })
-                }
+                Some(DurableSearchSessionState::Live { session }) => session.get_metadata(),
                 Some(DurableSearchSessionState::Replay { replay_state }) => {
                     let session = Impl::session_from_state(
                         self.provider_config.clone(),

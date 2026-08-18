@@ -57,8 +57,14 @@ mod durable_impl {
     use crate::{ExecutionProvider, ExecutionSession};
     use async_trait::async_trait;
     use golem_rust::durability::{Durability, DurableFunctionType};
-    use golem_rust::{use_persistence_level, FromSchema, IntoSchema, PersistenceLevel};
+    use golem_rust::{FromSchema, IntoSchema};
     use std::fmt::{Debug, Display, Formatter};
+
+    impl From<&Error> for Error {
+        fn from(error: &Error) -> Self {
+            error.clone()
+        }
+    }
 
     #[async_trait(?Send)]
     impl<Impl: ExecutionProvider + SessionSnapshot<Impl::Session> + 'static> ExecutionProvider
@@ -72,36 +78,21 @@ mod durable_impl {
             snippet: String,
             options: RunOptions,
         ) -> Result<ExecResult, Error> {
+            let input = RunInput {
+                language: lang.clone(),
+                modules: modules.iter().map(|f| f.name.clone()).collect(),
+                snippet: snippet.clone(),
+                options: options.clone(),
+            };
             let durability = Durability::<ExecResult, Error>::new(
                 "golem_ai_exec",
                 "run",
                 DurableFunctionType::WriteLocal,
+                &input,
             );
-            if durability.is_live() {
-                let result = {
-                    let _guard = use_persistence_level(PersistenceLevel::PersistNothing);
-
-                    Impl::run(
-                        lang.clone(),
-                        modules.clone(),
-                        snippet.clone(),
-                        options.clone(),
-                    )
-                    .await
-                };
-                durability.persist_serializable(
-                    RunInput {
-                        language: lang,
-                        modules: modules.iter().map(|f| f.name.clone()).collect(),
-                        snippet,
-                        options,
-                    },
-                    result.clone(),
-                );
-                result
-            } else {
-                durability.replay_serializable()
-            }
+            durability
+                .run_async(|| Impl::run(lang, modules, snippet, options))
+                .await
         }
     }
 
@@ -128,39 +119,39 @@ mod durable_impl {
         }
 
         async fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
-            let durability = Durability::<SessionRunResult<Impl::Snapshot>, UnusedError>::new(
-                "golem_ai_exec",
-                "session_run",
-                DurableFunctionType::WriteLocal,
-            );
             let input = RunInput {
                 language: self.lang.clone(),
                 modules: self.module_names.clone(),
                 snippet: snippet.clone(),
                 options: options.clone(),
             };
+            let durability = Durability::<SessionRunResult<Impl::Snapshot>, UnusedError>::new(
+                "golem_ai_exec",
+                "session_run",
+                DurableFunctionType::WriteLocal,
+                &input,
+            );
             if Impl::supports_snapshot(&self.inner) {
                 // We can take a snapshot of the session and restore it during replay without
                 // actually running the snippet.
-                if durability.is_live() {
-                    let result = {
-                        let _guard = use_persistence_level(PersistenceLevel::PersistNothing);
-                        self.inner.run(snippet, options).await
-                    };
-                    let snapshot = Impl::take_snapshot(&self.inner);
-                    let result = SessionRunResult {
-                        result,
-                        snapshot: Some(snapshot),
-                    };
-                    durability.persist_infallible(input, result.clone());
-                    result.result
-                } else {
-                    let result: SessionRunResult<Impl::Snapshot> = durability.replay_infallible();
+                let mut ran = false;
+                let result = durability
+                    .run_infallible_async(|| async {
+                        ran = true;
+                        let result = self.inner.run(snippet, options).await;
+                        let snapshot = Impl::take_snapshot(&self.inner);
+                        SessionRunResult {
+                            result,
+                            snapshot: Some(snapshot),
+                        }
+                    })
+                    .await;
+                if !ran {
                     if let Some(snapshot) = result.snapshot {
                         Impl::restore_snapshot(&self.inner, snapshot);
                     }
-                    result.result
                 }
+                result.result
             } else {
                 // We cannot take a snapshot of the session, so we have to run the actual snippet
                 // in both live and replay modes.
@@ -171,12 +162,8 @@ mod durable_impl {
                     result,
                     snapshot: None,
                 };
-
-                if durability.is_live() {
-                    durability.persist_infallible(input, result.clone());
-                } else {
-                    let _: SessionRunResult<Impl::Snapshot> = durability.replay_infallible();
-                }
+                let _: SessionRunResult<Impl::Snapshot> =
+                    durability.run_infallible(|| result.clone());
                 result.result
             }
         }
@@ -202,7 +189,7 @@ mod durable_impl {
         }
     }
 
-    #[derive(Debug, IntoSchema)]
+    #[derive(Debug, Clone, IntoSchema)]
     struct RunInput {
         language: Language,
         modules: Vec<String>,

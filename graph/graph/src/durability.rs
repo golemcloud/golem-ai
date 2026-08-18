@@ -72,6 +72,9 @@ mod passthrough_impl {
 
 #[cfg(feature = "golem")]
 mod durable_impl {
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
+    struct NoInput;
+
     use super::*;
     use crate::model::connection::GraphStatistics;
     use crate::model::transactions;
@@ -88,7 +91,7 @@ mod durable_impl {
     };
     use async_trait::async_trait;
     use golem_rust::durability::{Durability, DurableFunctionType};
-    use golem_rust::{with_persistence_level_async, FromSchema, IntoSchema, PersistenceLevel};
+    use golem_rust::{FromSchema, IntoSchema};
 
     #[derive(Debug, Clone, FromSchema, IntoSchema)]
     pub(super) struct Unit;
@@ -117,27 +120,10 @@ mod durable_impl {
         type Graph = DurableGraphResource<Impl::Graph>;
         async fn connect(config: ConnectionConfig) -> Result<connection::Graph, GraphError> {
             init_logging();
-            let durability = Durability::<Unit, GraphError>::new(
-                "golem_ai_graph",
-                "connect",
-                DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::connect_internal(&config)
-                })
-                .await;
-                let persist_result = result.as_ref().map(|_| Unit).map_err(|e| e.clone());
-                durability.persist(config.clone(), persist_result)?;
-                result.map(|g| connection::Graph::new(DurableGraphResource::new(g)))
-            } else {
-                let _unit: Unit = durability.replay::<Unit, GraphError>()?;
-                let graph = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::connect_internal(&config)
-                })
-                .await?;
-                Ok(connection::Graph::new(DurableGraphResource::new(graph)))
-            }
+            // The opaque connection must be reconstructed during replay, so its provider-level
+            // random and HTTP calls use their ordinary durability instead of a custom invocation.
+            let graph = Impl::connect_internal(&config).await?;
+            Ok(connection::Graph::new(DurableGraphResource::new(graph)))
         }
     }
 
@@ -216,21 +202,14 @@ mod durable_impl {
             options: ExecuteQueryOptions,
         ) -> Result<QueryExecutionResult, GraphError> {
             init_logging();
-            let durability: Durability<QueryExecutionResult, GraphError> = Durability::new(
+            Durability::<QueryExecutionResult, GraphError>::new(
                 "golem_graph_transaction",
                 "execute_query",
                 DurableFunctionType::WriteRemote,
-            );
-
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.execute_query(options.clone())
-                })
-                .await;
-                durability.persist(options, result)
-            } else {
-                durability.replay()
-            }
+                &options,
+            )
+            .run_async(|| self.inner.execute_query(options))
+            .await
         }
 
         async fn find_shortest_path(
@@ -288,20 +267,14 @@ mod durable_impl {
 
         async fn create_vertex(&self, options: CreateVertexOptions) -> Result<Vertex, GraphError> {
             init_logging();
-            let durability: Durability<Vertex, GraphError> = Durability::new(
+            Durability::<Vertex, GraphError>::new(
                 "golem_graph_transaction",
                 "create_vertex",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.create_vertex(options.clone())
-                })
-                .await;
-                durability.persist(options, result)
-            } else {
-                durability.replay()
-            }
+                &options,
+            )
+            .run_async(|| self.inner.create_vertex(options))
+            .await
         }
 
         async fn create_vertices(
@@ -309,20 +282,14 @@ mod durable_impl {
             vertices: Vec<CreateVertexOptions>,
         ) -> Result<Vec<Vertex>, GraphError> {
             init_logging();
-            let durability: Durability<Vec<Vertex>, GraphError> = Durability::new(
+            Durability::<Vec<Vertex>, GraphError>::new(
                 "golem_graph_transaction",
                 "create_vertices",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.create_vertices(vertices.clone())
-                })
-                .await;
-                durability.persist(vertices, result)
-            } else {
-                durability.replay()
-            }
+                &vertices,
+            )
+            .run_async(|| self.inner.create_vertices(vertices))
+            .await
         }
 
         async fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
@@ -332,40 +299,33 @@ mod durable_impl {
 
         async fn update_vertex(&self, options: UpdateVertexOptions) -> Result<Vertex, GraphError> {
             init_logging();
-            let durability: Durability<Vertex, GraphError> = Durability::new(
+            Durability::<Vertex, GraphError>::new(
                 "golem_graph_transaction",
                 "update_vertex",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.update_vertex(options.clone())
-                })
-                .await;
-                durability.persist(options, result)
-            } else {
-                durability.replay()
-            }
+                &options,
+            )
+            .run_async(|| self.inner.update_vertex(options))
+            .await
         }
 
         async fn delete_vertex(&self, id: ElementId, delete_edges: bool) -> Result<(), GraphError> {
             init_logging();
-            let durability: Durability<Unit, GraphError> = Durability::new(
+            let input = (id.clone(), delete_edges);
+            Durability::<Unit, GraphError>::new(
                 "golem_graph_transaction",
                 "delete_vertex",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.delete_vertex(id.clone(), delete_edges)
-                })
-                .await;
-                durability.persist((id, delete_edges), result.map(|_| Unit))?;
-                Ok(())
-            } else {
-                durability.replay::<Unit, GraphError>()?;
-                Ok(())
-            }
+                &input,
+            )
+            .run_async(|| async {
+                self.inner
+                    .delete_vertex(id, delete_edges)
+                    .await
+                    .map(|_| Unit)
+            })
+            .await
+            .map(|_| ())
         }
 
         async fn find_vertices(
@@ -378,20 +338,14 @@ mod durable_impl {
 
         async fn create_edge(&self, options: CreateEdgeOptions) -> Result<Edge, GraphError> {
             init_logging();
-            let durability: Durability<Edge, GraphError> = Durability::new(
+            Durability::<Edge, GraphError>::new(
                 "golem_graph_transaction",
                 "create_edge",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.create_edge(options.clone())
-                })
-                .await;
-                durability.persist(options, result)
-            } else {
-                durability.replay()
-            }
+                &options,
+            )
+            .run_async(|| self.inner.create_edge(options))
+            .await
         }
 
         async fn create_edges(
@@ -399,20 +353,14 @@ mod durable_impl {
             edges: Vec<CreateEdgeOptions>,
         ) -> Result<Vec<Edge>, GraphError> {
             init_logging();
-            let durability: Durability<Vec<Edge>, GraphError> = Durability::new(
+            Durability::<Vec<Edge>, GraphError>::new(
                 "golem_graph_transaction",
                 "create_edges",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.create_edges(edges.clone())
-                })
-                .await;
-                durability.persist(edges, result)
-            } else {
-                durability.replay()
-            }
+                &edges,
+            )
+            .run_async(|| self.inner.create_edges(edges))
+            .await
         }
 
         async fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
@@ -422,40 +370,27 @@ mod durable_impl {
 
         async fn update_edge(&self, options: UpdateEdgeOptions) -> Result<Edge, GraphError> {
             init_logging();
-            let durability: Durability<Edge, GraphError> = Durability::new(
+            Durability::<Edge, GraphError>::new(
                 "golem_graph_transaction",
                 "update_edge",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.update_edge(options.clone())
-                })
-                .await;
-                durability.persist(options, result)
-            } else {
-                durability.replay()
-            }
+                &options,
+            )
+            .run_async(|| self.inner.update_edge(options))
+            .await
         }
 
         async fn delete_edge(&self, id: ElementId) -> Result<(), GraphError> {
             init_logging();
-            let durability: Durability<Unit, GraphError> = Durability::new(
+            Durability::<Unit, GraphError>::new(
                 "golem_graph_transaction",
                 "delete_edge",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.delete_edge(id.clone())
-                })
-                .await;
-                durability.persist(id, result.map(|_| Unit))?;
-                Ok(())
-            } else {
-                durability.replay::<Unit, GraphError>()?;
-                Ok(())
-            }
+                &id,
+            )
+            .run_async(|| async { self.inner.delete_edge(id).await.map(|_| Unit) })
+            .await
+            .map(|_| ())
         }
 
         async fn find_edges(&self, options: FindEdgesOptions) -> Result<Vec<Edge>, GraphError> {
@@ -465,42 +400,28 @@ mod durable_impl {
 
         async fn commit(&self) -> Result<(), GraphError> {
             init_logging();
-            let durability = Durability::<Unit, GraphError>::new(
+            Durability::<Unit, GraphError>::new(
                 "golem_graph_transaction",
                 "commit",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.commit()
-                })
-                .await;
-                durability.persist(Unit, result.map(|_| Unit))?;
-                Ok(())
-            } else {
-                durability.replay::<Unit, GraphError>()?;
-                Ok(())
-            }
+                &NoInput,
+            )
+            .run_async(|| async { self.inner.commit().await.map(|_| Unit) })
+            .await
+            .map(|_| ())
         }
 
         async fn rollback(&self) -> Result<(), GraphError> {
             init_logging();
-            let durability = Durability::<Unit, GraphError>::new(
+            Durability::<Unit, GraphError>::new(
                 "golem_graph_transaction",
                 "rollback",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    self.inner.rollback()
-                })
-                .await;
-                durability.persist(Unit, result.map(|_| Unit))?;
-                Ok(())
-            } else {
-                durability.replay::<Unit, GraphError>()?;
-                Ok(())
-            }
+                &NoInput,
+            )
+            .run_async(|| async { self.inner.rollback().await.map(|_| Unit) })
+            .await
+            .map(|_| ())
         }
 
         fn is_active(&self) -> bool {

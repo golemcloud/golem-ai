@@ -599,11 +599,14 @@ mod passthrough_impl {
 
 #[cfg(feature = "golem")]
 mod durable_impl {
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
+    struct NoInput;
+
     use super::*;
     use crate::init_logging;
     use golem_rust::durability::Durability;
     use golem_rust::durability::DurableFunctionType;
-    use golem_rust::{with_persistence_level_async, FromSchema, IntoSchema, PersistenceLevel};
+    use golem_rust::{FromSchema, IntoSchema};
 
     #[derive(Debug, Clone, FromSchema, IntoSchema)]
     pub(super) struct Unit;
@@ -623,36 +626,27 @@ mod durable_impl {
                 "golem_ai_vector",
                 "connect",
                 DurableFunctionType::WriteRemote,
+                &ConnectParams {
+                    endpoint: endpoint.clone(),
+                    credentials: credentials.clone(),
+                    timeout_ms,
+                    options: options.clone(),
+                },
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::connect_internal(
-                            provider_config,
-                            &endpoint,
-                            &credentials,
-                            &timeout_ms,
-                            &options,
-                        )
-                        .await
-                    })
-                    .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(
-                    ConnectParams {
-                        endpoint,
-                        credentials,
-                        timeout_ms,
-                        options,
-                    },
-                    result.map(|_| Unit),
-                )?;
-                Ok(())
-            } else {
-                durability.replay::<Unit, VectorError>()?;
-                Ok(())
-            }
+            durability
+                .run_async(|| async {
+                    Impl::connect_internal(
+                        provider_config,
+                        &endpoint,
+                        &credentials,
+                        &timeout_ms,
+                        &options,
+                    )
+                    .await
+                    .map(|_| Unit)
+                })
+                .await?;
+            Ok(())
         }
 
         async fn disconnect(provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
@@ -661,19 +655,12 @@ mod durable_impl {
                 "golem_ai_vector",
                 "disconnect",
                 DurableFunctionType::WriteRemote,
+                &NoInput,
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::disconnect(provider_config).await
-                    })
-                    .await;
-                durability.persist(Unit, result.map(|_| Unit))?;
-                Ok(())
-            } else {
-                durability.replay::<Unit, VectorError>()?;
-                Ok(())
-            }
+            durability
+                .run_async(|| async { Impl::disconnect(provider_config).await.map(|_| Unit) })
+                .await?;
+            Ok(())
         }
 
         async fn get_connection_status(
@@ -685,17 +672,11 @@ mod durable_impl {
                     "golem_ai_vector",
                     "get_connection_status",
                     DurableFunctionType::ReadRemote,
+                    &NoInput,
                 );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::get_connection_status(provider_config).await
-                    })
-                    .await;
-                durability.persist(Unit, result)
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async { Impl::get_connection_status(provider_config).await })
+                .await
         }
 
         async fn test_connection(
@@ -710,32 +691,25 @@ mod durable_impl {
                 "golem_ai_vector",
                 "test_connection",
                 DurableFunctionType::ReadRemote,
+                &ConnectParams {
+                    endpoint: endpoint.clone(),
+                    credentials: credentials.clone(),
+                    timeout_ms,
+                    options: options.clone(),
+                },
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::test_connection(
-                            provider_config,
-                            endpoint.clone(),
-                            credentials.clone(),
-                            timeout_ms,
-                            options.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    ConnectParams {
-                        endpoint,
-                        credentials,
+            durability
+                .run_async(|| async {
+                    Impl::test_connection(
+                        provider_config,
+                        endpoint.clone(),
+                        credentials.clone(),
                         timeout_ms,
-                        options,
-                    },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                        options.clone(),
+                    )
+                    .await
+                })
+                .await
         }
     }
 
@@ -757,36 +731,29 @@ mod durable_impl {
                     "golem_vector_collections",
                     "upsert_collection",
                     DurableFunctionType::WriteRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::upsert_collection(
-                            provider_config,
-                            name.clone(),
-                            description.clone(),
-                            dimension,
-                            metric,
-                            index_config.clone(),
-                            metadata.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    UpsertCollectionParams {
-                        name,
-                        description,
+                    &UpsertCollectionParams {
+                        name: name.clone(),
+                        description: description.clone(),
                         dimension,
                         metric,
-                        index_config,
-                        metadata,
+                        index_config: index_config.clone(),
+                        metadata: metadata.clone(),
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::upsert_collection(
+                        provider_config,
+                        name.clone(),
+                        description.clone(),
+                        dimension,
+                        metric,
+                        index_config.clone(),
+                        metadata.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn list_collections(
@@ -797,17 +764,11 @@ mod durable_impl {
                 "golem_vector_collections",
                 "list_collections",
                 DurableFunctionType::ReadRemote,
+                &NoInput,
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::list_collections(provider_config).await
-                    })
-                    .await;
-                durability.persist(Unit, result)
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async { Impl::list_collections(provider_config).await })
+                .await
         }
 
         async fn get_collection(
@@ -820,17 +781,11 @@ mod durable_impl {
                     "golem_vector_collections",
                     "get_collection",
                     DurableFunctionType::ReadRemote,
+                    &name,
                 );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::get_collection(provider_config, name.clone()).await
-                    })
-                    .await;
-                durability.persist(name, result)
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async { Impl::get_collection(provider_config, name.clone()).await })
+                .await
         }
 
         async fn update_collection(
@@ -845,30 +800,23 @@ mod durable_impl {
                     "golem_vector_collections",
                     "update_collection",
                     DurableFunctionType::WriteRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::update_collection(
-                            provider_config,
-                            name.clone(),
-                            description.clone(),
-                            metadata.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    UpdateCollectionParams {
-                        name,
-                        description,
-                        metadata,
+                    &UpdateCollectionParams {
+                        name: name.clone(),
+                        description: description.clone(),
+                        metadata: metadata.clone(),
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::update_collection(
+                        provider_config,
+                        name.clone(),
+                        description.clone(),
+                        metadata.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn delete_collection(
@@ -880,19 +828,16 @@ mod durable_impl {
                 "golem_vector_collections",
                 "delete_collection",
                 DurableFunctionType::WriteRemote,
+                &name,
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::delete_collection(provider_config, name.clone()).await
-                    })
-                    .await;
-                durability.persist(name, result.map(|_| Unit))?;
-                Ok(())
-            } else {
-                durability.replay::<Unit, VectorError>()?;
-                Ok(())
-            }
+            durability
+                .run_async(|| async {
+                    Impl::delete_collection(provider_config, name.clone())
+                        .await
+                        .map(|_| Unit)
+                })
+                .await?;
+            Ok(())
         }
 
         async fn collection_exists(
@@ -904,17 +849,13 @@ mod durable_impl {
                 "golem_vector_collections",
                 "collection_exists",
                 DurableFunctionType::ReadRemote,
+                &name,
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::collection_exists(provider_config, name.clone()).await
-                    })
-                    .await;
-                durability.persist(name, result)
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async {
+                    Impl::collection_exists(provider_config, name.clone()).await
+                })
+                .await
         }
     }
 
@@ -933,30 +874,23 @@ mod durable_impl {
                     "golem_vector_vectors",
                     "upsert_vectors",
                     DurableFunctionType::WriteRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::upsert_vectors(
-                            provider_config,
-                            collection.clone(),
-                            vectors.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    UpsertVectorsParams {
-                        collection,
-                        vectors,
-                        namespace,
+                    &UpsertVectorsParams {
+                        collection: collection.clone(),
+                        vectors: vectors.clone(),
+                        namespace: namespace.clone(),
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::upsert_vectors(
+                        provider_config,
+                        collection.clone(),
+                        vectors.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn upsert_vector(
@@ -972,36 +906,29 @@ mod durable_impl {
                 "golem_vector_vectors",
                 "upsert_vector",
                 DurableFunctionType::WriteRemote,
+                &UpsertVectorParams {
+                    collection: collection.clone(),
+                    id: id.clone(),
+                    vector: vector.clone(),
+                    metadata: metadata.clone(),
+                    namespace: namespace.clone(),
+                },
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::upsert_vector(
-                            provider_config,
-                            collection.clone(),
-                            id.clone(),
-                            vector.clone(),
-                            metadata.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    UpsertVectorParams {
-                        collection,
-                        id,
-                        vector,
-                        metadata,
-                        namespace,
-                    },
-                    result.map(|_| Unit),
-                )?;
-                Ok(())
-            } else {
-                durability.replay::<Unit, VectorError>()?;
-                Ok(())
-            }
+            durability
+                .run_async(|| async {
+                    Impl::upsert_vector(
+                        provider_config,
+                        collection.clone(),
+                        id.clone(),
+                        vector.clone(),
+                        metadata.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                    .map(|_| Unit)
+                })
+                .await?;
+            Ok(())
         }
 
         async fn get_vectors(
@@ -1018,34 +945,27 @@ mod durable_impl {
                     "golem_vector_vectors",
                     "get_vectors",
                     DurableFunctionType::ReadRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::get_vectors(
-                            provider_config,
-                            collection.clone(),
-                            ids.clone(),
-                            namespace.clone(),
-                            include_vectors,
-                            include_metadata,
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    GetVectorsParams {
-                        collection,
-                        ids,
-                        namespace,
+                    &GetVectorsParams {
+                        collection: collection.clone(),
+                        ids: ids.clone(),
+                        namespace: namespace.clone(),
                         include_vectors,
                         include_metadata,
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::get_vectors(
+                        provider_config,
+                        collection.clone(),
+                        ids.clone(),
+                        namespace.clone(),
+                        include_vectors,
+                        include_metadata,
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn get_vector(
@@ -1060,30 +980,23 @@ mod durable_impl {
                     "golem_vector_vectors",
                     "get_vector",
                     DurableFunctionType::ReadRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::get_vector(
-                            provider_config,
-                            collection.clone(),
-                            id.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    GetVectorParams {
-                        collection,
-                        id,
-                        namespace,
+                    &GetVectorParams {
+                        collection: collection.clone(),
+                        id: id.clone(),
+                        namespace: namespace.clone(),
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::get_vector(
+                        provider_config,
+                        collection.clone(),
+                        id.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn update_vector(
@@ -1100,38 +1013,31 @@ mod durable_impl {
                 "golem_vector_vectors",
                 "update_vector",
                 DurableFunctionType::WriteRemote,
+                &UpdateVectorParams {
+                    collection: collection.clone(),
+                    id: id.clone(),
+                    vector: vector.clone(),
+                    metadata: metadata.clone(),
+                    namespace: namespace.clone(),
+                    merge_metadata,
+                },
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::update_vector(
-                            provider_config,
-                            collection.clone(),
-                            id.clone(),
-                            vector.clone(),
-                            metadata.clone(),
-                            namespace.clone(),
-                            merge_metadata,
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    UpdateVectorParams {
-                        collection,
-                        id,
-                        vector,
-                        metadata,
-                        namespace,
+            durability
+                .run_async(|| async {
+                    Impl::update_vector(
+                        provider_config,
+                        collection.clone(),
+                        id.clone(),
+                        vector.clone(),
+                        metadata.clone(),
+                        namespace.clone(),
                         merge_metadata,
-                    },
-                    result.map(|_| Unit),
-                )?;
-                Ok(())
-            } else {
-                durability.replay::<Unit, VectorError>()?;
-                Ok(())
-            }
+                    )
+                    .await
+                    .map(|_| Unit)
+                })
+                .await?;
+            Ok(())
         }
 
         async fn delete_vectors(
@@ -1145,30 +1051,23 @@ mod durable_impl {
                 "golem_vector_vectors",
                 "delete_vectors",
                 DurableFunctionType::WriteRemote,
+                &DeleteVectorsParams {
+                    collection: collection.clone(),
+                    ids: ids.clone(),
+                    namespace: namespace.clone(),
+                },
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::delete_vectors(
-                            provider_config,
-                            collection.clone(),
-                            ids.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    DeleteVectorsParams {
-                        collection,
-                        ids,
-                        namespace,
-                    },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async {
+                    Impl::delete_vectors(
+                        provider_config,
+                        collection.clone(),
+                        ids.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn delete_by_filter(
@@ -1182,30 +1081,23 @@ mod durable_impl {
                 "golem_vector_vectors",
                 "delete_by_filter",
                 DurableFunctionType::WriteRemote,
+                &DeleteByFilterParams {
+                    collection: collection.clone(),
+                    filter: filter.clone(),
+                    namespace: namespace.clone(),
+                },
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::delete_by_filter(
-                            provider_config,
-                            collection.clone(),
-                            filter.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    DeleteByFilterParams {
-                        collection,
-                        filter,
-                        namespace,
-                    },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async {
+                    Impl::delete_by_filter(
+                        provider_config,
+                        collection.clone(),
+                        filter.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn delete_namespace(
@@ -1218,22 +1110,18 @@ mod durable_impl {
                 "golem_vector_vectors",
                 "delete_namespace",
                 DurableFunctionType::WriteRemote,
+                &(collection.clone(), namespace.clone()),
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        <Impl as VectorsProvider>::delete_namespace(
-                            provider_config,
-                            collection.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist((collection, namespace), result)
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async {
+                    <Impl as VectorsProvider>::delete_namespace(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn list_vectors(
@@ -1252,38 +1140,31 @@ mod durable_impl {
                     "golem_vector_vectors",
                     "list_vectors",
                     DurableFunctionType::ReadRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::list_vectors(
-                            provider_config,
-                            collection.clone(),
-                            namespace.clone(),
-                            filter.clone(),
-                            limit,
-                            cursor.clone(),
-                            include_vectors,
-                            include_metadata,
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    ListVectorsParams {
-                        collection,
-                        namespace,
-                        filter,
+                    &ListVectorsParams {
+                        collection: collection.clone(),
+                        namespace: namespace.clone(),
+                        filter: filter.clone(),
                         limit,
-                        cursor,
+                        cursor: cursor.clone(),
                         include_vectors,
                         include_metadata,
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::list_vectors(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                        filter.clone(),
+                        limit,
+                        cursor.clone(),
+                        include_vectors,
+                        include_metadata,
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn count_vectors(
@@ -1297,30 +1178,23 @@ mod durable_impl {
                 "golem_vector_vectors",
                 "count_vectors",
                 DurableFunctionType::ReadRemote,
+                &CountVectorsParams {
+                    collection: collection.clone(),
+                    filter: filter.clone(),
+                    namespace: namespace.clone(),
+                },
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::count_vectors(
-                            provider_config,
-                            collection.clone(),
-                            filter.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    CountVectorsParams {
-                        collection,
-                        filter,
-                        namespace,
-                    },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async {
+                    Impl::count_vectors(
+                        provider_config,
+                        collection.clone(),
+                        filter.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
     }
 
@@ -1346,44 +1220,37 @@ mod durable_impl {
                     "golem_vector_search",
                     "search_vectors",
                     DurableFunctionType::ReadRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::search_vectors(
-                            provider_config,
-                            collection.clone(),
-                            query.clone(),
-                            limit,
-                            filter.clone(),
-                            namespace.clone(),
-                            include_vectors,
-                            include_metadata,
-                            min_score,
-                            max_distance,
-                            search_params.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    SearchVectorsParams {
-                        collection,
-                        query,
+                    &SearchVectorsParams {
+                        collection: collection.clone(),
+                        query: query.clone(),
                         limit,
-                        filter,
-                        namespace,
+                        filter: filter.clone(),
+                        namespace: namespace.clone(),
                         include_vectors,
                         include_metadata,
                         min_score,
                         max_distance,
-                        search_params,
+                        search_params: search_params.clone(),
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::search_vectors(
+                        provider_config,
+                        collection.clone(),
+                        query.clone(),
+                        limit,
+                        filter.clone(),
+                        namespace.clone(),
+                        include_vectors,
+                        include_metadata,
+                        min_score,
+                        max_distance,
+                        search_params.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn find_similar(
@@ -1399,32 +1266,25 @@ mod durable_impl {
                     "golem_vector_search",
                     "find_similar",
                     DurableFunctionType::ReadRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::find_similar(
-                            provider_config,
-                            collection.clone(),
-                            vector.clone(),
-                            limit,
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    FindSimilarParams {
-                        collection,
-                        vector,
+                    &FindSimilarParams {
+                        collection: collection.clone(),
+                        vector: vector.clone(),
                         limit,
-                        namespace,
+                        namespace: namespace.clone(),
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::find_similar(
+                        provider_config,
+                        collection.clone(),
+                        vector.clone(),
+                        limit,
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn batch_search(
@@ -1444,40 +1304,33 @@ mod durable_impl {
                     "golem_vector_search",
                     "batch_search",
                     DurableFunctionType::ReadRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::batch_search(
-                            provider_config,
-                            collection.clone(),
-                            queries.clone(),
-                            limit,
-                            filter.clone(),
-                            namespace.clone(),
-                            include_vectors,
-                            include_metadata,
-                            search_params.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    BatchSearchParams {
-                        collection,
-                        queries,
+                    &BatchSearchParams {
+                        collection: collection.clone(),
+                        queries: queries.clone(),
                         limit,
-                        filter,
-                        namespace,
+                        filter: filter.clone(),
+                        namespace: namespace.clone(),
                         include_vectors,
                         include_metadata,
-                        search_params,
+                        search_params: search_params.clone(),
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::batch_search(
+                        provider_config,
+                        collection.clone(),
+                        queries.clone(),
+                        limit,
+                        filter.clone(),
+                        namespace.clone(),
+                        include_vectors,
+                        include_metadata,
+                        search_params.clone(),
+                    )
+                    .await
+                })
+                .await
         }
     }
 
@@ -1502,42 +1355,35 @@ mod durable_impl {
                     "golem_vector_search_extended",
                     "recommend_vectors",
                     DurableFunctionType::ReadRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::recommend_vectors(
-                            provider_config,
-                            collection.clone(),
-                            positive.clone(),
-                            negative.clone(),
-                            limit,
-                            filter.clone(),
-                            namespace.clone(),
-                            strategy,
-                            include_vectors,
-                            include_metadata,
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    RecommendVectorsParams {
-                        collection,
-                        positive,
-                        negative,
+                    &RecommendVectorsParams {
+                        collection: collection.clone(),
+                        positive: positive.clone(),
+                        negative: negative.clone(),
                         limit,
-                        filter,
-                        namespace,
+                        filter: filter.clone(),
+                        namespace: namespace.clone(),
                         strategy,
                         include_vectors,
                         include_metadata,
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::recommend_vectors(
+                        provider_config,
+                        collection.clone(),
+                        positive.clone(),
+                        negative.clone(),
+                        limit,
+                        filter.clone(),
+                        namespace.clone(),
+                        strategy,
+                        include_vectors,
+                        include_metadata,
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn discover_vectors(
@@ -1557,40 +1403,33 @@ mod durable_impl {
                     "golem_vector_search_extended",
                     "discover_vectors",
                     DurableFunctionType::ReadRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::discover_vectors(
-                            provider_config,
-                            collection.clone(),
-                            target.clone(),
-                            context_pairs.clone(),
-                            limit,
-                            filter.clone(),
-                            namespace.clone(),
-                            include_vectors,
-                            include_metadata,
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    DiscoverVectorsParams {
-                        collection,
-                        target,
-                        context_pairs,
+                    &DiscoverVectorsParams {
+                        collection: collection.clone(),
+                        target: target.clone(),
+                        context_pairs: context_pairs.clone(),
                         limit,
-                        filter,
-                        namespace,
+                        filter: filter.clone(),
+                        namespace: namespace.clone(),
                         include_vectors,
                         include_metadata,
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::discover_vectors(
+                        provider_config,
+                        collection.clone(),
+                        target.clone(),
+                        context_pairs.clone(),
+                        limit,
+                        filter.clone(),
+                        namespace.clone(),
+                        include_vectors,
+                        include_metadata,
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn search_groups(
@@ -1613,42 +1452,35 @@ mod durable_impl {
                 "golem_vector_search_extended",
                 "search_groups",
                 DurableFunctionType::ReadRemote,
+                &SearchGroupsParams {
+                    collection: collection.clone(),
+                    query: query.clone(),
+                    group_by: group_by.clone(),
+                    group_size,
+                    max_groups,
+                    filter: filter.clone(),
+                    namespace: namespace.clone(),
+                    include_vectors,
+                    include_metadata,
+                },
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::search_groups(
-                            provider_config,
-                            collection.clone(),
-                            query.clone(),
-                            group_by.clone(),
-                            group_size,
-                            max_groups,
-                            filter.clone(),
-                            namespace.clone(),
-                            include_vectors,
-                            include_metadata,
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    SearchGroupsParams {
-                        collection,
-                        query,
-                        group_by,
+            durability
+                .run_async(|| async {
+                    Impl::search_groups(
+                        provider_config,
+                        collection.clone(),
+                        query.clone(),
+                        group_by.clone(),
                         group_size,
                         max_groups,
-                        filter,
-                        namespace,
+                        filter.clone(),
+                        namespace.clone(),
                         include_vectors,
                         include_metadata,
-                    },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn search_range(
@@ -1669,42 +1501,35 @@ mod durable_impl {
                     "golem_vector_search_extended",
                     "search_range",
                     DurableFunctionType::ReadRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::search_range(
-                            provider_config,
-                            collection.clone(),
-                            vector.clone(),
-                            min_distance,
-                            max_distance,
-                            filter.clone(),
-                            namespace.clone(),
-                            limit,
-                            include_vectors,
-                            include_metadata,
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    SearchRangeParams {
-                        collection,
-                        vector,
+                    &SearchRangeParams {
+                        collection: collection.clone(),
+                        vector: vector.clone(),
                         min_distance,
                         max_distance,
-                        filter,
-                        namespace,
+                        filter: filter.clone(),
+                        namespace: namespace.clone(),
                         limit,
                         include_vectors,
                         include_metadata,
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::search_range(
+                        provider_config,
+                        collection.clone(),
+                        vector.clone(),
+                        min_distance,
+                        max_distance,
+                        filter.clone(),
+                        namespace.clone(),
+                        limit,
+                        include_vectors,
+                        include_metadata,
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn search_text(
@@ -1721,34 +1546,27 @@ mod durable_impl {
                     "golem_vector_search_extended",
                     "search_text",
                     DurableFunctionType::ReadRemote,
-                );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::search_text(
-                            provider_config,
-                            collection.clone(),
-                            query_text.clone(),
-                            limit,
-                            filter.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    SearchTextParams {
-                        collection,
-                        query_text,
+                    &SearchTextParams {
+                        collection: collection.clone(),
+                        query_text: query_text.clone(),
                         limit,
-                        filter,
-                        namespace,
+                        filter: filter.clone(),
+                        namespace: namespace.clone(),
                     },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                );
+            durability
+                .run_async(|| async {
+                    Impl::search_text(
+                        provider_config,
+                        collection.clone(),
+                        query_text.clone(),
+                        limit,
+                        filter.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
     }
 
@@ -1766,22 +1584,18 @@ mod durable_impl {
                     "golem_vector_analytics",
                     "get_collection_stats",
                     DurableFunctionType::ReadRemote,
+                    &(collection.clone(), namespace.clone()),
                 );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::get_collection_stats(
-                            provider_config,
-                            collection.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist((collection, namespace), result)
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async {
+                    Impl::get_collection_stats(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn get_field_stats(
@@ -1796,23 +1610,19 @@ mod durable_impl {
                     "golem_vector_analytics",
                     "get_field_stats",
                     DurableFunctionType::ReadRemote,
+                    &(collection.clone(), field.clone(), namespace.clone()),
                 );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::get_field_stats(
-                            provider_config,
-                            collection.clone(),
-                            field.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist((collection, field, namespace), result)
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async {
+                    Impl::get_field_stats(
+                        provider_config,
+                        collection.clone(),
+                        field.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn get_field_distribution(
@@ -1830,32 +1640,25 @@ mod durable_impl {
                 "golem_vector_analytics",
                 "get_field_distribution",
                 DurableFunctionType::ReadRemote,
+                &GetFieldDistributionParams {
+                    collection: collection.clone(),
+                    field: field.clone(),
+                    limit,
+                    namespace: namespace.clone(),
+                },
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::get_field_distribution(
-                            provider_config,
-                            collection.clone(),
-                            field.clone(),
-                            limit,
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist(
-                    GetFieldDistributionParams {
-                        collection,
-                        field,
+            durability
+                .run_async(|| async {
+                    Impl::get_field_distribution(
+                        provider_config,
+                        collection.clone(),
+                        field.clone(),
                         limit,
-                        namespace,
-                    },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                        namespace.clone(),
+                    )
+                    .await
+                })
+                .await
         }
     }
 
@@ -1874,23 +1677,19 @@ mod durable_impl {
                     "golem_vector_namespaces",
                     "upsert_namespace",
                     DurableFunctionType::WriteRemote,
+                    &(collection.clone(), namespace.clone(), metadata.clone()),
                 );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::upsert_namespace(
-                            provider_config,
-                            collection.clone(),
-                            namespace.clone(),
-                            metadata.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist((collection, namespace, metadata), result)
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async {
+                    Impl::upsert_namespace(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                        metadata.clone(),
+                    )
+                    .await
+                })
+                .await
         }
 
         async fn list_namespaces(
@@ -1903,17 +1702,13 @@ mod durable_impl {
                     "golem_vector_namespaces",
                     "list_namespaces",
                     DurableFunctionType::ReadRemote,
+                    &collection,
                 );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::list_namespaces(provider_config, collection.clone()).await
-                    })
-                    .await;
-                durability.persist(collection, result)
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async {
+                    Impl::list_namespaces(provider_config, collection.clone()).await
+                })
+                .await
         }
 
         async fn get_namespace(
@@ -1927,18 +1722,14 @@ mod durable_impl {
                     "golem_vector_namespaces",
                     "get_namespace",
                     DurableFunctionType::ReadRemote,
+                    &(collection.clone(), namespace.clone()),
                 );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::get_namespace(provider_config, collection.clone(), namespace.clone())
-                            .await
-                    })
-                    .await;
-                durability.persist((collection, namespace), result)
-            } else {
-                durability.replay()
-            }
+            durability
+                .run_async(|| async {
+                    Impl::get_namespace(provider_config, collection.clone(), namespace.clone())
+                        .await
+                })
+                .await
         }
 
         async fn delete_namespace(
@@ -1951,24 +1742,20 @@ mod durable_impl {
                 "golem_vector_namespaces",
                 "delete_namespace",
                 DurableFunctionType::WriteRemote,
+                &(collection.clone(), namespace.clone()),
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        <Impl as NamespacesProvider>::delete_namespace(
-                            provider_config,
-                            collection.clone(),
-                            namespace.clone(),
-                        )
-                        .await
-                    })
-                    .await;
-                durability.persist((collection, namespace), result.map(|_| Unit))?;
-                Ok(())
-            } else {
-                durability.replay::<Unit, VectorError>()?;
-                Ok(())
-            }
+            durability
+                .run_async(|| async {
+                    <Impl as NamespacesProvider>::delete_namespace(
+                        provider_config,
+                        collection.clone(),
+                        namespace.clone(),
+                    )
+                    .await
+                    .map(|_| Unit)
+                })
+                .await?;
+            Ok(())
         }
 
         async fn namespace_exists(
@@ -1981,22 +1768,14 @@ mod durable_impl {
                 "golem_vector_namespaces",
                 "namespace_exists",
                 DurableFunctionType::ReadRemote,
+                &(collection.clone(), namespace.clone()),
             );
-            if durability.is_live() {
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::namespace_exists(
-                            provider_config,
-                            collection.clone(),
-                            namespace.clone(),
-                        )
+            durability
+                .run_async(|| async {
+                    Impl::namespace_exists(provider_config, collection.clone(), namespace.clone())
                         .await
-                    })
-                    .await;
-                durability.persist((collection, namespace), result)
-            } else {
-                durability.replay()
-            }
+                })
+                .await
         }
     }
 

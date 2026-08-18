@@ -139,7 +139,7 @@ mod durable_impl {
         init_logging, AdvancedVideoGenerationProvider, LipSyncProvider, VideoGenerationProvider,
     };
     use golem_rust::durability::{Durability, DurableFunctionType};
-    use golem_rust::{with_persistence_level_async, FromSchema, IntoSchema, PersistenceLevel};
+    use golem_rust::{FromSchema, IntoSchema};
     use std::fmt::{Display, Formatter};
 
     impl<Impl: ExtendedVideoGenerationProvider> VideoGenerationProvider for DurableVideo<Impl> {
@@ -151,24 +151,20 @@ mod durable_impl {
             config: GenerationConfig,
         ) -> Result<String, VideoError> {
             init_logging();
-            let durability = Durability::<String, VideoError>::new(
+            let persisted_input = GenerateInput {
+                input: input.clone(),
+                config: config.clone(),
+            };
+            Durability::<String, VideoError>::new(
                 "golem_ai_video",
                 "generate",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let input_clone = input.clone();
-                let config_clone = config.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::generate(provider_config, input_clone, config_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(GenerateInput { input, config }, result)
-            } else {
-                durability.replay()
-            }
+                &persisted_input,
+            )
+            .run_async(|| Impl::generate(provider_config, input, config))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
 
         async fn poll(
@@ -176,23 +172,19 @@ mod durable_impl {
             job_id: String,
         ) -> Result<VideoResult, VideoError> {
             init_logging();
-            let durability = Durability::<VideoResult, VideoError>::new(
+            let input = PollInput {
+                job_id: job_id.clone(),
+            };
+            Durability::<VideoResult, VideoError>::new(
                 "golem_ai_video",
                 "poll",
                 DurableFunctionType::ReadRemote,
-            );
-            if durability.is_live() {
-                let job_id_clone = job_id.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::poll(provider_config, job_id_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(PollInput { job_id }, result)
-            } else {
-                durability.replay()
-            }
+                &input,
+            )
+            .run_async(|| Impl::poll(provider_config, job_id))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
 
         async fn cancel(
@@ -200,23 +192,19 @@ mod durable_impl {
             job_id: String,
         ) -> Result<String, VideoError> {
             init_logging();
-            let durability = Durability::<String, VideoError>::new(
+            let input = CancelInput {
+                job_id: job_id.clone(),
+            };
+            Durability::<String, VideoError>::new(
                 "golem_ai_video",
                 "cancel",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let job_id_clone = job_id.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::cancel(provider_config, job_id_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(CancelInput { job_id }, result)
-            } else {
-                durability.replay()
-            }
+                &input,
+            )
+            .run_async(|| Impl::cancel(provider_config, job_id))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
     }
 
@@ -229,24 +217,20 @@ mod durable_impl {
             audio: AudioSource,
         ) -> Result<String, VideoError> {
             init_logging();
-            let durability = Durability::<String, VideoError>::new(
+            let input = GenerateLipSyncInput {
+                video: video.clone(),
+                audio: audio.clone(),
+            };
+            Durability::<String, VideoError>::new(
                 "golem_ai_video",
                 "generate_lip_sync",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let video_clone = video.clone();
-                let audio_clone = audio.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::generate_lip_sync(provider_config, video_clone, audio_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(GenerateLipSyncInput { video, audio }, result)
-            } else {
-                durability.replay()
-            }
+                &input,
+            )
+            .run_async(|| Impl::generate_lip_sync(provider_config, video, audio))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
 
         async fn list_voices(
@@ -254,23 +238,19 @@ mod durable_impl {
             language: Option<String>,
         ) -> Result<Vec<VoiceInfo>, VideoError> {
             init_logging();
-            let durability = Durability::<Vec<VoiceInfo>, VideoError>::new(
+            let input = ListVoicesInput {
+                language: language.clone(),
+            };
+            Durability::<Vec<VoiceInfo>, VideoError>::new(
                 "golem_ai_video",
                 "list_voices",
                 DurableFunctionType::ReadRemote,
-            );
-            if durability.is_live() {
-                let language_clone = language.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::list_voices(provider_config, language_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(ListVoicesInput { language }, result)
-            } else {
-                durability.replay()
-            }
+                &input,
+            )
+            .run_async(|| Impl::list_voices(provider_config, language))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
     }
 
@@ -282,23 +262,16 @@ mod durable_impl {
             options: ExtendVideoOptions,
         ) -> Result<String, VideoError> {
             init_logging();
-            let durability = Durability::<String, VideoError>::new(
+            Durability::<String, VideoError>::new(
                 "golem_ai_video",
                 "extend_video",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let options_clone = options.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::extend_video(provider_config, options_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(options, result)
-            } else {
-                durability.replay()
-            }
+                &options,
+            )
+            .run_async(|| Impl::extend_video(provider_config, options))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
 
         async fn upscale_video(
@@ -306,23 +279,19 @@ mod durable_impl {
             input: BaseVideo,
         ) -> Result<String, VideoError> {
             init_logging();
-            let durability = Durability::<String, VideoError>::new(
+            let persisted_input = UpscaleVideoInput {
+                input: input.clone(),
+            };
+            Durability::<String, VideoError>::new(
                 "golem_ai_video",
                 "upscale_video",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let input_clone = input.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::upscale_video(provider_config, input_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(UpscaleVideoInput { input }, result)
-            } else {
-                durability.replay()
-            }
+                &persisted_input,
+            )
+            .run_async(|| Impl::upscale_video(provider_config, input))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
 
         async fn generate_video_effects(
@@ -330,23 +299,16 @@ mod durable_impl {
             options: GenerateVideoEffectsOptions,
         ) -> Result<String, VideoError> {
             init_logging();
-            let durability = Durability::<String, VideoError>::new(
+            Durability::<String, VideoError>::new(
                 "golem_ai_video",
                 "generate_video_effects",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let options_clone = options.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::generate_video_effects(provider_config, options_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(options, result)
-            } else {
-                durability.replay()
-            }
+                &options,
+            )
+            .run_async(|| Impl::generate_video_effects(provider_config, options))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
 
         async fn multi_image_generation(
@@ -354,23 +316,16 @@ mod durable_impl {
             options: MultImageGenerationOptions,
         ) -> Result<String, VideoError> {
             init_logging();
-            let durability = Durability::<String, VideoError>::new(
+            Durability::<String, VideoError>::new(
                 "golem_ai_video",
                 "multi_image_generation",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let options_clone = options.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::multi_image_generation(provider_config, options_clone)
-                })
-                .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(options, result)
-            } else {
-                durability.replay()
-            }
+                &options,
+            )
+            .run_async(|| Impl::multi_image_generation(provider_config, options))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
     }
 

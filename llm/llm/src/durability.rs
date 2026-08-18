@@ -124,12 +124,15 @@ mod durable_impl {
     use crate::{init_logging, ChatStreamInterface, LlmFuture, LlmProvider};
     use futures::lock::Mutex;
     use golem_rust::durability::{Durability, DurableFunctionType};
-    use golem_rust::{
-        with_persistence_level, with_persistence_level_async, FromSchema, IntoSchema,
-        PersistenceLevel,
-    };
+    use golem_rust::{FromSchema, IntoSchema};
     use std::fmt::{Display, Formatter};
     use std::rc::Rc;
+
+    impl From<&Error> for Error {
+        fn from(error: &Error) -> Self {
+            error.clone()
+        }
+    }
 
     impl<Impl: ExtendedLlmProvider> LlmProvider for DurableLLM<Impl> {
         type ChatStream = DurableChatStream<Impl>;
@@ -146,22 +149,16 @@ mod durable_impl {
                 "golem_ai_llm",
                 "send",
                 DurableFunctionType::WriteRemote,
+                &SendInput {
+                    events: events.clone(),
+                    config: config.clone(),
+                },
             );
-            if durability.is_live() {
-                let events_clone = events.clone();
-                let config_clone = config.clone();
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
-                        Impl::send(provider_config, events_clone, config_clone).await
-                    })
-                    .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist_serializable(SendInput { events, config }, result.clone());
-                result
-            } else {
-                durability.replay_serializable()
-            }
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
+            durability
+                .run_async(|| Impl::send(provider_config, events, config))
+                .await
         }
 
         async fn stream(
@@ -175,29 +172,29 @@ mod durable_impl {
                 "golem_ai_llm",
                 "stream",
                 DurableFunctionType::WriteRemote,
+                &SendInput {
+                    events: events.clone(),
+                    config: config.clone(),
+                },
             );
-            if durability.is_live() {
-                let events_clone = events.clone();
-                let config_clone = config.clone();
-                let provider_config_clone = provider_config.clone();
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
-                        ChatStream::new(DurableChatStream::<Impl>::live(
-                            provider_config_clone.clone(),
-                            <Impl as ExtendedLlmProvider>::unwrapped_stream(
-                                provider_config_clone,
-                                events_clone,
-                                config_clone,
-                            )
-                            .await,
-                        ))
-                    })
-                    .await;
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                let _ = durability.persist_infallible(SendInput { events, config }, NoOutput);
-                result
+            let mut stream = None;
+            durability
+                .run_infallible_async(|| async {
+                    stream = Some(
+                        <Impl as ExtendedLlmProvider>::unwrapped_stream(
+                            provider_config.clone(),
+                            events.clone(),
+                            config.clone(),
+                        )
+                        .await,
+                    );
+                    NoOutput
+                })
+                .await;
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            if let Some(stream) = stream {
+                ChatStream::new(DurableChatStream::<Impl>::live(provider_config, stream))
             } else {
-                let _: NoOutput = durability.replay_infallible();
                 ChatStream::new(DurableChatStream::<Impl>::replay(
                     provider_config,
                     events.into_iter().map(Ok).collect(),
@@ -263,25 +260,10 @@ mod durable_impl {
 
     impl<Impl: ExtendedLlmProvider> Drop for DurableChatStream<Impl> {
         fn drop(&mut self) {
-            match self.state.get_mut().take() {
-                Some(DurableChatStreamState::Live { stream }) => {
-                    with_persistence_level(PersistenceLevel::PersistNothing, move || {
-                        drop(stream);
-                    });
-                }
-                Some(DurableChatStreamState::Replay { .. }) => {}
-                None => {}
+            if let Some(DurableChatStreamState::Live { stream }) = self.state.get_mut().take() {
+                drop(stream);
             }
         }
-    }
-
-    async fn read_live_stream<Impl: ExtendedLlmProvider>(
-        stream: Rc<Impl::ChatStream>,
-    ) -> Vec<Result<StreamEvent, Error>> {
-        with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
-            stream.get_next().await
-        })
-        .await
     }
 
     fn public_poll_result_from_persisted(
@@ -331,83 +313,77 @@ mod durable_impl {
     impl<Impl: ExtendedLlmProvider> ChatStreamInterface for DurableChatStream<Impl> {
         fn get_next(&self) -> LlmFuture<'_, Vec<Result<StreamEvent, Error>>> {
             Box::pin(async move {
+                let mut durability = Some(Durability::<PersistedPollResult, UnusedError>::new(
+                    "golem_ai_llm",
+                    "poll_next",
+                    DurableFunctionType::ReadRemote,
+                    &NoInput,
+                ));
                 let mut state = self.state.lock().await;
                 loop {
-                    let durability = Durability::<PersistedPollResult, UnusedError>::new(
+                    let persisted = durability
+                        .take()
+                        .expect("missing poll durability invocation")
+                        .run_infallible_async(|| async {
+                            let (result, marker) = match state.as_ref().expect("stream state") {
+                                DurableChatStreamState::Live { stream } => {
+                                    (Rc::clone(stream).get_next().await, false)
+                                }
+                                DurableChatStreamState::Replay { finished: true, .. } => {
+                                    (vec![], false)
+                                }
+                                DurableChatStreamState::Replay {
+                                    original_events,
+                                    config,
+                                    partial_result,
+                                    continuation_started,
+                                    ..
+                                } => {
+                                    let marker = !*continuation_started;
+                                    let events =
+                                        Impl::retry_prompt(original_events, partial_result);
+                                    let stream = Rc::new(
+                                        Impl::unwrapped_stream(
+                                            self.provider_config.clone(),
+                                            events,
+                                            config.clone(),
+                                        )
+                                        .await,
+                                    );
+                                    let result = Rc::clone(&stream).get_next().await;
+                                    *state = Some(DurableChatStreamState::Live { stream });
+                                    (result, marker)
+                                }
+                            };
+                            if marker {
+                                PersistedPollResult::StartedReplayContinuation(Some(result))
+                            } else {
+                                persisted_poll_result_from_public(result)
+                            }
+                        })
+                        .await;
+                    let visible = public_poll_result_from_persisted(persisted.clone());
+                    if let DurableChatStreamState::Replay {
+                        partial_result,
+                        finished,
+                        continuation_started,
+                        ..
+                    } = state.as_mut().expect("stream state")
+                    {
+                        if matches!(persisted, PersistedPollResult::StartedReplayContinuation(_)) {
+                            *continuation_started = true;
+                        }
+                        update_replay_progress(visible.as_deref(), partial_result, finished);
+                    }
+                    if let Some(events) = visible {
+                        return events;
+                    }
+                    durability = Some(Durability::<PersistedPollResult, UnusedError>::new(
                         "golem_ai_llm",
                         "poll_next",
                         DurableFunctionType::ReadRemote,
-                    );
-                    if !durability.is_live() {
-                        let persisted: PersistedPollResult = durability.replay_infallible();
-                        let visible = public_poll_result_from_persisted(persisted.clone());
-                        match state.as_mut().expect("stream state") {
-                            DurableChatStreamState::Live { .. } => {
-                                unreachable!("live during replay")
-                            }
-                            DurableChatStreamState::Replay {
-                                partial_result,
-                                finished,
-                                continuation_started,
-                                ..
-                            } => {
-                                if matches!(
-                                    persisted,
-                                    PersistedPollResult::StartedReplayContinuation(_)
-                                ) {
-                                    *continuation_started = true;
-                                }
-                                update_replay_progress(
-                                    visible.as_deref(),
-                                    partial_result,
-                                    finished,
-                                );
-                            }
-                        }
-                        if let Some(events) = visible {
-                            return events;
-                        }
-                        continue;
-                    }
-
-                    let (result, marker) = match state.as_ref().expect("stream state") {
-                        DurableChatStreamState::Live { stream } => {
-                            (read_live_stream::<Impl>(Rc::clone(stream)).await, false)
-                        }
-                        DurableChatStreamState::Replay { finished: true, .. } => (vec![], false),
-                        DurableChatStreamState::Replay {
-                            original_events,
-                            config,
-                            partial_result,
-                            continuation_started,
-                            ..
-                        } => {
-                            let marker = !*continuation_started;
-                            let events = Impl::retry_prompt(original_events, partial_result);
-                            let config = config.clone();
-                            let provider_config = self.provider_config.clone();
-                            let stream = with_persistence_level_async(
-                                PersistenceLevel::PersistNothing,
-                                || async move {
-                                    Rc::new(
-                                        Impl::unwrapped_stream(provider_config, events, config)
-                                            .await,
-                                    )
-                                },
-                            )
-                            .await;
-                            let result = read_live_stream::<Impl>(Rc::clone(&stream)).await;
-                            *state = Some(DurableChatStreamState::Live { stream });
-                            (result, marker)
-                        }
-                    };
-                    let persisted = if marker {
-                        PersistedPollResult::StartedReplayContinuation(Some(result.clone()))
-                    } else {
-                        persisted_poll_result_from_public(result.clone())
-                    };
-                    durability.persist_infallible(NoInput, persisted);
-                    return result;
+                        &NoInput,
+                    ));
                 }
             })
         }
@@ -427,7 +403,7 @@ mod durable_impl {
         config: Config,
     }
 
-    #[derive(Debug, IntoSchema)]
+    #[derive(Debug, Clone, IntoSchema)]
     struct NoInput;
 
     #[derive(Debug, Clone, FromSchema, IntoSchema)]

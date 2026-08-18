@@ -260,10 +260,7 @@ mod durable_impl {
         VoiceInterface, VoiceProvider, VoiceResultsInterface,
     };
     use golem_rust::durability::{Durability, DurableFunctionType};
-    use golem_rust::{
-        with_persistence_level, with_persistence_level_async, FromSchema, IntoSchema,
-        PersistenceLevel,
-    };
+    use golem_rust::{FromSchema, IntoSchema};
     use std::fmt::{Display, Formatter};
     use std::marker::PhantomData;
 
@@ -502,46 +499,29 @@ mod durable_impl {
                 "golem_ai_tts",
                 "list_voices",
                 DurableFunctionType::WriteRemote,
+                &ListVoicesInput {
+                    filter: filter.clone(),
+                },
             );
-            if durability.is_live() {
-                let provider_config_for_call = provider_config.clone();
-                let filter_for_call = filter.clone();
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::list_voices(provider_config_for_call, filter_for_call).await
-                    })
-                    .await;
-                let voices = match &result {
-                    Ok(voice_results) => {
-                        let guest = voice_results.get::<Impl::VoiceResults>();
-                        guest.get_next().await.unwrap_or_default()
-                    }
-                    Err(_) => Vec::new(),
-                };
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(
-                    ListVoicesInput {
-                        filter: filter.clone(),
-                    },
-                    result.map(|_| VoiceResultsOutput {
-                        voices: voices.clone(),
-                    }),
-                )?;
-
-                Ok(VoiceResults::new(DurableVoiceResults::<Impl>::new_live(
-                    provider_config,
-                    filter,
-                    voices,
-                )))
-            } else {
-                let output = durability.replay::<VoiceResultsOutput, TtsError>()?;
-                Ok(VoiceResults::new(DurableVoiceResults::<Impl>::new_live(
-                    provider_config,
-                    filter,
-                    output.voices,
-                )))
-            }
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
+            let output = durability
+                .run_async(|| async {
+                    let voice_results =
+                        Impl::list_voices(provider_config.clone(), filter.clone()).await?;
+                    let voices = voice_results
+                        .get::<Impl::VoiceResults>()
+                        .get_next()
+                        .await
+                        .unwrap_or_default();
+                    Ok(VoiceResultsOutput { voices })
+                })
+                .await?;
+            Ok(VoiceResults::new(DurableVoiceResults::<Impl>::new_live(
+                provider_config,
+                filter,
+                output.voices,
+            )))
         }
 
         async fn get_voice(
@@ -554,73 +534,47 @@ mod durable_impl {
                 "golem_ai_tts",
                 "get_voice",
                 DurableFunctionType::WriteRemote,
+                &GetVoiceInput {
+                    voice_id: voice_id.clone(),
+                },
             );
-            if durability.is_live() {
-                let provider_config_for_call = provider_config.clone();
-                let voice_id_for_call = voice_id.clone();
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                        Impl::get_voice(provider_config_for_call, voice_id_for_call).await
-                    })
-                    .await;
-                let voice_data = match &result {
-                    Ok(voice) => {
-                        let guest = voice.get::<Impl::Voice>();
-                        VoiceOutput {
-                            id: guest.get_id(),
-                            name: guest.get_name(),
-                            provider_id: guest.get_provider_id(),
-                            language: guest.get_language(),
-                            additional_languages: guest.get_additional_languages(),
-                            gender: guest.get_gender(),
-                            quality: guest.get_quality(),
-                            description: guest.get_description(),
-                            supports_ssml: guest.supports_ssml(),
-                            sample_rates: guest.get_sample_rates(),
-                            supported_formats: guest.get_supported_formats(),
-                        }
-                    }
-                    Err(_) => {
-                        return result;
-                    }
-                };
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability.persist(
-                    GetVoiceInput { voice_id },
-                    result.map(|_| voice_data.clone()),
-                )?;
-
-                Ok(Voice::new(DurableVoice::<Impl>::new(
-                    provider_config,
-                    voice_data.id,
-                    voice_data.name,
-                    voice_data.provider_id,
-                    voice_data.language,
-                    voice_data.additional_languages,
-                    voice_data.gender,
-                    voice_data.quality,
-                    voice_data.description,
-                    voice_data.supports_ssml,
-                    voice_data.sample_rates,
-                    voice_data.supported_formats,
-                )))
-            } else {
-                let voice_data = durability.replay::<VoiceOutput, TtsError>()?;
-                Ok(Voice::new(DurableVoice::<Impl>::new(
-                    provider_config,
-                    voice_data.id,
-                    voice_data.name,
-                    voice_data.provider_id,
-                    voice_data.language,
-                    voice_data.additional_languages,
-                    voice_data.gender,
-                    voice_data.quality,
-                    voice_data.description,
-                    voice_data.supports_ssml,
-                    voice_data.sample_rates,
-                    voice_data.supported_formats,
-                )))
-            }
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            let voice_data = durability
+                .run_async(|| async {
+                    Impl::get_voice(provider_config.clone(), voice_id.clone())
+                        .await
+                        .map(|voice| {
+                            let guest = voice.get::<Impl::Voice>();
+                            VoiceOutput {
+                                id: guest.get_id(),
+                                name: guest.get_name(),
+                                provider_id: guest.get_provider_id(),
+                                language: guest.get_language(),
+                                additional_languages: guest.get_additional_languages(),
+                                gender: guest.get_gender(),
+                                quality: guest.get_quality(),
+                                description: guest.get_description(),
+                                supports_ssml: guest.supports_ssml(),
+                                sample_rates: guest.get_sample_rates(),
+                                supported_formats: guest.get_supported_formats(),
+                            }
+                        })
+                })
+                .await?;
+            Ok(Voice::new(DurableVoice::<Impl>::new(
+                provider_config,
+                voice_data.id,
+                voice_data.name,
+                voice_data.provider_id,
+                voice_data.language,
+                voice_data.additional_languages,
+                voice_data.gender,
+                voice_data.quality,
+                voice_data.description,
+                voice_data.supports_ssml,
+                voice_data.sample_rates,
+                voice_data.supported_formats,
+            )))
         }
 
         async fn search_voices(
@@ -633,22 +587,19 @@ mod durable_impl {
                 "golem_ai_tts",
                 "search_voices",
                 DurableFunctionType::WriteRemote,
+                &SearchVoicesInput {
+                    filter: filter.clone(),
+                },
             );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::search_voices(provider_config, filter.clone())
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            durability
+                .run_async(|| async {
+                    Impl::search_voices(provider_config, filter)
+                        .await
+                        .map(|voices| VoiceInfoListOutput { voices })
                 })
-                .await;
-                let result = result.map(|v| VoiceInfoListOutput { voices: v });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(SearchVoicesInput { filter }, result)
-                    .map(|output| output.voices)
-            } else {
-                durability
-                    .replay()
-                    .map(|output: VoiceInfoListOutput| output.voices)
-            }
+                .await
+                .map(|output| output.voices)
         }
 
         async fn list_languages(
@@ -660,22 +611,17 @@ mod durable_impl {
                 "golem_ai_tts",
                 "list_languages",
                 DurableFunctionType::WriteRemote,
+                &NoInput,
             );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            durability
+                .run_async(|| async {
                     Impl::list_languages(provider_config)
+                        .await
+                        .map(|languages| LanguageInfoListOutput { languages })
                 })
-                .await;
-                let result = result.map(|l| LanguageInfoListOutput { languages: l });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(NoInput, result)
-                    .map(|output| output.languages)
-            } else {
-                durability
-                    .replay()
-                    .map(|output: LanguageInfoListOutput| output.languages)
-            }
+                .await
+                .map(|output| output.languages)
         }
     }
 
@@ -694,22 +640,20 @@ mod durable_impl {
                 "golem_ai_tts",
                 "synthesize",
                 DurableFunctionType::WriteRemote,
+                &SynthesizeInput {
+                    input: input.clone(),
+                    options: options.clone(),
+                },
             );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::synthesize(provider_config, input.clone(), voice, options.clone())
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            durability
+                .run_async(|| async {
+                    Impl::synthesize(provider_config, input, voice, options)
+                        .await
+                        .map(|result| SynthesisResultOutput { result })
                 })
-                .await;
-                let result = result.map(|r| SynthesisResultOutput { result: r });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(SynthesizeInput { input, options }, result)
-                    .map(|output| output.result)
-            } else {
-                durability
-                    .replay()
-                    .map(|output: SynthesisResultOutput| output.result)
-            }
+                .await
+                .map(|output| output.result)
         }
 
         async fn synthesize_batch(
@@ -724,22 +668,20 @@ mod durable_impl {
                 "golem_ai_tts",
                 "synthesize_batch",
                 DurableFunctionType::WriteRemote,
+                &SynthesizeBatchInput {
+                    inputs: inputs.clone(),
+                    options: options.clone(),
+                },
             );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::synthesize_batch(provider_config, inputs.clone(), voice, options.clone())
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            durability
+                .run_async(|| async {
+                    Impl::synthesize_batch(provider_config, inputs, voice, options)
+                        .await
+                        .map(|results| SynthesisResultListOutput { results })
                 })
-                .await;
-                let result = result.map(|r| SynthesisResultListOutput { results: r });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(SynthesizeBatchInput { inputs, options }, result)
-                    .map(|output| output.results)
-            } else {
-                durability
-                    .replay()
-                    .map(|output: SynthesisResultListOutput| output.results)
-            }
+                .await
+                .map(|output| output.results)
         }
 
         async fn get_timing_marks(
@@ -753,22 +695,19 @@ mod durable_impl {
                 "golem_ai_tts",
                 "get_timing_marks",
                 DurableFunctionType::WriteRemote,
+                &GetTimingMarksInput {
+                    input: input.clone(),
+                },
             );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::get_timing_marks(provider_config, input.clone(), voice)
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            durability
+                .run_async(|| async {
+                    Impl::get_timing_marks(provider_config, input, voice)
+                        .await
+                        .map(|timing| TimingInfoListOutput { timing })
                 })
-                .await;
-                let result = result.map(|t| TimingInfoListOutput { timing: t });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(GetTimingMarksInput { input }, result)
-                    .map(|output| output.timing)
-            } else {
-                durability
-                    .replay()
-                    .map(|output: TimingInfoListOutput| output.timing)
-            }
+                .await
+                .map(|output| output.timing)
         }
 
         async fn validate_input(
@@ -782,22 +721,19 @@ mod durable_impl {
                 "golem_ai_tts",
                 "validate_input",
                 DurableFunctionType::WriteRemote,
+                &ValidateInputInput {
+                    input: input.clone(),
+                },
             );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::validate_input(provider_config, input.clone(), voice)
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            durability
+                .run_async(|| async {
+                    Impl::validate_input(provider_config, input, voice)
+                        .await
+                        .map(|result| ValidationResultOutput { result })
                 })
-                .await;
-                let result = result.map(|v| ValidationResultOutput { result: v });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(ValidateInputInput { input }, result)
-                    .map(|output| output.result)
-            } else {
-                durability
-                    .replay()
-                    .map(|output: ValidationResultOutput| output.result)
-            }
+                .await
+                .map(|output| output.result)
         }
     }
 
@@ -812,10 +748,7 @@ mod durable_impl {
             options: Option<SynthesisOptions>,
         ) -> Result<SynthesisStream, TtsError> {
             init_logging();
-            with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                Impl::create_stream(provider_config, voice, options)
-            })
-            .await
+            Impl::create_stream(provider_config, voice, options).await
         }
 
         async fn create_voice_conversion_stream(
@@ -824,10 +757,7 @@ mod durable_impl {
             options: Option<SynthesisOptions>,
         ) -> Result<VoiceConversionStream, TtsError> {
             init_logging();
-            with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                Impl::create_voice_conversion_stream(provider_config, target_voice, options)
-            })
-            .await
+            Impl::create_voice_conversion_stream(provider_config, target_voice, options).await
         }
     }
 
@@ -876,32 +806,21 @@ mod durable_impl {
                     "golem_ai_tts",
                     "voice_results_get_next",
                     DurableFunctionType::WriteRemote,
+                    &NoInput,
                 );
-                if durability.is_live() {
-                    let provider_config = self.provider_config.clone();
-                    let filter = self.filter.clone();
-                    let result =
-                        with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                            let underlying_results = with_persistence_level_async(
-                                PersistenceLevel::PersistNothing,
-                                || Impl::list_voices(provider_config, filter),
-                            )
+                durability
+                    .run_async(|| async {
+                        let provider_config = self.provider_config.clone();
+                        let filter = self.filter.clone();
+                        let underlying_results = Impl::list_voices(provider_config, filter).await?;
+                        let voices = underlying_results
+                            .get::<Impl::VoiceResults>()
+                            .get_next()
                             .await?;
-                            let voices = underlying_results
-                                .get::<Impl::VoiceResults>()
-                                .get_next()
-                                .await?;
-                            Ok(VoiceInfoListOutput { voices })
-                        })
-                        .await;
-                    durability
-                        .persist(NoInput, result)
-                        .map(|output| output.voices)
-                } else {
-                    durability
-                        .replay()
-                        .map(|output: VoiceInfoListOutput| output.voices)
-                }
+                        Ok(VoiceInfoListOutput { voices })
+                    })
+                    .await
+                    .map(|output| output.voices)
             })
         }
 
@@ -1023,15 +942,11 @@ mod durable_impl {
                     "golem_ai_tts",
                     "voice_update_settings",
                     DurableFunctionType::WriteRemote,
+                    &UpdateVoiceSettingsInput {
+                        settings: settings.clone(),
+                    },
                 );
-                if durability.is_live() {
-                    let result = Ok(NoOutput);
-                    durability
-                        .persist(UpdateVoiceSettingsInput { settings }, result)
-                        .map(|_| ())
-                } else {
-                    durability.replay().map(|_: NoOutput| ())
-                }
+                durability.run(|| Ok(NoOutput)).map(|_| ())
             })
         }
 
@@ -1041,13 +956,9 @@ mod durable_impl {
                     "golem_ai_tts",
                     "voice_delete",
                     DurableFunctionType::WriteRemote,
+                    &NoInput,
                 );
-                if durability.is_live() {
-                    let result = Ok(NoOutput);
-                    durability.persist(NoInput, result).map(|_| ())
-                } else {
-                    durability.replay().map(|_: NoOutput| ())
-                }
+                durability.run(|| Ok(NoOutput)).map(|_| ())
             })
         }
 
@@ -1056,55 +967,23 @@ mod durable_impl {
                 "golem_ai_tts",
                 "voice_clone",
                 DurableFunctionType::ReadRemote,
+                &NoInput,
             );
-            if durability.is_live() {
-                let provider_config = self.provider_config.clone();
-                let id = self.id.clone();
-                let name = format!("{}_clone", self.name);
-                let provider_id = self.provider_id.clone();
-                let language = self.language.clone();
-                let additional_languages = self.additional_languages.clone();
-                let description = self.description.clone();
-                let sample_rates = self.sample_rates.clone();
-                let supported_formats = self.supported_formats.clone();
-                let supports_ssml = self.supports_ssml;
-                let gender = self.gender;
-                let quality = self.quality;
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Voice::new(DurableVoice::<Impl>::new(
-                        provider_config,
-                        id,
-                        name,
-                        provider_id,
-                        language,
-                        additional_languages,
-                        gender,
-                        quality,
-                        description,
-                        supports_ssml,
-                        sample_rates,
-                        supported_formats,
-                    ))
-                });
-                let _ = durability.persist_infallible(NoInput, NoOutput);
-                Ok(result)
-            } else {
-                let _: NoOutput = durability.replay_infallible();
-                Ok(Voice::new(DurableVoice::<Impl>::new(
-                    self.provider_config.clone(),
-                    self.id.clone(),
-                    format!("{}_clone", self.name),
-                    self.provider_id.clone(),
-                    self.language.clone(),
-                    self.additional_languages.clone(),
-                    self.gender,
-                    self.quality,
-                    self.description.clone(),
-                    self.supports_ssml,
-                    self.sample_rates.clone(),
-                    self.supported_formats.clone(),
-                )))
-            }
+            durability.run_infallible(|| NoOutput);
+            Ok(Voice::new(DurableVoice::<Impl>::new(
+                self.provider_config.clone(),
+                self.id.clone(),
+                format!("{}_clone", self.name),
+                self.provider_id.clone(),
+                self.language.clone(),
+                self.additional_languages.clone(),
+                self.gender,
+                self.quality,
+                self.description.clone(),
+                self.supports_ssml,
+                self.sample_rates.clone(),
+                self.supported_formats.clone(),
+            )))
         }
 
         fn preview(&self, text: String) -> TtsFuture<'_, Vec<u8>> {
@@ -1113,32 +992,20 @@ mod durable_impl {
                     "golem_ai_tts",
                     "voice_preview",
                     DurableFunctionType::ReadRemote,
+                    &PreviewVoiceInput { text: text.clone() },
                 );
-                if durability.is_live() {
-                    let provider_config = self.provider_config.clone();
-                    let id = self.id.clone();
-                    let text_for_call = text.clone();
-                    let result =
-                        with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                            let voice = Impl::get_voice(provider_config, id).await?;
-                            let guest = voice.get::<Impl::Voice>();
-                            guest.preview(text_for_call).await
-                        })
-                        .await;
-
-                    let audio_data = result?;
-                    let output = AudioDataOutput {
-                        audio: audio_data.clone(),
-                    };
-
-                    durability
-                        .persist(PreviewVoiceInput { text }, Ok(output))
-                        .map(|output| output.audio)
-                } else {
-                    durability
-                        .replay()
-                        .map(|output: AudioDataOutput| output.audio)
-                }
+                durability
+                    .run_async(|| async {
+                        let voice =
+                            Impl::get_voice(self.provider_config.clone(), self.id.clone()).await?;
+                        let guest = voice.get::<Impl::Voice>();
+                        guest
+                            .preview(text)
+                            .await
+                            .map(|audio| AudioDataOutput { audio })
+                    })
+                    .await
+                    .map(|output| output.audio)
             })
         }
     }
@@ -1191,15 +1058,9 @@ mod durable_impl {
                 "golem_ai_tts",
                 "pronunciation_lexicon_get_entry_count",
                 DurableFunctionType::ReadRemote,
+                &NoInput,
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    self.entries.as_ref().map(|e| e.len() as u32).unwrap_or(0)
-                });
-                durability.persist_infallible(NoInput, result)
-            } else {
-                durability.replay_infallible()
-            }
+            durability.run_infallible(|| self.entries.as_ref().map(|e| e.len() as u32).unwrap_or(0))
         }
 
         fn add_entry(&self, word: String, pronunciation: String) -> TtsFuture<'_, ()> {
@@ -1208,38 +1069,25 @@ mod durable_impl {
                     "golem_ai_tts",
                     "pronunciation_lexicon_add_entry",
                     DurableFunctionType::WriteRemote,
+                    &PronunciationEntryInput {
+                        word: word.clone(),
+                        pronunciation: pronunciation.clone(),
+                    },
                 );
-                if durability.is_live() {
-                    let provider_config = self.provider_config.clone();
-                    let name = self.name.clone();
-                    let language = self.language.clone();
-                    let entries = self.entries.clone();
-                    let word_for_call = word.clone();
-                    let pronunciation_for_call = pronunciation.clone();
-                    let result =
-                        with_persistence_level_async(PersistenceLevel::PersistNothing, || async {
-                            let lexicon = with_persistence_level_async(
-                                PersistenceLevel::PersistNothing,
-                                || Impl::create_lexicon(provider_config, name, language, entries),
-                            )
-                            .await?;
-                            let guest = lexicon.get::<Impl::PronunciationLexicon>();
-                            guest.add_entry(word_for_call, pronunciation_for_call).await
-                        })
-                        .await;
-                    let result = result.map(|_| NoOutput);
-                    durability
-                        .persist(
-                            PronunciationEntryInput {
-                                word,
-                                pronunciation,
-                            },
-                            result,
+                durability
+                    .run_async(|| async {
+                        let lexicon = Impl::create_lexicon(
+                            self.provider_config.clone(),
+                            self.name.clone(),
+                            self.language.clone(),
+                            self.entries.clone(),
                         )
-                        .map(|_| ())
-                } else {
-                    durability.replay().map(|_: NoOutput| ())
-                }
+                        .await?;
+                        let guest = lexicon.get::<Impl::PronunciationLexicon>();
+                        guest.add_entry(word, pronunciation).await.map(|_| NoOutput)
+                    })
+                    .await
+                    .map(|_| ())
             })
         }
 
@@ -1249,15 +1097,9 @@ mod durable_impl {
                     "golem_ai_tts",
                     "pronunciation_lexicon_remove_entry",
                     DurableFunctionType::WriteRemote,
+                    &RemoveEntryInput { word: word.clone() },
                 );
-                if durability.is_live() {
-                    let result = Ok(NoOutput);
-                    durability
-                        .persist(RemoveEntryInput { word }, result)
-                        .map(|_| ())
-                } else {
-                    durability.replay().map(|_: NoOutput| ())
-                }
+                durability.run(|| Ok(NoOutput)).map(|_| ())
             })
         }
 
@@ -1267,13 +1109,9 @@ mod durable_impl {
                     "golem_ai_tts",
                     "pronunciation_lexicon_export_content",
                     DurableFunctionType::ReadRemote,
+                    &NoInput,
                 );
-                if durability.is_live() {
-                    let result = Ok("# Pronunciation Lexicon Export\n".to_string());
-                    durability.persist(NoInput, result)
-                } else {
-                    durability.replay()
-                }
+                durability.run(|| Ok("# Pronunciation Lexicon Export\n".to_string()))
             })
         }
     }
@@ -1317,16 +1155,9 @@ mod durable_impl {
                         "golem_ai_tts",
                         "long_form_operation_get_status",
                         DurableFunctionType::ReadRemote,
+                        &NoInput,
                     );
-                    if durability.is_live() {
-                        let result =
-                            with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                OperationStatus::Completed
-                            });
-                        durability.persist_infallible(NoInput, result)
-                    } else {
-                        durability.replay_infallible()
-                    }
+                    durability.run_infallible(|| OperationStatus::Completed)
                 })
             })
         }
@@ -1338,14 +1169,9 @@ mod durable_impl {
                         "golem_ai_tts",
                         "long_form_operation_get_progress",
                         DurableFunctionType::ReadRemote,
+                        &NoInput,
                     );
-                    if durability.is_live() {
-                        let result =
-                            with_persistence_level(PersistenceLevel::PersistNothing, || 1.0);
-                        durability.persist_infallible(NoInput, result)
-                    } else {
-                        durability.replay_infallible()
-                    }
+                    durability.run_infallible(|| 1.0)
                 })
             })
         }
@@ -1356,13 +1182,9 @@ mod durable_impl {
                     "golem_ai_tts",
                     "long_form_operation_cancel",
                     DurableFunctionType::WriteRemote,
+                    &NoInput,
                 );
-                if durability.is_live() {
-                    let result = Ok(NoOutput);
-                    durability.persist(NoInput, result).map(|_| ())
-                } else {
-                    durability.replay().map(|_: NoOutput| ())
-                }
+                durability.run(|| Ok(NoOutput)).map(|_| ())
             })
         }
 
@@ -1372,9 +1194,10 @@ mod durable_impl {
                     "golem_ai_tts",
                     "long_form_operation_get_result",
                     DurableFunctionType::ReadRemote,
+                    &NoInput,
                 );
-                if durability.is_live() {
-                    let result = Ok(LongFormResult {
+                durability.run(|| {
+                    Ok(LongFormResult {
                         output_location: self.output_location.clone(),
                         total_duration: 60.0,
                         chapter_durations: None,
@@ -1386,11 +1209,8 @@ mod durable_impl {
                             request_id: "long-form-simulation".to_string(),
                             provider_info: Some("durable-tts".to_string()),
                         },
-                    });
-                    durability.persist(NoInput, result)
-                } else {
-                    durability.replay()
-                }
+                    })
+                })
             })
         }
     }
@@ -1412,21 +1232,24 @@ mod durable_impl {
                 "golem_ai_tts",
                 "create_voice_clone",
                 DurableFunctionType::WriteRemote,
+                &CreateVoiceCloneInput {
+                    name: name.clone(),
+                    audio_samples: audio_samples.clone(),
+                    description: description.clone(),
+                },
             );
 
-            if durability.is_live() {
-                let provider_config_for_call = provider_config.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            let voice_data = durability
+                .run_async(|| async {
                     Impl::create_voice_clone(
-                        provider_config_for_call,
+                        provider_config.clone(),
                         name.clone(),
                         audio_samples.clone(),
                         description.clone(),
                     )
-                })
-                .await;
-                let voice_data = match &result {
-                    Ok(voice) => {
+                    .await
+                    .map(|voice| {
                         let guest = voice.get::<Impl::Voice>();
                         VoiceOutput {
                             id: guest.get_id(),
@@ -1441,62 +1264,23 @@ mod durable_impl {
                             sample_rates: guest.get_sample_rates(),
                             supported_formats: guest.get_supported_formats(),
                         }
-                    }
-                    Err(_) => VoiceOutput {
-                        id: "error_voice".to_string(),
-                        name: name.clone(),
-                        provider_id: None,
-                        language: "en-US".to_string(),
-                        additional_languages: vec![],
-                        gender: VoiceGender::Neutral,
-                        quality: VoiceQuality::Standard,
-                        description: description.clone(),
-                        supports_ssml: false,
-                        sample_rates: vec![22050],
-                        supported_formats: vec![AudioFormat::Mp3],
-                    },
-                };
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability.persist(
-                    CreateVoiceCloneInput {
-                        name,
-                        audio_samples,
-                        description,
-                    },
-                    result.map(|_| voice_data.clone()),
-                )?;
-
-                Ok(Voice::new(DurableVoice::<Impl>::new(
-                    provider_config,
-                    voice_data.id,
-                    voice_data.name,
-                    voice_data.provider_id,
-                    voice_data.language,
-                    voice_data.additional_languages,
-                    voice_data.gender,
-                    voice_data.quality,
-                    voice_data.description,
-                    voice_data.supports_ssml,
-                    voice_data.sample_rates,
-                    voice_data.supported_formats,
-                )))
-            } else {
-                let voice_data = durability.replay::<VoiceOutput, TtsError>()?;
-                Ok(Voice::new(DurableVoice::<Impl>::new(
-                    provider_config,
-                    voice_data.id,
-                    voice_data.name,
-                    voice_data.provider_id,
-                    voice_data.language,
-                    voice_data.additional_languages,
-                    voice_data.gender,
-                    voice_data.quality,
-                    voice_data.description,
-                    voice_data.supports_ssml,
-                    voice_data.sample_rates,
-                    voice_data.supported_formats,
-                )))
-            }
+                    })
+                })
+                .await?;
+            Ok(Voice::new(DurableVoice::<Impl>::new(
+                provider_config,
+                voice_data.id,
+                voice_data.name,
+                voice_data.provider_id,
+                voice_data.language,
+                voice_data.additional_languages,
+                voice_data.gender,
+                voice_data.quality,
+                voice_data.description,
+                voice_data.supports_ssml,
+                voice_data.sample_rates,
+                voice_data.supported_formats,
+            )))
         }
 
         async fn design_voice(
@@ -1510,20 +1294,22 @@ mod durable_impl {
                 "golem_ai_tts",
                 "design_voice",
                 DurableFunctionType::WriteRemote,
+                &DesignVoiceInput {
+                    name: name.clone(),
+                    characteristics: characteristics.clone(),
+                },
             );
 
-            if durability.is_live() {
-                let provider_config_for_call = provider_config.clone();
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            let voice_data = durability
+                .run_async(|| async {
                     Impl::design_voice(
-                        provider_config_for_call,
+                        provider_config.clone(),
                         name.clone(),
                         characteristics.clone(),
                     )
-                })
-                .await;
-                let voice_data = match &result {
-                    Ok(voice) => {
+                    .await
+                    .map(|voice| {
                         let guest = voice.get::<Impl::Voice>();
                         VoiceOutput {
                             id: guest.get_id(),
@@ -1538,62 +1324,23 @@ mod durable_impl {
                             sample_rates: guest.get_sample_rates(),
                             supported_formats: guest.get_supported_formats(),
                         }
-                    }
-                    Err(_) => VoiceOutput {
-                        id: "error_voice".to_string(),
-                        name: name.clone(),
-                        provider_id: None,
-                        language: "en-US".to_string(),
-                        additional_languages: vec![],
-                        gender: VoiceGender::Neutral,
-                        quality: VoiceQuality::Standard,
-                        description: None,
-                        supports_ssml: false,
-                        sample_rates: vec![22050],
-                        supported_formats: vec![AudioFormat::Mp3],
-                    },
-                };
-
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability.persist(
-                    DesignVoiceInput {
-                        name,
-                        characteristics,
-                    },
-                    result.map(|_| voice_data.clone()),
-                )?;
-
-                Ok(Voice::new(DurableVoice::<Impl>::new(
-                    provider_config,
-                    voice_data.id,
-                    voice_data.name,
-                    voice_data.provider_id,
-                    voice_data.language,
-                    voice_data.additional_languages,
-                    voice_data.gender,
-                    voice_data.quality,
-                    voice_data.description,
-                    voice_data.supports_ssml,
-                    voice_data.sample_rates,
-                    voice_data.supported_formats,
-                )))
-            } else {
-                let voice_data = durability.replay::<VoiceOutput, TtsError>()?;
-                Ok(Voice::new(DurableVoice::<Impl>::new(
-                    provider_config,
-                    voice_data.id,
-                    voice_data.name,
-                    voice_data.provider_id,
-                    voice_data.language,
-                    voice_data.additional_languages,
-                    voice_data.gender,
-                    voice_data.quality,
-                    voice_data.description,
-                    voice_data.supports_ssml,
-                    voice_data.sample_rates,
-                    voice_data.supported_formats,
-                )))
-            }
+                    })
+                })
+                .await?;
+            Ok(Voice::new(DurableVoice::<Impl>::new(
+                provider_config,
+                voice_data.id,
+                voice_data.name,
+                voice_data.provider_id,
+                voice_data.language,
+                voice_data.additional_languages,
+                voice_data.gender,
+                voice_data.quality,
+                voice_data.description,
+                voice_data.supports_ssml,
+                voice_data.sample_rates,
+                voice_data.supported_formats,
+            )))
         }
 
         async fn convert_voice(
@@ -1608,33 +1355,20 @@ mod durable_impl {
                 "golem_ai_tts",
                 "convert_voice",
                 DurableFunctionType::WriteRemote,
+                &ConvertVoiceInput {
+                    input_audio: input_audio.clone(),
+                    preserve_timing,
+                },
             );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::convert_voice(
-                        provider_config,
-                        input_audio.clone(),
-                        target_voice,
-                        preserve_timing,
-                    )
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            durability
+                .run_async(|| async {
+                    Impl::convert_voice(provider_config, input_audio, target_voice, preserve_timing)
+                        .await
+                        .map(|audio| AudioDataOutput { audio })
                 })
-                .await;
-                let result = result.map(|a| AudioDataOutput { audio: a });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(
-                        ConvertVoiceInput {
-                            input_audio,
-                            preserve_timing,
-                        },
-                        result,
-                    )
-                    .map(|output| output.audio)
-            } else {
-                durability
-                    .replay()
-                    .map(|output: AudioDataOutput| output.audio)
-            }
+                .await
+                .map(|output| output.audio)
         }
 
         async fn generate_sound_effect(
@@ -1649,34 +1383,26 @@ mod durable_impl {
                 "golem_ai_tts",
                 "generate_sound_effect",
                 DurableFunctionType::WriteRemote,
+                &GenerateSoundEffectInput {
+                    description: description.clone(),
+                    duration_seconds,
+                    style_influence,
+                },
             );
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            durability
+                .run_async(|| async {
                     Impl::generate_sound_effect(
                         provider_config,
-                        description.clone(),
+                        description,
                         duration_seconds,
                         style_influence,
                     )
+                    .await
+                    .map(|audio| AudioDataOutput { audio })
                 })
-                .await;
-                let result = result.map(|a| AudioDataOutput { audio: a });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                durability
-                    .persist(
-                        GenerateSoundEffectInput {
-                            description,
-                            duration_seconds,
-                            style_influence,
-                        },
-                        result,
-                    )
-                    .map(|output| output.audio)
-            } else {
-                durability
-                    .replay()
-                    .map(|output: AudioDataOutput| output.audio)
-            }
+                .await
+                .map(|output| output.audio)
         }
 
         async fn create_lexicon(
@@ -1691,43 +1417,26 @@ mod durable_impl {
                 "golem_ai_tts",
                 "create_lexicon",
                 DurableFunctionType::WriteRemote,
+                &CreateLexiconInput {
+                    name: name.clone(),
+                    language: language.clone(),
+                    entries: entries.clone(),
+                },
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    PronunciationLexiconOutput {
-                        name: name.clone(),
-                        language: language.clone(),
-                        entries: entries.clone(),
-                    }
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                let _ = durability.persist_infallible(
-                    CreateLexiconInput {
-                        name: name.clone(),
-                        language: language.clone(),
-                        entries: entries.clone(),
-                    },
-                    result.clone(),
-                );
-                Ok(PronunciationLexicon::new(
-                    DurablePronunciationLexicon::<Impl>::new(
-                        provider_config,
-                        result.name,
-                        result.language,
-                        result.entries,
-                    ),
-                ))
-            } else {
-                let lexicon_data: PronunciationLexiconOutput = durability.replay_infallible();
-                Ok(PronunciationLexicon::new(
-                    DurablePronunciationLexicon::<Impl>::new(
-                        provider_config,
-                        lexicon_data.name,
-                        lexicon_data.language,
-                        lexicon_data.entries,
-                    ),
-                ))
-            }
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            let lexicon_data = durability.run_infallible(|| PronunciationLexiconOutput {
+                name: name.clone(),
+                language: language.clone(),
+                entries: entries.clone(),
+            });
+            Ok(PronunciationLexicon::new(
+                DurablePronunciationLexicon::<Impl>::new(
+                    provider_config,
+                    lexicon_data.name,
+                    lexicon_data.language,
+                    lexicon_data.entries,
+                ),
+            ))
         }
 
         async fn synthesize_long_form(
@@ -1743,41 +1452,25 @@ mod durable_impl {
                 "golem_ai_tts",
                 "synthesize_long_form",
                 DurableFunctionType::WriteRemote,
+                &SynthesizeLongFormInput {
+                    content: content.clone(),
+                    output_location: output_location.clone(),
+                    chapter_breaks: chapter_breaks.clone(),
+                },
             );
-            if durability.is_live() {
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    LongFormOperationOutput {
-                        content: content.clone(),
-                        output_location: output_location.clone(),
-                        chapter_breaks: chapter_breaks.clone(),
-                    }
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input.
-                let _ = durability.persist_infallible(
-                    SynthesizeLongFormInput {
-                        content: content.clone(),
-                        output_location: output_location.clone(),
-                        chapter_breaks: chapter_breaks.clone(),
-                    },
-                    result.clone(),
-                );
-                Ok(LongFormOperation::new(
-                    DurableLongFormOperation::<Impl>::new(
-                        result.content,
-                        result.output_location,
-                        result.chapter_breaks,
-                    ),
-                ))
-            } else {
-                let operation_data: LongFormOperationOutput = durability.replay_infallible();
-                Ok(LongFormOperation::new(
-                    DurableLongFormOperation::<Impl>::new(
-                        operation_data.content,
-                        operation_data.output_location,
-                        operation_data.chapter_breaks,
-                    ),
-                ))
-            }
+            // NOTE: `provider_config` deliberately not included in the persisted input.
+            let operation_data = durability.run_infallible(|| LongFormOperationOutput {
+                content: content.clone(),
+                output_location: output_location.clone(),
+                chapter_breaks: chapter_breaks.clone(),
+            });
+            Ok(LongFormOperation::new(
+                DurableLongFormOperation::<Impl>::new(
+                    operation_data.content,
+                    operation_data.output_location,
+                    operation_data.chapter_breaks,
+                ),
+            ))
         }
     }
 

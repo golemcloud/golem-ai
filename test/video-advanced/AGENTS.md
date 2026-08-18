@@ -309,11 +309,10 @@ Avoid RPC cycles (A calls B calls A) — use `trigger_` to break deadlocks.
 
 Golem provides **automatic durable execution** — all agents are durable by default without any special code. State is persisted via an oplog (operation log) and agents survive failures, restarts, and updates transparently.
 
-The APIs below are **advanced controls** that most agents will never need. Only use them when you have specific requirements around persistence granularity, idempotency, or transactional compensation:
+The APIs below are **advanced controls** that most agents will never need. Only use them when you have specific requirements around idempotency or transactional compensation:
 
 ```rust
 use golem_rust::{
-    with_persistence_level, PersistenceLevel,
     with_idempotence_mode,
     atomically,
     oplog_commit,
@@ -326,11 +325,6 @@ let result = atomically(|| {
 let a = side_effect_1();
 let b = side_effect_2(a);
 (a, b)
-});
-
-// Control persistence level
-with_persistence_level(PersistenceLevel::PersistNothing, || {
-// No oplog entries — side effects replayed on recovery
 });
 
 // Control idempotence mode

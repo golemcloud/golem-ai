@@ -138,10 +138,7 @@ mod durable_impl {
     };
     use crate::{SearchFuture, SearchProvider, SearchStreamInterface};
     use golem_rust::durability::{Durability, DurableFunctionType};
-    use golem_rust::{
-        with_persistence_level, with_persistence_level_async, FromSchema, IntoSchema,
-        PersistenceLevel,
-    };
+    use golem_rust::{FromSchema, IntoSchema};
     use std::cell::RefCell;
     use std::fmt::{Display, Formatter};
     use std::rc::Rc;
@@ -236,17 +233,11 @@ mod durable_impl {
                 "golem_ai_search",
                 "create_index",
                 DurableFunctionType::WriteRemote,
+                &options,
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::create_index(c, options.clone())
-                })
+            d.run_async(|| async { Impl::create_index(c, options).await.map(|()| NoOutput) })
                 .await
-                .map(|()| NoOutput);
-                d.persist(options, r).map(|_| ())
-            } else {
-                d.replay().map(|_: NoOutput| ())
-            }
+                .map(|_| ())
         }
         async fn delete_index(c: Self::ProviderConfig, name: IndexName) -> Result<(), SearchError> {
             init_logging();
@@ -254,17 +245,11 @@ mod durable_impl {
                 "golem_ai_search",
                 "delete_index",
                 DurableFunctionType::WriteRemote,
+                &DeleteIndexInput { name: name.clone() },
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_index(c, name.clone())
-                })
+            d.run_async(|| async { Impl::delete_index(c, name).await.map(|()| NoOutput) })
                 .await
-                .map(|()| NoOutput);
-                d.persist(DeleteIndexInput { name }, r).map(|_| ())
-            } else {
-                d.replay().map(|_: NoOutput| ())
-            }
+                .map(|_| ())
         }
         async fn list_indexes(c: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
             init_logging();
@@ -272,17 +257,15 @@ mod durable_impl {
                 "golem_ai_search",
                 "list_indexes",
                 DurableFunctionType::ReadRemote,
+                &NoInput,
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::list_indexes(c)
-                })
-                .await
-                .map(|names| ListIndexesOutput { names });
-                d.persist(NoInput, r).map(|x| x.names)
-            } else {
-                d.replay().map(|x: ListIndexesOutput| x.names)
-            }
+            d.run_async(|| async {
+                Impl::list_indexes(c)
+                    .await
+                    .map(|names| ListIndexesOutput { names })
+            })
+            .await
+            .map(|x| x.names)
         }
         async fn upsert(
             c: Self::ProviderConfig,
@@ -294,17 +277,14 @@ mod durable_impl {
                 "golem_ai_search",
                 "upsert",
                 DurableFunctionType::WriteRemote,
+                &UpsertInput {
+                    index: index.clone(),
+                    doc: doc.clone(),
+                },
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert(c, index.clone(), doc.clone())
-                })
+            d.run_async(|| async { Impl::upsert(c, index, doc).await.map(|()| NoOutput) })
                 .await
-                .map(|()| NoOutput);
-                d.persist(UpsertInput { index, doc }, r).map(|_| ())
-            } else {
-                d.replay().map(|_: NoOutput| ())
-            }
+                .map(|_| ())
         }
         async fn upsert_many(
             c: Self::ProviderConfig,
@@ -316,17 +296,14 @@ mod durable_impl {
                 "golem_ai_search",
                 "upsert_many",
                 DurableFunctionType::WriteRemote,
+                &UpsertManyInput {
+                    index: index.clone(),
+                    docs: docs.clone(),
+                },
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::upsert_many(c, index.clone(), docs.clone())
-                })
+            d.run_async(|| async { Impl::upsert_many(c, index, docs).await.map(|()| NoOutput) })
                 .await
-                .map(|()| NoOutput);
-                d.persist(UpsertManyInput { index, docs }, r).map(|_| ())
-            } else {
-                d.replay().map(|_: NoOutput| ())
-            }
+                .map(|_| ())
         }
         async fn delete(
             c: Self::ProviderConfig,
@@ -338,17 +315,14 @@ mod durable_impl {
                 "golem_ai_search",
                 "delete",
                 DurableFunctionType::WriteRemote,
+                &DeleteInput {
+                    index: index.clone(),
+                    id: id.clone(),
+                },
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::delete(c, index.clone(), id.clone())
-                })
+            d.run_async(|| async { Impl::delete(c, index, id).await.map(|()| NoOutput) })
                 .await
-                .map(|()| NoOutput);
-                d.persist(DeleteInput { index, id }, r).map(|_| ())
-            } else {
-                d.replay().map(|_: NoOutput| ())
-            }
+                .map(|_| ())
         }
         async fn delete_many(
             c: Self::ProviderConfig,
@@ -360,17 +334,14 @@ mod durable_impl {
                 "golem_ai_search",
                 "delete_many",
                 DurableFunctionType::WriteRemote,
+                &DeleteManyInput {
+                    index: index.clone(),
+                    ids: ids.clone(),
+                },
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::delete_many(c, index.clone(), ids.clone())
-                })
+            d.run_async(|| async { Impl::delete_many(c, index, ids).await.map(|()| NoOutput) })
                 .await
-                .map(|()| NoOutput);
-                d.persist(DeleteManyInput { index, ids }, r).map(|_| ())
-            } else {
-                d.replay().map(|_: NoOutput| ())
-            }
+                .map(|_| ())
         }
         async fn get(
             c: Self::ProviderConfig,
@@ -382,17 +353,18 @@ mod durable_impl {
                 "golem_ai_search",
                 "get",
                 DurableFunctionType::ReadRemote,
+                &GetInput {
+                    index: index.clone(),
+                    id: id.clone(),
+                },
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::get(c, index.clone(), id.clone())
-                })
-                .await
-                .map(|doc| GetDocOutput { doc });
-                d.persist(GetInput { index, id }, r).map(|x| x.doc)
-            } else {
-                d.replay().map(|x: GetDocOutput| x.doc)
-            }
+            d.run_async(|| async {
+                Impl::get(c, index, id)
+                    .await
+                    .map(|doc| GetDocOutput { doc })
+            })
+            .await
+            .map(|x| x.doc)
         }
         async fn search(
             c: Self::ProviderConfig,
@@ -404,18 +376,18 @@ mod durable_impl {
                 "golem_ai_search",
                 "search",
                 DurableFunctionType::ReadRemote,
+                &SearchInput {
+                    index: index.clone(),
+                    query: query.clone(),
+                },
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::search(c, index.clone(), query.clone())
-                })
-                .await
-                .map(|results| SearchOutput { results });
-                d.persist(SearchInput { index, query }, r)
-                    .map(|x| x.results)
-            } else {
-                d.replay().map(|x: SearchOutput| x.results)
-            }
+            d.run_async(|| async {
+                Impl::search(c, index, query)
+                    .await
+                    .map(|results| SearchOutput { results })
+            })
+            .await
+            .map(|x| x.results)
         }
         async fn stream_search(
             c: Self::ProviderConfig,
@@ -427,18 +399,23 @@ mod durable_impl {
                 "golem_ai_search",
                 "stream_search",
                 DurableFunctionType::ReadRemote,
+                &StreamSearchInput {
+                    index: index.clone(),
+                    query: query.clone(),
+                },
             );
-            if d.is_live() {
-                let stream = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::unwrapped_stream(c.clone(), index.clone(), query.clone())
-                })
-                .await;
-                let _ = d.persist_infallible(StreamSearchInput { index, query }, NoOutput);
+            let mut stream = None;
+            d.run_infallible_async(|| async {
+                stream =
+                    Some(Impl::unwrapped_stream(c.clone(), index.clone(), query.clone()).await);
+                NoOutput
+            })
+            .await;
+            if let Some(stream) = stream {
                 Ok(SearchStream::new(DurableSearchStream::<Impl>::live(
                     c, stream,
                 )))
             } else {
-                let _: NoOutput = d.replay_infallible();
                 Ok(SearchStream::new(DurableSearchStream::<Impl>::replay(
                     c, index, query,
                 )))
@@ -453,17 +430,17 @@ mod durable_impl {
                 "golem_ai_search",
                 "get_schema",
                 DurableFunctionType::ReadRemote,
+                &GetSchemaInput {
+                    index: index.clone(),
+                },
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::get_schema(c, index.clone())
-                })
-                .await
-                .map(|schema| GetSchemaOutput { schema });
-                d.persist(GetSchemaInput { index }, r).map(|x| x.schema)
-            } else {
-                d.replay().map(|x: GetSchemaOutput| x.schema)
-            }
+            d.run_async(|| async {
+                Impl::get_schema(c, index)
+                    .await
+                    .map(|schema| GetSchemaOutput { schema })
+            })
+            .await
+            .map(|x| x.schema)
         }
         async fn update_schema(
             c: Self::ProviderConfig,
@@ -475,18 +452,18 @@ mod durable_impl {
                 "golem_ai_search",
                 "update_schema",
                 DurableFunctionType::WriteRemote,
+                &UpdateSchemaInput {
+                    index: index.clone(),
+                    schema: schema.clone(),
+                },
             );
-            if d.is_live() {
-                let r = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
-                    Impl::update_schema(c, index.clone(), schema.clone())
-                })
-                .await
-                .map(|()| NoOutput);
-                d.persist(UpdateSchemaInput { index, schema }, r)
-                    .map(|_| ())
-            } else {
-                d.replay().map(|_: NoOutput| ())
-            }
+            d.run_async(|| async {
+                Impl::update_schema(c, index, schema)
+                    .await
+                    .map(|()| NoOutput)
+            })
+            .await
+            .map(|_| ())
         }
     }
 
@@ -536,7 +513,7 @@ mod durable_impl {
     impl<Impl: ExtendedSearchProvider> Drop for DurableSearchStream<Impl> {
         fn drop(&mut self) {
             if let Some(DurableSearchStreamState::Live { stream }) = self.state.take() {
-                with_persistence_level(PersistenceLevel::PersistNothing, || drop(stream));
+                drop(stream);
             }
         }
     }
@@ -561,90 +538,66 @@ mod durable_impl {
                     "golem_ai_search",
                     "get_next",
                     DurableFunctionType::ReadRemote,
+                    &NoInput,
                 );
-                if !durability.is_live() {
-                    let result: Option<Vec<SearchHit>> = durability.replay_infallible();
-                    let mut state = self.state.borrow_mut();
-                    match state.as_mut().unwrap() {
-                        DurableSearchStreamState::Replay {
-                            partial_result,
-                            finished,
-                            ..
-                        } => {
-                            if let Some(hits) = &result {
-                                partial_result.extend_from_slice(hits);
-                            } else {
-                                *finished = true;
+                let result = durability
+                    .run_infallible_async(|| async {
+                        let action = {
+                            let state = self.state.borrow();
+                            match state.as_ref().unwrap() {
+                                DurableSearchStreamState::Live { stream } => {
+                                    LiveAction::Stream(Rc::clone(stream))
+                                }
+                                DurableSearchStreamState::Replay {
+                                    index,
+                                    query,
+                                    partial_result,
+                                    finished,
+                                } => {
+                                    if *finished {
+                                        LiveAction::Finished
+                                    } else {
+                                        LiveAction::Continue(
+                                            index.clone(),
+                                            Box::new(Impl::retry_query(query, partial_result)),
+                                        )
+                                    }
+                                }
                             }
-                        }
-                        DurableSearchStreamState::Live { .. } => {
-                            unreachable!("Durable search stream cannot be live during replay")
-                        }
-                    }
-                    return result;
-                }
-
-                let action = {
-                    let state = self.state.borrow();
-                    match state.as_ref().unwrap() {
-                        DurableSearchStreamState::Live { stream } => {
-                            LiveAction::Stream(Rc::clone(stream))
-                        }
-                        DurableSearchStreamState::Replay {
-                            index,
-                            query,
-                            partial_result,
-                            finished,
-                        } => {
-                            if *finished {
-                                LiveAction::Finished
-                            } else {
-                                LiveAction::Continue(
-                                    index.clone(),
-                                    Box::new(Impl::retry_query(query, partial_result)),
-                                )
-                            }
-                        }
-                    }
-                };
-
-                match action {
-                    LiveAction::Finished => None,
-                    LiveAction::Stream(stream) => {
-                        let result = with_persistence_level_async(
-                            PersistenceLevel::PersistNothing,
-                            || async move { stream.get_next().await },
-                        )
-                        .await;
-                        durability.persist_infallible(NoInput, result.clone())
-                    }
-                    LiveAction::Continue(index, query) => {
-                        let config = self.provider_config.clone();
-                        let (stream, result) = with_persistence_level_async(
-                            PersistenceLevel::PersistNothing,
-                            || async move {
-                                let stream =
-                                    Rc::new(Impl::unwrapped_stream(config, index, *query).await);
+                        };
+                        match action {
+                            LiveAction::Finished => None,
+                            LiveAction::Stream(stream) => stream.get_next().await,
+                            LiveAction::Continue(index, query) => {
+                                let stream = Rc::new(
+                                    Impl::unwrapped_stream(
+                                        self.provider_config.clone(),
+                                        index,
+                                        *query,
+                                    )
+                                    .await,
+                                );
                                 let result = stream.get_next().await;
-                                (stream, result)
-                            },
-                        )
-                        .await;
-                        let result = durability.persist_infallible(NoInput, result.clone());
-                        let mut state = self.state.borrow_mut();
-                        if matches!(
-                            state.as_ref(),
-                            Some(DurableSearchStreamState::Replay { .. })
-                        ) {
-                            *state = Some(DurableSearchStreamState::Live { stream });
-                        } else {
-                            with_persistence_level(PersistenceLevel::PersistNothing, || {
-                                drop(stream)
-                            });
+                                *self.state.borrow_mut() =
+                                    Some(DurableSearchStreamState::Live { stream });
+                                result
+                            }
                         }
-                        result
+                    })
+                    .await;
+                if let Some(DurableSearchStreamState::Replay {
+                    partial_result,
+                    finished,
+                    ..
+                }) = self.state.borrow_mut().as_mut()
+                {
+                    if let Some(hits) = &result {
+                        partial_result.extend_from_slice(hits);
+                    } else {
+                        *finished = true;
                     }
                 }
+                result
             })
         }
     }
