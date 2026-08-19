@@ -441,7 +441,7 @@ dependencies = [
 [[package]]
 name = "golem-rust"
 version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
+source = "git+https://github.com/golemcloud/golem?branch=main#4358cac70a1dd11f186cb0f22f855a7a96e05cfc"
 dependencies = [
  "async-trait",
  "ctor",
@@ -461,7 +461,7 @@ dependencies = [
 [[package]]
 name = "golem-rust-macro"
 version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
+source = "git+https://github.com/golemcloud/golem?branch=main#4358cac70a1dd11f186cb0f22f855a7a96e05cfc"
 dependencies = [
  "heck 0.5.0",
  "humantime",
@@ -474,7 +474,7 @@ dependencies = [
 [[package]]
 name = "golem-schema"
 version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
+source = "git+https://github.com/golemcloud/golem?branch=main#4358cac70a1dd11f186cb0f22f855a7a96e05cfc"
 dependencies = [
  "base64",
  "bigdecimal",
@@ -497,7 +497,7 @@ dependencies = [
 [[package]]
 name = "golem-schema-derive"
 version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
+source = "git+https://github.com/golemcloud/golem?branch=main#4358cac70a1dd11f186cb0f22f855a7a96e05cfc"
 dependencies = [
  "darling",
  "heck 0.5.0",
