@@ -2354,7 +2354,7 @@ dependencies = [
 [[package]]
 name = "golem-rust"
 version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
+source = "git+https://github.com/golemcloud/golem?branch=main#4358cac70a1dd11f186cb0f22f855a7a96e05cfc"
 dependencies = [
  "async-trait",
  "ctor",
@@ -2374,7 +2374,7 @@ dependencies = [
 [[package]]
 name = "golem-rust-macro"
 version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
+source = "git+https://github.com/golemcloud/golem?branch=main#4358cac70a1dd11f186cb0f22f855a7a96e05cfc"
 dependencies = [
  "heck 0.5.0",
  "humantime",
@@ -2387,7 +2387,7 @@ dependencies = [
 [[package]]
 name = "golem-schema"
 version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
+source = "git+https://github.com/golemcloud/golem?branch=main#4358cac70a1dd11f186cb0f22f855a7a96e05cfc"
 dependencies = [
  "base64 0.22.1",
  "bigdecimal",
@@ -2410,7 +2410,7 @@ dependencies = [
 [[package]]
 name = "golem-schema-derive"
 version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#9d7f47613a6000717b70209e8d1148127bc603ce"
+source = "git+https://github.com/golemcloud/golem?branch=main#4358cac70a1dd11f186cb0f22f855a7a96e05cfc"
 dependencies = [
  "darling",
  "heck 0.5.0",
@@ -5234,7 +5234,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.2",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.4",
  "windows-sys 0.61.2",
@@ -5742,7 +5742,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b91e5b84611016120197efd7dc93ef76774f4e084cd73c9fb3ea4a86c570c56e"
 dependencies = [
  "getopts",
- "log 0.4.29",
+ "log 0.3.9",
  "phf_codegen 0.11.3",
  "rand 0.8.6",
 ]

@@ -72,6 +72,7 @@ mod passthrough_impl {
 
 #[cfg(feature = "golem")]
 mod durable_impl {
+    #[allow(dead_code)]
     #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct NoInput;
 
@@ -93,6 +94,7 @@ mod durable_impl {
     use golem_rust::durability::{Durability, DurableFunctionType};
     use golem_rust::{FromSchema, IntoSchema};
 
+    #[allow(dead_code)]
     #[derive(Debug, Clone, FromSchema, IntoSchema)]
     pub(super) struct Unit;
 

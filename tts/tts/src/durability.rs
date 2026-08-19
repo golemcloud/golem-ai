@@ -942,9 +942,7 @@ mod durable_impl {
                     "golem_ai_tts",
                     "voice_update_settings",
                     DurableFunctionType::WriteRemote,
-                    &UpdateVoiceSettingsInput {
-                        settings: settings.clone(),
-                    },
+                    &UpdateVoiceSettingsInput { settings },
                 );
                 durability.run(|| Ok(NoOutput)).map(|_| ())
             })
