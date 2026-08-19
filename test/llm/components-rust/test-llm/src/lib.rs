@@ -1,6 +1,6 @@
 use golem_ai_llm::model::*;
 use golem_ai_llm::LlmProvider;
-use golem_rust::{agent_definition, agent_implementation, mark_atomic_operation};
+use golem_rust::{agent_definition, agent_implementation, atomically_result_async};
 
 #[agent_definition]
 pub trait TestHelper {
@@ -631,12 +631,17 @@ impl LlmTest for LlmTestImpl {
             }
 
             if round == 2 {
-                let _guard = mark_atomic_operation();
-                let mut client = TestHelperClient::get(name.clone());
-                let answer = client.inc_and_get().await;
-                if answer == 1 {
-                    panic!("Simulating crash")
-                }
+                atomically_result_async(|| async {
+                    let mut client = TestHelperClient::get(name.clone());
+                    let answer = client.inc_and_get().await;
+                    if answer == 1 {
+                        Err("Simulating crash")
+                    } else {
+                        Ok(())
+                    }
+                })
+                .await
+                .unwrap();
             }
 
             round += 1;
@@ -781,12 +786,17 @@ impl LlmTest for LlmTestImpl {
             result.push_str(&delta);
 
             if round == 2 {
-                let _guard = mark_atomic_operation();
-                let mut client = TestHelperClient::get(name.clone());
-                let answer = client.inc_and_get().await;
-                if answer == 1 {
-                    panic!("Simulating crash")
-                }
+                atomically_result_async(|| async {
+                    let mut client = TestHelperClient::get(name.clone());
+                    let answer = client.inc_and_get().await;
+                    if answer == 1 {
+                        Err("Simulating crash")
+                    } else {
+                        Ok(())
+                    }
+                })
+                .await
+                .unwrap();
             }
 
             round += 1;
