@@ -1,9 +1,7 @@
 use golem_ai_exec::model::*;
 use golem_ai_exec::{DurableExecution, ExecutionProvider, ExecutionSession};
 use golem_rust::bindings::wasi::keyvalue::eventual::{delete, exists, set, Bucket, OutgoingValue};
-use golem_rust::{
-    agent_definition, agent_implementation, atomically_result, generate_idempotency_key,
-};
+use golem_rust::{agent_definition, agent_implementation, atomically, generate_idempotency_key};
 use indoc::indoc;
 
 type Provider = DurableExecution;
@@ -26,17 +24,14 @@ impl Restart {
         // Values recorded in the oplog, including RPC results, replay identically. The key-value
         // marker is an external side effect: it survives the atomic rollback, so only the first
         // execution traps and the retried block can finish.
-        atomically_result(|| {
+        atomically(|| {
             if !exists(&bucket, &self.marker).unwrap() {
                 let value = OutgoingValue::new_outgoing_value();
                 value.outgoing_value_write_body_sync(&[1]).unwrap();
                 set(&bucket, &self.marker, &value).unwrap();
-                Err("Simulating crash")
-            } else {
-                Ok(())
+                panic!("Simulating crash");
             }
-        })
-        .unwrap();
+        });
 
         delete(&bucket, &self.marker).unwrap();
     }
