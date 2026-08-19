@@ -125,15 +125,15 @@ mod durable_impl {
                 snippet: snippet.clone(),
                 options: options.clone(),
             };
-            let durability = Durability::<SessionRunResult<Impl::Snapshot>, UnusedError>::new(
-                "golem_ai_exec",
-                "session_run",
-                DurableFunctionType::WriteLocal,
-                &input,
-            );
             if Impl::supports_snapshot(&self.inner) {
                 // We can take a snapshot of the session and restore it during replay without
                 // actually running the snippet.
+                let durability = Durability::<SessionRunResult<Impl::Snapshot>, UnusedError>::new(
+                    "golem_ai_exec",
+                    "session_run",
+                    DurableFunctionType::WriteLocal,
+                    &input,
+                );
                 let mut ran = false;
                 let result = durability
                     .run_infallible_async(|| async {
@@ -156,12 +156,20 @@ mod durable_impl {
                 // We cannot take a snapshot of the session, so we have to run the actual snippet
                 // in both live and replay modes.
                 //
-                // We still persist a custom oplog entry to increase oplog readability
+                // We still persist a custom oplog entry to increase oplog readability. Construct
+                // it only after the run because `Durability::new` opens its replay subtree
+                // immediately, which would otherwise consume the snippet's host calls.
                 let result = self.inner.run(snippet, options).await;
                 let result = SessionRunResult {
                     result,
                     snapshot: None,
                 };
+                let durability = Durability::<SessionRunResult<Impl::Snapshot>, UnusedError>::new(
+                    "golem_ai_exec",
+                    "session_run",
+                    DurableFunctionType::WriteLocal,
+                    &input,
+                );
                 let _: SessionRunResult<Impl::Snapshot> =
                     durability.run_infallible(|| result.clone());
                 result.result

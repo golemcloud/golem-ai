@@ -1,6 +1,38 @@
 use golem_ai_llm::model::*;
 use golem_ai_llm::LlmProvider;
-use golem_rust::{agent_definition, agent_implementation, mark_atomic_operation};
+use golem_rust::bindings::wasi::keyvalue::eventual::{
+    delete, exists, set, Bucket, OutgoingValue,
+};
+use golem_rust::{
+    agent_definition, agent_implementation, generate_idempotency_key, mark_atomic_operation,
+};
+
+struct Restart {
+    marker: String,
+}
+
+impl Restart {
+    fn new() -> Self {
+        Self {
+            marker: generate_idempotency_key().to_string(),
+        }
+    }
+
+    fn crash_once(&self) {
+        let bucket = Bucket::open_bucket("golem-ai-llm-test-restarts").unwrap();
+        if !exists(&bucket, &self.marker).unwrap() {
+            let value = OutgoingValue::new_outgoing_value();
+            value.outgoing_value_write_body_sync(&[1]).unwrap();
+            set(&bucket, &self.marker, &value).unwrap();
+            panic!("Simulating crash");
+        }
+    }
+
+    fn cleanup(&self) {
+        let bucket = Bucket::open_bucket("golem-ai-llm-test-restarts").unwrap();
+        delete(&bucket, &self.marker).unwrap();
+    }
+}
 
 #[agent_definition]
 pub trait TestHelper {
@@ -549,6 +581,7 @@ impl LlmTest for LlmTestImpl {
     }
 
     async fn test6(&self) -> String {
+        let restart = Restart::new();
         let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
@@ -576,7 +609,6 @@ impl LlmTest for LlmTestImpl {
 
         let mut result = String::new();
 
-        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
         let mut round = 0;
 
         loop {
@@ -631,12 +663,14 @@ impl LlmTest for LlmTestImpl {
             }
 
             if round == 2 {
-                let _guard = mark_atomic_operation();
-                let mut client = TestHelperClient::get(name.clone());
-                let answer = client.inc_and_get().await;
-                if answer == 1 {
-                    panic!("Simulating crash")
+                {
+                    let _guard = mark_atomic_operation();
+                    let mut client = TestHelperClient::get(restart.marker.clone());
+                    let answer = client.inc_and_get().await;
+                    assert_eq!(answer, 1);
+                    restart.crash_once();
                 }
+                restart.cleanup();
             }
 
             round += 1;
@@ -730,6 +764,7 @@ impl LlmTest for LlmTestImpl {
     }
 
     async fn test8(&self) -> String {
+        let restart = Restart::new();
         let config = Config {
             model: MODEL.to_string(),
             temperature: Some(0.2),
@@ -774,19 +809,20 @@ impl LlmTest for LlmTestImpl {
 
         let mut result = String::new();
 
-        let name = std::env::var("GOLEM_WORKER_NAME").unwrap();
         let mut round = 0;
 
         while let Some(delta) = utils::consume_next_event(&stream).await {
             result.push_str(&delta);
 
             if round == 2 {
-                let _guard = mark_atomic_operation();
-                let mut client = TestHelperClient::get(name.clone());
-                let answer = client.inc_and_get().await;
-                if answer == 1 {
-                    panic!("Simulating crash")
+                {
+                    let _guard = mark_atomic_operation();
+                    let mut client = TestHelperClient::get(restart.marker.clone());
+                    let answer = client.inc_and_get().await;
+                    assert_eq!(answer, 1);
+                    restart.crash_once();
                 }
+                restart.cleanup();
             }
 
             round += 1;
