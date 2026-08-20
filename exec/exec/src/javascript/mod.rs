@@ -5,15 +5,12 @@ use crate::durability::{EmptySnapshot, SessionSnapshot};
 use crate::model::{Error, ExecResult, File, Language, RunOptions};
 use crate::model::{LanguageKind, StageResult};
 use crate::{get_contents_as_string, stage_result_failure};
-use futures::TryFutureExt;
+use futures::future::{select, Either};
 use rquickjs::loader::{BuiltinLoader, BuiltinResolver};
 use rquickjs::{async_with, AsyncContext, AsyncRuntime, CatchResultExt, Ctx, Module, Object};
 use std::cell::RefCell;
-use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
-use wstd::future::FutureExt;
-use wstd::time::{Duration, Instant};
 
 fn js_engine_error(err: rquickjs::Error) -> Error {
     Error::Internal(err.to_string())
@@ -181,7 +178,7 @@ impl JavaScriptSession {
     async fn run_async(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
         let maybe_state = self.state.borrow();
         let state = maybe_state.as_ref().unwrap();
-        let start = Instant::now();
+        let start = wasip3::clocks::monotonic_clock::now();
 
         if let Some(limits) = options.limits {
             if let Some(memory_bytes) = limits.memory_bytes {
@@ -220,14 +217,20 @@ impl JavaScriptSession {
                 .await
         };
         let result = if let Some(timeout_ms) = options.limits.and_then(|c| c.time_ms) {
-            future
-                .timeout(Duration::from_millis(timeout_ms))
-                .map_err(|err| match err.kind() {
-                    ErrorKind::TimedOut => Error::Timeout,
-                    _ => Error::RuntimeFailed(stage_result_failure(format!("{err}"))),
-                })
-                .await
-                .unwrap_or_else(Err)
+            let future = Box::pin(future);
+            let timeout = Box::pin(wasip3::clocks::monotonic_clock::wait_for(
+                timeout_ms.saturating_mul(1_000_000),
+            ));
+            match select(future, timeout).await {
+                Either::Left((result, losing_timeout)) => {
+                    drop(losing_timeout);
+                    result
+                }
+                Either::Right(((), losing_execution)) => {
+                    drop(losing_execution);
+                    Err(Error::Timeout)
+                }
+            }
         } else {
             future.await
         };
@@ -248,7 +251,7 @@ impl JavaScriptSession {
                 exit_code: Some(0),
                 signal: None,
             },
-            time_ms: Some(start.elapsed().as_millis() as u64),
+            time_ms: Some(wasip3::clocks::monotonic_clock::now().saturating_sub(start) / 1_000_000),
             memory_bytes: Some(memory_usage.memory_used_size as u64),
         })
     }

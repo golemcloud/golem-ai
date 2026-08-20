@@ -431,9 +431,10 @@ mod tests {
         pub content_type: Option<String>,
     }
 
-    #[wstd::test]
-    async fn test_api_key_gets_passed_as_auth_header() {
-        let response_body = r#"
+    #[test]
+    fn test_api_key_gets_passed_as_auth_header() {
+        futures::executor::block_on(async {
+            let response_body = r#"
                {
                    "task": "transcribe",
                    "language": "en",
@@ -458,204 +459,55 @@ mod tests {
                }
            "#;
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::OK)
-                .body(response_body.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(response_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
-            },
-            mock_client,
-        );
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+                },
+                mock_client,
+            );
 
-        let audio_bytes = "fake audio data".into();
+            let audio_bytes = "fake audio data".into();
 
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes,
-            audio_config: AudioConfig {
-                format: AudioFormat::Mp3,
-            },
-            transcription_config: None,
-        };
-
-        api.transcribe_audio(request).await.unwrap();
-
-        let captured_request = api.http_client.last_captured_request().unwrap();
-
-        assert_eq!(captured_request.method(), &Method::POST);
-
-        assert_eq!(captured_request.uri().path(), "/v1/audio/transcriptions");
-
-        let auth_header = captured_request
-            .headers()
-            .get("Authorization")
-            .and_then(|h| h.to_str().ok());
-
-        assert_eq!(auth_header, Some("Bearer test-api-key"));
-
-        assert_eq!(api.http_client.captured_request_count(), 1);
-    }
-
-    #[wstd::test]
-    async fn test_resquest_gets_sent_as_multi_part_form_data() {
-        let response_body = r#"
-               {
-                   "task": "transcribe",
-                   "language": "en",
-                   "duration": 8.2,
-                   "text": "Hello world",
-                   "words": [
-                       {
-                           "word": "Hello",
-                           "start": 0.0,
-                           "end": 1.5
-                       },
-                       {
-                           "word": "world",
-                           "start": 1.5,
-                           "end": 3.0
-                       }
-                   ],
-                   "usage": {
-                       "type": "transcribe",
-                       "seconds": 10
-                   }
-               }
-           "#;
-
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::OK)
-                .body(response_body.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
-            },
-            mock_client,
-        );
-
-        let audio_bytes = Bytes::from("fake audio data");
-
-        let language = "en".to_string();
-        let prompt = "foo".to_string();
-
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes.clone(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Mp3,
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language: Some(language.clone()),
-                prompt: Some(prompt.clone()),
-            }),
-        };
-
-        api.transcribe_audio(request).await.unwrap();
-
-        let captured_request = api.http_client.last_captured_request().unwrap();
-
-        let content_type_header = captured_request
-            .headers()
-            .get("Content-Type")
-            .unwrap()
-            .to_str()
-            .unwrap();
-
-        assert!(
-            content_type_header.starts_with("multipart/form-data"),
-            "should be multipart/form-data"
-        );
-
-        let boundary = content_type_header.split("boundary=").nth(1).unwrap();
-
-        let body_bytes = captured_request.body().to_vec();
-
-        let cursor = Cursor::new(body_bytes);
-        let mut multipart = Multipart::with_body(cursor, boundary);
-        let mut fields: HashMap<String, MultipartField> = HashMap::new();
-
-        while let Ok(Some(mut field)) = multipart.read_entry() {
-            let field_name = field.headers.name.clone();
-
-            let mut data = Vec::new();
-            field.data.read_to_end(&mut data).unwrap();
-
-            let multipart_field = MultipartField {
-                data,
-                filename: field.headers.filename.clone(),
-                content_type: field.headers.content_type.as_ref().map(|ct| ct.to_string()),
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Mp3,
+                },
+                transcription_config: None,
             };
 
-            fields.insert(field_name.to_string(), multipart_field);
-        }
+            api.transcribe_audio(request).await.unwrap();
 
-        let file_field = fields.get("file").unwrap();
-        assert_eq!(
-            file_field,
-            &MultipartField {
-                data: audio_bytes.to_vec(),
-                filename: Some("audio.mp3".to_string()),
-                content_type: Some("audio/mp3".to_string()),
-            }
-        );
+            let captured_request = api.http_client.last_captured_request().unwrap();
 
-        let model_field = fields.get("model").unwrap();
-        assert_eq!(
-            model_field,
-            &MultipartField {
-                data: b"whisper-1".to_vec(),
-                filename: None,
-                content_type: None,
-            }
-        );
+            assert_eq!(captured_request.method(), &Method::POST);
 
-        let response_format_field = fields.get("response_format").unwrap();
-        assert_eq!(
-            response_format_field,
-            &MultipartField {
-                data: b"verbose_json".to_vec(),
-                filename: None,
-                content_type: None,
-            }
-        );
+            assert_eq!(captured_request.uri().path(), "/v1/audio/transcriptions");
 
-        let language_field = fields.get("language").unwrap();
-        assert_eq!(
-            language_field,
-            &MultipartField {
-                data: language.as_bytes().to_vec(),
-                filename: None,
-                content_type: None,
-            }
-        );
+            let auth_header = captured_request
+                .headers()
+                .get("Authorization")
+                .and_then(|h| h.to_str().ok());
 
-        let verbose_field = fields.get("prompt").unwrap();
-        assert_eq!(
-            verbose_field,
-            &MultipartField {
-                data: prompt.as_bytes().to_vec(),
-                filename: None,
-                content_type: None,
-            }
-        );
+            assert_eq!(auth_header, Some("Bearer test-api-key"));
 
-        assert_eq!(api.http_client.captured_request_count(), 1);
+            assert_eq!(api.http_client.captured_request_count(), 1);
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_success() {
-        let response_body = r#"
+    #[test]
+    fn test_resquest_gets_sent_as_multi_part_form_data() {
+        futures::executor::block_on(async {
+            let response_body = r#"
                {
                    "task": "transcribe",
                    "language": "en",
@@ -680,72 +532,227 @@ mod tests {
                }
            "#;
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::OK)
-                .body(response_body.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(response_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
-            },
-            mock_client,
-        );
-
-        let audio_bytes = Bytes::from("fake audio data for words test");
-
-        let audio_byte_len = audio_bytes.len();
-
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes,
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language: Some("en".to_string()),
-                prompt: None,
-            }),
-        };
-
-        let response = api.transcribe_audio(request).await.unwrap();
-
-        let expected_response = TranscriptionResponse {
-            request_id: "some-transcription-id".to_string(),
-            audio_size_bytes: audio_byte_len,
-            whisper_transcription: WhisperTranscription {
-                task: "transcribe".to_string(),
-                language: "en".to_string(),
-                duration: 8.2,
-                text: "Hello world".to_string(),
-                words: vec![
-                    Word {
-                        word: "Hello".to_string(),
-                        start: 0.0,
-                        end: 1.5,
-                    },
-                    Word {
-                        word: "world".to_string(),
-                        start: 1.5,
-                        end: 3.0,
-                    },
-                ],
-                usage: Usage {
-                    r#type: "transcribe".to_string(),
-                    seconds: 10,
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
                 },
-            },
-        };
+                mock_client,
+            );
 
-        assert_eq!(response, expected_response);
+            let audio_bytes = Bytes::from("fake audio data");
+
+            let language = "en".to_string();
+            let prompt = "foo".to_string();
+
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes.clone(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Mp3,
+                },
+                transcription_config: Some(TranscriptionConfig {
+                    language: Some(language.clone()),
+                    prompt: Some(prompt.clone()),
+                }),
+            };
+
+            api.transcribe_audio(request).await.unwrap();
+
+            let captured_request = api.http_client.last_captured_request().unwrap();
+
+            let content_type_header = captured_request
+                .headers()
+                .get("Content-Type")
+                .unwrap()
+                .to_str()
+                .unwrap();
+
+            assert!(
+                content_type_header.starts_with("multipart/form-data"),
+                "should be multipart/form-data"
+            );
+
+            let boundary = content_type_header.split("boundary=").nth(1).unwrap();
+
+            let body_bytes = captured_request.body().to_vec();
+
+            let cursor = Cursor::new(body_bytes);
+            let mut multipart = Multipart::with_body(cursor, boundary);
+            let mut fields: HashMap<String, MultipartField> = HashMap::new();
+
+            while let Ok(Some(mut field)) = multipart.read_entry() {
+                let field_name = field.headers.name.clone();
+
+                let mut data = Vec::new();
+                field.data.read_to_end(&mut data).unwrap();
+
+                let multipart_field = MultipartField {
+                    data,
+                    filename: field.headers.filename.clone(),
+                    content_type: field.headers.content_type.as_ref().map(|ct| ct.to_string()),
+                };
+
+                fields.insert(field_name.to_string(), multipart_field);
+            }
+
+            let file_field = fields.get("file").unwrap();
+            assert_eq!(
+                file_field,
+                &MultipartField {
+                    data: audio_bytes.to_vec(),
+                    filename: Some("audio.mp3".to_string()),
+                    content_type: Some("audio/mp3".to_string()),
+                }
+            );
+
+            let model_field = fields.get("model").unwrap();
+            assert_eq!(
+                model_field,
+                &MultipartField {
+                    data: b"whisper-1".to_vec(),
+                    filename: None,
+                    content_type: None,
+                }
+            );
+
+            let response_format_field = fields.get("response_format").unwrap();
+            assert_eq!(
+                response_format_field,
+                &MultipartField {
+                    data: b"verbose_json".to_vec(),
+                    filename: None,
+                    content_type: None,
+                }
+            );
+
+            let language_field = fields.get("language").unwrap();
+            assert_eq!(
+                language_field,
+                &MultipartField {
+                    data: language.as_bytes().to_vec(),
+                    filename: None,
+                    content_type: None,
+                }
+            );
+
+            let verbose_field = fields.get("prompt").unwrap();
+            assert_eq!(
+                verbose_field,
+                &MultipartField {
+                    data: prompt.as_bytes().to_vec(),
+                    filename: None,
+                    content_type: None,
+                }
+            );
+
+            assert_eq!(api.http_client.captured_request_count(), 1);
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_error_bad_request() {
-        let error_body = r#"
+    #[test]
+    fn test_transcribe_audio_success() {
+        futures::executor::block_on(async {
+            let response_body = r#"
+               {
+                   "task": "transcribe",
+                   "language": "en",
+                   "duration": 8.2,
+                   "text": "Hello world",
+                   "words": [
+                       {
+                           "word": "Hello",
+                           "start": 0.0,
+                           "end": 1.5
+                       },
+                       {
+                           "word": "world",
+                           "start": 1.5,
+                           "end": 3.0
+                       }
+                   ],
+                   "usage": {
+                       "type": "transcribe",
+                       "seconds": 10
+                   }
+               }
+           "#;
+
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(response_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
+
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+                },
+                mock_client,
+            );
+
+            let audio_bytes = Bytes::from("fake audio data for words test");
+
+            let audio_byte_len = audio_bytes.len();
+
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                },
+                transcription_config: Some(TranscriptionConfig {
+                    language: Some("en".to_string()),
+                    prompt: None,
+                }),
+            };
+
+            let response = api.transcribe_audio(request).await.unwrap();
+
+            let expected_response = TranscriptionResponse {
+                request_id: "some-transcription-id".to_string(),
+                audio_size_bytes: audio_byte_len,
+                whisper_transcription: WhisperTranscription {
+                    task: "transcribe".to_string(),
+                    language: "en".to_string(),
+                    duration: 8.2,
+                    text: "Hello world".to_string(),
+                    words: vec![
+                        Word {
+                            word: "Hello".to_string(),
+                            start: 0.0,
+                            end: 1.5,
+                        },
+                        Word {
+                            word: "world".to_string(),
+                            start: 1.5,
+                            end: 3.0,
+                        },
+                    ],
+                    usage: Usage {
+                        r#type: "transcribe".to_string(),
+                        seconds: 10,
+                    },
+                },
+            };
+
+            assert_eq!(response, expected_response);
+        });
+    }
+
+    #[test]
+    fn test_transcribe_audio_error_bad_request() {
+        futures::executor::block_on(async {
+            let error_body = r#"
                 {
                     "error": {
                         "message": "[{'type': 'enum', 'loc': ('body', 'timestamp_granularities[]', 0), 'msg': \"Input should be 'segment' or 'word'\", 'input': 'word,segments', 'ctx': {'expected': \"'segment' or 'word'\"}}]",
@@ -756,51 +763,53 @@ mod tests {
                 }
             "#;
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(error_body.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body(error_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
-            },
-            mock_client,
-        );
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+                },
+                mock_client,
+            );
 
-        let audio_bytes = "fake audio data".into();
+            let audio_bytes = "fake audio data".into();
 
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes,
-            audio_config: AudioConfig {
-                format: AudioFormat::Mp3,
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Mp3,
+                },
+                transcription_config: None,
+            };
 
-        let result = api.transcribe_audio(request).await;
+            let result = api.transcribe_audio(request).await;
 
-        assert!(result.is_err());
+            assert!(result.is_err());
 
-        match result.unwrap_err() {
-            Error::APIBadRequest {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "some-transcription-id");
-                assert_eq!(provider_error, error_body);
+            match result.unwrap_err() {
+                Error::APIBadRequest {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "some-transcription-id");
+                    assert_eq!(provider_error, error_body);
+                }
+                _ => panic!("Expected APIBadRequest error"),
             }
-            _ => panic!("Expected APIBadRequest error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_error_unauthorized() {
-        let error_body = r#"
+    #[test]
+    fn test_transcribe_audio_error_unauthorized() {
+        futures::executor::block_on(async {
+            let error_body = r#"
                 {
                     "error": {
                         "message": "Incorrect API key provided",
@@ -811,50 +820,52 @@ mod tests {
                 }
             "#;
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::UNAUTHORIZED)
-                .body(error_body.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::UNAUTHORIZED)
+                    .body(error_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain("invalid_key"),
-            },
-            mock_client,
-        );
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain("invalid_key"),
+                },
+                mock_client,
+            );
 
-        let audio_bytes = "fake audio data".into();
+            let audio_bytes = "fake audio data".into();
 
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes,
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                },
+                transcription_config: None,
+            };
 
-        let result = api.transcribe_audio(request).await;
+            let result = api.transcribe_audio(request).await;
 
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            Error::APIUnauthorized {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "some-transcription-id");
-                assert_eq!(provider_error, error_body);
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                Error::APIUnauthorized {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "some-transcription-id");
+                    assert_eq!(provider_error, error_body);
+                }
+                _ => panic!("Expected APIUnauthorized error"),
             }
-            _ => panic!("Expected APIUnauthorized error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_error_forbidden() {
-        let error_body = r#"
+    #[test]
+    fn test_transcribe_audio_error_forbidden() {
+        futures::executor::block_on(async {
+            let error_body = r#"
                 {
                     "error": {
                         "message": "Your account does not have access to this resource",
@@ -865,50 +876,52 @@ mod tests {
                 }
             "#;
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::FORBIDDEN)
-                .body(error_body.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::FORBIDDEN)
+                    .body(error_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
-            },
-            mock_client,
-        );
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+                },
+                mock_client,
+            );
 
-        let audio_bytes = "fake audio data".into();
+            let audio_bytes = "fake audio data".into();
 
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes,
-            audio_config: AudioConfig {
-                format: AudioFormat::Flac,
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Flac,
+                },
+                transcription_config: None,
+            };
 
-        let result = api.transcribe_audio(request).await;
+            let result = api.transcribe_audio(request).await;
 
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            Error::APIForbidden {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "some-transcription-id");
-                assert_eq!(provider_error, error_body);
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                Error::APIForbidden {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "some-transcription-id");
+                    assert_eq!(provider_error, error_body);
+                }
+                _ => panic!("Expected APIForbidden error"),
             }
-            _ => panic!("Expected APIForbidden error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_error_not_found() {
-        let error_body = r#"
+    #[test]
+    fn test_transcribe_audio_error_not_found() {
+        futures::executor::block_on(async {
+            let error_body = r#"
                 {
                     "error": {
                         "message": "The model 'xxxxxxx-2' does not exist",
@@ -919,50 +932,52 @@ mod tests {
                 }
             "#;
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(error_body.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(error_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
-            },
-            mock_client,
-        );
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+                },
+                mock_client,
+            );
 
-        let audio_bytes = "fake audio data".into();
+            let audio_bytes = "fake audio data".into();
 
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes,
-            audio_config: AudioConfig {
-                format: AudioFormat::Ogg,
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Ogg,
+                },
+                transcription_config: None,
+            };
 
-        let result = api.transcribe_audio(request).await;
+            let result = api.transcribe_audio(request).await;
 
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            Error::APINotFound {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "some-transcription-id");
-                assert_eq!(provider_error, error_body);
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                Error::APINotFound {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "some-transcription-id");
+                    assert_eq!(provider_error, error_body);
+                }
+                _ => panic!("Expected APINotFound error"),
             }
-            _ => panic!("Expected APINotFound error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_error_unprocessable_entity() {
-        let error_body = r#"
+    #[test]
+    fn test_transcribe_audio_error_unprocessable_entity() {
+        futures::executor::block_on(async {
+            let error_body = r#"
                 {
                     "error": {
                         "message": "The audio file is too large. Maximum size is 25MB.",
@@ -973,50 +988,52 @@ mod tests {
                 }
             "#;
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::UNPROCESSABLE_ENTITY)
-                .body(error_body.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::UNPROCESSABLE_ENTITY)
+                    .body(error_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
-            },
-            mock_client,
-        );
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+                },
+                mock_client,
+            );
 
-        let audio_bytes = "fake large audio data".into();
+            let audio_bytes = "fake large audio data".into();
 
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes,
-            audio_config: AudioConfig {
-                format: AudioFormat::Mp3,
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Mp3,
+                },
+                transcription_config: None,
+            };
 
-        let result = api.transcribe_audio(request).await;
+            let result = api.transcribe_audio(request).await;
 
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            Error::APIUnprocessableEntity {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "some-transcription-id");
-                assert_eq!(provider_error, error_body);
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                Error::APIUnprocessableEntity {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "some-transcription-id");
+                    assert_eq!(provider_error, error_body);
+                }
+                _ => panic!("Expected APIUnprocessableEntity error"),
             }
-            _ => panic!("Expected APIUnprocessableEntity error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_error_rate_limit() {
-        let error_body = r#"
+    #[test]
+    fn test_transcribe_audio_error_rate_limit() {
+        futures::executor::block_on(async {
+            let error_body = r#"
                 {
                     "error": {
                         "message": "Rate limit exceeded. Please try again later.",
@@ -1027,50 +1044,52 @@ mod tests {
                 }
             "#;
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::TOO_MANY_REQUESTS)
-                .body(error_body.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::TOO_MANY_REQUESTS)
+                    .body(error_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
-            },
-            mock_client,
-        );
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+                },
+                mock_client,
+            );
 
-        let audio_bytes = "fake audio data".into();
+            let audio_bytes = "fake audio data".into();
 
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes,
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                },
+                transcription_config: None,
+            };
 
-        let result = api.transcribe_audio(request).await;
+            let result = api.transcribe_audio(request).await;
 
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            Error::APIRateLimit {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "some-transcription-id");
-                assert_eq!(provider_error, error_body);
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                Error::APIRateLimit {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "some-transcription-id");
+                    assert_eq!(provider_error, error_body);
+                }
+                _ => panic!("Expected APIRateLimit error"),
             }
-            _ => panic!("Expected APIRateLimit error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_error_internal_server_error() {
-        let error_body = r#"
+    #[test]
+    fn test_transcribe_audio_error_internal_server_error() {
+        futures::executor::block_on(async {
+            let error_body = r#"
                 {
                     "error": {
                         "message": "The server encountered an internal error and was unable to complete your request.",
@@ -1081,50 +1100,52 @@ mod tests {
                 }
             "#;
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(error_body.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(error_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
-            },
-            mock_client,
-        );
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+                },
+                mock_client,
+            );
 
-        let audio_bytes = "fake audio data".into();
+            let audio_bytes = "fake audio data".into();
 
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes,
-            audio_config: AudioConfig {
-                format: AudioFormat::Mp3,
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Mp3,
+                },
+                transcription_config: None,
+            };
 
-        let result = api.transcribe_audio(request).await;
+            let result = api.transcribe_audio(request).await;
 
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            Error::APIInternalServerError {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "some-transcription-id");
-                assert_eq!(provider_error, error_body);
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                Error::APIInternalServerError {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "some-transcription-id");
+                    assert_eq!(provider_error, error_body);
+                }
+                _ => panic!("Expected APIInternalServerError error"),
             }
-            _ => panic!("Expected APIInternalServerError error"),
-        }
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_error_unknown_status() {
-        let error_body = r#"
+    #[test]
+    fn test_transcribe_audio_error_unknown_status() {
+        futures::executor::block_on(async {
+            let error_body = r#"
                 {
                     "error": {
                         "message": "Unknown error occurred",
@@ -1135,44 +1156,45 @@ mod tests {
                 }
             "#;
 
-        let mock_client = MockHttpClient::new();
-        mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::IM_A_TEAPOT)
-                .body(error_body.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let mock_client = MockHttpClient::new();
+            mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::IM_A_TEAPOT)
+                    .body(error_body.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let api = TranscriptionsApi::new(
-            &crate::config::WhisperConfig {
-                api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
-            },
-            mock_client,
-        );
+            let api = TranscriptionsApi::new(
+                &crate::config::WhisperConfig {
+                    api_key: golem_ai_stt::config::SecretSource::from_plain(TEST_API_KEY),
+                },
+                mock_client,
+            );
 
-        let audio_bytes = "fake audio data".into();
+            let audio_bytes = "fake audio data".into();
 
-        let request = TranscriptionRequest {
-            request_id: "some-transcription-id".to_string(),
-            audio: audio_bytes,
-            audio_config: AudioConfig {
-                format: AudioFormat::Flac,
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "some-transcription-id".to_string(),
+                audio: audio_bytes,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Flac,
+                },
+                transcription_config: None,
+            };
 
-        let result = api.transcribe_audio(request).await;
+            let result = api.transcribe_audio(request).await;
 
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            Error::APIUnknown {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "some-transcription-id");
-                assert_eq!(provider_error, error_body);
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                Error::APIUnknown {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "some-transcription-id");
+                    assert_eq!(provider_error, error_body);
+                }
+                _ => panic!("Expected APIUnknown error"),
             }
-            _ => panic!("Expected APIUnknown error"),
-        }
+        });
     }
 }

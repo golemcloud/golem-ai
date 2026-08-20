@@ -20,21 +20,21 @@ mod passthrough_impl {
     impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
         type ProviderConfig = Impl::ProviderConfig;
 
-        fn generate(
+        async fn generate(
             provider_config: Self::ProviderConfig,
             inputs: Vec<ContentPart>,
             config: Config,
         ) -> Result<EmbeddingResponse, Error> {
-            Impl::generate(provider_config, inputs, config)
+            Impl::generate(provider_config, inputs, config).await
         }
 
-        fn rerank(
+        async fn rerank(
             provider_config: Self::ProviderConfig,
             query: String,
             documents: Vec<String>,
             config: Config,
         ) -> Result<RerankResponse, Error> {
-            Impl::rerank(provider_config, query, documents, config)
+            Impl::rerank(provider_config, query, documents, config).await
         }
     }
 }
@@ -45,85 +45,71 @@ mod passthrough_impl {
 ///
 /// There will be custom durability entries saved in the oplog, with the full embed request and configuration
 /// stored as input, and the full response stored as output. To serialize these in a way it is
-/// observable by oplog consumers, each relevant data type has to be converted to/from `ValueAndType`
-/// which is implemented using the type classes and builder in the `golem-rust` library.
+/// observable by oplog consumers, each relevant data type has to be converted to/from the shared
+/// schema representation implemented by the `golem-rust` library.
 #[cfg(feature = "golem")]
 mod durable_impl {
     use crate::durability::{DurableEmbed, ExtendedEmbeddingProvider};
     use crate::model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse};
     use crate::EmbeddingProvider;
-    use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
-    use golem_rust::durability::Durability;
-    use golem_rust::{with_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
+    use golem_rust::durability::{Durability, DurableFunctionType};
+    use golem_rust::{FromSchema, IntoSchema};
 
     impl<Impl: ExtendedEmbeddingProvider> EmbeddingProvider for DurableEmbed<Impl> {
         type ProviderConfig = Impl::ProviderConfig;
 
-        fn generate(
+        async fn generate(
             provider_config: Self::ProviderConfig,
             inputs: Vec<ContentPart>,
             config: Config,
         ) -> Result<EmbeddingResponse, Error> {
-            let durability = Durability::<EmbeddingResponse, Error>::new(
+            let input = GenerateInput {
+                inputs: inputs.clone(),
+                config: config.clone(),
+            };
+            Durability::<EmbeddingResponse, Error>::new(
                 "golem_ai_embed",
                 "generate",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let inputs_clone = inputs.clone();
-                let config_clone = config.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::generate(provider_config, inputs_clone, config_clone)
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(GenerateInput { inputs, config }, result)
-            } else {
-                durability.replay()
-            }
+                &input,
+            )
+            .run_async(|| Impl::generate(provider_config, inputs, config))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
 
-        fn rerank(
+        async fn rerank(
             provider_config: Self::ProviderConfig,
             query: String,
             documents: Vec<String>,
             config: Config,
         ) -> Result<RerankResponse, Error> {
-            let durability = Durability::<RerankResponse, Error>::new(
+            let input = RerankInput {
+                query: query.clone(),
+                documents: documents.clone(),
+                config: config.clone(),
+            };
+            Durability::<RerankResponse, Error>::new(
                 "golem_ai_embed",
                 "rerank",
                 DurableFunctionType::WriteRemote,
-            );
-            if durability.is_live() {
-                let query_clone = query.clone();
-                let documents_clone = documents.clone();
-                let config_clone = config.clone();
-                let result = with_persistence_level(PersistenceLevel::PersistNothing, || {
-                    Impl::rerank(provider_config, query_clone, documents_clone, config_clone)
-                });
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                durability.persist(
-                    RerankInput {
-                        query,
-                        documents,
-                        config,
-                    },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                &input,
+            )
+            .run_async(|| Impl::rerank(provider_config, query, documents, config))
+            .await
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct GenerateInput {
         inputs: Vec<ContentPart>,
         config: Config,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct RerankInput {
         query: String,
         documents: Vec<String>,

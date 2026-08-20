@@ -782,19 +782,20 @@ mod tests {
         }
     }
 
-    #[wstd::test]
-    async fn test_start_batch_recognize_basic_request() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_start_batch_recognize_basic_request() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        // Mock the OAuth token exchange response
-        auth_mock_client.expect_response(
+            // Mock the OAuth token exchange response
+            auth_mock_client.expect_response(
                Response::builder()
                    .status(StatusCode::OK)
                    .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                    .unwrap(),
            );
 
-        let mock_response = r#"{
+            let mock_response = r#"{
                "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
                "metadata": {
                    "createTime": "2023-01-01T00:00:00Z"
@@ -802,806 +803,822 @@ mod tests {
                "done": false
            }"#;
 
-        let speech_mock_client = MockHttpClient::new();
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let speech_mock_client = MockHttpClient::new();
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
 
-        // Test basic audio config with no transcription config
-        let audio_config = AudioConfig {
-            format: AudioFormat::Wav,
-            sample_rate_hertz: Some(16000),
-            channels: Some(1),
-        };
+            // Test basic audio config with no transcription config
+            let audio_config = AudioConfig {
+                format: AudioFormat::Wav,
+                sample_rate_hertz: Some(16000),
+                channels: Some(1),
+            };
 
-        let _result = client
-            .start_batch_recognize(
-                "test-request-id",
-                vec!["gs://bucket/audio.wav".to_string()],
-                &audio_config,
-                None, // No transcription config
-            )
-            .await
-            .unwrap();
+            let _result = client
+                .start_batch_recognize(
+                    "test-request-id",
+                    vec!["gs://bucket/audio.wav".to_string()],
+                    &audio_config,
+                    None, // No transcription config
+                )
+                .await
+                .unwrap();
 
-        // Verify the batch recognize request was constructed correctly
-        let request = client.http_client.last_captured_request().unwrap();
-        let actual_request: StartBatchRecognizeRequest =
-            serde_json::from_slice(request.body()).unwrap();
+            // Verify the batch recognize request was constructed correctly
+            let request = client.http_client.last_captured_request().unwrap();
+            let actual_request: StartBatchRecognizeRequest =
+                serde_json::from_slice(request.body()).unwrap();
 
-        let expected_request = StartBatchRecognizeRequest {
-            config: RecognitionConfig {
-                model: "latest_long".to_string(),
-                language_codes: vec!["en-US".to_string()],
-                features: RecognitionFeatures {
-                    profanity_filter: None,
-                    enable_word_time_offsets: Some(true),
-                    enable_word_confidence: Some(true),
-                    enable_automatic_punctuation: Some(true),
-                    multi_channel_mode: None,
-                    diarization_config: None,
-                    max_alternatives: Some(1),
+            let expected_request = StartBatchRecognizeRequest {
+                config: RecognitionConfig {
+                    model: "latest_long".to_string(),
+                    language_codes: vec!["en-US".to_string()],
+                    features: RecognitionFeatures {
+                        profanity_filter: None,
+                        enable_word_time_offsets: Some(true),
+                        enable_word_confidence: Some(true),
+                        enable_automatic_punctuation: Some(true),
+                        multi_channel_mode: None,
+                        diarization_config: None,
+                        max_alternatives: Some(1),
+                    },
+                    adaptation: None,
+                    auto_decoding_config: Some(AutoDetectDecodingConfig {}),
+                    explicit_decoding_config: None,
                 },
-                adaptation: None,
-                auto_decoding_config: Some(AutoDetectDecodingConfig {}),
-                explicit_decoding_config: None,
-            },
-            config_mask: None,
-            files: vec![BatchRecognizeFileMetadata {
-                uri: "gs://bucket/audio.wav".to_string(),
-            }],
-            recognition_output_config: RecognitionOutputConfig {
-                inline_response_config: InlineOutputConfig {},
-            },
-            processing_strategy: None,
-        };
+                config_mask: None,
+                files: vec![BatchRecognizeFileMetadata {
+                    uri: "gs://bucket/audio.wav".to_string(),
+                }],
+                recognition_output_config: RecognitionOutputConfig {
+                    inline_response_config: InlineOutputConfig {},
+                },
+                processing_strategy: None,
+            };
 
-        assert_eq!(
-            actual_request, expected_request,
-            "Basic request should match expected structure"
-        );
+            assert_eq!(
+                actual_request, expected_request,
+                "Basic request should match expected structure"
+            );
 
-        // Verify the request headers and URL
-        assert_eq!(request.method(), "POST");
-        assert_eq!(
+            // Verify the request headers and URL
+            assert_eq!(request.method(), "POST");
+            assert_eq!(
                request.uri().to_string(),
                "https://us-central1-speech.googleapis.com/v2/projects/test-project-id/locations/us-central1/recognizers/_:batchRecognize"
            );
 
-        let auth_header = request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert_eq!(auth_header, "Bearer test-access-token");
+            let auth_header = request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert_eq!(auth_header, "Bearer test-access-token");
+        });
     }
 
-    #[wstd::test]
-    async fn test_start_batch_recognize_with_multi_channel() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_start_batch_recognize_with_multi_channel() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        // Mock the OAuth token exchange response
-        auth_mock_client.expect_response(
+            // Mock the OAuth token exchange response
+            auth_mock_client.expect_response(
                Response::builder()
                    .status(StatusCode::OK)
                    .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                    .unwrap(),
            );
 
-        let mock_response = r#"{
+            let mock_response = r#"{
                "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
                "metadata": {},
                "done": false
            }"#;
 
-        let speech_mock_client = MockHttpClient::new();
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let speech_mock_client = MockHttpClient::new();
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
 
-        let audio_config = AudioConfig {
-            format: AudioFormat::Wav,
-            sample_rate_hertz: Some(16000),
-            channels: Some(2), // Multi-channel audio
-        };
+            let audio_config = AudioConfig {
+                format: AudioFormat::Wav,
+                sample_rate_hertz: Some(16000),
+                channels: Some(2), // Multi-channel audio
+            };
 
-        let transcription_config = TranscriptionConfig {
-            language_codes: Some(vec!["en-US".to_string()]),
-            model: Some("latest_long".to_string()), // Not latest_short, so multi-channel should work
-            enable_profanity_filter: false,
-            diarization: None,
-            enable_multi_channel: true, // Enable multi-channel
-            phrases: vec![],
-        };
+            let transcription_config = TranscriptionConfig {
+                language_codes: Some(vec!["en-US".to_string()]),
+                model: Some("latest_long".to_string()), // Not latest_short, so multi-channel should work
+                enable_profanity_filter: false,
+                diarization: None,
+                enable_multi_channel: true, // Enable multi-channel
+                phrases: vec![],
+            };
 
-        let _result = client
-            .start_batch_recognize(
-                "test-request-id",
-                vec!["gs://bucket/audio1.wav".to_string()],
-                &audio_config,
-                Some(&transcription_config),
-            )
-            .await
-            .unwrap();
+            let _result = client
+                .start_batch_recognize(
+                    "test-request-id",
+                    vec!["gs://bucket/audio1.wav".to_string()],
+                    &audio_config,
+                    Some(&transcription_config),
+                )
+                .await
+                .unwrap();
 
-        let request = client.http_client.last_captured_request().unwrap();
-        let actual_request: StartBatchRecognizeRequest =
-            serde_json::from_slice(request.body()).unwrap();
+            let request = client.http_client.last_captured_request().unwrap();
+            let actual_request: StartBatchRecognizeRequest =
+                serde_json::from_slice(request.body()).unwrap();
 
-        let expected_request = StartBatchRecognizeRequest {
-            config: RecognitionConfig {
-                model: "latest_long".to_string(),
-                language_codes: vec!["en-US".to_string()],
-                features: RecognitionFeatures {
-                    profanity_filter: None,
-                    enable_word_time_offsets: Some(true),
-                    enable_word_confidence: Some(true),
-                    enable_automatic_punctuation: Some(true),
-                    multi_channel_mode: Some("SEPARATE_RECOGNITION_PER_CHANNEL".to_string()),
-                    diarization_config: None,
-                    max_alternatives: Some(1),
+            let expected_request = StartBatchRecognizeRequest {
+                config: RecognitionConfig {
+                    model: "latest_long".to_string(),
+                    language_codes: vec!["en-US".to_string()],
+                    features: RecognitionFeatures {
+                        profanity_filter: None,
+                        enable_word_time_offsets: Some(true),
+                        enable_word_confidence: Some(true),
+                        enable_automatic_punctuation: Some(true),
+                        multi_channel_mode: Some("SEPARATE_RECOGNITION_PER_CHANNEL".to_string()),
+                        diarization_config: None,
+                        max_alternatives: Some(1),
+                    },
+                    adaptation: None,
+                    auto_decoding_config: Some(AutoDetectDecodingConfig {}),
+                    explicit_decoding_config: None,
                 },
-                adaptation: None,
-                auto_decoding_config: Some(AutoDetectDecodingConfig {}),
-                explicit_decoding_config: None,
-            },
-            config_mask: None,
-            files: vec![BatchRecognizeFileMetadata {
-                uri: "gs://bucket/audio1.wav".to_string(),
-            }],
-            recognition_output_config: RecognitionOutputConfig {
-                inline_response_config: InlineOutputConfig {},
-            },
-            processing_strategy: None,
-        };
+                config_mask: None,
+                files: vec![BatchRecognizeFileMetadata {
+                    uri: "gs://bucket/audio1.wav".to_string(),
+                }],
+                recognition_output_config: RecognitionOutputConfig {
+                    inline_response_config: InlineOutputConfig {},
+                },
+                processing_strategy: None,
+            };
 
-        assert_eq!(
-            actual_request, expected_request,
-            "Multi-channel request should match expected structure"
-        );
+            assert_eq!(
+                actual_request, expected_request,
+                "Multi-channel request should match expected structure"
+            );
+        });
     }
 
-    #[wstd::test]
-    async fn test_start_batch_recognize_with_speaker_diarization() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_start_batch_recognize_with_speaker_diarization() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        // Mock the OAuth token exchange response
-        auth_mock_client.expect_response(
+            // Mock the OAuth token exchange response
+            auth_mock_client.expect_response(
                 Response::builder()
                     .status(StatusCode::OK)
                     .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                     .unwrap(),
             );
 
-        let mock_response = r#"{
+            let mock_response = r#"{
                 "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
                 "metadata": {},
                 "done": false
             }"#;
 
-        let speech_mock_client = MockHttpClient::new();
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let speech_mock_client = MockHttpClient::new();
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
 
-        let audio_config = AudioConfig {
-            format: AudioFormat::Flac,
-            sample_rate_hertz: Some(16000),
-            channels: Some(1),
-        };
+            let audio_config = AudioConfig {
+                format: AudioFormat::Flac,
+                sample_rate_hertz: Some(16000),
+                channels: Some(1),
+            };
 
-        let transcription_config = TranscriptionConfig {
-            language_codes: Some(vec!["en-US".to_string()]),
-            model: Some("latest_long".to_string()),
-            enable_profanity_filter: false,
-            diarization: Some(DiarizationConfig {
-                enabled: true,
-                min_speaker_count: Some(3),
-                max_speaker_count: Some(5),
-            }),
-            // Custom max speakers
-            enable_multi_channel: false,
-            phrases: vec![],
-        };
+            let transcription_config = TranscriptionConfig {
+                language_codes: Some(vec!["en-US".to_string()]),
+                model: Some("latest_long".to_string()),
+                enable_profanity_filter: false,
+                diarization: Some(DiarizationConfig {
+                    enabled: true,
+                    min_speaker_count: Some(3),
+                    max_speaker_count: Some(5),
+                }),
+                // Custom max speakers
+                enable_multi_channel: false,
+                phrases: vec![],
+            };
 
-        let _result = client
-            .start_batch_recognize(
-                "test-request-id",
-                vec!["gs://bucket/audio1.flac".to_string()],
-                &audio_config,
-                Some(&transcription_config),
-            )
-            .await
-            .unwrap();
+            let _result = client
+                .start_batch_recognize(
+                    "test-request-id",
+                    vec!["gs://bucket/audio1.flac".to_string()],
+                    &audio_config,
+                    Some(&transcription_config),
+                )
+                .await
+                .unwrap();
 
-        let request = client.http_client.last_captured_request().unwrap();
-        let actual_request: StartBatchRecognizeRequest =
-            serde_json::from_slice(request.body()).unwrap();
+            let request = client.http_client.last_captured_request().unwrap();
+            let actual_request: StartBatchRecognizeRequest =
+                serde_json::from_slice(request.body()).unwrap();
 
-        let expected_request = StartBatchRecognizeRequest {
-            config: RecognitionConfig {
-                model: "latest_long".to_string(),
-                language_codes: vec!["en-US".to_string()],
-                features: RecognitionFeatures {
-                    profanity_filter: None,
-                    enable_word_time_offsets: Some(true),
-                    enable_word_confidence: Some(true),
-                    enable_automatic_punctuation: Some(true),
-                    multi_channel_mode: None,
-                    diarization_config: Some(SpeakerDiarizationConfig {
-                        min_speaker_count: 3,
-                        max_speaker_count: 5,
+            let expected_request = StartBatchRecognizeRequest {
+                config: RecognitionConfig {
+                    model: "latest_long".to_string(),
+                    language_codes: vec!["en-US".to_string()],
+                    features: RecognitionFeatures {
+                        profanity_filter: None,
+                        enable_word_time_offsets: Some(true),
+                        enable_word_confidence: Some(true),
+                        enable_automatic_punctuation: Some(true),
+                        multi_channel_mode: None,
+                        diarization_config: Some(SpeakerDiarizationConfig {
+                            min_speaker_count: 3,
+                            max_speaker_count: 5,
+                        }),
+                        max_alternatives: Some(1),
+                    },
+                    adaptation: None,
+                    auto_decoding_config: Some(AutoDetectDecodingConfig {}),
+                    explicit_decoding_config: None,
+                },
+                config_mask: None,
+                files: vec![BatchRecognizeFileMetadata {
+                    uri: "gs://bucket/audio1.flac".to_string(),
+                }],
+                recognition_output_config: RecognitionOutputConfig {
+                    inline_response_config: InlineOutputConfig {},
+                },
+                processing_strategy: None,
+            };
+
+            assert_eq!(
+                actual_request, expected_request,
+                "Speaker diarization request should match expected structure"
+            );
+        });
+    }
+
+    #[test]
+    fn test_start_batch_recognize_with_explicit_language() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
+
+            // Mock the OAuth token exchange response
+            auth_mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
+                    .unwrap(),
+            );
+
+            let mock_response = r#"{
+                "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
+                "metadata": {},
+                "done": false
+            }"#;
+
+            let speech_mock_client = MockHttpClient::new();
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
+
+            let mock_runtime = MockRuntime::new();
+
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
+
+            let audio_config = AudioConfig {
+                format: AudioFormat::LinearPcm,
+                sample_rate_hertz: Some(16000),
+                channels: Some(1),
+            };
+
+            let transcription_config = TranscriptionConfig {
+                language_codes: Some(vec!["es-ES".to_string(), "en-US".to_string()]), // Multiple languages
+                model: Some("latest_long".to_string()),
+                enable_profanity_filter: false,
+                diarization: None,
+                enable_multi_channel: false,
+                phrases: vec![],
+            };
+
+            let _result = client
+                .start_batch_recognize(
+                    "test-request-id",
+                    vec!["gs://bucket/audio.raw".to_string()],
+                    &audio_config,
+                    Some(&transcription_config),
+                )
+                .await
+                .unwrap();
+
+            let request = client.http_client.last_captured_request().unwrap();
+            let actual_request: StartBatchRecognizeRequest =
+                serde_json::from_slice(request.body()).unwrap();
+
+            let expected_request = StartBatchRecognizeRequest {
+                config: RecognitionConfig {
+                    model: "latest_long".to_string(),
+                    language_codes: vec!["es-ES".to_string(), "en-US".to_string()],
+                    features: RecognitionFeatures {
+                        profanity_filter: None,
+                        enable_word_time_offsets: Some(true),
+                        enable_word_confidence: Some(true),
+                        enable_automatic_punctuation: Some(true),
+                        multi_channel_mode: None,
+                        diarization_config: None,
+                        max_alternatives: Some(1),
+                    },
+                    adaptation: None,
+                    auto_decoding_config: None,
+                    explicit_decoding_config: Some(ExplicitDecodingConfig {
+                        encoding: "LINEAR16".to_string(),
+                        sample_rate_hertz: Some(16000),
+                        audio_channel_count: Some(1),
                     }),
-                    max_alternatives: Some(1),
                 },
-                adaptation: None,
-                auto_decoding_config: Some(AutoDetectDecodingConfig {}),
-                explicit_decoding_config: None,
-            },
-            config_mask: None,
-            files: vec![BatchRecognizeFileMetadata {
-                uri: "gs://bucket/audio1.flac".to_string(),
-            }],
-            recognition_output_config: RecognitionOutputConfig {
-                inline_response_config: InlineOutputConfig {},
-            },
-            processing_strategy: None,
-        };
+                config_mask: None,
+                files: vec![BatchRecognizeFileMetadata {
+                    uri: "gs://bucket/audio.raw".to_string(),
+                }],
+                recognition_output_config: RecognitionOutputConfig {
+                    inline_response_config: InlineOutputConfig {},
+                },
+                processing_strategy: None,
+            };
 
-        assert_eq!(
-            actual_request, expected_request,
-            "Speaker diarization request should match expected structure"
-        );
-    }
-
-    #[wstd::test]
-    async fn test_start_batch_recognize_with_explicit_language() {
-        let auth_mock_client = MockHttpClient::new();
-
-        // Mock the OAuth token exchange response
-        auth_mock_client.expect_response(
-                Response::builder()
-                    .status(StatusCode::OK)
-                    .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
-                    .unwrap(),
+            assert_eq!(
+                actual_request, expected_request,
+                "Explicit language request should match expected structure"
             );
-
-        let mock_response = r#"{
-                "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
-                "metadata": {},
-                "done": false
-            }"#;
-
-        let speech_mock_client = MockHttpClient::new();
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
-
-        let mock_runtime = MockRuntime::new();
-
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
-
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
-
-        let audio_config = AudioConfig {
-            format: AudioFormat::LinearPcm,
-            sample_rate_hertz: Some(16000),
-            channels: Some(1),
-        };
-
-        let transcription_config = TranscriptionConfig {
-            language_codes: Some(vec!["es-ES".to_string(), "en-US".to_string()]), // Multiple languages
-            model: Some("latest_long".to_string()),
-            enable_profanity_filter: false,
-            diarization: None,
-            enable_multi_channel: false,
-            phrases: vec![],
-        };
-
-        let _result = client
-            .start_batch_recognize(
-                "test-request-id",
-                vec!["gs://bucket/audio.raw".to_string()],
-                &audio_config,
-                Some(&transcription_config),
-            )
-            .await
-            .unwrap();
-
-        let request = client.http_client.last_captured_request().unwrap();
-        let actual_request: StartBatchRecognizeRequest =
-            serde_json::from_slice(request.body()).unwrap();
-
-        let expected_request = StartBatchRecognizeRequest {
-            config: RecognitionConfig {
-                model: "latest_long".to_string(),
-                language_codes: vec!["es-ES".to_string(), "en-US".to_string()],
-                features: RecognitionFeatures {
-                    profanity_filter: None,
-                    enable_word_time_offsets: Some(true),
-                    enable_word_confidence: Some(true),
-                    enable_automatic_punctuation: Some(true),
-                    multi_channel_mode: None,
-                    diarization_config: None,
-                    max_alternatives: Some(1),
-                },
-                adaptation: None,
-                auto_decoding_config: None,
-                explicit_decoding_config: Some(ExplicitDecodingConfig {
-                    encoding: "LINEAR16".to_string(),
-                    sample_rate_hertz: Some(16000),
-                    audio_channel_count: Some(1),
-                }),
-            },
-            config_mask: None,
-            files: vec![BatchRecognizeFileMetadata {
-                uri: "gs://bucket/audio.raw".to_string(),
-            }],
-            recognition_output_config: RecognitionOutputConfig {
-                inline_response_config: InlineOutputConfig {},
-            },
-            processing_strategy: None,
-        };
-
-        assert_eq!(
-            actual_request, expected_request,
-            "Explicit language request should match expected structure"
-        );
+        });
     }
 
-    #[wstd::test]
-    async fn test_start_batch_recognize_with_model() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_start_batch_recognize_with_model() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        // Mock the OAuth token exchange response
-        auth_mock_client.expect_response(
+            // Mock the OAuth token exchange response
+            auth_mock_client.expect_response(
                Response::builder()
                    .status(StatusCode::OK)
                    .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                    .unwrap(),
            );
 
-        let mock_response = r#"{
+            let mock_response = r#"{
                "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
                "metadata": {},
                "done": false
            }"#;
 
-        let speech_mock_client = MockHttpClient::new();
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let speech_mock_client = MockHttpClient::new();
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
 
-        let audio_config = AudioConfig {
-            format: AudioFormat::Mp3,
-            sample_rate_hertz: None,
-            channels: None,
-        };
+            let audio_config = AudioConfig {
+                format: AudioFormat::Mp3,
+                sample_rate_hertz: None,
+                channels: None,
+            };
 
-        let transcription_config = TranscriptionConfig {
-            language_codes: Some(vec!["en-US".to_string()]),
-            model: Some("medical_conversation".to_string()), // User-provided model
-            enable_profanity_filter: false,
-            diarization: None,
-            enable_multi_channel: false,
-            phrases: vec![],
-        };
+            let transcription_config = TranscriptionConfig {
+                language_codes: Some(vec!["en-US".to_string()]),
+                model: Some("medical_conversation".to_string()), // User-provided model
+                enable_profanity_filter: false,
+                diarization: None,
+                enable_multi_channel: false,
+                phrases: vec![],
+            };
 
-        let _result = client
-            .start_batch_recognize(
-                "test-request-id",
-                vec!["gs://bucket/medical_call.mp3".to_string()],
-                &audio_config,
-                Some(&transcription_config),
-            )
-            .await
-            .unwrap();
+            let _result = client
+                .start_batch_recognize(
+                    "test-request-id",
+                    vec!["gs://bucket/medical_call.mp3".to_string()],
+                    &audio_config,
+                    Some(&transcription_config),
+                )
+                .await
+                .unwrap();
 
-        let request = client.http_client.last_captured_request().unwrap();
-        let actual_request: StartBatchRecognizeRequest =
-            serde_json::from_slice(request.body()).unwrap();
+            let request = client.http_client.last_captured_request().unwrap();
+            let actual_request: StartBatchRecognizeRequest =
+                serde_json::from_slice(request.body()).unwrap();
 
-        let expected_request = StartBatchRecognizeRequest {
-            config: RecognitionConfig {
-                model: "medical_conversation".to_string(),
-                language_codes: vec!["en-US".to_string()],
-                features: RecognitionFeatures {
-                    profanity_filter: None,
-                    enable_word_time_offsets: Some(true),
-                    enable_word_confidence: Some(true),
-                    enable_automatic_punctuation: Some(true),
-                    multi_channel_mode: None,
-                    diarization_config: None,
-                    max_alternatives: Some(1),
+            let expected_request = StartBatchRecognizeRequest {
+                config: RecognitionConfig {
+                    model: "medical_conversation".to_string(),
+                    language_codes: vec!["en-US".to_string()],
+                    features: RecognitionFeatures {
+                        profanity_filter: None,
+                        enable_word_time_offsets: Some(true),
+                        enable_word_confidence: Some(true),
+                        enable_automatic_punctuation: Some(true),
+                        multi_channel_mode: None,
+                        diarization_config: None,
+                        max_alternatives: Some(1),
+                    },
+                    adaptation: None,
+                    auto_decoding_config: Some(AutoDetectDecodingConfig {}),
+                    explicit_decoding_config: None,
                 },
-                adaptation: None,
-                auto_decoding_config: Some(AutoDetectDecodingConfig {}),
-                explicit_decoding_config: None,
-            },
-            config_mask: None,
-            files: vec![BatchRecognizeFileMetadata {
-                uri: "gs://bucket/medical_call.mp3".to_string(),
-            }],
-            recognition_output_config: RecognitionOutputConfig {
-                inline_response_config: InlineOutputConfig {},
-            },
-            processing_strategy: None,
-        };
+                config_mask: None,
+                files: vec![BatchRecognizeFileMetadata {
+                    uri: "gs://bucket/medical_call.mp3".to_string(),
+                }],
+                recognition_output_config: RecognitionOutputConfig {
+                    inline_response_config: InlineOutputConfig {},
+                },
+                processing_strategy: None,
+            };
 
-        assert_eq!(
-            actual_request, expected_request,
-            "Model request should match expected structure"
-        );
+            assert_eq!(
+                actual_request, expected_request,
+                "Model request should match expected structure"
+            );
+        });
     }
 
-    #[wstd::test]
-    async fn test_start_batch_recognize_with_phrases() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_start_batch_recognize_with_phrases() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        auth_mock_client.expect_response(
+            auth_mock_client.expect_response(
                Response::builder()
                    .status(StatusCode::OK)
                    .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                    .unwrap(),
            );
 
-        let mock_response = r#"{
+            let mock_response = r#"{
                "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
                "metadata": {},
                "done": false
            }"#;
 
-        let speech_mock_client = MockHttpClient::new();
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let speech_mock_client = MockHttpClient::new();
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
 
-        let audio_config = AudioConfig {
-            format: AudioFormat::WebmOpus,
-            sample_rate_hertz: Some(16000),
-            channels: Some(1),
-        };
+            let audio_config = AudioConfig {
+                format: AudioFormat::WebmOpus,
+                sample_rate_hertz: Some(16000),
+                channels: Some(1),
+            };
 
-        let transcription_config = TranscriptionConfig {
-            language_codes: Some(vec!["en-US".to_string()]),
-            model: Some("latest_short".to_string()),
-            enable_profanity_filter: false,
-            diarization: None,
-            enable_multi_channel: false,
-            phrases: vec![
-                Phrase {
-                    value: "Google Cloud Platform".to_string(),
-                    boost: Some(10.0), // Phrase with boost
+            let transcription_config = TranscriptionConfig {
+                language_codes: Some(vec!["en-US".to_string()]),
+                model: Some("latest_short".to_string()),
+                enable_profanity_filter: false,
+                diarization: None,
+                enable_multi_channel: false,
+                phrases: vec![
+                    Phrase {
+                        value: "Google Cloud Platform".to_string(),
+                        boost: Some(10.0), // Phrase with boost
+                    },
+                    Phrase {
+                        value: "machine learning".to_string(),
+                        boost: None, // Phrase without boost
+                    },
+                    Phrase {
+                        value: "artificial intelligence".to_string(),
+                        boost: Some(15.5), // Another phrase with boost
+                    },
+                ],
+            };
+
+            let _result = client
+                .start_batch_recognize(
+                    "test-request-id",
+                    vec!["gs://bucket/tech_talk.webm".to_string()],
+                    &audio_config,
+                    Some(&transcription_config),
+                )
+                .await
+                .unwrap();
+
+            let request = client.http_client.last_captured_request().unwrap();
+            let actual_request: StartBatchRecognizeRequest =
+                serde_json::from_slice(request.body()).unwrap();
+
+            let expected_request = StartBatchRecognizeRequest {
+                config: RecognitionConfig {
+                    model: "latest_short".to_string(),
+                    language_codes: vec!["en-US".to_string()],
+                    features: RecognitionFeatures {
+                        profanity_filter: None,
+                        enable_word_time_offsets: Some(true),
+                        enable_word_confidence: Some(true),
+                        enable_automatic_punctuation: Some(true),
+                        multi_channel_mode: None,
+                        diarization_config: None,
+                        max_alternatives: Some(1),
+                    },
+                    adaptation: Some(SpeechAdaptation {
+                        phrase_sets: vec![AdaptationPhraseSet {
+                            inline_phrase_set: PhraseSet {
+                                phrases: vec![
+                                    PhraseItem {
+                                        value: "Google Cloud Platform".to_string(),
+                                        boost: Some(10.0),
+                                    },
+                                    PhraseItem {
+                                        value: "machine learning".to_string(),
+                                        boost: None,
+                                    },
+                                    PhraseItem {
+                                        value: "artificial intelligence".to_string(),
+                                        boost: Some(15.5),
+                                    },
+                                ],
+                            },
+                        }],
+                    }),
+                    auto_decoding_config: Some(AutoDetectDecodingConfig {}),
+                    explicit_decoding_config: None,
                 },
-                Phrase {
-                    value: "machine learning".to_string(),
-                    boost: None, // Phrase without boost
+                config_mask: None,
+                files: vec![BatchRecognizeFileMetadata {
+                    uri: "gs://bucket/tech_talk.webm".to_string(),
+                }],
+                recognition_output_config: RecognitionOutputConfig {
+                    inline_response_config: InlineOutputConfig {},
                 },
-                Phrase {
-                    value: "artificial intelligence".to_string(),
-                    boost: Some(15.5), // Another phrase with boost
-                },
-            ],
-        };
+                processing_strategy: None,
+            };
 
-        let _result = client
-            .start_batch_recognize(
-                "test-request-id",
-                vec!["gs://bucket/tech_talk.webm".to_string()],
-                &audio_config,
-                Some(&transcription_config),
-            )
-            .await
-            .unwrap();
-
-        let request = client.http_client.last_captured_request().unwrap();
-        let actual_request: StartBatchRecognizeRequest =
-            serde_json::from_slice(request.body()).unwrap();
-
-        let expected_request = StartBatchRecognizeRequest {
-            config: RecognitionConfig {
-                model: "latest_short".to_string(),
-                language_codes: vec!["en-US".to_string()],
-                features: RecognitionFeatures {
-                    profanity_filter: None,
-                    enable_word_time_offsets: Some(true),
-                    enable_word_confidence: Some(true),
-                    enable_automatic_punctuation: Some(true),
-                    multi_channel_mode: None,
-                    diarization_config: None,
-                    max_alternatives: Some(1),
-                },
-                adaptation: Some(SpeechAdaptation {
-                    phrase_sets: vec![AdaptationPhraseSet {
-                        inline_phrase_set: PhraseSet {
-                            phrases: vec![
-                                PhraseItem {
-                                    value: "Google Cloud Platform".to_string(),
-                                    boost: Some(10.0),
-                                },
-                                PhraseItem {
-                                    value: "machine learning".to_string(),
-                                    boost: None,
-                                },
-                                PhraseItem {
-                                    value: "artificial intelligence".to_string(),
-                                    boost: Some(15.5),
-                                },
-                            ],
-                        },
-                    }],
-                }),
-                auto_decoding_config: Some(AutoDetectDecodingConfig {}),
-                explicit_decoding_config: None,
-            },
-            config_mask: None,
-            files: vec![BatchRecognizeFileMetadata {
-                uri: "gs://bucket/tech_talk.webm".to_string(),
-            }],
-            recognition_output_config: RecognitionOutputConfig {
-                inline_response_config: InlineOutputConfig {},
-            },
-            processing_strategy: None,
-        };
-
-        assert_eq!(
-            actual_request, expected_request,
-            "Phrases request should match expected structure"
-        );
+            assert_eq!(
+                actual_request, expected_request,
+                "Phrases request should match expected structure"
+            );
+        });
     }
 
-    #[wstd::test]
-    async fn test_start_batch_recognize_with_profanity_filter() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_start_batch_recognize_with_profanity_filter() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        auth_mock_client.expect_response(
+            auth_mock_client.expect_response(
                Response::builder()
                    .status(StatusCode::OK)
                    .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                    .unwrap(),
            );
 
-        let mock_response = r#"{
+            let mock_response = r#"{
                "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
                "metadata": {},
                "done": false
            }"#;
 
-        let speech_mock_client = MockHttpClient::new();
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(mock_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let speech_mock_client = MockHttpClient::new();
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(mock_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
 
-        let audio_config = AudioConfig {
-            format: AudioFormat::Mp4,
-            sample_rate_hertz: None,
-            channels: None,
-        };
+            let audio_config = AudioConfig {
+                format: AudioFormat::Mp4,
+                sample_rate_hertz: None,
+                channels: None,
+            };
 
-        let transcription_config = TranscriptionConfig {
-            language_codes: Some(vec!["en-US".to_string()]),
-            model: Some("latest_long".to_string()),
-            enable_profanity_filter: true, // Enable profanity filter
-            diarization: None,
-            enable_multi_channel: false,
-            phrases: vec![],
-        };
+            let transcription_config = TranscriptionConfig {
+                language_codes: Some(vec!["en-US".to_string()]),
+                model: Some("latest_long".to_string()),
+                enable_profanity_filter: true, // Enable profanity filter
+                diarization: None,
+                enable_multi_channel: false,
+                phrases: vec![],
+            };
 
-        let _result = client
-            .start_batch_recognize(
-                "test-request-id",
-                vec!["gs://bucket/audio.mp4".to_string()],
-                &audio_config,
-                Some(&transcription_config),
-            )
-            .await
-            .unwrap();
+            let _result = client
+                .start_batch_recognize(
+                    "test-request-id",
+                    vec!["gs://bucket/audio.mp4".to_string()],
+                    &audio_config,
+                    Some(&transcription_config),
+                )
+                .await
+                .unwrap();
 
-        let request = client.http_client.last_captured_request().unwrap();
-        let actual_request: StartBatchRecognizeRequest =
-            serde_json::from_slice(request.body()).unwrap();
+            let request = client.http_client.last_captured_request().unwrap();
+            let actual_request: StartBatchRecognizeRequest =
+                serde_json::from_slice(request.body()).unwrap();
 
-        let expected_request = StartBatchRecognizeRequest {
-            config: RecognitionConfig {
-                model: "latest_long".to_string(),
-                language_codes: vec!["en-US".to_string()],
-                features: RecognitionFeatures {
-                    profanity_filter: Some(true),
-                    enable_word_time_offsets: Some(true),
-                    enable_word_confidence: Some(true),
-                    enable_automatic_punctuation: Some(true),
-                    multi_channel_mode: None,
-                    diarization_config: None,
-                    max_alternatives: Some(1),
+            let expected_request = StartBatchRecognizeRequest {
+                config: RecognitionConfig {
+                    model: "latest_long".to_string(),
+                    language_codes: vec!["en-US".to_string()],
+                    features: RecognitionFeatures {
+                        profanity_filter: Some(true),
+                        enable_word_time_offsets: Some(true),
+                        enable_word_confidence: Some(true),
+                        enable_automatic_punctuation: Some(true),
+                        multi_channel_mode: None,
+                        diarization_config: None,
+                        max_alternatives: Some(1),
+                    },
+                    adaptation: None,
+                    auto_decoding_config: Some(AutoDetectDecodingConfig {}),
+                    explicit_decoding_config: None,
                 },
-                adaptation: None,
-                auto_decoding_config: Some(AutoDetectDecodingConfig {}),
-                explicit_decoding_config: None,
-            },
-            config_mask: None,
-            files: vec![BatchRecognizeFileMetadata {
-                uri: "gs://bucket/audio.mp4".to_string(),
-            }],
-            recognition_output_config: RecognitionOutputConfig {
-                inline_response_config: InlineOutputConfig {},
-            },
-            processing_strategy: None,
-        };
+                config_mask: None,
+                files: vec![BatchRecognizeFileMetadata {
+                    uri: "gs://bucket/audio.mp4".to_string(),
+                }],
+                recognition_output_config: RecognitionOutputConfig {
+                    inline_response_config: InlineOutputConfig {},
+                },
+                processing_strategy: None,
+            };
 
-        assert_eq!(
-            actual_request, expected_request,
-            "Profanity filter request should match expected structure"
-        );
+            assert_eq!(
+                actual_request, expected_request,
+                "Profanity filter request should match expected structure"
+            );
+        });
     }
 
-    #[wstd::test]
-    async fn test_delete_batch_recognize() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_delete_batch_recognize() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        auth_mock_client.expect_response(
+            auth_mock_client.expect_response(
                 Response::builder()
                     .status(StatusCode::OK)
                     .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                     .unwrap(),
             );
 
-        let speech_mock_client = MockHttpClient::new();
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(StatusCode::OK)
-                .body(b"{}".to_vec())
-                .unwrap(),
-        );
+            let speech_mock_client = MockHttpClient::new();
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .body(b"{}".to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
 
-        let operation_name =
-            "projects/test-project-id/locations/us-central1/operations/operation-123";
-        let result = client
-            .delete_batch_recognize("test-request-id", operation_name)
-            .await;
+            let operation_name =
+                "projects/test-project-id/locations/us-central1/operations/operation-123";
+            let result = client
+                .delete_batch_recognize("test-request-id", operation_name)
+                .await;
 
-        assert!(result.is_ok());
+            assert!(result.is_ok());
 
-        let request = client.http_client.last_captured_request().unwrap();
-        assert_eq!(request.method(), "DELETE");
-        assert_eq!(
-            request.uri().to_string(),
-            format!("https://us-central1-speech.googleapis.com/v2/{operation_name}")
-        );
+            let request = client.http_client.last_captured_request().unwrap();
+            assert_eq!(request.method(), "DELETE");
+            assert_eq!(
+                request.uri().to_string(),
+                format!("https://us-central1-speech.googleapis.com/v2/{operation_name}")
+            );
 
-        let auth_header = request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert_eq!(auth_header, "Bearer test-access-token");
+            let auth_header = request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert_eq!(auth_header, "Bearer test-access-token");
+        });
     }
 
-    #[wstd::test]
-    async fn test_wait_for_batch_recognize_completion() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_wait_for_batch_recognize_completion() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        auth_mock_client.expect_response(
+            auth_mock_client.expect_response(
                 Response::builder()
                     .status(StatusCode::OK)
                     .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                     .unwrap(),
             );
 
-        // First poll - operation is not done
-        let in_progress_response = r#"{
+            // First poll - operation is not done
+            let in_progress_response = r#"{
                 "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
                 "metadata": {
                     "createTime": "2023-01-01T00:00:00Z",
@@ -1609,16 +1626,16 @@ mod tests {
                 }
             }"#;
 
-        let speech_mock_client = MockHttpClient::new();
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(in_progress_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let speech_mock_client = MockHttpClient::new();
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(in_progress_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        // Second poll - operation is completed
-        let completed_response = r#"{
+            // Second poll - operation is completed
+            let completed_response = r#"{
                     "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
                     "metadata": {
                         "createTime": "2023-01-01T00:00:00Z",
@@ -1649,86 +1666,88 @@ mod tests {
                     }
                 }"#;
 
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(completed_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(completed_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
 
-        let operation_name =
-            "projects/test-project-id/locations/us-central1/operations/operation-123";
-        let response = client
-            .wait_for_batch_recognize_completion(
-                "test-request-id",
-                operation_name,
-                Duration::from_secs(3600),
-            )
-            .await
-            .unwrap();
+            let operation_name =
+                "projects/test-project-id/locations/us-central1/operations/operation-123";
+            let response = client
+                .wait_for_batch_recognize_completion(
+                    "test-request-id",
+                    operation_name,
+                    Duration::from_secs(3600),
+                )
+                .await
+                .unwrap();
 
-        assert!(response.done.unwrap_or(false));
-        assert!(response.response.is_some());
-        assert!(response.error.is_none());
+            assert!(response.done.unwrap_or(false));
+            assert!(response.response.is_some());
+            assert!(response.error.is_none());
 
-        // Should have called sleep at least once
-        let sleep_calls = client.runtime.get_sleep_calls();
-        assert!(!sleep_calls.is_empty());
-        assert_eq!(
-            sleep_calls[0],
-            Duration::from_secs(10),
-            "First sleep should be 10 seconds"
-        );
+            // Should have called sleep at least once
+            let sleep_calls = client.runtime.get_sleep_calls();
+            assert!(!sleep_calls.is_empty());
+            assert_eq!(
+                sleep_calls[0],
+                Duration::from_secs(10),
+                "First sleep should be 10 seconds"
+            );
 
-        let captured_requests = client.http_client.get_captured_requests();
+            let captured_requests = client.http_client.get_captured_requests();
 
-        let first_poll_request = &captured_requests[0];
-        assert_eq!(first_poll_request.method(), "GET");
-        assert_eq!(
-            first_poll_request.uri().to_string(),
-            format!("https://us-central1-speech.googleapis.com/v2/{operation_name}")
-        );
+            let first_poll_request = &captured_requests[0];
+            assert_eq!(first_poll_request.method(), "GET");
+            assert_eq!(
+                first_poll_request.uri().to_string(),
+                format!("https://us-central1-speech.googleapis.com/v2/{operation_name}")
+            );
 
-        let auth_header = first_poll_request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert_eq!(auth_header, "Bearer test-access-token");
+            let auth_header = first_poll_request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert_eq!(auth_header, "Bearer test-access-token");
 
-        let second_poll_request = &captured_requests[1];
-        assert_eq!(second_poll_request.method(), "GET");
-        assert_eq!(
-            second_poll_request.uri().to_string(),
-            format!("https://us-central1-speech.googleapis.com/v2/{operation_name}")
-        );
+            let second_poll_request = &captured_requests[1];
+            assert_eq!(second_poll_request.method(), "GET");
+            assert_eq!(
+                second_poll_request.uri().to_string(),
+                format!("https://us-central1-speech.googleapis.com/v2/{operation_name}")
+            );
+        });
     }
 
-    #[wstd::test]
-    async fn test_wait_for_batch_recognize_completion_failure() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_wait_for_batch_recognize_completion_failure() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        auth_mock_client.expect_response(
+            auth_mock_client.expect_response(
                 Response::builder()
                     .status(StatusCode::OK)
                     .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                     .unwrap(),
             );
 
-        let failed_response = r#"{
+            let failed_response = r#"{
                 "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
                 "metadata": {
                     "createTime": "2023-01-01T00:00:00Z",
@@ -1743,83 +1762,85 @@ mod tests {
                 }
             }"#;
 
-        let speech_mock_client = MockHttpClient::new();
-        speech_mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(failed_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let speech_mock_client = MockHttpClient::new();
+            speech_mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(failed_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
 
-        let operation_name =
-            "projects/test-project-id/locations/us-central1/operations/operation-123";
-        let result = client
-            .wait_for_batch_recognize_completion(
-                "test-request-id",
-                operation_name,
-                Duration::from_secs(3600),
-            )
-            .await;
+            let operation_name =
+                "projects/test-project-id/locations/us-central1/operations/operation-123";
+            let result = client
+                .wait_for_batch_recognize_completion(
+                    "test-request-id",
+                    operation_name,
+                    Duration::from_secs(3600),
+                )
+                .await;
 
-        assert!(result.is_err());
+            assert!(result.is_err());
 
-        match result.unwrap_err() {
-            SttError::APIInternalServerError {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, "test-request-id");
-                assert!(provider_error.contains("Operation failed"));
-                assert!(provider_error.contains("Audio file format is not supported"));
+            match result.unwrap_err() {
+                SttError::APIInternalServerError {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, "test-request-id");
+                    assert!(provider_error.contains("Operation failed"));
+                    assert!(provider_error.contains("Audio file format is not supported"));
+                }
+                other => panic!("Expected APIInternalServerError, got: {other:?}"),
             }
-            other => panic!("Expected APIInternalServerError, got: {other:?}"),
-        }
 
-        // Verify the polling request
-        let captured_requests = client.http_client.get_captured_requests();
-        let poll_request = &captured_requests[0];
-        assert_eq!(poll_request.method(), "GET");
-        assert_eq!(
-            poll_request.uri().to_string(),
-            format!("https://us-central1-speech.googleapis.com/v2/{operation_name}")
-        );
+            // Verify the polling request
+            let captured_requests = client.http_client.get_captured_requests();
+            let poll_request = &captured_requests[0];
+            assert_eq!(poll_request.method(), "GET");
+            assert_eq!(
+                poll_request.uri().to_string(),
+                format!("https://us-central1-speech.googleapis.com/v2/{operation_name}")
+            );
 
-        let auth_header = poll_request
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert_eq!(auth_header, "Bearer test-access-token");
+            let auth_header = poll_request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert_eq!(auth_header, "Bearer test-access-token");
+        });
     }
 
-    #[wstd::test]
-    async fn test_wait_for_batch_recognize_completion_timeout() {
-        let auth_mock_client = MockHttpClient::new();
+    #[test]
+    fn test_wait_for_batch_recognize_completion_timeout() {
+        futures::executor::block_on(async {
+            let auth_mock_client = MockHttpClient::new();
 
-        auth_mock_client.expect_response(
+            auth_mock_client.expect_response(
                 Response::builder()
                     .status(StatusCode::OK)
                     .body(br#"{"access_token":"test-access-token","token_type":"Bearer","expires_in":3600}"#.to_vec())
                     .unwrap(),
             );
 
-        let speech_mock_client = MockHttpClient::new();
-        for _ in 0..100 {
-            // Always return in progress to simulate timeout
-            let in_progress_response = r#"{
+            let speech_mock_client = MockHttpClient::new();
+            for _ in 0..100 {
+                // Always return in progress to simulate timeout
+                let in_progress_response = r#"{
                     "name": "projects/test-project-id/locations/us-central1/operations/operation-123",
                     "metadata": {
                         "createTime": "2023-01-01T00:00:00Z",
@@ -1828,72 +1849,73 @@ mod tests {
                     "done": false
                 }"#;
 
-            speech_mock_client.expect_response(
-                Response::builder()
-                    .status(200)
-                    .body(in_progress_response.as_bytes().to_vec())
-                    .unwrap(),
-            );
-        }
+                speech_mock_client.expect_response(
+                    Response::builder()
+                        .status(200)
+                        .body(in_progress_response.as_bytes().to_vec())
+                        .unwrap(),
+                );
+            }
 
-        struct MockRuntime {
-            elapsed_time: std::cell::RefCell<Duration>,
-        }
+            struct MockRuntime {
+                elapsed_time: std::cell::RefCell<Duration>,
+            }
 
-        impl MockRuntime {
-            fn new() -> Self {
-                Self {
-                    elapsed_time: std::cell::RefCell::new(Duration::from_secs(0)),
+            impl MockRuntime {
+                fn new() -> Self {
+                    Self {
+                        elapsed_time: std::cell::RefCell::new(Duration::from_secs(0)),
+                    }
                 }
             }
-        }
 
-        impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
-            async fn sleep(&self, duration: Duration) {
-                // Simulate time passing
-                let mut elapsed = self.elapsed_time.borrow_mut();
-                *elapsed += duration;
+            impl golem_ai_stt::runtime::AsyncRuntime for MockRuntime {
+                async fn sleep(&self, duration: Duration) {
+                    // Simulate time passing
+                    let mut elapsed = self.elapsed_time.borrow_mut();
+                    *elapsed += duration;
+                }
             }
-        }
 
-        let mock_runtime = MockRuntime::new();
+            let mock_runtime = MockRuntime::new();
 
-        let service_account_key = create_test_service_account_key();
-        let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
+            let service_account_key = create_test_service_account_key();
+            let auth = GcpAuth::new(service_account_key, auth_mock_client).unwrap();
 
-        let client = SpeechToTextClient::new(
-            auth.into(),
-            speech_mock_client,
-            "us-central1".to_string(),
-            mock_runtime,
-        );
+            let client = SpeechToTextClient::new(
+                auth.into(),
+                speech_mock_client,
+                "us-central1".to_string(),
+                mock_runtime,
+            );
 
-        let operation_name =
-            "projects/test-project-id/locations/us-central1/operations/operation-123";
-        let result = client
-            .wait_for_batch_recognize_completion(
-                "test-request-id",
-                operation_name,
-                Duration::from_millis(5), // Very short timeout
-            )
-            .await;
+            let operation_name =
+                "projects/test-project-id/locations/us-central1/operations/operation-123";
+            let result = client
+                .wait_for_batch_recognize_completion(
+                    "test-request-id",
+                    operation_name,
+                    Duration::from_millis(5), // Very short timeout
+                )
+                .await;
 
-        assert!(
-            client.runtime.elapsed_time.borrow().as_millis() > 0,
-            "Elapsed time should be greater than zero"
-        );
+            assert!(
+                client.runtime.elapsed_time.borrow().as_millis() > 0,
+                "Elapsed time should be greater than zero"
+            );
 
-        assert!(result.is_err());
-        let error = result.unwrap_err();
-        match error {
-            SttError::APIInternalServerError {
-                request_id,
-                provider_error,
-            } => {
-                assert_eq!(request_id, operation_name);
-                assert!(provider_error.contains("Operation did not complete within"));
+            assert!(result.is_err());
+            let error = result.unwrap_err();
+            match error {
+                SttError::APIInternalServerError {
+                    request_id,
+                    provider_error,
+                } => {
+                    assert_eq!(request_id, operation_name);
+                    assert!(provider_error.contains("Operation did not complete within"));
+                }
+                _ => panic!("Expected APIInternalServerError timeout error"),
             }
-            _ => panic!("Expected APIInternalServerError timeout error"),
-        }
+        });
     }
 }

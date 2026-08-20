@@ -17,14 +17,14 @@ pub use config::OpenAiEmbedHostConfig;
 pub struct OpenAI;
 
 impl OpenAI {
-    fn embeddings(
+    async fn embeddings(
         client: EmbeddingsApi,
         inputs: Vec<ContentPart>,
         config: Config,
     ) -> Result<EmbeddingResponse, Error> {
         let request = create_request(inputs, config);
         match request {
-            Ok(request) => match client.generate_embeding(request) {
+            Ok(request) => match client.generate_embeding(request).await {
                 Ok(response) => process_embedding_response(response),
                 Err(err) => Err(err),
             },
@@ -36,17 +36,17 @@ impl OpenAI {
 impl EmbeddingProvider for OpenAI {
     type ProviderConfig = OpenAiEmbedConfig;
 
-    fn generate(
+    async fn generate(
         provider_config: Self::ProviderConfig,
         inputs: Vec<ContentPart>,
         config: Config,
     ) -> Result<EmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         let client = EmbeddingsApi::new(&provider_config);
-        Self::embeddings(client, inputs, config)
+        Self::embeddings(client, inputs, config).await
     }
 
-    fn rerank(
+    async fn rerank(
         _provider_config: Self::ProviderConfig,
         _query: String,
         _documents: Vec<String>,

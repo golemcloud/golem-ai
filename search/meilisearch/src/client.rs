@@ -1,6 +1,6 @@
+use golem_ai_http::{Client, Method, RequestBuilder, Response};
 use golem_ai_search::error::{from_reqwest_error, internal_error, search_error_from_status};
 use golem_ai_search::model::SearchError;
-use golem_wasi_http::{Client, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -204,20 +204,10 @@ impl MeilisearchApi {
         }
     }
 
-    fn create_request(&self, method: &str, url: &str) -> RequestBuilder {
+    fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
         trace!("[Meilisearch] HTTP {method} {url}");
 
-        let mut req = match method {
-            "GET" => self.client.get(url),
-            "POST" => self.client.post(url),
-            "PUT" => self.client.put(url),
-            "DELETE" => self.client.delete(url),
-            "PATCH" => self.client.patch(url),
-            _ => self.client.request(
-                golem_wasi_http::Method::from_bytes(method.as_bytes()).unwrap(),
-                url,
-            ),
-        };
+        let mut req = self.client.request(method, url);
 
         // NOTE: secret resolved here immediately before the outgoing request.
         if let Some(api_key) = &self.api_key {
@@ -229,7 +219,7 @@ impl MeilisearchApi {
     }
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, SearchError> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, SearchError> {
     let status = response.status();
 
     trace!("Received response from Meilisearch API: {response:?}");
@@ -237,6 +227,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     if status.is_success() {
         let body = response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))?;
 
         trace!("Received response from Meilisearch API: {body:?}");
@@ -245,6 +236,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         trace!("Received {status} response from Meilisearch API: {error_body:?}");
@@ -254,33 +246,35 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
 }
 
 impl MeilisearchApi {
-    pub fn list_indexes(&self) -> Result<MeilisearchIndexListResponse, SearchError> {
+    pub async fn list_indexes(&self) -> Result<MeilisearchIndexListResponse, SearchError> {
         trace!("Listing indexes");
 
         let url = format!("{}/indexes", self.base_url);
 
         let response = self
-            .create_request("GET", &url)
+            .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to list indexes: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn _get_index(&self, index_uid: &str) -> Result<MeilisearchIndex, SearchError> {
+    pub async fn _get_index(&self, index_uid: &str) -> Result<MeilisearchIndex, SearchError> {
         trace!("Getting index: {index_uid}");
 
         let url = format!("{}/indexes/{}", self.base_url, index_uid);
 
         let response = self
-            .create_request("GET", &url)
+            .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to get index: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn create_index(
+    pub async fn create_index(
         &self,
         request: &MeilisearchCreateIndexRequest,
     ) -> Result<MeilisearchTask, SearchError> {
@@ -289,29 +283,31 @@ impl MeilisearchApi {
         let url = format!("{}/indexes", self.base_url);
 
         let response = self
-            .create_request("POST", &url)
+            .create_request(Method::POST, &url)
             .json(request)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to create index: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_index(&self, index_uid: &str) -> Result<MeilisearchTask, SearchError> {
+    pub async fn delete_index(&self, index_uid: &str) -> Result<MeilisearchTask, SearchError> {
         trace!("Deleting index: {index_uid}");
 
         let url = format!("{}/indexes/{}", self.base_url, index_uid);
 
         let response = self
-            .create_request("DELETE", &url)
+            .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to delete index: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
     #[allow(unused)]
-    pub fn get_documents(
+    pub async fn get_documents(
         &self,
         index_uid: &str,
         request: &MeilisearchDocumentFetchRequest,
@@ -321,15 +317,16 @@ impl MeilisearchApi {
         let url = format!("{}/indexes/{}/documents/fetch", self.base_url, index_uid);
 
         let response = self
-            .create_request("POST", &url)
+            .create_request(Method::POST, &url)
             .json(request)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to get documents: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn get_document(
+    pub async fn get_document(
         &self,
         index_uid: &str,
         document_id: &str,
@@ -342,18 +339,19 @@ impl MeilisearchApi {
         );
 
         let response = self
-            .create_request("GET", &url)
+            .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to get document: {e}")))?;
 
         if response.status() == 404 {
             Ok(None)
         } else {
-            Ok(Some(parse_response(response)?))
+            Ok(Some(parse_response(response).await?))
         }
     }
 
-    pub fn add_documents(
+    pub async fn add_documents(
         &self,
         index_uid: &str,
         documents: &[MeilisearchDocument],
@@ -367,15 +365,16 @@ impl MeilisearchApi {
         let url = format!("{}/indexes/{}/documents", self.base_url, index_uid);
 
         let response = self
-            .create_request("POST", &url)
+            .create_request(Method::POST, &url)
             .json(documents)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to add documents: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn _update_documents(
+    pub async fn _update_documents(
         &self,
         index_uid: &str,
         documents: &[MeilisearchDocument],
@@ -389,15 +388,16 @@ impl MeilisearchApi {
         let url = format!("{}/indexes/{}/documents", self.base_url, index_uid);
 
         let response = self
-            .create_request("PUT", &url)
+            .create_request(Method::PUT, &url)
             .json(documents)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to update documents: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_document(
+    pub async fn delete_document(
         &self,
         index_uid: &str,
         document_id: &str,
@@ -410,14 +410,15 @@ impl MeilisearchApi {
         );
 
         let response = self
-            .create_request("DELETE", &url)
+            .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to delete document: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_documents(
+    pub async fn delete_documents(
         &self,
         index_uid: &str,
         document_ids: &[String],
@@ -434,28 +435,33 @@ impl MeilisearchApi {
         );
 
         let response = self
-            .create_request("POST", &url)
+            .create_request(Method::POST, &url)
             .json(document_ids)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to delete documents: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn _delete_all_documents(&self, index_uid: &str) -> Result<MeilisearchTask, SearchError> {
+    pub async fn _delete_all_documents(
+        &self,
+        index_uid: &str,
+    ) -> Result<MeilisearchTask, SearchError> {
         trace!("Deleting all documents from index: {index_uid}");
 
         let url = format!("{}/indexes/{}/documents", self.base_url, index_uid);
 
         let response = self
-            .create_request("DELETE", &url)
+            .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to delete all documents: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn search(
+    pub async fn search(
         &self,
         index_uid: &str,
         request: &MeilisearchSearchRequest,
@@ -465,28 +471,30 @@ impl MeilisearchApi {
         let url = format!("{}/indexes/{}/search", self.base_url, index_uid);
 
         let response = self
-            .create_request("POST", &url)
+            .create_request(Method::POST, &url)
             .json(request)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to search: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn get_settings(&self, index_uid: &str) -> Result<MeilisearchSettings, SearchError> {
+    pub async fn get_settings(&self, index_uid: &str) -> Result<MeilisearchSettings, SearchError> {
         trace!("Getting settings for index: {index_uid}");
 
         let url = format!("{}/indexes/{}/settings", self.base_url, index_uid);
 
         let response = self
-            .create_request("GET", &url)
+            .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to get settings: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn update_settings(
+    pub async fn update_settings(
         &self,
         index_uid: &str,
         settings: &MeilisearchSettings,
@@ -496,52 +504,56 @@ impl MeilisearchApi {
         let url = format!("{}/indexes/{}/settings", self.base_url, index_uid);
 
         let response = self
-            .create_request("PATCH", &url)
+            .create_request(Method::PATCH, &url)
             .json(settings)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to update settings: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn _reset_settings(&self, index_uid: &str) -> Result<MeilisearchTask, SearchError> {
+    pub async fn _reset_settings(&self, index_uid: &str) -> Result<MeilisearchTask, SearchError> {
         trace!("Resetting settings for index: {index_uid}");
 
         let url = format!("{}/indexes/{}/settings", self.base_url, index_uid);
 
         let response = self
-            .create_request("DELETE", &url)
+            .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to reset settings: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
     // Task Management (for checking async operation status)
-    pub fn get_task(&self, task_uid: u64) -> Result<MeilisearchTask, SearchError> {
+    pub async fn get_task(&self, task_uid: u64) -> Result<MeilisearchTask, SearchError> {
         trace!("Getting task: {task_uid}");
 
         let url = format!("{}/tasks/{}", self.base_url, task_uid);
 
         let response = self
-            .create_request("GET", &url)
+            .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to get task: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
     /// Production-level wait_for_task with exponential backoff
-    pub fn wait_for_task(&self, task_uid: u64) -> Result<(), SearchError> {
+    pub async fn wait_for_task(&self, task_uid: u64) -> Result<(), SearchError> {
         self.wait_for_task_with_config(
             task_uid,
             30,
             Duration::from_millis(100),
             Duration::from_secs(5),
         )
+        .await
     }
 
-    pub fn wait_for_task_with_config(
+    pub async fn wait_for_task_with_config(
         &self,
         task_uid: u64,
         max_attempts: u32,
@@ -553,7 +565,7 @@ impl MeilisearchApi {
         let mut delay = initial_delay;
 
         for attempt in 1..=max_attempts {
-            let task = self.get_task(task_uid)?;
+            let task = self.get_task(task_uid).await?;
             trace!(
                 "Task {} attempt {}/{}: status = {}",
                 task_uid,
@@ -583,7 +595,8 @@ impl MeilisearchApi {
                         "Task {task_uid} is still {status}, waiting {delay:?} before retry {attempt}/{max_attempts}"
                     );
 
-                    std::thread::sleep(delay);
+                    let delay_nanos = u64::try_from(delay.as_nanos()).unwrap_or(u64::MAX);
+                    wasip3::clocks::monotonic_clock::wait_for(delay_nanos).await;
 
                     let next_delay = std::cmp::min(delay * 2, max_delay);
 

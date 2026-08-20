@@ -3,7 +3,7 @@ use crate::ExecutionSession;
 #[repr(u8)]
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum LanguageKind {
@@ -13,7 +13,7 @@ pub enum LanguageKind {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Language {
@@ -24,7 +24,7 @@ pub struct Language {
 #[repr(u8)]
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Encoding {
@@ -35,7 +35,7 @@ pub enum Encoding {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct File {
@@ -46,7 +46,7 @@ pub struct File {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Limits {
@@ -58,7 +58,7 @@ pub struct Limits {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct StageResult {
@@ -70,7 +70,7 @@ pub struct StageResult {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExecResult {
@@ -82,7 +82,7 @@ pub struct ExecResult {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
@@ -104,7 +104,7 @@ impl std::error::Error for Error {}
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct RunOptions {

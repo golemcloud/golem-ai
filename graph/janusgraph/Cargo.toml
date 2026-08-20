@@ -17,11 +17,13 @@ golem = ["dep:golem-rust", "golem-ai-graph/golem"]
 [dependencies]
 golem-ai-graph = { workspace = true }
 
+async-trait = "0.1.89"
 base64 = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
+golem-ai-http = { workspace = true }
 golem-rust = { workspace = true, optional = true }
-golem-wasi-http = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { version = "1.17.0", features = ["v4"] }
+wasip3 = { workspace = true }

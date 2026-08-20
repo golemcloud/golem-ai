@@ -22,9 +22,8 @@ log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 base64 = { workspace = true }
-golem-wasi-http = { workspace = true }
+golem-ai-http = { workspace = true }
+wasip3 = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
 urlencoding = "2.1"
-bytes = "1.7"
-futures-util = "0.3"
 uuid = { version = "1.0", features = ["v4"] }

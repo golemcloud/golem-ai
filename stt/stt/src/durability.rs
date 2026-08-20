@@ -73,8 +73,7 @@ mod passthrough_impl {
 #[cfg(feature = "golem")]
 mod durable_impl {
     use bytes::Bytes;
-    use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
-    use golem_rust::durability::Durability;
+    use golem_rust::durability::{Durability, DurableFunctionType};
 
     use crate::durability::{DurableStt, ExtendedSttProvider};
 
@@ -85,7 +84,7 @@ mod durable_impl {
     };
     use crate::model::types::SttError;
     use crate::{LanguageProvider, TranscriptionProvider, LOGGING_STATE};
-    use golem_rust::{with_persistence_level_async, FromValueAndType, IntoValue, PersistenceLevel};
+    use golem_rust::{FromSchema, IntoSchema};
 
     impl<Impl: ExtendedSttProvider> TranscriptionProvider for DurableStt<Impl> {
         type ProviderConfig = <Impl as SttTranscriptionProvider>::ProviderConfig;
@@ -95,49 +94,28 @@ mod durable_impl {
             request: TranscriptionRequest,
         ) -> Result<TranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
+            let input = TranscribeInput {
+                request: request.clone(),
+            };
             let durability = Durability::<TranscriptionResult, SttError>::new(
                 "golem_ai_stt",
                 "transcribe",
                 DurableFunctionType::WriteRemote,
+                &input,
             );
-
-            let audio_bytes = Bytes::from(request.audio);
-            let request_id = request.request_id;
-            let config = request.config;
-            let options = request.options;
-
-            if durability.is_live() {
-                let result = with_persistence_level_async(PersistenceLevel::PersistNothing, || {
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
+            durability
+                .run_async(|| {
                     let request = SttTranscriptionRequest {
-                        request_id: request_id.clone(),
-                        audio: audio_bytes.clone(),
-                        config,
-                        options: options.clone(),
+                        request_id: request.request_id,
+                        audio: Bytes::from(request.audio),
+                        config: request.config,
+                        options: request.options,
                     };
-
-                    async move { Impl::transcribe(provider_config, request).await }
+                    Impl::transcribe(provider_config, request)
                 })
-                .await;
-
-                // Reconstruct original request for persistence.
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                let orig_request_copy = TranscriptionRequest {
-                    request_id,
-                    audio: audio_bytes.to_vec(),
-                    config,
-                    options,
-                };
-
-                durability.persist(
-                    TranscribeInput {
-                        request: orig_request_copy,
-                    },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                .await
         }
 
         async fn transcribe_many(
@@ -145,67 +123,32 @@ mod durable_impl {
             requests: Vec<TranscriptionRequest>,
         ) -> Result<MultiTranscriptionResult, SttError> {
             LOGGING_STATE.with_borrow_mut(|state| state.init());
+            let input = TranscribeManyInput {
+                requests: requests.clone(),
+            };
             let durability = Durability::<MultiTranscriptionResult, SttError>::new(
                 "golem_ai_stt",
                 "transcribe_many",
                 DurableFunctionType::WriteRemote,
+                &input,
             );
 
-            let requests_with_bytes: Vec<_> = requests
-                .into_iter()
-                .map(|req| {
-                    (
-                        Bytes::from(req.audio),
-                        req.request_id,
-                        req.config,
-                        req.options,
-                    )
+            // NOTE: `provider_config` deliberately not included in the persisted input,
+            // because it can carry secrets (API keys etc.).
+            durability
+                .run_async(|| {
+                    let stt_requests: Vec<SttTranscriptionRequest> = requests
+                        .into_iter()
+                        .map(|request| SttTranscriptionRequest {
+                            request_id: request.request_id,
+                            audio: Bytes::from(request.audio),
+                            config: request.config,
+                            options: request.options,
+                        })
+                        .collect();
+                    Impl::transcribe_many(provider_config, stt_requests)
                 })
-                .collect();
-
-            if durability.is_live() {
-                let stt_requests: Vec<SttTranscriptionRequest> = requests_with_bytes
-                    .iter()
-                    .map(
-                        |(audio_bytes, request_id, config, options)| SttTranscriptionRequest {
-                            request_id: request_id.clone(),
-                            audio: audio_bytes.clone(),
-                            config: *config,
-                            options: options.clone(),
-                        },
-                    )
-                    .collect();
-
-                let result =
-                    with_persistence_level_async(PersistenceLevel::PersistNothing, || async move {
-                        Impl::transcribe_many(provider_config, stt_requests).await
-                    })
-                    .await;
-
-                // Reconstruct original requests for persistence.
-                // NOTE: `provider_config` deliberately not included in the persisted input,
-                // because it can carry secrets (API keys etc.).
-                let orig_requests_copy: Vec<TranscriptionRequest> = requests_with_bytes
-                    .into_iter()
-                    .map(
-                        |(audio_bytes, request_id, config, options)| TranscriptionRequest {
-                            request_id,
-                            audio: audio_bytes.to_vec(),
-                            config,
-                            options,
-                        },
-                    )
-                    .collect();
-
-                durability.persist(
-                    TranscribeManyInput {
-                        requests: orig_requests_copy,
-                    },
-                    result,
-                )
-            } else {
-                durability.replay()
-            }
+                .await
         }
     }
 
@@ -215,12 +158,12 @@ mod durable_impl {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct TranscribeInput {
         request: TranscriptionRequest,
     }
 
-    #[derive(Debug, Clone, PartialEq, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, PartialEq, IntoSchema, FromSchema)]
     struct TranscribeManyInput {
         requests: Vec<TranscriptionRequest>,
     }

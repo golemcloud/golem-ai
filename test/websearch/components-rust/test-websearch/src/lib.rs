@@ -1,5 +1,5 @@
-use golem_ai_web_search::model::web_search::{SearchError, SearchParams};
 use golem_ai_web_search::model::types::{SafeSearchLevel, TimeRange};
+use golem_ai_web_search::model::web_search::{SearchError, SearchParams};
 use golem_ai_web_search::WebSearchProvider;
 use golem_rust::{agent_definition, agent_implementation, mark_atomic_operation};
 
@@ -72,13 +72,13 @@ const PROVIDER: &str = "serper";
 pub trait WebsearchTest {
     fn new(name: String) -> Self;
 
-    fn test1(&self) -> String;
+    async fn test1(&self) -> String;
     async fn test2(&self) -> String;
-    fn test3(&self) -> String;
-    fn test4(&self) -> String;
-    fn test5(&self) -> String;
-    fn test6(&self) -> String;
-    fn test7(&self) -> String;
+    async fn test3(&self) -> String;
+    async fn test4(&self) -> String;
+    async fn test5(&self) -> String;
+    async fn test6(&self) -> String;
+    async fn test7(&self) -> String;
 }
 
 struct WebsearchTestImpl {
@@ -91,7 +91,7 @@ impl WebsearchTest for WebsearchTestImpl {
         Self { _name: name }
     }
 
-    fn test1(&self) -> String {
+    async fn test1(&self) -> String {
         let params = SearchParams {
             query: "weather forecast Slovenia".to_string(),
             safe_search: Some(SafeSearchLevel::Medium),
@@ -107,7 +107,7 @@ impl WebsearchTest for WebsearchTestImpl {
         };
 
         println!("Sending search request using {} provider...", PROVIDER);
-        let response = Provider::search_once(provider_config(), params);
+        let response = Provider::search_once(provider_config(), params).await;
         println!("Response: {:?}", response);
 
         match response {
@@ -204,16 +204,11 @@ impl WebsearchTest for WebsearchTestImpl {
         let mut round = 0;
 
         println!("Getting first page...");
-        match session.next_page() {
+        match session.next_page().await {
             Ok(results) => {
                 output.push_str(&format!("First page - {} results:\n", results.len()));
                 for (i, result) in results.iter().enumerate() {
-                    output.push_str(&format!(
-                        "{}. {}\n   {}\n",
-                        i + 1,
-                        result.title,
-                        result.url
-                    ));
+                    output.push_str(&format!("{}. {}\n   {}\n", i + 1, result.title, result.url));
                 }
                 output.push('\n');
             }
@@ -237,7 +232,7 @@ impl WebsearchTest for WebsearchTestImpl {
         }
 
         println!("Getting second page...");
-        match session.next_page() {
+        match session.next_page().await {
             Ok(results) => {
                 if results.is_empty() {
                     output.push_str("No more results available (end of pagination)\n");
@@ -296,7 +291,7 @@ impl WebsearchTest for WebsearchTestImpl {
         output
     }
 
-    fn test3(&self) -> String {
+    async fn test3(&self) -> String {
         let params = SearchParams {
             query: "artificial intelligence breakthrough".to_string(),
             safe_search: Some(SafeSearchLevel::Medium),
@@ -315,7 +310,7 @@ impl WebsearchTest for WebsearchTestImpl {
             "Searching for recent AI news using {} provider...",
             PROVIDER
         );
-        let response = Provider::search_once(provider_config(), params);
+        let response = Provider::search_once(provider_config(), params).await;
 
         match response {
             Ok((results, metadata)) => {
@@ -358,7 +353,7 @@ impl WebsearchTest for WebsearchTestImpl {
         }
     }
 
-    fn test4(&self) -> String {
+    async fn test4(&self) -> String {
         let domains = vec![
             "nature.com".to_string(),
             "science.org".to_string(),
@@ -383,7 +378,7 @@ impl WebsearchTest for WebsearchTestImpl {
             "Searching academic sources for climate research using {} provider...",
             PROVIDER
         );
-        let response = Provider::search_once(provider_config(), params);
+        let response = Provider::search_once(provider_config(), params).await;
 
         match response {
             Ok((results, metadata)) => {
@@ -391,8 +386,7 @@ impl WebsearchTest for WebsearchTestImpl {
                 output.push_str("Climate research from academic sources:\n\n");
 
                 if results.is_empty() {
-                    output
-                        .push_str("No results found from the specified academic domains.\n");
+                    output.push_str("No results found from the specified academic domains.\n");
                 }
 
                 for (i, result) in results.iter().enumerate() {
@@ -401,8 +395,7 @@ impl WebsearchTest for WebsearchTestImpl {
                     output.push_str(&format!("   Snippet: {}\n", result.snippet));
 
                     if let Some(display_url) = &result.display_url {
-                        output
-                            .push_str(&format!("   Display URL: {}\n", display_url));
+                        output.push_str(&format!("   Display URL: {}\n", display_url));
                     }
 
                     output.push('\n');
@@ -434,7 +427,7 @@ impl WebsearchTest for WebsearchTestImpl {
         }
     }
 
-    fn test5(&self) -> String {
+    async fn test5(&self) -> String {
         let excluded_domains = vec![
             "amazon.com".to_string(),
             "ebay.com".to_string(),
@@ -459,7 +452,7 @@ impl WebsearchTest for WebsearchTestImpl {
             "Searching hiking gear reviews (excluding e-commerce) using {} provider...",
             PROVIDER
         );
-        let response = Provider::search_once(provider_config(), params);
+        let response = Provider::search_once(provider_config(), params).await;
 
         match response {
             Ok((results, metadata)) => {
@@ -473,21 +466,11 @@ impl WebsearchTest for WebsearchTestImpl {
 
                     if let Some(images) = &result.images {
                         if !images.is_empty() {
-                            output.push_str(&format!(
-                                "   Images found: {}\n",
-                                images.len()
-                            ));
+                            output.push_str(&format!("   Images found: {}\n", images.len()));
                             for (j, image) in images.iter().enumerate().take(2) {
-                                output.push_str(&format!(
-                                    "     Image {}: {}\n",
-                                    j + 1,
-                                    image.url
-                                ));
+                                output.push_str(&format!("     Image {}: {}\n", j + 1, image.url));
                                 if let Some(desc) = &image.description {
-                                    output.push_str(&format!(
-                                        "     Description: {}\n",
-                                        desc
-                                    ));
+                                    output.push_str(&format!("     Description: {}\n", desc));
                                 }
                             }
                         }
@@ -529,7 +512,7 @@ impl WebsearchTest for WebsearchTestImpl {
         }
     }
 
-    fn test6(&self) -> String {
+    async fn test6(&self) -> String {
         let params = SearchParams {
             query: "slovenian recipes".to_string(),
             safe_search: Some(SafeSearchLevel::Medium),
@@ -548,7 +531,7 @@ impl WebsearchTest for WebsearchTestImpl {
             "Searching Slovenian recipes in Slovenian language using {} provider...",
             PROVIDER
         );
-        let response = Provider::search_once(provider_config(), params);
+        let response = Provider::search_once(provider_config(), params).await;
 
         match response {
             Ok((results, metadata)) => {
@@ -557,11 +540,8 @@ impl WebsearchTest for WebsearchTestImpl {
 
                 if results.is_empty() {
                     output.push_str("No results found. This might be because:\n");
-                    output.push_str(
-                        "- The provider doesn't support Slovenian language searches\n",
-                    );
-                    output
-                        .push_str("- Limited content available in Slovenian\n");
+                    output.push_str("- The provider doesn't support Slovenian language searches\n");
+                    output.push_str("- Limited content available in Slovenian\n");
                     output.push_str("- Regional restrictions\n\n");
                 }
 
@@ -572,10 +552,7 @@ impl WebsearchTest for WebsearchTestImpl {
 
                     if let Some(images) = &result.images {
                         if !images.is_empty() {
-                            output.push_str(&format!(
-                                "   Recipe images: {}\n",
-                                images.len()
-                            ));
+                            output.push_str(&format!("   Recipe images: {}\n", images.len()));
                         }
                     }
 
@@ -600,7 +577,7 @@ impl WebsearchTest for WebsearchTestImpl {
         }
     }
 
-    fn test7(&self) -> String {
+    async fn test7(&self) -> String {
         let trusted_domains = vec![
             "commonsensemedia.org".to_string(),
             "safekids.org".to_string(),
@@ -625,14 +602,12 @@ impl WebsearchTest for WebsearchTestImpl {
             "Searching child safety resources with high safe search using {} provider...",
             PROVIDER
         );
-        let response = Provider::search_once(provider_config(), params);
+        let response = Provider::search_once(provider_config(), params).await;
 
         match response {
             Ok((results, metadata)) => {
                 let mut output = String::new();
-                output.push_str(
-                    "Child Internet Safety Resources (High Safe Search):\n\n",
-                );
+                output.push_str("Child Internet Safety Resources (High Safe Search):\n\n");
 
                 for (i, result) in results.iter().enumerate() {
                     output.push_str(&format!("{}. {}\n", i + 1, result.title));
@@ -640,37 +615,26 @@ impl WebsearchTest for WebsearchTestImpl {
                     output.push_str(&format!("   Snippet: {}\n", result.snippet));
 
                     if let Some(chunks) = &result.content_chunks {
-                        output.push_str(&format!(
-                            "   Content chunks: {}\n",
-                            chunks.len()
-                        ));
+                        output.push_str(&format!("   Content chunks: {}\n", chunks.len()));
                         for (j, chunk) in chunks.iter().enumerate().take(2) {
                             let preview = if chunk.len() > 100 {
                                 format!("{}...", &chunk[..100])
                             } else {
                                 chunk.clone()
                             };
-                            output.push_str(&format!(
-                                "     Chunk {}: {}\n",
-                                j + 1,
-                                preview
-                            ));
+                            output.push_str(&format!("     Chunk {}: {}\n", j + 1, preview));
                         }
                     }
 
                     if let Some(score) = result.score {
-                        output
-                            .push_str(&format!("   Relevance score: {:.2}\n", score));
+                        output.push_str(&format!("   Relevance score: {:.2}\n", score));
                     }
 
                     output.push('\n');
                 }
 
                 if let Some(meta) = metadata {
-                    output.push_str(&format!(
-                        "Safe search level: {:?}\n",
-                        meta.safe_search
-                    ));
+                    output.push_str(&format!("Safe search level: {:?}\n", meta.safe_search));
                     output.push_str("Time range: past year\n");
                     output.push_str(&format!(
                         "Target trusted domains: {}\n",

@@ -17,13 +17,13 @@ pub use config::HuggingFaceHostConfig;
 pub struct HuggingFace;
 
 impl HuggingFace {
-    fn embeddings(
+    async fn embeddings(
         client: EmbeddingsApi,
         inputs: Vec<ContentPart>,
         config: Config,
     ) -> Result<EmbeddingResponse, Error> {
         let (request, model) = create_embedding_request(inputs, config)?;
-        match client.generate_embedding(request, &model) {
+        match client.generate_embedding(request, &model).await {
             Ok(response) => process_embedding_response(response, model),
             Err(err) => Err(err),
         }
@@ -33,17 +33,17 @@ impl HuggingFace {
 impl EmbeddingProvider for HuggingFace {
     type ProviderConfig = HuggingFaceConfig;
 
-    fn generate(
+    async fn generate(
         provider_config: Self::ProviderConfig,
         inputs: Vec<ContentPart>,
         config: Config,
     ) -> Result<EmbeddingResponse, Error> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
         let client = EmbeddingsApi::new(&provider_config);
-        Self::embeddings(client, inputs, config)
+        Self::embeddings(client, inputs, config).await
     }
 
-    fn rerank(
+    async fn rerank(
         _provider_config: Self::ProviderConfig,
         _query: String,
         _documents: Vec<String>,

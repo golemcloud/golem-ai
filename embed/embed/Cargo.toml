@@ -11,8 +11,8 @@ description = "Library for working with AI models and providers APIs on Golem Cl
 path = "src/lib.rs"
 
 [dependencies]
+golem-ai-http = { workspace = true }
 golem-rust = { workspace = true, optional = true }
-golem-wasi-http = { workspace = true }
 log = { workspace = true }
 mime = "0.3.17"
 nom = { version = "7.1", default-features = false }

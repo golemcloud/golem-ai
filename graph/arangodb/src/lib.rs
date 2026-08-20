@@ -16,6 +16,7 @@ use golem_ai_graph::config::with_config_key;
 use golem_ai_graph::durability::{DurableGraph, ExtendedGuest};
 use golem_ai_graph::model::{connection::ConnectionConfig, errors::GraphError};
 use golem_ai_graph::TransactionProvider;
+use std::cell::Cell;
 use std::sync::Arc;
 
 pub struct ArangoDb;
@@ -27,6 +28,7 @@ pub struct Graph {
 pub struct Transaction {
     api: Arc<ArangoDbApi>,
     transaction_id: String,
+    active: Cell<bool>,
 }
 
 pub struct SchemaManager {
@@ -35,7 +37,7 @@ pub struct SchemaManager {
 
 impl ExtendedGuest for ArangoDb {
     type Graph = Graph;
-    fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
+    async fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
         let host = with_config_key(config, "ARANGO_HOST")
             .or_else(|| with_config_key(config, "ARANGODB_HOST"))
             .or_else(|| {
@@ -88,6 +90,7 @@ impl Transaction {
         Self {
             api,
             transaction_id,
+            active: Cell::new(true),
         }
     }
 }

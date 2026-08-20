@@ -3,8 +3,8 @@ use crate::model::types::{RawBytes, VideoError};
 use mime_guess::from_path;
 
 /// Downloads an image from a URL and returns the bytes with mime type
-pub fn download_image_from_url(url: &str) -> Result<RawBytes, VideoError> {
-    use golem_wasi_http::Client;
+pub async fn download_image_from_url(url: &str) -> Result<RawBytes, VideoError> {
+    use golem_ai_http::Client;
 
     let client = Client::builder()
         .build()
@@ -13,6 +13,7 @@ pub fn download_image_from_url(url: &str) -> Result<RawBytes, VideoError> {
     let response = client
         .get(url)
         .send()
+        .await
         .map_err(|err| internal_error(format!("Failed to download image from {url}: {err}")))?;
 
     if !response.status().is_success() {
@@ -33,6 +34,7 @@ pub fn download_image_from_url(url: &str) -> Result<RawBytes, VideoError> {
 
     let bytes = response
         .bytes()
+        .await
         .map_err(|err| internal_error(format!("Failed to read image data from {url}: {err}")))?;
 
     Ok(RawBytes {
@@ -42,8 +44,8 @@ pub fn download_image_from_url(url: &str) -> Result<RawBytes, VideoError> {
 }
 
 /// Downloads a video from a URL and returns the bytes with mime type
-pub fn download_video_from_url(url: &str) -> Result<RawBytes, VideoError> {
-    use golem_wasi_http::Client;
+pub async fn download_video_from_url(url: &str) -> Result<RawBytes, VideoError> {
+    use golem_ai_http::Client;
 
     let client = Client::builder()
         .build()
@@ -52,6 +54,7 @@ pub fn download_video_from_url(url: &str) -> Result<RawBytes, VideoError> {
     let response = client
         .get(url)
         .send()
+        .await
         .map_err(|err| internal_error(format!("Failed to download video from {url}: {err}")))?;
 
     if !response.status().is_success() {
@@ -72,6 +75,7 @@ pub fn download_video_from_url(url: &str) -> Result<RawBytes, VideoError> {
 
     let bytes = response
         .bytes()
+        .await
         .map_err(|err| internal_error(format!("Failed to read video data from {url}: {err}")))?;
 
     Ok(RawBytes {

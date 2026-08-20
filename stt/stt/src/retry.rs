@@ -64,7 +64,7 @@ impl<R: AsyncRuntime> Retry<R> {
         loop {
             let result = operation().await;
 
-            if attempts < self.config.max_attempts - 1 && should_retry(&result) && result.is_err() {
+            if attempts < self.config.max_attempts.saturating_sub(1) && should_retry(&result) {
                 attempts += 1;
                 let delay = std::cmp::min(
                     self.config.min_delay * 2_u32.pow(attempts as u32),

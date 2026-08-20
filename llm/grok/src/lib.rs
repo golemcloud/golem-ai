@@ -7,6 +7,7 @@ use crate::conversions::{
     convert_client_tool_call_to_tool_call, convert_finish_reason, convert_usage, events_to_request,
     process_response,
 };
+use futures::lock::Mutex;
 use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
 use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::event_source::EventSource;
@@ -14,17 +15,16 @@ use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, FinishReason, Response,
     ResponseMetadata, StreamDelta, StreamEvent,
 };
-use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::LlmProvider;
 use log::trace;
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 
 pub use config::GrokConfig;
 #[cfg(feature = "golem")]
 pub use config::GrokHostConfig;
 
 pub struct GrokChatStream {
-    stream: RefCell<Option<EventSource>>,
+    stream: Mutex<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
     finish_reason: RefCell<Option<FinishReason>>,
@@ -33,7 +33,7 @@ pub struct GrokChatStream {
 impl GrokChatStream {
     pub fn new(stream: EventSource) -> LlmChatStream<Self> {
         LlmChatStream::new(GrokChatStream {
-            stream: RefCell::new(Some(stream)),
+            stream: Mutex::new(Some(stream)),
             failure: None,
             finished: RefCell::new(false),
             finish_reason: RefCell::new(None),
@@ -42,7 +42,7 @@ impl GrokChatStream {
 
     pub fn failed(error: Error) -> LlmChatStream<Self> {
         LlmChatStream::new(GrokChatStream {
-            stream: RefCell::new(None),
+            stream: Mutex::new(None),
             failure: Some(error),
             finished: RefCell::new(false),
             finish_reason: RefCell::new(None),
@@ -63,12 +63,8 @@ impl LlmChatStreamState for GrokChatStream {
         *self.finished.borrow_mut() = true;
     }
 
-    fn stream(&self) -> Ref<'_, Option<EventSource>> {
-        self.stream.borrow()
-    }
-
-    fn stream_mut(&self) -> RefMut<'_, Option<EventSource>> {
-        self.stream.borrow_mut()
+    fn stream(&self) -> &Mutex<Option<EventSource>> {
+        &self.stream
     }
 
     fn decode_message(&self, raw: &str) -> Result<Option<StreamEvent>, Error> {
@@ -135,12 +131,15 @@ impl LlmChatStreamState for GrokChatStream {
 pub struct Grok;
 
 impl Grok {
-    fn request(client: CompletionsApi, request: CompletionsRequest) -> Result<Response, Error> {
-        let response = client.send_messages(request)?;
+    async fn request(
+        client: CompletionsApi,
+        request: CompletionsRequest,
+    ) -> Result<Response, Error> {
+        let response = client.send_messages(request).await?;
         process_response(response)
     }
 
-    fn streaming_request(
+    async fn streaming_request(
         client: CompletionsApi,
         mut request: CompletionsRequest,
     ) -> LlmChatStream<GrokChatStream> {
@@ -148,7 +147,7 @@ impl Grok {
         request.stream_options = Some(StreamOptions {
             include_usage: true,
         });
-        match client.stream_send_messages(request) {
+        match client.stream_send_messages(request).await {
             Ok(stream) => GrokChatStream::new(stream),
             Err(err) => GrokChatStream::failed(err),
         }
@@ -166,7 +165,7 @@ impl LlmProvider for Grok {
     ) -> Result<Response, Error> {
         let client = CompletionsApi::new(&provider_config);
         let request = events_to_request(events, config)?;
-        Self::request(client, request)
+        Self::request(client, request).await
     }
 
     async fn stream(
@@ -186,13 +185,9 @@ impl ExtendedLlmProvider for Grok {
     ) -> LlmChatStream<GrokChatStream> {
         let client = CompletionsApi::new(&provider_config);
         match events_to_request(events, config) {
-            Ok(request) => Self::streaming_request(client, request),
+            Ok(request) => Self::streaming_request(client, request).await,
             Err(err) => GrokChatStream::failed(err),
         }
-    }
-
-    fn subscribe(stream: &Self::ChatStream) -> Pollable {
-        stream.subscribe()
     }
 }
 

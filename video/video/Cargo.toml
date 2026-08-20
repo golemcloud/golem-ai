@@ -12,7 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 golem-rust = { workspace = true, optional = true }
-golem-wasi-http = { workspace = true }
+golem-ai-http = { workspace = true }
 log = { workspace = true }
 mime = "0.3.17"
 mime_guess = { workspace = true }

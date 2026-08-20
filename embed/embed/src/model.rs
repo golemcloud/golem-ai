@@ -1,7 +1,7 @@
 #[repr(u8)]
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum TaskType {
@@ -18,7 +18,7 @@ pub enum TaskType {
 #[repr(u8)]
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum OutputFormat {
@@ -30,7 +30,7 @@ pub enum OutputFormat {
 #[repr(u8)]
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum OutputDtype {
@@ -44,7 +44,7 @@ pub enum OutputDtype {
 #[repr(u8)]
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum ErrorCode {
@@ -60,7 +60,7 @@ pub enum ErrorCode {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImageUrl {
@@ -69,7 +69,7 @@ pub struct ImageUrl {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ContentPart {
@@ -79,7 +79,7 @@ pub enum ContentPart {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Kv {
@@ -89,7 +89,7 @@ pub struct Kv {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Config {
@@ -105,7 +105,7 @@ pub struct Config {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Usage {
@@ -115,7 +115,7 @@ pub struct Usage {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub enum VectorData {
@@ -129,7 +129,7 @@ pub enum VectorData {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Embedding {
@@ -139,7 +139,7 @@ pub struct Embedding {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct EmbeddingResponse {
@@ -151,7 +151,7 @@ pub struct EmbeddingResponse {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct RerankResult {
@@ -162,7 +162,7 @@ pub struct RerankResult {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct RerankResponse {
@@ -174,7 +174,7 @@ pub struct RerankResponse {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Error {

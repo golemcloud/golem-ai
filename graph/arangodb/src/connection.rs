@@ -1,4 +1,5 @@
 use crate::{Graph, Transaction};
+use async_trait::async_trait;
 use golem_ai_graph::{
     durability::ProviderGraph,
     model::{
@@ -12,6 +13,7 @@ impl ProviderGraph for Graph {
     type Transaction = Transaction;
 }
 
+#[async_trait(?Send)]
 impl GraphInterface for Graph {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -20,28 +22,28 @@ impl GraphInterface for Graph {
         self
     }
 
-    fn begin_transaction(&self) -> Result<TransactionResource, GraphError> {
-        let transaction_id = self.api.begin_dynamic_transaction(false)?;
+    async fn begin_transaction(&self) -> Result<TransactionResource, GraphError> {
+        let transaction_id = self.api.begin_dynamic_transaction(false).await?;
         let transaction = Transaction::new(self.api.clone(), transaction_id);
         Ok(TransactionResource::new(transaction))
     }
 
-    fn begin_read_transaction(&self) -> Result<TransactionResource, GraphError> {
-        let transaction_id = self.api.begin_dynamic_transaction(true)?;
+    async fn begin_read_transaction(&self) -> Result<TransactionResource, GraphError> {
+        let transaction_id = self.api.begin_dynamic_transaction(true).await?;
         let transaction = Transaction::new(self.api.clone(), transaction_id);
         Ok(TransactionResource::new(transaction))
     }
 
-    fn ping(&self) -> Result<(), GraphError> {
-        self.api.ping()
+    async fn ping(&self) -> Result<(), GraphError> {
+        self.api.ping().await
     }
 
-    fn close(&self) -> Result<(), GraphError> {
+    async fn close(&self) -> Result<(), GraphError> {
         Ok(())
     }
 
-    fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
-        let stats = self.api.get_database_statistics()?;
+    async fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {
+        let stats = self.api.get_database_statistics().await?;
 
         Ok(GraphStatistics {
             vertex_count: Some(stats.vertex_count),

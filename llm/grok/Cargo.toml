@@ -17,8 +17,9 @@ golem = ["dep:golem-rust", "golem-ai-llm/golem"]
 [dependencies]
 golem-ai-llm = { workspace = true }
 
+futures = { workspace = true }
 golem-rust = { workspace = true, optional = true }
-golem-wasi-http = { workspace = true }
+golem-ai-http = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

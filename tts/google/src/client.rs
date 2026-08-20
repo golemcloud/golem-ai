@@ -1,14 +1,20 @@
 use crate::config::GoogleConfig;
 use base64::{engine::general_purpose, Engine as _};
+use golem_ai_http::{Client, Method, RequestBuilder, Response, Timeouts};
 use golem_ai_tts::config::{get_endpoint_config, get_max_retries_config, get_timeout_config};
 use golem_ai_tts::error::{from_reqwest_error, internal_error, tts_error_from_status};
 use golem_ai_tts::model::types::TtsError;
-use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::future::Future;
 use std::time::Duration;
+
+async fn wait_for(delay: Duration) {
+    let delay_nanos = u64::try_from(delay.as_nanos()).unwrap_or(u64::MAX);
+    wasip3::clocks::monotonic_clock::wait_for(delay_nanos).await;
+}
 
 /// Rate limiting configuration
 #[derive(Debug, Clone)]
@@ -53,8 +59,14 @@ pub struct GoogleTtsApi {
 
 impl GoogleTtsApi {
     pub fn new(config: &GoogleConfig) -> Result<Self, TtsError> {
+        let timeout = Duration::from_secs(get_timeout_config());
         let client = Client::builder()
-            .timeout(Duration::from_secs(get_timeout_config()))
+            .timeouts(
+                Timeouts::new()
+                    .connect(timeout)
+                    .first_byte(timeout)
+                    .between_bytes(timeout),
+            )
             .build()
             .map_err(|err| from_reqwest_error("Failed to create HTTP client", err))?;
 
@@ -69,15 +81,15 @@ impl GoogleTtsApi {
         })
     }
 
-    fn get_access_token(&self) -> Result<String, TtsError> {
+    async fn get_access_token(&self) -> Result<String, TtsError> {
         if let Some(ref creds_path) = self.credentials_path {
-            return self.get_token_from_service_account(creds_path);
+            return self.get_token_from_service_account(creds_path).await;
         }
 
-        self.get_token_from_metadata_service()
+        self.get_token_from_metadata_service().await
     }
 
-    fn get_token_from_service_account(&self, creds_path: &str) -> Result<String, TtsError> {
+    async fn get_token_from_service_account(&self, creds_path: &str) -> Result<String, TtsError> {
         let creds_content = std::fs::read_to_string(creds_path)
             .map_err(|e| internal_error(format!("Failed to read service account file: {}", e)))?;
 
@@ -94,33 +106,38 @@ impl GoogleTtsApi {
                 ("assertion", &jwt),
             ])
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Failed to send token request", err))?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let _body = response.text().unwrap_or_default();
+            let _body = response.text().await.unwrap_or_default();
             return Err(tts_error_from_status(status));
         }
 
         let token_response: TokenResponse = response
             .json()
+            .await
             .map_err(|err| from_reqwest_error("Failed to parse JWT token response", err))?;
         Ok(token_response.access_token)
     }
 
-    fn get_token_from_metadata_service(&self) -> Result<String, TtsError> {
+    async fn get_token_from_metadata_service(&self) -> Result<String, TtsError> {
         let response = self.client
             .get("http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token")
             .header("Metadata-Flavor", "Google")
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Failed to get metadata token", err))?;
 
         if !response.status().is_success() {
+            let _body = response.text().await.unwrap_or_default();
             return Err(internal_error("Failed to get token from metadata service"));
         }
 
         let token_response: TokenResponse = response
             .json()
+            .await
             .map_err(|err| from_reqwest_error("Failed to parse metadata token response", err))?;
         Ok(token_response.access_token)
     }
@@ -151,8 +168,8 @@ impl GoogleTtsApi {
             .map_err(|e| internal_error(format!("Failed to create JWT: {}", e)))
     }
 
-    fn create_request(&self, method: Method, url: &str) -> Result<RequestBuilder, TtsError> {
-        let access_token = self.get_access_token()?;
+    async fn create_request(&self, method: Method, url: &str) -> Result<RequestBuilder, TtsError> {
+        let access_token = self.get_access_token().await?;
 
         Ok(self
             .client
@@ -161,14 +178,15 @@ impl GoogleTtsApi {
             .header("Content-Type", "application/json"))
     }
 
-    fn execute_with_retry<F>(&self, operation: F) -> Result<Response, TtsError>
+    async fn execute_with_retry<F, Fut>(&self, operation: F) -> Result<Response, TtsError>
     where
-        F: Fn() -> Result<Response, TtsError>,
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<Response, TtsError>>,
     {
         let mut delay = self.rate_limit_config.initial_delay;
 
         for attempt in 0..=self.rate_limit_config.max_retries {
-            match operation() {
+            match operation().await {
                 Ok(response) => {
                     if response.status().is_success() {
                         return Ok(response);
@@ -176,12 +194,14 @@ impl GoogleTtsApi {
                         || response.status().as_u16() >= 500)
                         && attempt < self.rate_limit_config.max_retries
                     {
+                        let status = response.status();
+                        let _body = response.text().await.unwrap_or_default();
                         trace!(
                             "Request failed with status {}, retrying in {:?}",
-                            response.status(),
+                            status,
                             delay
                         );
-                        std::thread::sleep(delay);
+                        wait_for(delay).await;
                         delay = std::cmp::min(
                             Duration::from_millis(
                                 (delay.as_millis() as f64
@@ -194,6 +214,7 @@ impl GoogleTtsApi {
                     }
 
                     let status = response.status();
+                    let _body = response.text().await.unwrap_or_default();
                     return Err(tts_error_from_status(status));
                 }
                 Err(e) => {
@@ -203,7 +224,7 @@ impl GoogleTtsApi {
                             e,
                             delay
                         );
-                        std::thread::sleep(delay);
+                        wait_for(delay).await;
                         delay = std::cmp::min(
                             Duration::from_millis(
                                 (delay.as_millis() as f64
@@ -222,33 +243,45 @@ impl GoogleTtsApi {
         Err(internal_error("Max retries exceeded"))
     }
 
-    pub fn list_voices(&self, language_code: Option<&str>) -> Result<ListVoicesResponse, TtsError> {
+    pub async fn list_voices(
+        &self,
+        language_code: Option<&str>,
+    ) -> Result<ListVoicesResponse, TtsError> {
         let mut url = format!("{}/voices", self.base_url);
 
         if let Some(lang) = language_code {
             url.push_str(&format!("?languageCode={}", urlencoding::encode(lang)));
         }
 
-        self.execute_with_retry(|| {
-            let request = self.create_request(Method::GET, &url)?;
-            request
-                .send()
-                .map_err(|err| from_reqwest_error("Failed to send request", err))
-        })
-        .and_then(parse_response)
+        let response = self
+            .execute_with_retry(|| async {
+                let request = self.create_request(Method::GET, &url).await?;
+                request
+                    .send()
+                    .await
+                    .map_err(|err| from_reqwest_error("Failed to send request", err))
+            })
+            .await?;
+        parse_response(response).await
     }
 
-    pub fn text_to_speech(&self, request: &SynthesizeSpeechRequest) -> Result<Vec<u8>, TtsError> {
+    pub async fn text_to_speech(
+        &self,
+        request: &SynthesizeSpeechRequest,
+    ) -> Result<Vec<u8>, TtsError> {
         let url = format!("{}/text:synthesize", self.base_url);
 
-        let response = self.execute_with_retry(|| {
-            let req = self.create_request(Method::POST, &url)?;
-            req.json(request)
-                .send()
-                .map_err(|err| from_reqwest_error("Failed to send synthesis request", err))
-        })?;
+        let response = self
+            .execute_with_retry(|| async {
+                let req = self.create_request(Method::POST, &url).await?;
+                req.json(request)
+                    .send()
+                    .await
+                    .map_err(|err| from_reqwest_error("Failed to send synthesis request", err))
+            })
+            .await?;
 
-        let synthesis_response: SynthesizeSpeechResponse = parse_response(response)?;
+        let synthesis_response: SynthesizeSpeechResponse = parse_response(response).await?;
         general_purpose::STANDARD
             .decode(&synthesis_response.audio_content)
             .map_err(|e| internal_error(format!("Failed to decode audio content: {}", e)))
@@ -441,7 +474,7 @@ pub struct BatchSynthesisParams {
     pub chunk_overlap: Option<usize>,
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, TtsError> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, TtsError> {
     if !response.status().is_success() {
         let status = response.status();
         return Err(tts_error_from_status(status));
@@ -449,5 +482,6 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
 
     response
         .json::<T>()
+        .await
         .map_err(|err| from_reqwest_error("Failed to parse response JSON", err))
 }

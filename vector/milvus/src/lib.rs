@@ -38,7 +38,7 @@ pub use crate::config::MilvusHostConfig;
 pub struct Milvus;
 
 impl ExtendedVectorProvider for Milvus {
-    fn connect_internal(
+    async fn connect_internal(
         provider_config: <Self as ConnectionProvider>::ProviderConfig,
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -53,7 +53,7 @@ impl ExtendedVectorProvider for Milvus {
 impl ConnectionProvider for Milvus {
     type ProviderConfig = MilvusConfig;
 
-    fn connect(
+    async fn connect(
         provider_config: Self::ProviderConfig,
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -64,15 +64,15 @@ impl ConnectionProvider for Milvus {
         Ok(())
     }
 
-    fn disconnect(_provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
+    async fn disconnect(_provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
         Ok(())
     }
 
-    fn get_connection_status(
+    async fn get_connection_status(
         provider_config: Self::ProviderConfig,
     ) -> Result<ConnectionStatus, VectorError> {
         let client = MilvusClient::new(&provider_config);
-        match client.list_collections() {
+        match client.list_collections().await {
             Ok(_) => Ok(ConnectionStatus {
                 connected: true,
                 provider: Some("milvus".to_string()),
@@ -90,7 +90,7 @@ impl ConnectionProvider for Milvus {
         }
     }
 
-    fn test_connection(
+    async fn test_connection(
         provider_config: Self::ProviderConfig,
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -98,7 +98,7 @@ impl ConnectionProvider for Milvus {
         _options: Option<Metadata>,
     ) -> Result<bool, VectorError> {
         let client = MilvusClient::new(&provider_config);
-        match client.list_collections() {
+        match client.list_collections().await {
             Ok(_) => Ok(true),
             Err(_) => Ok(false),
         }
@@ -108,7 +108,7 @@ impl ConnectionProvider for Milvus {
 impl CollectionProvider for Milvus {
     type ProviderConfig = MilvusConfig;
 
-    fn upsert_collection(
+    async fn upsert_collection(
         provider_config: Self::ProviderConfig,
         name: String,
         description: Option<String>,
@@ -133,9 +133,9 @@ impl CollectionProvider for Milvus {
             vector_field_type: Some("FloatVector".to_string()),
         };
 
-        match client.create_collection(&create_request) {
-            Ok(_) => match client.load_collection(&name) {
-                Ok(_) => match client.describe_collection(&name) {
+        match client.create_collection(&create_request).await {
+            Ok(_) => match client.load_collection(&name).await {
+                Ok(_) => match client.describe_collection(&name).await {
                     Ok(response) => collection_info_to_export_collection_info(&response.data),
                     Err(e) => Err(e),
                 },
@@ -145,57 +145,59 @@ impl CollectionProvider for Milvus {
         }
     }
 
-    fn list_collections(provider_config: Self::ProviderConfig) -> Result<Vec<String>, VectorError> {
+    async fn list_collections(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<String>, VectorError> {
         let client = MilvusClient::new(&provider_config);
 
-        match client.list_collections() {
+        match client.list_collections().await {
             Ok(response) => Ok(response.data),
             Err(e) => Err(e),
         }
     }
 
-    fn get_collection(
+    async fn get_collection(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<CollectionInfo, VectorError> {
         let client = MilvusClient::new(&provider_config);
 
-        match client.describe_collection(&name) {
+        match client.describe_collection(&name).await {
             Ok(response) => collection_info_to_export_collection_info(&response.data),
             Err(e) => Err(e),
         }
     }
 
-    fn update_collection(
+    async fn update_collection(
         provider_config: Self::ProviderConfig,
         name: String,
         _description: Option<String>,
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
-        Self::get_collection(provider_config, name)
+        Self::get_collection(provider_config, name).await
     }
 
-    fn delete_collection(
+    async fn delete_collection(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<(), VectorError> {
         let client = MilvusClient::new(&provider_config);
 
-        let _ = client.release_collection(&name);
+        let _ = client.release_collection(&name).await;
 
-        match client.drop_collection(&name) {
+        match client.drop_collection(&name).await {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         }
     }
 
-    fn collection_exists(
+    async fn collection_exists(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<bool, VectorError> {
         let client = MilvusClient::new(&provider_config);
 
-        match client.has_collection(&name) {
+        match client.has_collection(&name).await {
             Ok(response) => Ok(response.data.has),
             Err(_) => Ok(false),
         }
@@ -205,7 +207,7 @@ impl CollectionProvider for Milvus {
 impl VectorsProvider for Milvus {
     type ProviderConfig = MilvusConfig;
 
-    fn upsert_vectors(
+    async fn upsert_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -220,7 +222,7 @@ impl VectorsProvider for Milvus {
             namespace.as_deref(),
         )?;
 
-        match client.upsert(&upsert_request) {
+        match client.upsert(&upsert_request).await {
             Ok(response) => Ok(BatchResult {
                 success_count: response.data.upsert_count,
                 failure_count: 0,
@@ -230,7 +232,7 @@ impl VectorsProvider for Milvus {
         }
     }
 
-    fn upsert_vector(
+    async fn upsert_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -244,7 +246,8 @@ impl VectorsProvider for Milvus {
             metadata,
         };
 
-        let result = Self::upsert_vectors(provider_config, collection, vec![record], namespace)?;
+        let result =
+            Self::upsert_vectors(provider_config, collection, vec![record], namespace).await?;
 
         if result.success_count > 0 {
             Ok(())
@@ -255,7 +258,7 @@ impl VectorsProvider for Milvus {
         }
     }
 
-    fn get_vectors(
+    async fn get_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
@@ -281,13 +284,13 @@ impl VectorsProvider for Milvus {
             },
         );
 
-        match client.get(&get_request) {
+        match client.get(&get_request).await {
             Ok(response) => milvus_entities_to_vector_records(&response.data),
             Err(e) => Err(e),
         }
     }
 
-    fn get_vector(
+    async fn get_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -300,11 +303,12 @@ impl VectorsProvider for Milvus {
             namespace,
             Some(true),
             Some(true),
-        )?;
+        )
+        .await?;
         Ok(vectors.into_iter().next())
     }
 
-    fn update_vector(
+    async fn update_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -322,6 +326,7 @@ impl VectorsProvider for Milvus {
                 metadata,
                 namespace,
             )
+            .await
         } else {
             Err(VectorError::InvalidParams(
                 "Vector data is required for update".to_string(),
@@ -329,7 +334,7 @@ impl VectorsProvider for Milvus {
         }
     }
 
-    fn delete_vectors(
+    async fn delete_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
@@ -345,13 +350,13 @@ impl VectorsProvider for Milvus {
             namespace.as_deref(),
         )?;
 
-        match client.delete(&delete_request) {
+        match client.delete(&delete_request).await {
             Ok(_response) => Ok(ids.len() as u32),
             Err(e) => Err(e),
         }
     }
 
-    fn delete_by_filter(
+    async fn delete_by_filter(
         provider_config: Self::ProviderConfig,
         collection: String,
         filter: FilterExpression,
@@ -367,13 +372,13 @@ impl VectorsProvider for Milvus {
             namespace.as_deref(),
         )?;
 
-        match client.delete(&delete_request) {
+        match client.delete(&delete_request).await {
             Ok(_response) => Ok(0),
             Err(e) => Err(e),
         }
     }
 
-    fn delete_namespace(
+    async fn delete_namespace(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,
@@ -383,7 +388,7 @@ impl VectorsProvider for Milvus {
         ))
     }
 
-    fn list_vectors(
+    async fn list_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: Option<String>,
@@ -415,7 +420,7 @@ impl VectorsProvider for Milvus {
             partition_names: namespace.map(|ns| vec![ns]),
         })?;
 
-        match client.query(&query_request) {
+        match client.query(&query_request).await {
             Ok(response) => {
                 let vector_records = milvus_entities_to_vector_records(&response.data)?;
 
@@ -429,7 +434,7 @@ impl VectorsProvider for Milvus {
         }
     }
 
-    fn count_vectors(
+    async fn count_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         filter: Option<FilterExpression>,
@@ -449,12 +454,12 @@ impl VectorsProvider for Milvus {
                 partition_names: namespace.map(|ns| vec![ns]),
             })?;
 
-            match client.query(&query_request) {
+            match client.query(&query_request).await {
                 Ok(response) => Ok(response.data.len() as u64),
                 Err(e) => Err(e),
             }
         } else {
-            match client.get_collection_stats(&collection) {
+            match client.get_collection_stats(&collection).await {
                 Ok(response) => Ok(response.data.row_count),
                 Err(e) => Err(e),
             }
@@ -465,7 +470,7 @@ impl VectorsProvider for Milvus {
 impl SearchProvider for Milvus {
     type ProviderConfig = MilvusConfig;
 
-    fn search_vectors(
+    async fn search_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         query: SearchQuery,
@@ -501,7 +506,7 @@ impl SearchProvider for Milvus {
             partition_names: namespace.map(|ns| vec![ns]),
         })?;
 
-        match client.search(&search_request) {
+        match client.search(&search_request).await {
             Ok(response) => {
                 let mut results = milvus_search_results_to_search_results(&response.data)?;
 
@@ -519,7 +524,7 @@ impl SearchProvider for Milvus {
         }
     }
 
-    fn find_similar(
+    async fn find_similar(
         provider_config: Self::ProviderConfig,
         collection: String,
         vector: VectorData,
@@ -539,9 +544,10 @@ impl SearchProvider for Milvus {
             None,
             None,
         )
+        .await
     }
 
-    fn batch_search(
+    async fn batch_search(
         provider_config: Self::ProviderConfig,
         collection: String,
         queries: Vec<SearchQuery>,
@@ -567,7 +573,8 @@ impl SearchProvider for Milvus {
                 None,
                 None,
                 search_params.clone(),
-            )?;
+            )
+            .await?;
             results.push(result);
         }
 
@@ -578,7 +585,7 @@ impl SearchProvider for Milvus {
 impl SearchExtendedProvider for Milvus {
     type ProviderConfig = MilvusConfig;
 
-    fn recommend_vectors(
+    async fn recommend_vectors(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _positive: Vec<RecommendationExample>,
@@ -595,7 +602,7 @@ impl SearchExtendedProvider for Milvus {
         ))
     }
 
-    fn discover_vectors(
+    async fn discover_vectors(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _target: Option<RecommendationExample>,
@@ -611,7 +618,7 @@ impl SearchExtendedProvider for Milvus {
         ))
     }
 
-    fn search_groups(
+    async fn search_groups(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _query: SearchQuery,
@@ -628,7 +635,7 @@ impl SearchExtendedProvider for Milvus {
         ))
     }
 
-    fn search_range(
+    async fn search_range(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _vector: VectorData,
@@ -645,7 +652,7 @@ impl SearchExtendedProvider for Milvus {
         ))
     }
 
-    fn search_text(
+    async fn search_text(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _query_text: String,
@@ -662,20 +669,20 @@ impl SearchExtendedProvider for Milvus {
 impl AnalyticsProvider for Milvus {
     type ProviderConfig = MilvusConfig;
 
-    fn get_collection_stats(
+    async fn get_collection_stats(
         provider_config: Self::ProviderConfig,
         collection: String,
         _namespace: Option<String>,
     ) -> Result<CollectionStats, VectorError> {
         let client = MilvusClient::new(&provider_config);
 
-        match client.get_collection_stats(&collection) {
+        match client.get_collection_stats(&collection).await {
             Ok(response) => Ok(collection_stats_to_export_stats(&response.data)),
             Err(e) => Err(e),
         }
     }
 
-    fn get_field_stats(
+    async fn get_field_stats(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _field: String,
@@ -686,7 +693,7 @@ impl AnalyticsProvider for Milvus {
         ))
     }
 
-    fn get_field_distribution(
+    async fn get_field_distribution(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _field: String,
@@ -702,7 +709,7 @@ impl AnalyticsProvider for Milvus {
 impl NamespacesProvider for Milvus {
     type ProviderConfig = MilvusConfig;
 
-    fn upsert_namespace(
+    async fn upsert_namespace(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: String,
@@ -710,7 +717,7 @@ impl NamespacesProvider for Milvus {
     ) -> Result<NamespaceInfo, VectorError> {
         let client = MilvusClient::new(&provider_config);
 
-        match client.has_partition(&collection, &namespace) {
+        match client.has_partition(&collection, &namespace).await {
             Ok(response) => {
                 if response.data.has {
                     Ok(NamespaceInfo {
@@ -722,9 +729,11 @@ impl NamespacesProvider for Milvus {
                         metadata: None,
                     })
                 } else {
-                    match client.create_partition(&collection, &namespace) {
+                    match client.create_partition(&collection, &namespace).await {
                         Ok(_) => {
-                            let _ = client.load_partitions(&collection, vec![namespace.clone()]);
+                            let _ = client
+                                .load_partitions(&collection, vec![namespace.clone()])
+                                .await;
 
                             Ok(NamespaceInfo {
                                 name: namespace,
@@ -743,13 +752,13 @@ impl NamespacesProvider for Milvus {
         }
     }
 
-    fn list_namespaces(
+    async fn list_namespaces(
         provider_config: Self::ProviderConfig,
         collection: String,
     ) -> Result<Vec<NamespaceInfo>, VectorError> {
         let client = MilvusClient::new(&provider_config);
 
-        match client.list_partitions(&collection) {
+        match client.list_partitions(&collection).await {
             Ok(response) => {
                 let namespaces = response
                     .data
@@ -769,14 +778,14 @@ impl NamespacesProvider for Milvus {
         }
     }
 
-    fn get_namespace(
+    async fn get_namespace(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: String,
     ) -> Result<NamespaceInfo, VectorError> {
         let client = MilvusClient::new(&provider_config);
 
-        match client.has_partition(&collection, &namespace) {
+        match client.has_partition(&collection, &namespace).await {
             Ok(response) => {
                 if response.code == 0 && response.data.has {
                     Ok(NamespaceInfo {
@@ -798,29 +807,31 @@ impl NamespacesProvider for Milvus {
         }
     }
 
-    fn delete_namespace(
+    async fn delete_namespace(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: String,
     ) -> Result<(), VectorError> {
         let client = MilvusClient::new(&provider_config);
 
-        let _ = client.release_partitions(&collection, vec![namespace.clone()]);
+        let _ = client
+            .release_partitions(&collection, vec![namespace.clone()])
+            .await;
 
-        match client.drop_partition(&collection, &namespace) {
+        match client.drop_partition(&collection, &namespace).await {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         }
     }
 
-    fn namespace_exists(
+    async fn namespace_exists(
         provider_config: Self::ProviderConfig,
         collection: String,
         namespace: String,
     ) -> Result<bool, VectorError> {
         let client = MilvusClient::new(&provider_config);
 
-        match client.has_partition(&collection, &namespace) {
+        match client.has_partition(&collection, &namespace).await {
             Ok(response) => Ok(response.data.has),
             Err(_) => Ok(false),
         }

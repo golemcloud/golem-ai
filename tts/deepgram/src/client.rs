@@ -1,15 +1,21 @@
 use crate::config::DeepgramConfig;
+use golem_ai_http::{Client, Method, RequestBuilder, Response, Timeouts};
 use golem_ai_tts::config::{
     get_endpoint_config, get_max_retries_config, get_timeout_config, SecretSource,
 };
 use golem_ai_tts::error::{from_reqwest_error, tts_error_from_status};
 use golem_ai_tts::model::types::TtsError;
-use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::future::Future;
 use std::time::Duration;
+
+async fn wait_for(delay: Duration) {
+    let delay_nanos = u64::try_from(delay.as_nanos()).unwrap_or(u64::MAX);
+    wasip3::clocks::monotonic_clock::wait_for(delay_nanos).await;
+}
 
 /// Rate limiting configuration
 #[derive(Debug, Clone)]
@@ -50,21 +56,27 @@ pub struct DeepgramTtsApi {
 }
 
 impl DeepgramTtsApi {
-    pub fn new(config: &DeepgramConfig) -> Self {
+    pub fn new(config: &DeepgramConfig) -> Result<Self, TtsError> {
+        let timeout = Duration::from_secs(get_timeout_config());
         let client = Client::builder()
-            .timeout(Duration::from_secs(get_timeout_config()))
+            .timeouts(
+                Timeouts::new()
+                    .connect(timeout)
+                    .first_byte(timeout)
+                    .between_bytes(timeout),
+            )
             .build()
-            .unwrap();
+            .map_err(|err| from_reqwest_error("Failed to create HTTP client", err))?;
 
         let base_url = get_endpoint_config("https://api.deepgram.com");
 
-        Self {
+        Ok(Self {
             client,
             api_key: config.api_key.clone(),
             base_url,
             api_version: config.api_version.clone(),
             rate_limit_config: RateLimitConfig::default(),
-        }
+        })
     }
 
     pub fn with_rate_limit_config(mut self, config: RateLimitConfig) -> Self {
@@ -82,15 +94,16 @@ impl DeepgramTtsApi {
             .header("Content-Type", "application/json")
     }
 
-    fn execute_with_retry<F>(&self, operation: F) -> Result<Response, TtsError>
+    async fn execute_with_retry<F, Fut>(&self, operation: F) -> Result<Response, TtsError>
     where
-        F: Fn() -> Result<Response, TtsError>,
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<Response, TtsError>>,
     {
         let mut delay = self.rate_limit_config.initial_delay;
         let max_retries = self.rate_limit_config.max_retries;
 
         for attempt in 0..=max_retries {
-            match operation() {
+            match operation().await {
                 Ok(response) => {
                     if response.status().is_success() {
                         if attempt > 0 {
@@ -113,7 +126,7 @@ impl DeepgramTtsApi {
                             max_retries
                         );
 
-                        std::thread::sleep(wait_time);
+                        wait_for(wait_time).await;
                         delay = std::cmp::min(
                             Duration::from_millis(
                                 (delay.as_millis() as f64
@@ -132,7 +145,7 @@ impl DeepgramTtsApi {
                             max_retries
                         );
 
-                        std::thread::sleep(delay);
+                        wait_for(delay).await;
                         delay = std::cmp::min(
                             Duration::from_millis(
                                 (delay.as_millis() as f64
@@ -159,7 +172,7 @@ impl DeepgramTtsApi {
                             e
                         );
 
-                        std::thread::sleep(delay);
+                        wait_for(delay).await;
                         delay = std::cmp::min(
                             Duration::from_millis(
                                 (delay.as_millis() as f64
@@ -182,16 +195,16 @@ impl DeepgramTtsApi {
         Err(TtsError::InternalError("Max retries exceeded".to_string()))
     }
 
-    pub fn text_to_speech(
+    pub async fn text_to_speech(
         &self,
         request: &TextToSpeechRequest,
         params: Option<&TextToSpeechParams>,
     ) -> Result<Vec<u8>, TtsError> {
-        let response = self.text_to_speech_with_metadata(request, params)?;
+        let response = self.text_to_speech_with_metadata(request, params).await?;
         Ok(response.audio_data)
     }
 
-    pub fn text_to_speech_with_metadata(
+    pub async fn text_to_speech_with_metadata(
         &self,
         request: &TextToSpeechRequest,
         params: Option<&TextToSpeechParams>,
@@ -211,16 +224,16 @@ impl DeepgramTtsApi {
 
         let request_clone = request.clone();
 
-        let operation = || {
+        let operation = || async {
             let req = self.create_request(Method::POST, &url).json(&request_clone);
 
-            match req.send() {
+            match req.send().await {
                 Ok(response) => Ok(response),
                 Err(e) => Err(from_reqwest_error("TTS request failed", e)),
             }
         };
 
-        let response = self.execute_with_retry(operation)?;
+        let response = self.execute_with_retry(operation).await?;
 
         if !response.status().is_success() {
             return Err(tts_error_from_status(response.status()));
@@ -231,7 +244,7 @@ impl DeepgramTtsApi {
                 TtsError::InternalError("Missing required response headers".to_string())
             })?;
 
-        match response.bytes() {
+        match response.bytes().await {
             Ok(bytes) => Ok(TtsResponse {
                 audio_data: bytes.to_vec(),
                 metadata,
@@ -240,11 +253,11 @@ impl DeepgramTtsApi {
         }
     }
 
-    pub fn text_to_speech_stream(
+    pub async fn text_to_speech_stream(
         &self,
         request: &TextToSpeechRequest,
         params: Option<&TextToSpeechParams>,
-    ) -> Result<golem_wasi_http::Response, TtsError> {
+    ) -> Result<Response, TtsError> {
         let url = if let Some(p) = params {
             format!(
                 "{}/{}/speak?{}",
@@ -260,16 +273,16 @@ impl DeepgramTtsApi {
 
         let request_clone = request.clone();
 
-        let operation = || {
+        let operation = || async {
             let req = self.create_request(Method::POST, &url).json(&request_clone);
 
-            match req.send() {
+            match req.send().await {
                 Ok(response) => Ok(response),
                 Err(e) => Err(from_reqwest_error("Streaming TTS request failed", e)),
             }
         };
 
-        let response = self.execute_with_retry(operation)?;
+        let response = self.execute_with_retry(operation).await?;
 
         if !response.status().is_success() {
             return Err(tts_error_from_status(response.status()));
@@ -310,7 +323,7 @@ pub struct TtsResponseMetadata {
 }
 
 impl TtsResponseMetadata {
-    pub fn from_response_headers(headers: &golem_wasi_http::header::HeaderMap) -> Option<Self> {
+    pub fn from_response_headers(headers: &golem_ai_http::HeaderMap) -> Option<Self> {
         Some(Self {
             content_type: headers.get("content-type")?.to_str().ok()?.to_string(),
             dg_request_id: headers.get("dg-request-id")?.to_str().ok()?.to_string(),
@@ -903,13 +916,13 @@ pub fn get_available_models() -> Vec<Model> {
     ]
 }
 
-fn _parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, TtsError> {
+async fn _parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, TtsError> {
     let status = response.status();
     if !status.is_success() {
         return Err(tts_error_from_status(status));
     }
 
-    match response.json::<T>() {
+    match response.json::<T>().await {
         Ok(parsed) => {
             trace!("Parsed response: {:?}", parsed);
             Ok(parsed)

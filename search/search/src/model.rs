@@ -6,7 +6,7 @@ pub type Json = String;
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub enum SearchError {
@@ -28,7 +28,7 @@ impl std::error::Error for SearchError {}
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Doc {
@@ -38,7 +38,7 @@ pub struct Doc {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct HighlightConfig {
@@ -50,7 +50,7 @@ pub struct HighlightConfig {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SearchConfig {
@@ -65,7 +65,7 @@ pub struct SearchConfig {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SearchQuery {
@@ -82,7 +82,7 @@ pub struct SearchQuery {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SearchHit {
@@ -94,7 +94,7 @@ pub struct SearchHit {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SearchResults {
@@ -109,7 +109,7 @@ pub struct SearchResults {
 #[repr(u8)]
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum FieldType {
@@ -124,7 +124,7 @@ pub enum FieldType {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SchemaField {
@@ -138,7 +138,7 @@ pub struct SchemaField {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Schema {
@@ -148,7 +148,7 @@ pub struct Schema {
 
 #[cfg_attr(
     feature = "golem",
-    derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+    derive(golem_rust::FromSchema, golem_rust::IntoSchema)
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct CreateIndexOptions {

@@ -4,7 +4,7 @@ pub mod types {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub enum SttError {
         InvalidAudio(String),
@@ -54,7 +54,7 @@ pub mod types {
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub enum AudioFormat {
         Wav,
@@ -68,7 +68,7 @@ pub mod types {
     #[derive(Clone, Copy, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct AudioConfig {
         pub format: AudioFormat,
@@ -79,7 +79,7 @@ pub mod types {
     #[derive(Clone, Copy, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct TimingInfo {
         pub start_time_seconds: f32,
@@ -89,7 +89,7 @@ pub mod types {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct WordSegment {
         pub text: String,
@@ -101,7 +101,7 @@ pub mod types {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct TranscriptionMetadata {
         pub duration_seconds: f32,
@@ -114,7 +114,7 @@ pub mod types {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct TranscriptionSegment {
         pub transcript: String,
@@ -126,7 +126,7 @@ pub mod types {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct TranscriptionChannel {
         pub id: String,
@@ -137,7 +137,7 @@ pub mod types {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct TranscriptionResult {
         pub transcript_metadata: TranscriptionMetadata,
@@ -152,7 +152,7 @@ pub mod languages {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct LanguageInfo {
         pub code: LanguageCode,
@@ -170,7 +170,7 @@ pub mod transcription {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct Phrase {
         pub value: String,
@@ -180,7 +180,7 @@ pub mod transcription {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct Vocabulary {
         pub phrases: Vec<Phrase>,
@@ -189,7 +189,7 @@ pub mod transcription {
     #[derive(Clone, Copy, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct DiarizationOptions {
         pub enabled: bool,
@@ -200,7 +200,7 @@ pub mod transcription {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct TranscribeOptions {
         pub language: Option<LanguageCode>,
@@ -214,7 +214,7 @@ pub mod transcription {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct TranscriptionRequest {
         pub request_id: String,
@@ -226,7 +226,7 @@ pub mod transcription {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct FailedTranscription {
         pub request_id: String,
@@ -236,7 +236,7 @@ pub mod transcription {
     #[derive(Clone, Debug, PartialEq)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     pub struct MultiTranscriptionResult {
         pub successes: Vec<TranscriptionResult>,

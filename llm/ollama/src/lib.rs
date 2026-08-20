@@ -1,9 +1,9 @@
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 
 use client::{CompletionsRequest, OllamaApi};
 use conversions::{events_to_request, process_response};
+use futures::lock::Mutex;
 use golem_ai_llm::model::ErrorCode;
-use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::{
     chat_stream::{LlmChatStream, LlmChatStreamState},
     durability::{DurableLLM, ExtendedLlmProvider},
@@ -25,7 +25,7 @@ pub use config::OllamaConfig;
 pub use config::OllamaHostConfig;
 
 pub struct OllamaChatStream {
-    stream: RefCell<Option<EventSource>>,
+    stream: Mutex<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
 }
@@ -33,7 +33,7 @@ pub struct OllamaChatStream {
 impl OllamaChatStream {
     pub fn new(stream: EventSource) -> LlmChatStream<Self> {
         LlmChatStream::new(OllamaChatStream {
-            stream: RefCell::new(Some(stream)),
+            stream: Mutex::new(Some(stream)),
             failure: None,
             finished: RefCell::new(false),
         })
@@ -41,7 +41,7 @@ impl OllamaChatStream {
 
     pub fn failed(error: Error) -> LlmChatStream<Self> {
         LlmChatStream::new(OllamaChatStream {
-            stream: RefCell::new(None),
+            stream: Mutex::new(None),
             failure: Some(error),
             finished: RefCell::new(false),
         })
@@ -60,12 +60,8 @@ impl LlmChatStreamState for OllamaChatStream {
         *self.finished.borrow_mut() = true;
     }
 
-    fn stream(&self) -> Ref<'_, Option<EventSource>> {
-        self.stream.borrow()
-    }
-
-    fn stream_mut(&self) -> RefMut<'_, Option<EventSource>> {
-        self.stream.borrow_mut()
+    fn stream(&self) -> &Mutex<Option<EventSource>> {
+        &self.stream
     }
 
     fn decode_message(&self, raw: &str) -> Result<Option<StreamEvent>, Error> {
@@ -194,17 +190,17 @@ impl LlmChatStreamState for OllamaChatStream {
 pub struct Ollama;
 
 impl Ollama {
-    fn request(client: &OllamaApi, request: CompletionsRequest) -> Result<Response, Error> {
-        let response = client.send_chat(request)?;
+    async fn request(client: &OllamaApi, request: CompletionsRequest) -> Result<Response, Error> {
+        let response = client.send_chat(request).await?;
         process_response(response)
     }
 
-    fn streaming_request(
+    async fn streaming_request(
         client: &OllamaApi,
         mut request: CompletionsRequest,
     ) -> LlmChatStream<OllamaChatStream> {
         request.stream = Some(true);
-        match client.send_chat_stream(request) {
+        match client.send_chat_stream(request).await {
             Ok(stream) => OllamaChatStream::new(stream),
             Err(err) => OllamaChatStream::failed(err),
         }
@@ -221,8 +217,8 @@ impl LlmProvider for Ollama {
         config: Config,
     ) -> Result<Response, Error> {
         let client = OllamaApi::new(config.model.clone(), &provider_config);
-        let events = events_to_request(events, config)?;
-        Self::request(&client, events)
+        let events = events_to_request(events, config).await?;
+        Self::request(&client, events).await
     }
 
     async fn stream(
@@ -241,8 +237,8 @@ impl ExtendedLlmProvider for Ollama {
         config: Config,
     ) -> LlmChatStream<OllamaChatStream> {
         let client = OllamaApi::new(config.model.clone(), &provider_config);
-        match events_to_request(events, config) {
-            Ok(request) => Self::streaming_request(&client, request),
+        match events_to_request(events, config).await {
+            Ok(request) => Self::streaming_request(&client, request).await,
             Err(err) => OllamaChatStream::failed(err),
         }
     }
@@ -301,10 +297,6 @@ impl ExtendedLlmProvider for Ollama {
         }));
 
         extended_messages
-    }
-
-    fn subscribe(stream: &Self::ChatStream) -> Pollable {
-        stream.subscribe()
     }
 }
 

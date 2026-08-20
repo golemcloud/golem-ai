@@ -6,6 +6,7 @@ use crate::conversions::{
     create_request, create_response_metadata, events_to_input_items, parse_error_code,
     process_model_response, tool_defs_to_tools,
 };
+use futures::lock::Mutex;
 use golem_ai_llm::chat_stream::{LlmChatStream, LlmChatStreamState};
 use golem_ai_llm::durability::{DurableLLM, ExtendedLlmProvider};
 use golem_ai_llm::event_source::EventSource;
@@ -13,10 +14,9 @@ use golem_ai_llm::model::{
     ChatStream, Config, ContentPart, Error, ErrorCode, Event, Response, StreamDelta, StreamEvent,
     ToolCall,
 };
-use golem_ai_llm::wasi_compat::Pollable;
 use golem_ai_llm::LlmProvider;
 use log::trace;
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 
 mod client;
 pub mod config;
@@ -27,7 +27,7 @@ pub use config::OpenAiConfig;
 pub use config::OpenAiHostConfig;
 
 pub struct OpenAIChatStream {
-    stream: RefCell<Option<EventSource>>,
+    stream: Mutex<Option<EventSource>>,
     failure: Option<Error>,
     finished: RefCell<bool>,
 }
@@ -35,7 +35,7 @@ pub struct OpenAIChatStream {
 impl OpenAIChatStream {
     pub fn new(stream: EventSource) -> LlmChatStream<Self> {
         LlmChatStream::new(OpenAIChatStream {
-            stream: RefCell::new(Some(stream)),
+            stream: Mutex::new(Some(stream)),
             failure: None,
             finished: RefCell::new(false),
         })
@@ -43,7 +43,7 @@ impl OpenAIChatStream {
 
     pub fn failed(error: Error) -> LlmChatStream<Self> {
         LlmChatStream::new(OpenAIChatStream {
-            stream: RefCell::new(None),
+            stream: Mutex::new(None),
             failure: Some(error),
             finished: RefCell::new(false),
         })
@@ -63,12 +63,8 @@ impl LlmChatStreamState for OpenAIChatStream {
         *self.finished.borrow_mut() = true;
     }
 
-    fn stream(&self) -> Ref<'_, Option<EventSource>> {
-        self.stream.borrow()
-    }
-
-    fn stream_mut(&self) -> RefMut<'_, Option<EventSource>> {
-        self.stream.borrow_mut()
+    fn stream(&self) -> &Mutex<Option<EventSource>> {
+        &self.stream
     }
 
     fn decode_message(&self, raw: &str) -> Result<Option<StreamEvent>, Error> {
@@ -186,18 +182,18 @@ impl LlmChatStreamState for OpenAIChatStream {
 pub struct OpenAI;
 
 impl OpenAI {
-    fn request(
+    async fn request(
         client: ResponsesApi,
         items: Vec<InputItem>,
         config: Config,
     ) -> Result<Response, Error> {
         let tools = tool_defs_to_tools(config.tools.clone())?;
         let request = create_request(items, config, tools);
-        let response = client.create_model_response(request)?;
+        let response = client.create_model_response(request).await?;
         process_model_response(response)
     }
 
-    fn streaming_request(
+    async fn streaming_request(
         client: ResponsesApi,
         items: Vec<InputItem>,
         config: Config,
@@ -206,7 +202,7 @@ impl OpenAI {
             Ok(tools) => {
                 let mut request = create_request(items, config, tools);
                 request.stream = true;
-                match client.stream_model_response(request) {
+                match client.stream_model_response(request).await {
                     Ok(stream) => OpenAIChatStream::new(stream),
                     Err(error) => OpenAIChatStream::failed(error),
                 }
@@ -227,7 +223,7 @@ impl LlmProvider for OpenAI {
     ) -> Result<Response, Error> {
         let client = ResponsesApi::new(&provider_config);
         let items = events_to_input_items(events);
-        Self::request(client, items, config)
+        Self::request(client, items, config).await
     }
 
     async fn stream(
@@ -247,11 +243,7 @@ impl ExtendedLlmProvider for OpenAI {
     ) -> Self::ChatStream {
         let client = ResponsesApi::new(&provider_config);
         let items = events_to_input_items(events);
-        Self::streaming_request(client, items, config)
-    }
-
-    fn subscribe(stream: &Self::ChatStream) -> Pollable {
-        stream.subscribe()
+        Self::streaming_request(client, items, config).await
     }
 }
 

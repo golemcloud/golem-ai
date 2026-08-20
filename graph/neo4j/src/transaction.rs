@@ -5,6 +5,7 @@ use crate::helpers::{
     EdgeProcessor, ElementIdHelper, Neo4jResponseProcessor, VertexListProcessor, VertexProcessor,
 };
 use crate::Transaction;
+use async_trait::async_trait;
 use golem_ai_graph::model::transactions::{
     CreateEdgeOptions, FindEdgesOptions, FindShortestPathOptions, GetAdjacentVerticesOptions,
     GetNeighborhoodOptions, GetVerticesAtDistanceOptions, Path, QueryExecutionResult, Subgraph,
@@ -24,7 +25,7 @@ use serde_json::Map;
 use std::collections::HashMap;
 
 impl Transaction {
-    pub(crate) fn execute_schema_query_and_extract_string_list(
+    pub(crate) async fn execute_schema_query_and_extract_string_list(
         &self,
         query: &str,
     ) -> Result<Vec<String>, GraphError> {
@@ -33,7 +34,8 @@ impl Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         let result = response.first_result()?;
         result.check_errors()?;
 
@@ -65,6 +67,7 @@ fn cypher_syntax() -> QuerySyntax {
     }
 }
 
+#[async_trait(?Send)]
 impl TransactionInterface for Transaction {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -73,7 +76,7 @@ impl TransactionInterface for Transaction {
         self
     }
 
-    fn execute_query(
+    async fn execute_query(
         &self,
         options: ExecuteQueryOptions,
     ) -> Result<QueryExecutionResult, GraphError> {
@@ -95,7 +98,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         let result = response.first_result()?;
         result.check_errors()?;
 
@@ -140,7 +144,7 @@ impl TransactionInterface for Transaction {
         })
     }
 
-    fn find_shortest_path(
+    async fn find_shortest_path(
         &self,
         options: FindShortestPathOptions,
     ) -> Result<Option<Path>, GraphError> {
@@ -170,7 +174,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
 
         let result = match response.first_result() {
             Ok(r) => r,
@@ -200,7 +205,7 @@ impl TransactionInterface for Transaction {
         }
     }
 
-    fn find_all_paths(&self, options: FindAllPathsOptions) -> Result<Vec<Path>, GraphError> {
+    async fn find_all_paths(&self, options: FindAllPathsOptions) -> Result<Vec<Path>, GraphError> {
         let path_spec = match options.path {
             Some(path_options) => {
                 if path_options.vertex_types.is_some()
@@ -249,7 +254,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
 
         let result = match response.first_result() {
             Ok(r) => r,
@@ -271,7 +277,10 @@ impl TransactionInterface for Transaction {
         Ok(paths)
     }
 
-    fn get_neighborhood(&self, options: GetNeighborhoodOptions) -> Result<Subgraph, GraphError> {
+    async fn get_neighborhood(
+        &self,
+        options: GetNeighborhoodOptions,
+    ) -> Result<Subgraph, GraphError> {
         let (left_arrow, right_arrow) = match options.direction {
             Direction::Outgoing => ("", "->"),
             Direction::Incoming => ("<-", ""),
@@ -303,7 +312,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
 
         let result = match response.first_result() {
             Ok(r) => r,
@@ -340,17 +350,18 @@ impl TransactionInterface for Transaction {
         })
     }
 
-    fn path_exists(&self, options: PathExistsOptions) -> Result<bool, GraphError> {
+    async fn path_exists(&self, options: PathExistsOptions) -> Result<bool, GraphError> {
         self.find_all_paths(FindAllPathsOptions {
             from_vertex: options.from_vertex,
             to_vertex: options.to_vertex,
             path: options.path,
             limit: Some(1),
         })
+        .await
         .map(|paths| !paths.is_empty())
     }
 
-    fn get_vertices_at_distance(
+    async fn get_vertices_at_distance(
         &self,
         options: GetVerticesAtDistanceOptions,
     ) -> Result<Vec<Vertex>, GraphError> {
@@ -379,11 +390,12 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         VertexListProcessor::process_response(response)
     }
 
-    fn get_adjacent_vertices(
+    async fn get_adjacent_vertices(
         &self,
         options: GetAdjacentVerticesOptions,
     ) -> Result<Vec<Vertex>, GraphError> {
@@ -415,11 +427,12 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         VertexListProcessor::process_response(response)
     }
 
-    fn get_connected_edges(
+    async fn get_connected_edges(
         &self,
         options: GetConnectedEdgesOptions,
     ) -> Result<Vec<Edge>, GraphError> {
@@ -451,11 +464,12 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         EdgeListProcessor::process_response(response)
     }
 
-    fn create_vertex(&self, options: CreateVertexOptions) -> Result<Vertex, GraphError> {
+    async fn create_vertex(&self, options: CreateVertexOptions) -> Result<Vertex, GraphError> {
         let mut labels = vec![options.vertex_type];
         labels.extend(options.labels.unwrap_or_default());
 
@@ -474,11 +488,12 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         VertexProcessor::process_response(response)
     }
 
-    fn create_vertices(
+    async fn create_vertices(
         &self,
         vertices: Vec<CreateVertexOptions>,
     ) -> Result<Vec<Vertex>, GraphError> {
@@ -510,7 +525,8 @@ impl TransactionInterface for Transaction {
         let statements_obj = Neo4jStatements::batch(statements);
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements_obj)?;
+            .execute_typed_transaction(&self.transaction_url, &statements_obj)
+            .await?;
 
         let mut created_vertices = Vec::new();
         for result in response.results.iter() {
@@ -534,7 +550,7 @@ impl TransactionInterface for Transaction {
         Ok(created_vertices)
     }
 
-    fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
+    async fn get_vertex(&self, id: ElementId) -> Result<Option<Vertex>, GraphError> {
         if let ElementId::StringValue(s) = &id {
             if let Some((prop, value)) = s
                 .strip_prefix("prop:")
@@ -552,7 +568,8 @@ impl TransactionInterface for Transaction {
 
                 let response = self
                     .api
-                    .execute_typed_transaction(&self.transaction_url, &statements)?;
+                    .execute_typed_transaction(&self.transaction_url, &statements)
+                    .await?;
 
                 let result = match response.first_result() {
                     Ok(r) => r,
@@ -583,7 +600,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
 
         let result = match response.first_result() {
             Ok(r) => r,
@@ -604,7 +622,7 @@ impl TransactionInterface for Transaction {
         }
     }
 
-    fn update_vertex(&self, options: UpdateVertexOptions) -> Result<Vertex, GraphError> {
+    async fn update_vertex(&self, options: UpdateVertexOptions) -> Result<Vertex, GraphError> {
         let properties_map = conversions::to_cypher_properties(options.properties)?;
 
         let mut params = ElementIdHelper::to_cypher_parameter(&options.id);
@@ -630,14 +648,15 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
 
         // TODO: handle if there was no matching vertex, and fallback to create
         //       if options.create_missing is set to true
         VertexProcessor::process_response(response)
     }
 
-    fn delete_vertex(&self, id: ElementId, delete_edges: bool) -> Result<(), GraphError> {
+    async fn delete_vertex(&self, id: ElementId, delete_edges: bool) -> Result<(), GraphError> {
         let params = ElementIdHelper::to_cypher_parameter(&id);
         let detach_str = if delete_edges { "DETACH" } else { "" };
 
@@ -646,11 +665,12 @@ impl TransactionInterface for Transaction {
         let statements = Neo4jStatements::single(statement);
 
         self.api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         Ok(())
     }
 
-    fn find_vertices(&self, options: FindVerticesOptions) -> Result<Vec<Vertex>, GraphError> {
+    async fn find_vertices(&self, options: FindVerticesOptions) -> Result<Vec<Vertex>, GraphError> {
         let mut params = Map::new();
         let syntax = cypher_syntax();
 
@@ -680,11 +700,12 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         VertexListProcessor::process_response(response)
     }
 
-    fn create_edge(&self, options: CreateEdgeOptions) -> Result<Edge, GraphError> {
+    async fn create_edge(&self, options: CreateEdgeOptions) -> Result<Edge, GraphError> {
         let properties_map =
             conversions::to_cypher_properties(options.properties.unwrap_or_default())?;
 
@@ -717,11 +738,12 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         EdgeProcessor::process_response(response)
     }
 
-    fn create_edges(&self, edges: Vec<CreateEdgeOptions>) -> Result<Vec<Edge>, GraphError> {
+    async fn create_edges(&self, edges: Vec<CreateEdgeOptions>) -> Result<Vec<Edge>, GraphError> {
         if edges.is_empty() {
             return Ok(vec![]);
         }
@@ -758,7 +780,8 @@ impl TransactionInterface for Transaction {
         let statements_obj = Neo4jStatements::batch(statements);
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements_obj)?;
+            .execute_typed_transaction(&self.transaction_url, &statements_obj)
+            .await?;
 
         let mut created_edges = Vec::new();
         for result in response.results.iter() {
@@ -780,7 +803,7 @@ impl TransactionInterface for Transaction {
         Ok(created_edges)
     }
 
-    fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
+    async fn get_edge(&self, id: ElementId) -> Result<Option<Edge>, GraphError> {
         let params = ElementIdHelper::to_cypher_parameter(&id);
 
         let query = "MATCH ()-[r]-() WHERE elementId(r) = $id \
@@ -793,7 +816,8 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
 
         let result = match response.first_result() {
             Ok(r) => r,
@@ -814,7 +838,7 @@ impl TransactionInterface for Transaction {
         }
     }
 
-    fn update_edge(&self, options: UpdateEdgeOptions) -> Result<Edge, GraphError> {
+    async fn update_edge(&self, options: UpdateEdgeOptions) -> Result<Edge, GraphError> {
         let properties_map = conversions::to_cypher_properties(options.properties)?;
 
         let mut params = ElementIdHelper::to_cypher_parameter(&options.id);
@@ -842,13 +866,14 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         // TODO: handle if there was no matching edge, and fallback to create
         //       if options.create_missing_with is set to true
         EdgeProcessor::process_response(response)
     }
 
-    fn delete_edge(&self, id: ElementId) -> Result<(), GraphError> {
+    async fn delete_edge(&self, id: ElementId) -> Result<(), GraphError> {
         let params = ElementIdHelper::to_cypher_parameter(&id);
 
         let query = "MATCH ()-[r]-() WHERE elementId(r) = $id DELETE r".to_string();
@@ -856,11 +881,12 @@ impl TransactionInterface for Transaction {
         let statements = Neo4jStatements::single(statement);
 
         self.api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         Ok(())
     }
 
-    fn find_edges(&self, options: FindEdgesOptions) -> Result<Vec<Edge>, GraphError> {
+    async fn find_edges(&self, options: FindEdgesOptions) -> Result<Vec<Edge>, GraphError> {
         let mut params = Map::new();
         let syntax = cypher_syntax();
 
@@ -872,7 +898,7 @@ impl TransactionInterface for Transaction {
             }
         });
 
-        let match_clause = format!("MATCH ()-[r{}]-()", &edge_type_str);
+        let match_clause = format!("MATCH ()-[r{}]-()", edge_type_str);
 
         let where_clause = build_where_clause(&options.filters, "r", &mut params, &syntax, |v| {
             conversions::to_json_value(v)
@@ -895,11 +921,12 @@ impl TransactionInterface for Transaction {
 
         let response = self
             .api
-            .execute_typed_transaction(&self.transaction_url, &statements)?;
+            .execute_typed_transaction(&self.transaction_url, &statements)
+            .await?;
         EdgeListProcessor::process_response(response)
     }
 
-    fn commit(&self) -> Result<(), GraphError> {
+    async fn commit(&self) -> Result<(), GraphError> {
         {
             let state = self.state.read().unwrap();
             match *state {
@@ -913,7 +940,7 @@ impl TransactionInterface for Transaction {
             }
         }
 
-        let result = self.api.commit_transaction(&self.transaction_url);
+        let result = self.api.commit_transaction(&self.transaction_url).await;
 
         if result.is_ok() {
             let mut state = self.state.write().unwrap();
@@ -923,7 +950,7 @@ impl TransactionInterface for Transaction {
         result
     }
 
-    fn rollback(&self) -> Result<(), GraphError> {
+    async fn rollback(&self) -> Result<(), GraphError> {
         {
             let state = self.state.read().unwrap();
             match *state {
@@ -937,7 +964,7 @@ impl TransactionInterface for Transaction {
             }
         }
 
-        let result = self.api.rollback_transaction(&self.transaction_url);
+        let result = self.api.rollback_transaction(&self.transaction_url).await;
 
         if result.is_ok() {
             let mut state = self.state.write().unwrap();

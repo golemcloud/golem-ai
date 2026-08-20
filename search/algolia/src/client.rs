@@ -1,6 +1,6 @@
+use golem_ai_http::{Client, Method, RequestBuilder, Response};
 use golem_ai_search::error::{from_reqwest_error, internal_error, search_error_from_status};
 use golem_ai_search::model::SearchError;
-use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -107,7 +107,7 @@ impl AlgoliaSearchApi {
             .header("Content-Type", "application/json")
     }
 
-    pub fn delete_index(&self, index_name: &str) -> Result<DeleteIndexResponse, SearchError> {
+    pub async fn delete_index(&self, index_name: &str) -> Result<DeleteIndexResponse, SearchError> {
         trace!("Deleting index: {index_name}");
 
         let url = format!("{}/1/indexes/{}", self.write_url, index_name);
@@ -115,12 +115,13 @@ impl AlgoliaSearchApi {
         let response = self
             .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to delete index: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn list_indexes(&self) -> Result<ListIndexesResponse, SearchError> {
+    pub async fn list_indexes(&self) -> Result<ListIndexesResponse, SearchError> {
         trace!("Listing indexes");
 
         let url = format!("{}/1/indexes", self.write_url);
@@ -128,12 +129,13 @@ impl AlgoliaSearchApi {
         let response = self
             .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to list indexes: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn save_object(
+    pub async fn save_object(
         &self,
         index_name: &str,
         object: &AlgoliaObject,
@@ -146,12 +148,13 @@ impl AlgoliaSearchApi {
             .create_request(Method::POST, &url)
             .json(object)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to save object: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn save_objects(
+    pub async fn save_objects(
         &self,
         index_name: &str,
         objects: &[AlgoliaObject],
@@ -173,12 +176,13 @@ impl AlgoliaSearchApi {
             .create_request(Method::POST, &url)
             .json(&batch_request)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to save objects: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_object(
+    pub async fn delete_object(
         &self,
         index_name: &str,
         object_id: &str,
@@ -190,12 +194,13 @@ impl AlgoliaSearchApi {
         let response = self
             .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to delete object: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_objects(
+    pub async fn delete_objects(
         &self,
         index_name: &str,
         object_ids: &[String],
@@ -223,12 +228,13 @@ impl AlgoliaSearchApi {
             .create_request(Method::POST, &url)
             .json(&batch_request)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to delete objects: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn get_object(
+    pub async fn get_object(
         &self,
         index_name: &str,
         object_id: &str,
@@ -237,14 +243,14 @@ impl AlgoliaSearchApi {
 
         let url = format!("{}/1/indexes/{}/{}", self.search_url, index_name, object_id);
 
-        let response = self.create_request(Method::GET, &url).send();
+        let response = self.create_request(Method::GET, &url).send().await;
 
         match response {
             Ok(resp) => {
                 if resp.status() == 404 {
                     Ok(None)
                 } else {
-                    let object: AlgoliaObject = parse_response(resp)?;
+                    let object: AlgoliaObject = parse_response(resp).await?;
                     Ok(Some(object))
                 }
             }
@@ -252,7 +258,7 @@ impl AlgoliaSearchApi {
         }
     }
 
-    pub fn search(
+    pub async fn search(
         &self,
         index_name: &str,
         query: &SearchQuery,
@@ -261,10 +267,14 @@ impl AlgoliaSearchApi {
 
         let url = format!("{}/1/indexes/{}/query", self.search_url, index_name);
 
-        let response = self.create_request(Method::POST, &url).json(query).send();
+        let response = self
+            .create_request(Method::POST, &url)
+            .json(query)
+            .send()
+            .await;
 
         match response {
-            Ok(resp) => parse_response(resp),
+            Ok(resp) => parse_response(resp).await,
             Err(e) => {
                 let error_msg = format!("Failed to search: {url}: {e}");
                 Err(internal_error(error_msg))
@@ -272,7 +282,7 @@ impl AlgoliaSearchApi {
         }
     }
 
-    pub fn get_settings(&self, index_name: &str) -> Result<IndexSettings, SearchError> {
+    pub async fn get_settings(&self, index_name: &str) -> Result<IndexSettings, SearchError> {
         trace!("Getting settings for index: {index_name}");
 
         let url = format!("{}/1/indexes/{}/settings", self.write_url, index_name);
@@ -280,12 +290,13 @@ impl AlgoliaSearchApi {
         let response = self
             .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to get settings: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn set_settings(
+    pub async fn set_settings(
         &self,
         index_name: &str,
         settings: &IndexSettings,
@@ -298,12 +309,13 @@ impl AlgoliaSearchApi {
             .create_request(Method::PUT, &url)
             .json(settings)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to set settings: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn _wait_for_task(&self, index_name: &str, task_id: u64) -> Result<(), SearchError> {
+    pub async fn _wait_for_task(&self, index_name: &str, task_id: u64) -> Result<(), SearchError> {
         trace!("Waiting for task {task_id} on index {index_name}");
         let url = format!(
             "{}/1/indexes/{}/task/{}",
@@ -312,10 +324,10 @@ impl AlgoliaSearchApi {
 
         for _ in 0..20 {
             // Poll for up to 10 seconds
-            let response = self.create_request(Method::GET, &url).send();
+            let response = self.create_request(Method::GET, &url).send().await;
             match response {
                 Ok(resp) => {
-                    let body_str = match resp.text() {
+                    let body_str = match resp.text().await {
                         Ok(s) => s,
                         Err(_e) => {
                             continue;
@@ -335,7 +347,7 @@ impl AlgoliaSearchApi {
                     eprintln!("[Algolia] Error waiting for task: {e:?}");
                 }
             }
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            wasip3::clocks::monotonic_clock::wait_for(500_000_000).await;
         }
         Err(internal_error(format!(
             "Task {task_id} did not complete in time."
@@ -527,7 +539,7 @@ pub struct BatchOperation {
     pub body: AlgoliaObject,
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, SearchError> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, SearchError> {
     let status = response.status();
 
     trace!("Received response from Algolia API: {response:?}");
@@ -535,6 +547,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     if status.is_success() {
         let body = response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))?;
 
         trace!("Received response from xAI API: {body:?}");
@@ -543,6 +556,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         trace!("Received {status} response from xAI API: {error_body:?}");

@@ -7,17 +7,18 @@ use crate::model::{Config, ContentPart, EmbeddingResponse, Error, RerankResponse
 use std::cell::RefCell;
 use std::str::FromStr;
 
+#[allow(async_fn_in_trait)]
 pub trait EmbeddingProvider {
     /// Provider-specific configuration that the caller resolves and passes in.
     type ProviderConfig: Clone + 'static;
 
-    fn generate(
+    async fn generate(
         provider_config: Self::ProviderConfig,
         inputs: Vec<ContentPart>,
         config: Config,
     ) -> Result<EmbeddingResponse, Error>;
 
-    fn rerank(
+    async fn rerank(
         provider_config: Self::ProviderConfig,
         query: String,
         documents: Vec<String>,

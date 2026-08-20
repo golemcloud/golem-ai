@@ -1,7 +1,7 @@
 use crate::authentication::generate_access_token;
+use golem_ai_http::{Client, Method, Response};
 use golem_ai_video::error::{from_reqwest_error, video_error_from_status};
 use golem_ai_video::model::types::VideoError;
-use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,6 @@ pub struct VeoApi {
 impl VeoApi {
     pub fn new(config: &crate::config::VeoConfig) -> Self {
         let client = Client::builder()
-            .default_headers(golem_wasi_http::header::HeaderMap::new())
             .build()
             .expect("Failed to initialize HTTP client");
         Self {
@@ -30,22 +29,22 @@ impl VeoApi {
         }
     }
 
-    fn get_auth_header(&self) -> Result<String, VideoError> {
+    async fn get_auth_header(&self) -> Result<String, VideoError> {
         // Resolve the private key right before signing so that
         // hot-rotated host secrets take effect on the next request.
         let private_key = self.private_key.get();
-        let token = generate_access_token(&self.client_email, &private_key, SCOPE)?;
+        let token = generate_access_token(&self.client_email, &private_key, SCOPE).await?;
         Ok(format!("Bearer {token}"))
     }
 
-    pub fn generate_text_to_video(
+    pub async fn generate_text_to_video(
         &self,
         request: TextToVideoRequest,
         model_id: Option<String>,
     ) -> Result<GenerationResponse, VideoError> {
         trace!("Sending text-to-video request to Veo API");
 
-        let auth_header = self.get_auth_header()?;
+        let auth_header = self.get_auth_header().await?;
         let model = model_id.as_deref().unwrap_or("veo-2.0-generate-001");
 
         let response: Response = self
@@ -61,19 +60,20 @@ impl VeoApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn generate_image_to_video(
+    pub async fn generate_image_to_video(
         &self,
         request: ImageToVideoRequest,
         model_id: Option<String>,
     ) -> Result<GenerationResponse, VideoError> {
         trace!("Sending image-to-video request to Veo API");
 
-        let auth_header = self.get_auth_header()?;
+        let auth_header = self.get_auth_header().await?;
         let model = model_id.as_deref().unwrap_or("veo-2.0-generate-001");
 
         let response: Response = self
@@ -89,15 +89,16 @@ impl VeoApi {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn poll_generation(&self, operation_name: &str) -> Result<PollResponse, VideoError> {
+    pub async fn poll_generation(&self, operation_name: &str) -> Result<PollResponse, VideoError> {
         trace!("Polling Veo API for operation: {operation_name}");
 
-        let auth_header = self.get_auth_header()?;
+        let auth_header = self.get_auth_header().await?;
 
         let poll_request = PollRequest {
             operation_name: operation_name.to_string(),
@@ -133,6 +134,7 @@ impl VeoApi {
             .header("Content-Type", "application/json")
             .json(&poll_request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Poll request failed", err))?;
 
         let status = response.status();
@@ -141,6 +143,7 @@ impl VeoApi {
         if status.is_success() {
             let operation_response: OperationResponse = response
                 .json()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to parse operation response", err))?;
 
             trace!("Successfully parsed OperationResponse: {operation_response:?}");
@@ -247,6 +250,7 @@ impl VeoApi {
         } else {
             let error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read error response", err))?;
 
             trace!("Request failed with status {status}, error body: {error_body}");
@@ -373,15 +377,19 @@ pub struct VeoVideo {
     pub gcs_uri: Option<String>,
 }
 
-fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {
+async fn parse_response<T: serde::de::DeserializeOwned>(
+    response: Response,
+) -> Result<T, VideoError> {
     let status = response.status();
     if status.is_success() {
         response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         let error_message = format!("Request failed with {status}: {error_body}");

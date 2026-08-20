@@ -304,109 +304,110 @@ mod tests {
         }
     }
 
-    #[wstd::test]
-    async fn test_token_exchange_flow() {
-        let mock_client = MockHttpClient::new();
+    #[test]
+    fn test_token_exchange_flow() {
+        futures::executor::block_on(async {
+            let mock_client = MockHttpClient::new();
 
-        let token_response =
-            r#"{"access_token": "ya29.test_token", "expires_in": 3600, "token_type": "Bearer"}"#;
-        mock_client.expect_response(
-            Response::builder()
-                .status(200)
-                .body(token_response.as_bytes().to_vec())
-                .unwrap(),
-        );
+            let token_response = r#"{"access_token": "ya29.test_token", "expires_in": 3600, "token_type": "Bearer"}"#;
+            mock_client.expect_response(
+                Response::builder()
+                    .status(200)
+                    .body(token_response.as_bytes().to_vec())
+                    .unwrap(),
+            );
 
-        let project_id = "test-project-123";
-        let client_email = "test-service-account@test-project-123.iam.gserviceaccount.com";
-        let private_key = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC3nmCgsAlob5Fb\n8J81FCw+80nAilI2soaayyr7nYUPQJORtu4mNEOSdnLBTk4RFvaH8UAJ7h21fcF2\nUEn3YOB0yUYIKBDS3uB60oplwJOnbis3lAlsT0VZ/UtngF6zNhJBVpz/RrwSJ1Po\nTnOrlkrrRXgPK6t5AxuR0n+h4P3YMU7hLZ46A5m/7YLJdWkVE1p3GYcrlltm2sos\nWWUpiNGIDflG42tlJVwG+QXL7J9D4ua/jbkFOvKI0Dl893ka0gkUCR0T0Cm1TRwo\nbBTBV/b/YXVCSJug0KsIIxYG0izSzlETH0Ql9tl6G+q0C4H0HUkN/UZ3QFYPmZUs\nX3Wu8DmvAgMBAAECggEBAKIU4YK2IXfYk90uZ7q41d2zb7TP5IZ3zC2zjXuRrjSq\nchi7+zgqBkOw3tcXwf1/4ZpaMIcTc5ITMcS4VrJRB5DPYkws4bziFBEW7CepeCzh\nKLDksfSzfKpU1kzEmdNjtXWLeQY1cCouIPj810ntXrCTH8l0aOZnAd0UjKleK3S7\ngva0IYHvCtoYFdvvwCOfxRQKAufcwotkgJPs6m95QJYwwfN3EaZi7duuNu0fKRkH\nu2sfRqDcJR3Yo4Nt9LhqB/OfkfL0TuzkNbXi0ZsUTJ5pFRx1m+Gtbb3qC95MBeey\ng/F9slQwRpDyJdxIrNVn7tv5tsd8v+4USwAC+cklQnECgYEA2wFvJ4KykuKG4RXO\nbWG0pavchTIixcC86y1ht/OxZFx13KmVzyE0PiOGTozAJCAHu1JK5gLxgGzXgLLr\nnT55kBvTzQ7+HQh+jhjrIIruicfiugzEQ6MivSw0pnk2Lkta25AeHuW1bKao1dOr\nnBDrtAZ1oKybBcna8SkYHprXh/0CgYEA1qKwRoZjfokzwmLwCyXDQyDKgUM0OOLq\nMXsCVv8BXltoSH5/vlDKSePs+4Er3o596QJRUosuwLgfIHsqFSFpUDk3lIctkqOt\nT1P1tjBZg8qMCSFzIwqsyj0lXN5IK6Zqvi7WikVVQ7gN3Stu4H0C9OgyV+kzHlNW\niV8cfvMJChsCgYAWnQRMMRudPRSuQyEofDE59g/0FOQwRSF8qxfu9ZO4iC+HVF9q\nnsQVMnfYvoHMeR4zQmEHdQBYwWRTHqZjeyL0NVteThEBEHJ426vTlWTiByirC0xs\nq3iXzeu10Mg+aXt9NllV2WQtTtwaEBwlJj4gPZaBu7DaHSilRBgAeP6ORQKBgGsV\nZe75s3/5AdrUs8BMCdxe6smM9uv+wisHnQY8Wblyz1eDzUXtVs+AqMZeDr4Nx2HO\nJzaQfDXoZpc0+6zpK3q74S/4NVN418nBMNDB1Jc9IZqYlrH/7G9GDHMF72nfsFfM\nVHtN1hlgJYKX3cygci4v/pX/oeJaX81Pp47qwDLLAoGAJadd2du9Nrd5WNohsPBH\nNGtq6QMJsjAABKkFXlqFM4Jsc/zaEOa/fsLCp6lbrVEqvHZGFc+OoukDlhY+c3QU\nSFVTtnsNi4YIbd8xNUpRNw7neShlG64wG0tLTI+y7a7Xh7GWkfYdfA950O8QEh46\nrecURYwOhS+7tjhb0xXs4kU=\n-----END PRIVATE KEY-----";
+            let project_id = "test-project-123";
+            let client_email = "test-service-account@test-project-123.iam.gserviceaccount.com";
+            let private_key = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC3nmCgsAlob5Fb\n8J81FCw+80nAilI2soaayyr7nYUPQJORtu4mNEOSdnLBTk4RFvaH8UAJ7h21fcF2\nUEn3YOB0yUYIKBDS3uB60oplwJOnbis3lAlsT0VZ/UtngF6zNhJBVpz/RrwSJ1Po\nTnOrlkrrRXgPK6t5AxuR0n+h4P3YMU7hLZ46A5m/7YLJdWkVE1p3GYcrlltm2sos\nWWUpiNGIDflG42tlJVwG+QXL7J9D4ua/jbkFOvKI0Dl893ka0gkUCR0T0Cm1TRwo\nbBTBV/b/YXVCSJug0KsIIxYG0izSzlETH0Ql9tl6G+q0C4H0HUkN/UZ3QFYPmZUs\nX3Wu8DmvAgMBAAECggEBAKIU4YK2IXfYk90uZ7q41d2zb7TP5IZ3zC2zjXuRrjSq\nchi7+zgqBkOw3tcXwf1/4ZpaMIcTc5ITMcS4VrJRB5DPYkws4bziFBEW7CepeCzh\nKLDksfSzfKpU1kzEmdNjtXWLeQY1cCouIPj810ntXrCTH8l0aOZnAd0UjKleK3S7\ngva0IYHvCtoYFdvvwCOfxRQKAufcwotkgJPs6m95QJYwwfN3EaZi7duuNu0fKRkH\nu2sfRqDcJR3Yo4Nt9LhqB/OfkfL0TuzkNbXi0ZsUTJ5pFRx1m+Gtbb3qC95MBeey\ng/F9slQwRpDyJdxIrNVn7tv5tsd8v+4USwAC+cklQnECgYEA2wFvJ4KykuKG4RXO\nbWG0pavchTIixcC86y1ht/OxZFx13KmVzyE0PiOGTozAJCAHu1JK5gLxgGzXgLLr\nnT55kBvTzQ7+HQh+jhjrIIruicfiugzEQ6MivSw0pnk2Lkta25AeHuW1bKao1dOr\nnBDrtAZ1oKybBcna8SkYHprXh/0CgYEA1qKwRoZjfokzwmLwCyXDQyDKgUM0OOLq\nMXsCVv8BXltoSH5/vlDKSePs+4Er3o596QJRUosuwLgfIHsqFSFpUDk3lIctkqOt\nT1P1tjBZg8qMCSFzIwqsyj0lXN5IK6Zqvi7WikVVQ7gN3Stu4H0C9OgyV+kzHlNW\niV8cfvMJChsCgYAWnQRMMRudPRSuQyEofDE59g/0FOQwRSF8qxfu9ZO4iC+HVF9q\nnsQVMnfYvoHMeR4zQmEHdQBYwWRTHqZjeyL0NVteThEBEHJ426vTlWTiByirC0xs\nq3iXzeu10Mg+aXt9NllV2WQtTtwaEBwlJj4gPZaBu7DaHSilRBgAeP6ORQKBgGsV\nZe75s3/5AdrUs8BMCdxe6smM9uv+wisHnQY8Wblyz1eDzUXtVs+AqMZeDr4Nx2HO\nJzaQfDXoZpc0+6zpK3q74S/4NVN418nBMNDB1Jc9IZqYlrH/7G9GDHMF72nfsFfM\nVHtN1hlgJYKX3cygci4v/pX/oeJaX81Pp47qwDLLAoGAJadd2du9Nrd5WNohsPBH\nNGtq6QMJsjAABKkFXlqFM4Jsc/zaEOa/fsLCp6lbrVEqvHZGFc+OoukDlhY+c3QU\nSFVTtnsNi4YIbd8xNUpRNw7neShlG64wG0tLTI+y7a7Xh7GWkfYdfA950O8QEh46\nrecURYwOhS+7tjhb0xXs4kU=\n-----END PRIVATE KEY-----";
 
-        let service_account_key = ServiceAccountKey::new(
-            project_id.to_string(),
-            client_email.to_string(),
-            private_key.to_string(),
-        );
+            let service_account_key = ServiceAccountKey::new(
+                project_id.to_string(),
+                client_email.to_string(),
+                private_key.to_string(),
+            );
 
-        let auth = GcpAuth::new(service_account_key, mock_client).unwrap();
+            let auth = GcpAuth::new(service_account_key, mock_client).unwrap();
 
-        let _result = auth.get_access_token().await;
+            let _result = auth.get_access_token().await;
 
-        let request = auth.http_client.last_captured_request().unwrap();
-        assert_eq!(request.method(), "POST");
-        assert_eq!(request.uri(), "https://oauth2.googleapis.com/token");
+            let request = auth.http_client.last_captured_request().unwrap();
+            assert_eq!(request.method(), "POST");
+            assert_eq!(request.uri(), "https://oauth2.googleapis.com/token");
 
-        let content_type = request.headers().get("content-type").unwrap();
-        assert_eq!(content_type, "application/x-www-form-urlencoded");
+            let content_type = request.headers().get("content-type").unwrap();
+            assert_eq!(content_type, "application/x-www-form-urlencoded");
 
-        let body = String::from_utf8_lossy(request.body());
-        assert!(body.contains("grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer"));
-        assert!(body.contains("assertion="));
+            let body = String::from_utf8_lossy(request.body());
+            assert!(body.contains("grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer"));
+            assert!(body.contains("assertion="));
 
-        // Extract and verify the JWT assertion structure
-        let assertion_start = body.find("assertion=").unwrap() + "assertion=".len();
-        let assertion_end = body[assertion_start..]
-            .find('&')
-            .unwrap_or(body[assertion_start..].len());
-        let assertion_encoded = &body[assertion_start..assertion_start + assertion_end];
-        let assertion = urlencoding::decode(assertion_encoded).unwrap();
+            // Extract and verify the JWT assertion structure
+            let assertion_start = body.find("assertion=").unwrap() + "assertion=".len();
+            let assertion_end = body[assertion_start..]
+                .find('&')
+                .unwrap_or(body[assertion_start..].len());
+            let assertion_encoded = &body[assertion_start..assertion_start + assertion_end];
+            let assertion = urlencoding::decode(assertion_encoded).unwrap();
 
-        let jwt_parts: Vec<&str> = assertion.split('.').collect();
-        assert_eq!(
-            jwt_parts.len(),
-            3,
-            "JWT should have 3 parts: header.claim.signature"
-        );
+            let jwt_parts: Vec<&str> = assertion.split('.').collect();
+            assert_eq!(
+                jwt_parts.len(),
+                3,
+                "JWT should have 3 parts: header.claim.signature"
+            );
 
-        let header_b64 = jwt_parts[0];
-        let claim_b64 = jwt_parts[1];
-        let signature_b64 = jwt_parts[2];
+            let header_b64 = jwt_parts[0];
+            let claim_b64 = jwt_parts[1];
+            let signature_b64 = jwt_parts[2];
 
-        let public_key = RsaPublicKey::from(&auth.private_key);
-        let padding = Pkcs1v15Sign::new::<Sha256>();
+            let public_key = RsaPublicKey::from(&auth.private_key);
+            let padding = Pkcs1v15Sign::new::<Sha256>();
 
-        let to_be_signed = format!("{header_b64}.{claim_b64}");
+            let to_be_signed = format!("{header_b64}.{claim_b64}");
 
-        let signature_bytes = general_purpose::URL_SAFE_NO_PAD
-            .decode(signature_b64)
-            .unwrap();
+            let signature_bytes = general_purpose::URL_SAFE_NO_PAD
+                .decode(signature_b64)
+                .unwrap();
 
-        let mut hasher = Sha256::new();
-        hasher.update(to_be_signed.as_bytes());
-        let hash = hasher.finalize();
+            let mut hasher = Sha256::new();
+            hasher.update(to_be_signed.as_bytes());
+            let hash = hasher.finalize();
 
-        public_key
-            .verify(padding, &hash, &signature_bytes)
-            .expect("JWT signature should be cryptographically valid");
+            public_key
+                .verify(padding, &hash, &signature_bytes)
+                .expect("JWT signature should be cryptographically valid");
 
-        // Decode and verify the JSON content structure
-        let header_json = general_purpose::URL_SAFE_NO_PAD.decode(header_b64).unwrap();
-        let claim_json = general_purpose::URL_SAFE_NO_PAD.decode(claim_b64).unwrap();
+            // Decode and verify the JSON content structure
+            let header_json = general_purpose::URL_SAFE_NO_PAD.decode(header_b64).unwrap();
+            let claim_json = general_purpose::URL_SAFE_NO_PAD.decode(claim_b64).unwrap();
 
-        let parsed_header: JwtHeader = serde_json::from_slice(&header_json).unwrap();
-        let parsed_claim: JwtClaim = serde_json::from_slice(&claim_json).unwrap();
+            let parsed_header: JwtHeader = serde_json::from_slice(&header_json).unwrap();
+            let parsed_claim: JwtClaim = serde_json::from_slice(&claim_json).unwrap();
 
-        assert_eq!(parsed_header.alg, "RS256");
-        assert_eq!(parsed_header.typ, "JWT");
+            assert_eq!(parsed_header.alg, "RS256");
+            assert_eq!(parsed_header.typ, "JWT");
 
-        // Verify payload structure and content
-        assert_eq!(
-            parsed_claim.iss,
-            "test-service-account@test-project-123.iam.gserviceaccount.com"
-        );
-        assert_eq!(
-            parsed_claim.scope,
-            "https://www.googleapis.com/auth/cloud-platform"
-        );
-        assert_eq!(parsed_claim.aud, "https://oauth2.googleapis.com/token");
+            // Verify payload structure and content
+            assert_eq!(
+                parsed_claim.iss,
+                "test-service-account@test-project-123.iam.gserviceaccount.com"
+            );
+            assert_eq!(
+                parsed_claim.scope,
+                "https://www.googleapis.com/auth/cloud-platform"
+            );
+            assert_eq!(parsed_claim.aud, "https://oauth2.googleapis.com/token");
 
-        // Verify timestamps are reasonable (within last minute and next hour)
-        let now = Utc::now().timestamp();
-        assert!(parsed_claim.iat >= now - 60, "iat should be recent");
-        assert!(parsed_claim.iat <= now + 60, "iat should not be in future");
-        assert_eq!(
-            parsed_claim.exp,
-            parsed_claim.iat + 3600,
-            "exp should be 1 hour after iat"
-        );
+            // Verify timestamps are reasonable (within last minute and next hour)
+            let now = Utc::now().timestamp();
+            assert!(parsed_claim.iat >= now - 60, "iat should be recent");
+            assert!(parsed_claim.iat <= now + 60, "iat should not be in future");
+            assert_eq!(
+                parsed_claim.exp,
+                parsed_claim.iat + 3600,
+                "exp should be 1 hour after iat"
+            );
+        });
     }
 }

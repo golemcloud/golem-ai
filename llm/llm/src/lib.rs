@@ -3,14 +3,14 @@ pub mod config;
 pub mod durability;
 pub mod error;
 pub mod model;
-pub mod wasi_compat;
 
 #[allow(dead_code)]
 pub mod event_source;
 
 use crate::model::{ChatStream, Config, Error, Event, Response, StreamEvent};
-use async_trait::async_trait;
 use std::cell::RefCell;
+use std::future::Future;
+use std::pin::Pin;
 use std::str::FromStr;
 
 #[allow(async_fn_in_trait)]
@@ -35,14 +35,11 @@ pub trait LlmProvider {
     ) -> ChatStream;
 }
 
-/// `ChatStreamInterface` is used as `Box<dyn ChatStreamInterface>` inside `ChatStream`, so its
-/// async methods have to go through the `#[async_trait]` macro (boxed futures) to remain
-/// dyn-compatible. `?Send` because WASM is single-threaded.
-#[async_trait(?Send)]
-pub trait ChatStreamInterface: 'static {
-    async fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>>;
+/// A boxed, intentionally non-`Send` future used by object-safe LLM streams.
+pub type LlmFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
-    async fn get_next(&self) -> Vec<Result<StreamEvent, Error>>;
+pub trait ChatStreamInterface: 'static {
+    fn get_next(&self) -> LlmFuture<'_, Vec<Result<StreamEvent, Error>>>;
 
     fn as_any(&self) -> &dyn std::any::Any;
 

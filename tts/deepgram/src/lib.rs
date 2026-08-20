@@ -16,10 +16,9 @@ use golem_ai_tts::model::types::{
     TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
 use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
-use golem_ai_tts::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_tts::{
     AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
-    StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
+    StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider, TtsFuture,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
 };
 use log::{info, warn};
@@ -112,16 +111,20 @@ impl VoiceInterface for DeepgramVoiceImpl {
         ]
     }
 
-    fn update_settings(&self, _settings: VoiceSettings) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Deepgram does not support voice settings updates".to_string(),
-        ))
+    fn update_settings(&self, _settings: VoiceSettings) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Deepgram does not support voice settings updates".to_string(),
+            ))
+        })
     }
 
-    fn delete(&self) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Deepgram voices cannot be deleted".to_string(),
-        ))
+    fn delete(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Deepgram voices cannot be deleted".to_string(),
+            ))
+        })
     }
 
     fn clone(&self) -> Result<Voice, TtsError> {
@@ -130,12 +133,13 @@ impl VoiceInterface for DeepgramVoiceImpl {
         ))
     }
 
-    fn preview(&self, text: String) -> Result<Vec<u8>, TtsError> {
-        let (request, params) = synthesis_options_to_tts_request(text, None)?;
-        let mut params = params.unwrap();
-        params.model = Some(self.model_data.voice_id.clone());
-
-        self.client.text_to_speech(&request, Some(&params))
+    fn preview(&self, text: String) -> TtsFuture<'_, Vec<u8>> {
+        Box::pin(async move {
+            let (request, params) = synthesis_options_to_tts_request(text, None)?;
+            let mut params = params.unwrap();
+            params.model = Some(self.model_data.voice_id.clone());
+            self.client.text_to_speech(&request, Some(&params)).await
+        })
     }
 }
 
@@ -165,18 +169,20 @@ impl VoiceResultsInterface for DeepgramVoiceResults {
         self.current_index.get() < self.voices.borrow().len()
     }
 
-    fn get_next(&self) -> Result<Vec<VoiceInfo>, TtsError> {
-        let voices = self.voices.borrow();
-        let current = self.current_index.get();
+    fn get_next(&self) -> TtsFuture<'_, Vec<VoiceInfo>> {
+        Box::pin(async move {
+            let voices = self.voices.borrow();
+            let current = self.current_index.get();
 
-        if current >= voices.len() {
-            return Ok(vec![]);
-        }
+            if current >= voices.len() {
+                return Ok(vec![]);
+            }
 
-        let remaining: Vec<VoiceInfo> = voices[current..].to_vec();
-        self.current_index.set(voices.len());
+            let remaining: Vec<VoiceInfo> = voices[current..].to_vec();
+            self.current_index.set(voices.len());
 
-        Ok(remaining)
+            Ok(remaining)
+        })
     }
 
     fn get_total_count(&self) -> Option<u32> {
@@ -189,13 +195,14 @@ pub struct DeepgramSynthesisStream {
     client: DeepgramTtsApi,
     current_request: RefCell<Option<client::TextToSpeechRequest>>,
     params: RefCell<Option<client::TextToSpeechParams>>,
-    response_stream: RefCell<Option<golem_wasi_http::Response>>,
+    response_stream: RefCell<Option<golem_ai_http::ResponseBody>>,
     chunk_buffer: RefCell<Vec<u8>>,
     bytes_streamed: Cell<usize>,
     total_chunks_received: Cell<u32>,
     finished: Cell<bool>,
     sequence_number: Cell<u32>,
     stream_started: Cell<bool>,
+    response_eof: Cell<bool>,
 }
 
 impl DeepgramSynthesisStream {
@@ -228,6 +235,7 @@ impl DeepgramSynthesisStream {
             finished: Cell::new(false),
             sequence_number: Cell::new(0),
             stream_started: Cell::new(false),
+            response_eof: Cell::new(false),
         }
     }
 
@@ -245,64 +253,60 @@ impl SynthesisStreamInterface for DeepgramSynthesisStream {
         self
     }
 
-    fn send_text(&self, input: TextInput) -> Result<(), TtsError> {
-        info!("[DEEPGRAM] send_text called with: '{}'", input.content);
+    fn send_text(&self, input: TextInput) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            info!("[DEEPGRAM] send_text called with: '{}'", input.content);
 
-        if self.finished.get() {
-            warn!("[DEEPGRAM] Stream already finished, returning error");
-            return Err(TtsError::InvalidConfiguration(
-                "Stream already finished".to_string(),
-            ));
-        }
-
-        {
-            let mut request_ref = self.current_request.borrow_mut();
-            if let Some(mut request) = request_ref.take() {
-                info!(
-                    "[DEEPGRAM] Updating request text from '{}' to '{}'",
-                    request.text, input.content
-                );
-                request.text = input.content;
-                *request_ref = Some(request);
-            } else {
-                warn!("[DEEPGRAM] Warning: No current request to update");
+            if self.finished.get() {
+                warn!("[DEEPGRAM] Stream already finished, returning error");
+                return Err(TtsError::InvalidConfiguration(
+                    "Stream already finished".to_string(),
+                ));
             }
-        }
 
-        Ok(())
+            {
+                let mut request_ref = self.current_request.borrow_mut();
+                if let Some(mut request) = request_ref.take() {
+                    info!(
+                        "[DEEPGRAM] Updating request text from '{}' to '{}'",
+                        request.text, input.content
+                    );
+                    request.text = input.content;
+                    *request_ref = Some(request);
+                } else {
+                    warn!("[DEEPGRAM] Warning: No current request to update");
+                }
+            }
+
+            Ok(())
+        })
     }
 
-    fn finish(&self) -> Result<(), TtsError> {
-        info!("[DEEPGRAM] finish() called");
+    fn finish(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            info!("[DEEPGRAM] finish() called");
 
-        if self.stream_started.get() {
-            info!("[DEEPGRAM] Stream already started, returning OK");
-            return Ok(());
-        }
-
-        warn!("[DEEPGRAM] Checking current request state...");
-        let request_debug = self.current_request.borrow();
-        match request_debug.as_ref() {
-            Some(req) => {
-                info!(
-                    "[DEEPGRAM] Request exists with text: '{}' (length: {})",
-                    req.text,
-                    req.text.len()
-                );
+            if self.stream_started.get() {
+                info!("[DEEPGRAM] Stream already started, returning OK");
+                return Ok(());
             }
-            None => {
+
+            warn!("[DEEPGRAM] Checking current request state...");
+            let request = self.current_request.borrow().clone().ok_or_else(|| {
                 warn!("[DEEPGRAM] No request found!");
-                return Err(TtsError::InternalError("No request available".to_string()));
-            }
-        }
-        drop(request_debug);
-
-        if let Some(request) = self.current_request.borrow().as_ref() {
+                TtsError::InternalError("No request available".to_string())
+            })?;
+            let params = self.params.borrow().clone();
+            info!(
+                "[DEEPGRAM] Request exists with text: '{}' (length: {})",
+                request.text,
+                request.text.len()
+            );
             warn!("[DEEPGRAM] Current request text: '{}'", request.text);
             if !request.text.is_empty() {
                 warn!("[DEEPGRAM] Making API call to Deepgram...");
 
-                if let Some(params) = self.params.borrow().as_ref() {
+                if let Some(params) = params.as_ref() {
                     warn!(
                         "[DEEPGRAM] Params - model: {:?}, encoding: {:?}, sample_rate: {:?}",
                         params.model, params.encoding, params.sample_rate
@@ -313,10 +317,11 @@ impl SynthesisStreamInterface for DeepgramSynthesisStream {
 
                 match self
                     .client
-                    .text_to_speech_stream(request, self.params.borrow().as_ref())
+                    .text_to_speech_stream(&request, params.as_ref())
+                    .await
                 {
                     Ok(response) => {
-                        *self.response_stream.borrow_mut() = Some(response);
+                        *self.response_stream.borrow_mut() = Some(response.into_body());
                         self.stream_started.set(true);
                     }
                     Err(e) => {
@@ -329,80 +334,78 @@ impl SynthesisStreamInterface for DeepgramSynthesisStream {
                     "No text provided for synthesis".to_string(),
                 ));
             }
-        } else {
-            return Err(TtsError::InternalError("No request available".to_string()));
-        }
 
-        Ok(())
+            Ok(())
+        })
     }
 
-    fn receive_chunk(&self) -> Result<Option<AudioChunk>, TtsError> {
-        if self.finished.get() {
-            return Ok(None);
-        }
+    fn receive_chunk(&self) -> TtsFuture<'_, Option<AudioChunk>> {
+        Box::pin(async move {
+            if self.finished.get() {
+                return Ok(None);
+            }
 
-        if !self.stream_started.get() && self.has_pending_audio() {
-            self.finish()?;
-        }
-
-        if let Some(response) = self.response_stream.borrow_mut().take() {
             const CHUNK_SIZE: usize = 8192;
+            if !self.stream_started.get() && self.has_pending_audio() {
+                self.finish().await?;
+            }
 
-            match response.bytes() {
-                Ok(bytes) => {
-                    if bytes.is_empty() {
+            loop {
+                let buffered_len = self.chunk_buffer.borrow().len();
+                if buffered_len > CHUNK_SIZE || (self.response_eof.get() && buffered_len > 0) {
+                    let mut buffer = self.chunk_buffer.borrow_mut();
+                    let take = buffer.len().min(CHUNK_SIZE);
+                    let chunk_data: Vec<u8> = buffer.drain(..take).collect();
+                    let is_final = self.response_eof.get() && buffer.is_empty();
+                    drop(buffer);
+
+                    let sequence = self.sequence_number.get();
+                    self.sequence_number.set(sequence + 1);
+                    self.bytes_streamed
+                        .set(self.bytes_streamed.get() + chunk_data.len());
+                    self.total_chunks_received
+                        .set(self.total_chunks_received.get() + 1);
+                    if is_final {
                         self.finished.set(true);
-                        return Ok(None);
                     }
-
-                    let mut current_buffer = self.chunk_buffer.borrow_mut();
-                    current_buffer.extend_from_slice(&bytes);
-
-                    if current_buffer.len() >= CHUNK_SIZE || bytes.len() < CHUNK_SIZE {
-                        let chunk_data: Vec<u8> = if current_buffer.len() <= CHUNK_SIZE {
-                            current_buffer.drain(..).collect()
-                        } else {
-                            current_buffer.drain(..CHUNK_SIZE).collect()
-                        };
-
-                        let sequence = self.sequence_number.get();
-                        self.sequence_number.set(sequence + 1);
-                        self.bytes_streamed
-                            .set(self.bytes_streamed.get() + chunk_data.len());
-                        self.total_chunks_received
-                            .set(self.total_chunks_received.get() + 1);
-
-                        let is_final = bytes.len() < CHUNK_SIZE && current_buffer.is_empty();
-                        if is_final {
-                            self.finished.set(true);
-                        }
-
-                        let chunk = AudioChunk {
-                            data: chunk_data,
-                            sequence_number: sequence,
-                            is_final,
-                            timing_info: None,
-                        };
-
-                        return Ok(Some(chunk));
-                    }
-
-                    Ok(None)
+                    return Ok(Some(AudioChunk {
+                        data: chunk_data,
+                        sequence_number: sequence,
+                        is_final,
+                        timing_info: None,
+                    }));
                 }
-                Err(e) => {
+
+                if self.response_eof.get() {
                     self.finished.set(true);
-                    Err(TtsError::NetworkError(format!(
-                        "Failed to read response: {}",
-                        e
-                    )))
+                    return Ok(None);
+                }
+
+                let Some(mut response) = self.response_stream.borrow_mut().take() else {
+                    if self.stream_started.get() {
+                        self.finished.set(true);
+                    }
+                    return Ok(None);
+                };
+
+                match response.chunk().await {
+                    Ok(Some(bytes)) => {
+                        *self.response_stream.borrow_mut() = Some(response);
+                        self.chunk_buffer.borrow_mut().extend_from_slice(&bytes);
+                    }
+                    Ok(None) => {
+                        self.response_eof.set(true);
+                    }
+                    Err(e) => {
+                        self.finished.set(true);
+                        return Err(TtsError::NetworkError(format!(
+                            "Failed to read response: {}",
+                            e
+                        )));
+                    }
                 }
             }
-        } else {
-            if self.stream_started.get() && self.chunk_buffer.borrow().is_empty() {
-                self.finished.set(true);
-            }
-            Ok(None)
-        }
+        })
     }
 
     fn has_pending_audio(&self) -> bool {
@@ -430,6 +433,7 @@ impl SynthesisStreamInterface for DeepgramSynthesisStream {
     fn close(&self) {
         self.finished.set(true);
         self.stream_started.set(false);
+        self.response_eof.set(true);
         *self.response_stream.borrow_mut() = None;
         self.chunk_buffer.borrow_mut().clear();
     }
@@ -455,22 +459,28 @@ impl VoiceConversionStreamInterface for DeepgramVoiceConversionStream {
         self
     }
 
-    fn send_audio(&self, _audio_data: Vec<u8>) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Deepgram does not support voice conversion".to_string(),
-        ))
+    fn send_audio(&self, _audio_data: Vec<u8>) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Deepgram does not support voice conversion".to_string(),
+            ))
+        })
     }
 
-    fn receive_converted(&self) -> Result<Option<AudioChunk>, TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Deepgram does not support voice conversion".to_string(),
-        ))
+    fn receive_converted(&self) -> TtsFuture<'_, Option<AudioChunk>> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Deepgram does not support voice conversion".to_string(),
+            ))
+        })
     }
 
-    fn finish(&self) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Deepgram does not support voice conversion".to_string(),
-        ))
+    fn finish(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Deepgram does not support voice conversion".to_string(),
+            ))
+        })
     }
 
     fn close(&self) {}
@@ -510,22 +520,28 @@ impl PronunciationLexiconInterface for DeepgramPronunciationLexicon {
         0
     }
 
-    fn add_entry(&self, _word: String, _pronunciation: String) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Deepgram does not support pronunciation lexicons".to_string(),
-        ))
+    fn add_entry(&self, _word: String, _pronunciation: String) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Deepgram does not support pronunciation lexicons".to_string(),
+            ))
+        })
     }
 
-    fn remove_entry(&self, _word: String) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Deepgram does not support pronunciation lexicons".to_string(),
-        ))
+    fn remove_entry(&self, _word: String) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Deepgram does not support pronunciation lexicons".to_string(),
+            ))
+        })
     }
 
-    fn export_content(&self) -> Result<String, TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Deepgram does not support pronunciation lexicons".to_string(),
-        ))
+    fn export_content(&self) -> TtsFuture<'_, String> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Deepgram does not support pronunciation lexicons".to_string(),
+            ))
+        })
     }
 }
 
@@ -556,7 +572,7 @@ impl DeepgramLongFormOperation {
         }
     }
 
-    fn process_long_form(&self) -> Result<(), TtsError> {
+    async fn process_long_form(&self) -> Result<(), TtsError> {
         self.status.set(OperationStatus::Processing);
 
         let chunks = split_text_intelligently(&self.content, 1000);
@@ -571,6 +587,7 @@ impl DeepgramLongFormOperation {
             match self
                 .client
                 .text_to_speech_with_metadata(&request, params.as_ref())
+                .await
             {
                 Ok(tts_response) => {
                     audio_chunks.push(tts_response.audio_data);
@@ -599,79 +616,85 @@ impl LongFormOperationInterface for DeepgramLongFormOperation {
         self
     }
 
-    fn get_status(&self) -> OperationStatus {
-        self.status.get()
+    fn get_status(&self) -> TtsFuture<'_, OperationStatus> {
+        Box::pin(async move { Ok(self.status.get()) })
     }
 
-    fn get_progress(&self) -> f32 {
-        self.progress.get()
+    fn get_progress(&self) -> TtsFuture<'_, f32> {
+        Box::pin(async move { Ok(self.progress.get()) })
     }
 
-    fn cancel(&self) -> Result<(), TtsError> {
-        self.status.set(OperationStatus::Cancelled);
-        Ok(())
+    fn cancel(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            self.status.set(OperationStatus::Cancelled);
+            Ok(())
+        })
     }
 
-    fn get_result(&self) -> Result<LongFormResult, TtsError> {
-        if self.status.get() != OperationStatus::Completed {
-            return Err(TtsError::InvalidConfiguration(
-                "Operation not completed".to_string(),
-            ));
-        }
-
-        if let Some(chunks) = self.audio_chunks.borrow().as_ref() {
-            let mut combined_audio = Vec::new();
-            for chunk in chunks {
-                combined_audio.extend_from_slice(chunk);
+    fn get_result(&self) -> TtsFuture<'_, LongFormResult> {
+        Box::pin(async move {
+            if self.status.get() != OperationStatus::Completed {
+                return Err(TtsError::InvalidConfiguration(
+                    "Operation not completed".to_string(),
+                ));
             }
 
-            let result = LongFormResult {
-                output_location: "deepgram-synthesis".to_string(),
-                total_duration: estimate_audio_duration(&combined_audio, 24000),
-                chapter_durations: None,
-                metadata: audio_data_to_synthesis_result(
-                    combined_audio.clone(),
-                    &self.content,
-                    "linear16",
-                    24000,
-                )
-                .metadata,
-            };
+            if let Some(chunks) = self.audio_chunks.borrow().as_ref() {
+                let mut combined_audio = Vec::new();
+                for chunk in chunks {
+                    combined_audio.extend_from_slice(chunk);
+                }
 
-            Ok(result)
-        } else {
-            Err(TtsError::InternalError(
-                "No audio data available".to_string(),
-            ))
-        }
+                let result = LongFormResult {
+                    output_location: "deepgram-synthesis".to_string(),
+                    total_duration: estimate_audio_duration(&combined_audio, 24000),
+                    chapter_durations: None,
+                    metadata: audio_data_to_synthesis_result(
+                        combined_audio.clone(),
+                        &self.content,
+                        "linear16",
+                        24000,
+                    )
+                    .metadata,
+                };
+
+                Ok(result)
+            } else {
+                Err(TtsError::InternalError(
+                    "No audio data available".to_string(),
+                ))
+            }
+        })
     }
 }
 
 pub struct DeepgramTts;
 
 impl DeepgramTts {
-    fn create_client(provider_config: &DeepgramConfig) -> DeepgramTtsApi {
+    fn create_client(provider_config: &DeepgramConfig) -> Result<DeepgramTtsApi, TtsError> {
         DeepgramTtsApi::new(provider_config)
     }
 
-    fn create_batch_client(provider_config: &DeepgramConfig) -> DeepgramTtsApi {
+    fn create_batch_client(provider_config: &DeepgramConfig) -> Result<DeepgramTtsApi, TtsError> {
         let batch_config = RateLimitConfig {
             max_retries: 5,
             initial_delay: std::time::Duration::from_millis(500),
             max_delay: std::time::Duration::from_secs(60),
             backoff_multiplier: 1.5,
         };
-        DeepgramTtsApi::new(provider_config).with_rate_limit_config(batch_config)
+        Ok(DeepgramTtsApi::new(provider_config)?.with_rate_limit_config(batch_config))
     }
 
-    fn create_streaming_client(provider_config: &DeepgramConfig) -> DeepgramTtsApi {
+    fn create_streaming_client(
+        provider_config: &DeepgramConfig,
+    ) -> Result<DeepgramTtsApi, TtsError> {
         let streaming_config = RateLimitConfig {
             max_retries: 3,
             initial_delay: std::time::Duration::from_millis(200),
             max_delay: std::time::Duration::from_secs(5),
             backoff_multiplier: 2.0,
         };
-        DeepgramTtsApi::new(provider_config).with_rate_limit_config(streaming_config)
+        Ok(DeepgramTtsApi::new(provider_config)?.with_rate_limit_config(streaming_config))
     }
 }
 
@@ -680,11 +703,11 @@ impl VoiceProvider for DeepgramTts {
     type VoiceResults = DeepgramVoiceResults;
     type ProviderConfig = DeepgramConfig;
 
-    fn list_voices(
+    async fn list_voices(
         provider_config: Self::ProviderConfig,
         filter: Option<VoiceFilter>,
     ) -> Result<VoiceResults, TtsError> {
-        let client = Self::create_client(&provider_config);
+        let client = Self::create_client(&provider_config)?;
         let models = get_available_models();
 
         if let Some(f) = filter.as_ref() {
@@ -773,11 +796,11 @@ impl VoiceProvider for DeepgramTts {
         Ok(VoiceResults::new(DeepgramVoiceResults::new(voice_infos)))
     }
 
-    fn get_voice(
+    async fn get_voice(
         provider_config: Self::ProviderConfig,
         voice_id: String,
     ) -> Result<Voice, TtsError> {
-        let client = Self::create_client(&provider_config);
+        let client = Self::create_client(&provider_config)?;
         let models = get_available_models();
 
         if let Some(model) = models.into_iter().find(|m| m.voice_id == voice_id) {
@@ -790,11 +813,11 @@ impl VoiceProvider for DeepgramTts {
         }
     }
 
-    fn search_voices(
+    async fn search_voices(
         provider_config: Self::ProviderConfig,
         filter: Option<VoiceFilter>,
     ) -> Result<Vec<VoiceInfo>, TtsError> {
-        let client = Self::create_client(&provider_config);
+        let client = Self::create_client(&provider_config)?;
 
         // Extract search query from filter
         // deepgram does not have the native api for querying we are trying a simple search over all models
@@ -845,7 +868,7 @@ impl VoiceProvider for DeepgramTts {
         Ok(voice_infos)
     }
 
-    fn list_languages(
+    async fn list_languages(
         _provider_config: Self::ProviderConfig,
     ) -> Result<Vec<LanguageInfo>, TtsError> {
         let models = get_available_models();
@@ -856,7 +879,7 @@ impl VoiceProvider for DeepgramTts {
 impl SynthesizeProvider for DeepgramTts {
     type ProviderConfig = DeepgramConfig;
 
-    fn synthesize(
+    async fn synthesize(
         provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -869,7 +892,7 @@ impl SynthesizeProvider for DeepgramTts {
             options.as_ref(),
         )?;
 
-        let client = Self::create_client(&provider_config);
+        let client = Self::create_client(&provider_config)?;
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
         let max_chars = get_max_chars_for_model(Some(&voice_id));
@@ -881,7 +904,9 @@ impl SynthesizeProvider for DeepgramTts {
                 p.model = Some(voice_id);
             }
 
-            let tts_response = client.text_to_speech_with_metadata(&request, params.as_ref())?;
+            let tts_response = client
+                .text_to_speech_with_metadata(&request, params.as_ref())
+                .await?;
             let encoding = params
                 .as_ref()
                 .and_then(|p| p.encoding.as_ref())
@@ -916,8 +941,9 @@ impl SynthesizeProvider for DeepgramTts {
                     p.model = Some(voice_id.clone());
                 }
 
-                let tts_response =
-                    client.text_to_speech_with_metadata(&request, params.as_ref())?;
+                let tts_response = client
+                    .text_to_speech_with_metadata(&request, params.as_ref())
+                    .await?;
 
                 combined_audio.extend_from_slice(&tts_response.audio_data);
 
@@ -966,14 +992,14 @@ impl SynthesizeProvider for DeepgramTts {
         }
     }
 
-    fn synthesize_batch(
+    async fn synthesize_batch(
         provider_config: Self::ProviderConfig,
         inputs: Vec<TextInput>,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<Vec<SynthesisResult>, TtsError> {
         let mut results = Vec::new();
-        let client = Self::create_batch_client(&provider_config);
+        let client = Self::create_batch_client(&provider_config)?;
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
         for input in inputs {
@@ -990,7 +1016,10 @@ impl SynthesizeProvider for DeepgramTts {
                 p.model = Some(voice_id.clone());
             }
 
-            match client.text_to_speech_with_metadata(&request, params.as_ref()) {
+            match client
+                .text_to_speech_with_metadata(&request, params.as_ref())
+                .await
+            {
                 Ok(tts_response) => {
                     let encoding = params
                         .as_ref()
@@ -1022,7 +1051,7 @@ impl SynthesizeProvider for DeepgramTts {
         Ok(results)
     }
 
-    fn get_timing_marks(
+    async fn get_timing_marks(
         _provider_config: Self::ProviderConfig,
         _input: TextInput,
         _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -1032,7 +1061,7 @@ impl SynthesizeProvider for DeepgramTts {
         ))
     }
 
-    fn validate_input(
+    async fn validate_input(
         _provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -1086,24 +1115,24 @@ impl StreamingVoiceProvider for DeepgramTts {
     type VoiceConversionStream = DeepgramVoiceConversionStream;
     type ProviderConfig = DeepgramConfig;
 
-    fn create_stream(
+    async fn create_stream(
         provider_config: Self::ProviderConfig,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
     ) -> Result<SynthesisStream, TtsError> {
-        let client = Self::create_streaming_client(&provider_config);
+        let client = Self::create_streaming_client(&provider_config)?;
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
         let stream = DeepgramSynthesisStream::new(voice_id, client, options);
         Ok(SynthesisStream::new(stream))
     }
 
-    fn create_voice_conversion_stream(
+    async fn create_voice_conversion_stream(
         provider_config: Self::ProviderConfig,
         target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
     ) -> Result<VoiceConversionStream, TtsError> {
-        let client = Self::create_client(&provider_config);
+        let client = Self::create_client(&provider_config)?;
         let voice_id = target_voice.get::<DeepgramVoiceImpl>().get_id();
 
         let stream = DeepgramVoiceConversionStream::new(voice_id, client);
@@ -1116,7 +1145,7 @@ impl AdvancedTtsProvider for DeepgramTts {
     type LongFormOperation = DeepgramLongFormOperation;
     type ProviderConfig = DeepgramConfig;
 
-    fn create_voice_clone(
+    async fn create_voice_clone(
         _provider_config: Self::ProviderConfig,
         _name: String,
         _audio_samples: Vec<AudioSample>,
@@ -1127,7 +1156,7 @@ impl AdvancedTtsProvider for DeepgramTts {
         ))
     }
 
-    fn design_voice(
+    async fn design_voice(
         _provider_config: Self::ProviderConfig,
         _name: String,
         _characteristics: VoiceDesignParams,
@@ -1137,7 +1166,7 @@ impl AdvancedTtsProvider for DeepgramTts {
         ))
     }
 
-    fn convert_voice(
+    async fn convert_voice(
         _provider_config: Self::ProviderConfig,
         _input_audio: Vec<u8>,
         _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -1148,7 +1177,7 @@ impl AdvancedTtsProvider for DeepgramTts {
         ))
     }
 
-    fn generate_sound_effect(
+    async fn generate_sound_effect(
         _provider_config: Self::ProviderConfig,
         _description: String,
         _duration_seconds: Option<f32>,
@@ -1159,7 +1188,7 @@ impl AdvancedTtsProvider for DeepgramTts {
         ))
     }
 
-    fn create_lexicon(
+    async fn create_lexicon(
         _provider_config: Self::ProviderConfig,
         name: String,
         language: LanguageCode,
@@ -1169,14 +1198,14 @@ impl AdvancedTtsProvider for DeepgramTts {
         Ok(PronunciationLexicon::new(lexicon))
     }
 
-    fn synthesize_long_form(
+    async fn synthesize_long_form(
         provider_config: Self::ProviderConfig,
         content: String,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         output_location: String,
         chapter_breaks: Option<Vec<u32>>,
     ) -> Result<LongFormOperation, TtsError> {
-        let client = Self::create_batch_client(&provider_config);
+        let client = Self::create_batch_client(&provider_config)?;
         let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
 
         let operation = DeepgramLongFormOperation::new(
@@ -1187,42 +1216,12 @@ impl AdvancedTtsProvider for DeepgramTts {
             chapter_breaks,
         );
 
-        operation.process_long_form()?;
+        operation.process_long_form().await?;
 
         Ok(LongFormOperation::new(operation))
     }
 }
 
-impl ExtendedTtsProvider for DeepgramTts {
-    fn unwrapped_synthesis_stream(
-        provider_config: <Self as VoiceProvider>::ProviderConfig,
-        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
-        options: Option<SynthesisOptions>,
-    ) -> Self::SynthesisStream {
-        let client = Self::create_streaming_client(&provider_config);
-        let voice_id = voice.get::<DeepgramVoiceImpl>().get_id();
-
-        DeepgramSynthesisStream::new(voice_id, client, options)
-    }
-
-    fn unwrapped_voice_conversion_stream(
-        provider_config: <Self as VoiceProvider>::ProviderConfig,
-        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
-        _options: Option<SynthesisOptions>,
-    ) -> Self::VoiceConversionStream {
-        let client = Self::create_client(&provider_config);
-        let voice_id = target_voice.get::<DeepgramVoiceImpl>().get_id();
-
-        DeepgramVoiceConversionStream::new(voice_id, client)
-    }
-
-    fn subscribe_synthesis_stream(_stream: &Self::SynthesisStream) -> Pollable {
-        subscribe_zero()
-    }
-
-    fn subscribe_voice_conversion_stream(_stream: &Self::VoiceConversionStream) -> Pollable {
-        subscribe_zero()
-    }
-}
+impl ExtendedTtsProvider for DeepgramTts {}
 
 pub type DurableDeepgramTts = DurableTts<DeepgramTts>;

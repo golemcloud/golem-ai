@@ -24,4 +24,3 @@ golem-ai-video-veo = { path = "../../../../video/veo", optional = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-wstd = { workspace = true }

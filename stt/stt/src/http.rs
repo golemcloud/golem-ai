@@ -1,8 +1,9 @@
 use std::time::Duration;
 
 use bytes::{Bytes, BytesMut};
+use golem_ai_http::{Client, Timeouts};
 use http::{Request, Response};
-use wstd::http::{error::ErrorCode, Client};
+use wasip3::http::types::ErrorCode;
 
 use crate::{
     retry::{Retry, RetryConfig},
@@ -12,7 +13,7 @@ use crate::{
 #[allow(unused)]
 pub enum Error {
     HttpError(http::Error),
-    WstdHttpError(wstd::http::error::Error),
+    TransportError(golem_ai_http::Error),
     Generic(String),
 }
 
@@ -20,7 +21,7 @@ impl core::fmt::Debug for Error {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::HttpError(e) => write!(fmt, "HttpError({e:?})"),
-            Error::WstdHttpError(e) => write!(fmt, "WstdHttpError({e:?})"),
+            Error::TransportError(e) => write!(fmt, "TransportError({e:?})"),
             Error::Generic(e) => write!(fmt, "Generic({e:?})"),
         }
     }
@@ -32,9 +33,9 @@ impl From<http::Error> for Error {
     }
 }
 
-impl From<wstd::http::error::Error> for Error {
-    fn from(err: wstd::http::error::Error) -> Self {
-        Error::WstdHttpError(err)
+impl From<golem_ai_http::Error> for Error {
+    fn from(err: golem_ai_http::Error) -> Self {
+        Error::TransportError(err)
     }
 }
 
@@ -75,9 +76,14 @@ impl WstdHttpClient {
     }
 
     pub fn new_with_timeout(connection_timeout: Duration, first_byte_timeout: Duration) -> Self {
-        let mut client = Client::new();
-        client.set_connect_timeout(connection_timeout);
-        client.set_first_byte_timeout(first_byte_timeout);
+        let client = Client::builder()
+            .timeouts(
+                Timeouts::new()
+                    .connect(connection_timeout)
+                    .first_byte(first_byte_timeout),
+            )
+            .build()
+            .expect("STT HTTP timeout configuration is valid");
 
         let max_retries = std::env::var("STT_PROVIDER_MAX_RETRIES")
             .ok()
@@ -95,18 +101,18 @@ impl WstdHttpClient {
         }
     }
 
-    fn should_retry_wstd_result(
-        result: &Result<Response<wstd::http::Body>, wstd::http::error::Error>,
-    ) -> bool {
+    fn should_retry_result(result: &Result<golem_ai_http::Response, golem_ai_http::Error>) -> bool {
         match result {
-            Err(wstd_error) => Self::is_retryable_wstd_error(wstd_error),
+            Err(error) => Self::is_retryable_transport_error(error),
             Ok(response) => Self::is_retryable_status_code(response.status()),
         }
     }
 
-    fn is_retryable_wstd_error(error: &wstd::http::error::Error) -> bool {
-        if let Some(error_code) = error.downcast_ref::<ErrorCode>() {
-            matches!(
+    fn is_retryable_transport_error(error: &golem_ai_http::Error) -> bool {
+        match error {
+            golem_ai_http::Error::Request(error_code)
+            | golem_ai_http::Error::Response(error_code)
+            | golem_ai_http::Error::ResponseBody(error_code) => matches!(
                 error_code,
                 ErrorCode::ConnectionLimitReached
                     | ErrorCode::ConnectionReadTimeout
@@ -115,9 +121,8 @@ impl WstdHttpClient {
                     | ErrorCode::ConnectionTerminated
                     | ErrorCode::ConnectionRefused
                     | ErrorCode::TlsCertificateError
-            )
-        } else {
-            true
+            ),
+            _ => true,
         }
     }
 
@@ -132,25 +137,18 @@ impl Default for WstdHttpClient {
     }
 }
 
-fn to_wstd_request(request: Request<Bytes>) -> Request<Vec<u8>> {
-    let (parts, body) = request.into_parts();
-    Request::from_parts(parts, body.to_vec())
-}
-
 impl HttpClient for WstdHttpClient {
     async fn execute(&self, request: Request<Bytes>) -> Result<Response<Vec<u8>>, Error> {
-        let wstd_request = to_wstd_request(request);
-
-        let mut wasi_response = self
+        let wasi_response = self
             .retry
-            .retry_when(Self::should_retry_wstd_result, || async {
-                self.client.send(wstd_request.clone()).await
+            .retry_when(Self::should_retry_result, || async {
+                self.client.execute(request.clone()).await
             })
             .await?;
 
         let status = wasi_response.status();
         let headers = wasi_response.headers().clone();
-        let body_bytes = wasi_response.body_mut().contents().await?;
+        let body_bytes = wasi_response.bytes().await?;
 
         let mut response = Response::builder()
             .status(status)

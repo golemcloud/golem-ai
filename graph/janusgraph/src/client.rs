@@ -1,5 +1,5 @@
 use golem_ai_graph::model::errors::GraphError;
-use golem_wasi_http::{Client, Response};
+use golem_ai_http::{Client, Error, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -122,21 +122,25 @@ impl JanusGraphApi {
         })
     }
 
-    pub fn commit(&self) -> Result<(), GraphError> {
+    pub async fn commit(&self) -> Result<(), GraphError> {
         trace!("Commit transaction");
-        self.execute("g.tx().commit()", None)?;
-        self.execute("g.tx().open()", None)?;
+        self.execute("g.tx().commit()", None).await?;
+        self.execute("g.tx().open()", None).await?;
         Ok(())
     }
 
-    pub fn rollback(&self) -> Result<(), GraphError> {
+    pub async fn rollback(&self) -> Result<(), GraphError> {
         trace!("Rollback transaction");
-        self.execute("g.tx().rollback()", None)?;
-        self.execute("g.tx().open()", None)?;
+        self.execute("g.tx().rollback()", None).await?;
+        self.execute("g.tx().open()", None).await?;
         Ok(())
     }
 
-    pub fn execute(&self, gremlin: &str, bindings: Option<Value>) -> Result<Value, GraphError> {
+    pub async fn execute(
+        &self,
+        gremlin: &str,
+        bindings: Option<Value>,
+    ) -> Result<Value, GraphError> {
         trace!("Execute Gremlin query: {gremlin}");
         let bindings = bindings.unwrap_or_else(|| json!({}));
         let request = GremlinRequest {
@@ -174,6 +178,7 @@ impl JanusGraphApi {
             .header("Content-Length", body_string.len().to_string())
             .body(body_string)
             .send()
+            .await
             .map_err(|e| {
                 log::error!("[JanusGraphApi] ERROR - Request failed: {e}");
                 self.handle_janusgraph_reqwest_error("JanusGraph request failed", e)
@@ -183,10 +188,10 @@ impl JanusGraphApi {
             "[JanusGraphApi] Got response with status: {}",
             response.status()
         );
-        Self::handle_response(response)
+        Self::handle_response(response).await
     }
 
-    fn _read(&self, gremlin: &str, bindings: Option<Value>) -> Result<Value, GraphError> {
+    async fn _read(&self, gremlin: &str, bindings: Option<Value>) -> Result<Value, GraphError> {
         trace!("Read Gremlin query: {gremlin}");
         let bindings = bindings.unwrap_or_else(|| json!({}));
         let request = GremlinRequest {
@@ -208,13 +213,14 @@ impl JanusGraphApi {
             .header("Content-Length", body_string.len().to_string())
             .body(body_string)
             .send()
+            .await
             .map_err(|e| {
                 self.handle_janusgraph_reqwest_error("JanusGraph read request failed", e)
             })?;
-        Self::handle_response(response)
+        Self::handle_response(response).await
     }
 
-    pub fn close_session(&self) -> Result<(), GraphError> {
+    pub async fn close_session(&self) -> Result<(), GraphError> {
         trace!("Close session: {}", self.session_id);
         let request = GremlinCloseRequest {
             session: self.session_id.clone(),
@@ -233,10 +239,11 @@ impl JanusGraphApi {
             .header("Content-Length", body_string.len().to_string())
             .body(body_string)
             .send()
+            .await
             .map_err(|e| {
                 self.handle_janusgraph_reqwest_error("JanusGraph close session failed", e)
             })?;
-        Self::handle_response(response).map(|_| ())
+        Self::handle_response(response).await.map(|_| ())
     }
 
     pub fn session_id(&self) -> &str {
@@ -244,22 +251,7 @@ impl JanusGraphApi {
         &self.session_id
     }
 
-    pub fn is_session_active(&self) -> bool {
-        trace!("Check session active status: {}", self.session_id);
-        match self.execute("1", None) {
-            Ok(_) => true,
-            Err(e) => {
-                trace!("Session {} appears inactive: {}", self.session_id, e);
-                false
-            }
-        }
-    }
-
-    fn handle_janusgraph_reqwest_error(
-        &self,
-        details: &str,
-        err: golem_wasi_http::Error,
-    ) -> GraphError {
+    fn handle_janusgraph_reqwest_error(&self, details: &str, err: Error) -> GraphError {
         if err.is_timeout() {
             return GraphError::Timeout;
         }
@@ -270,43 +262,41 @@ impl JanusGraphApi {
             ));
         }
 
-        if err.is_decode() {
+        if matches!(err, Error::Decode(_)) {
             return GraphError::InternalError(format!(
                 "JanusGraph response decode failed ({details}): {err}"
             ));
         }
 
-        if err.is_status() {
-            if let Some(status) = err.status() {
-                let error_msg = format!(
-                    "JanusGraph HTTP error {} ({}): {}",
-                    status.as_u16(),
-                    details,
-                    err
-                );
-                let error_body = GremlinErrorResponse {
+        if let Some(status) = err.status() {
+            let error_msg = format!(
+                "JanusGraph HTTP error {} ({}): {}",
+                status.as_u16(),
+                details,
+                err
+            );
+            let error_body = GremlinErrorResponse {
+                message: Some(error_msg.clone()),
+                status: Some(GremlinStatus {
                     message: Some(error_msg.clone()),
-                    status: Some(GremlinStatus {
-                        message: Some(error_msg.clone()),
-                        code: Some(status.as_u16()),
-                        attributes: None,
-                    }),
-                    result: None,
-                    exceptions: None,
-                };
-                return Self::map_janusgraph_http_status(status.as_u16(), &error_msg, &error_body);
-            }
+                    code: Some(status.as_u16()),
+                    attributes: None,
+                }),
+                result: None,
+                exceptions: None,
+            };
+            return Self::map_janusgraph_http_status(status.as_u16(), &error_msg, &error_body);
         }
 
         GraphError::InternalError(format!("JanusGraph request error ({details}): {err}"))
     }
 
-    fn handle_response(response: Response) -> Result<Value, GraphError> {
+    async fn handle_response(response: Response) -> Result<Value, GraphError> {
         let status = response.status();
         let status_code = status.as_u16();
 
         if status.is_success() {
-            let response_body: GremlinResponse = response.json().map_err(|e| {
+            let response_body: GremlinResponse = response.json().await.map_err(|e| {
                 GraphError::InternalError(format!("Failed to parse response body: {e}"))
             })?;
 
@@ -320,7 +310,7 @@ impl JanusGraphApi {
                 Ok(serde_json::to_value(response_body).unwrap_or(Value::Null))
             }
         } else {
-            let error_body: GremlinErrorResponse = response.json().map_err(|e| {
+            let error_body: GremlinErrorResponse = response.json().await.map_err(|e| {
                 GraphError::InternalError(format!("Failed to read error response: {e}"))
             })?;
 

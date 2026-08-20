@@ -220,7 +220,7 @@ impl<S3: S3Service, TC: TranscribeService> TranscribeApi<S3, TC> {
             .transcribe_client
             .start_transcription_job(
                 request_id,
-                &format!("s3://{}/{object_key}", &bucket),
+                &format!("s3://{}/{object_key}", bucket),
                 audio_config,
                 transcription_config,
                 vocabulary_name,
@@ -312,7 +312,7 @@ impl<S3: S3Service, TC: TranscribeService>
             .as_ref()
             .map_or_else(|| 0, |config| config.vocabulary.len());
 
-        let object_key = format!("{request_id}/audio.{}", &request.audio_config.format);
+        let object_key = format!("{request_id}/audio.{}", request.audio_config.format);
 
         validate_request_id(&request_id).map_err(|validation_error| Error::APIBadRequest {
             request_id: request_id.clone(),
@@ -1106,670 +1106,695 @@ mod tests {
         }
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_invalid_request_id_returns_error() {
-        let api = create_mock_transcribe_api();
+    #[test]
+    fn test_transcribe_audio_invalid_request_id_returns_error() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
 
-        let request = TranscriptionRequest {
-            request_id: "invalid request id".to_string(), // spaces are invalid
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "invalid request id".to_string(), // spaces are invalid
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
 
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
 
-        if let Err(Error::APIBadRequest { provider_error, .. }) = result {
-            assert!(provider_error.contains("Invalid request ID"));
-        } else {
-            panic!("Expected APIBadRequest error");
-        }
+            if let Err(Error::APIBadRequest { provider_error, .. }) = result {
+                assert!(provider_error.contains("Invalid request ID"));
+            } else {
+                panic!("Expected APIBadRequest error");
+            }
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_vocabulary_without_language_returns_error() {
-        let api = create_mock_transcribe_api();
+    #[test]
+    fn test_transcribe_audio_vocabulary_without_language_returns_error() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
 
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                channels: Some(1),
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language: None, // No language specified
-                model: None,
-                diarization: None,
-                enable_multi_channel: false,
-                vocabulary: vec!["word1".to_string(), "word2".to_string()], // But vocabulary provided
-            }),
-        };
-
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
-
-        if let Err(Error::APIBadRequest { provider_error, .. }) = result {
-            assert!(provider_error
-                .contains("Vocabulary can only be used when a specific language is provided"));
-        } else {
-            panic!("Expected APIBadRequest error");
-        }
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_audio_model_without_language_returns_error() {
-        let api = create_mock_transcribe_api();
-
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                channels: Some(1),
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language: None,                             // No language specified
-                model: Some("en-US_Telephony".to_string()), // But model provided
-                diarization: None,
-                enable_multi_channel: false,
-                vocabulary: vec![],
-            }),
-        };
-
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
-
-        if let Err(Error::APIBadRequest { provider_error, .. }) = result {
-            assert!(provider_error
-                .contains("Model settings can only be used when a specific language is provided"));
-        } else {
-            panic!("Expected APIBadRequest error");
-        }
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_audio_uploads_to_s3() {
-        let api = create_mock_transcribe_api();
-
-        api.s3_client.expect_put_object_response(Ok(()));
-        api.transcribe_client
-            .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
-                transcription_job: TranscriptionJob {
-                    transcription_job_name: "test-123".to_string(),
-                    transcription_job_status: "COMPLETED".to_string(),
-                    language_code: None,
-                    media: None,
-                    media_format: None,
-                    media_sample_rate_hertz: None,
-                    creation_time: None,
-                    completion_time: None,
-                    start_time: None,
-                    failure_reason: None,
-                    settings: None,
-                    transcript: Some(Transcript {
-                        transcript_file_uri: Some(
-                            "https://example.com/transcript.json".to_string(),
-                        ),
-                        redacted_transcript_file_uri: None,
-                    }),
-                    tags: None,
+            let request = TranscriptionRequest {
+                request_id: "test-123".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    channels: Some(1),
                 },
-            }));
-        api.transcribe_client
-            .expect_download_transcript_response(Ok(TranscribeOutput {
-                job_name: "test-123".to_string(),
-                account_id: "123456789".to_string(),
-                results: TranscribeResults {
-                    transcripts: vec![TranscriptText {
-                        transcript: "Hello world".to_string(),
-                    }],
-                    speaker_labels: None,
-                    channel_labels: None,
-                    items: vec![],
-                    audio_segments: vec![],
-                },
-                status: "COMPLETED".to_string(),
-            }));
-        api.transcribe_client
-            .expect_delete_vocabulary_response(Ok(()));
-        api.s3_client.expect_delete_object_response(Ok(()));
-
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio data".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
-
-        let _ = api.transcribe_audio(request).await.unwrap();
-
-        let captured_puts = api.s3_client.get_captured_put_operations();
-        assert_eq!(captured_puts.len(), 1);
-        let put_op = &captured_puts[0];
-        assert_eq!(put_op.request_id, "test-123");
-        assert_eq!(put_op.bucket, "test-bucket");
-        assert_eq!(put_op.object_name, "test-123/audio.wav");
-        assert_eq!(put_op.content_size, 15);
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_audio_creates_vocabulary_when_provided() {
-        let api = create_mock_transcribe_api();
-
-        api.s3_client.expect_put_object_response(Ok(()));
-        api.transcribe_client
-            .expect_create_vocabulary_response(Ok(CreateVocabularyResponse {
-                vocabulary_name: "test-123".to_string(),
-                language_code: "en-US".to_string(),
-                vocabulary_state: "READY".to_string(),
-                last_modified_time: None,
-                failure_reason: None,
-            }));
-        api.transcribe_client
-            .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
-                transcription_job: TranscriptionJob {
-                    transcription_job_name: "test-123".to_string(),
-                    transcription_job_status: "COMPLETED".to_string(),
-                    language_code: None,
-                    media: None,
-                    media_format: None,
-                    media_sample_rate_hertz: None,
-                    creation_time: None,
-                    completion_time: None,
-                    start_time: None,
-                    failure_reason: None,
-                    settings: None,
-                    transcript: Some(Transcript {
-                        transcript_file_uri: Some(
-                            "https://example.com/transcript.json".to_string(),
-                        ),
-                        redacted_transcript_file_uri: None,
-                    }),
-                    tags: None,
-                },
-            }));
-        api.transcribe_client
-            .expect_download_transcript_response(Ok(TranscribeOutput {
-                job_name: "test-123".to_string(),
-                account_id: "123456789".to_string(),
-                results: TranscribeResults {
-                    transcripts: vec![TranscriptText {
-                        transcript: "Hello world".to_string(),
-                    }],
-                    speaker_labels: None,
-                    channel_labels: None,
-                    items: vec![],
-                    audio_segments: vec![],
-                },
-                status: "COMPLETED".to_string(),
-            }));
-        api.transcribe_client
-            .expect_delete_vocabulary_response(Ok(()));
-        api.s3_client.expect_delete_object_response(Ok(()));
-
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Mp3,
-                channels: Some(1),
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language: Some("en-US".to_string()),
-                model: None,
-                diarization: None,
-                enable_multi_channel: false,
-                vocabulary: vec!["custom".to_string(), "words".to_string()],
-            }),
-        };
-
-        let _ = api.transcribe_audio(request).await.unwrap();
-
-        let captured_vocabulary = api.transcribe_client.get_captured_create_vocabulary();
-        assert_eq!(captured_vocabulary.len(), 1);
-        let vocab_op = &captured_vocabulary[0];
-        assert_eq!(vocab_op.vocabulary_name, "test-123");
-        assert_eq!(vocab_op.language_code, "en-US");
-        assert_eq!(
-            vocab_op.phrases,
-            vec!["custom".to_string(), "words".to_string()]
-        );
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_audio_starts_transcription_job() {
-        let api = create_mock_transcribe_api();
-
-        api.s3_client.expect_put_object_response(Ok(()));
-        api.transcribe_client
-            .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
-                transcription_job: TranscriptionJob {
-                    transcription_job_name: "test-123".to_string(),
-                    transcription_job_status: "COMPLETED".to_string(),
-                    language_code: None,
-                    media: None,
-                    media_format: None,
-                    media_sample_rate_hertz: None,
-                    creation_time: None,
-                    completion_time: None,
-                    start_time: None,
-                    failure_reason: None,
-                    settings: None,
-                    transcript: Some(Transcript {
-                        transcript_file_uri: Some(
-                            "https://example.com/transcript.json".to_string(),
-                        ),
-                        redacted_transcript_file_uri: None,
-                    }),
-                    tags: None,
-                },
-            }));
-        api.transcribe_client
-            .expect_download_transcript_response(Ok(TranscribeOutput {
-                job_name: "test-123".to_string(),
-                account_id: "123456789".to_string(),
-                results: TranscribeResults {
-                    transcripts: vec![TranscriptText {
-                        transcript: "Hello world".to_string(),
-                    }],
-                    speaker_labels: None,
-                    channel_labels: None,
-                    items: vec![],
-                    audio_segments: vec![],
-                },
-                status: "COMPLETED".to_string(),
-            }));
-        api.transcribe_client
-            .expect_delete_vocabulary_response(Ok(()));
-        api.s3_client.expect_delete_object_response(Ok(()));
-
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Flac,
-                channels: Some(2),
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language: Some("es-ES".to_string()),
-                model: Some("en-US_Telephony".to_string()),
-                diarization: Some(DiarizationConfig {
-                    enabled: true,
-                    max_speakers: 2,
+                transcription_config: Some(TranscriptionConfig {
+                    language: None, // No language specified
+                    model: None,
+                    diarization: None,
+                    enable_multi_channel: false,
+                    vocabulary: vec!["word1".to_string(), "word2".to_string()], // But vocabulary provided
                 }),
-                enable_multi_channel: false,
-                vocabulary: vec![],
-            }),
-        };
+            };
 
-        let _ = api.transcribe_audio(request).await.unwrap();
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
 
-        let captured_transcription = api.transcribe_client.get_captured_start_transcription();
-        assert_eq!(captured_transcription.len(), 1);
-        let transcription_op = &captured_transcription[0];
-        assert_eq!(transcription_op.job_name, "test-123");
-        assert_eq!(
-            transcription_op.media_uri,
-            "s3://test-bucket/test-123/audio.flac"
-        );
-        assert_eq!(transcription_op.audio_config.format.to_string(), "flac");
-        assert_eq!(transcription_op.audio_config.channels, Some(2));
-        assert!(transcription_op
-            .transcription_config
-            .as_ref()
-            .unwrap()
-            .diarization
-            .as_ref()
-            .is_some_and(|d| d.enabled));
-        assert_eq!(transcription_op.vocabulary_name, None);
+            if let Err(Error::APIBadRequest { provider_error, .. }) = result {
+                assert!(provider_error
+                    .contains("Vocabulary can only be used when a specific language is provided"));
+            } else {
+                panic!("Expected APIBadRequest error");
+            }
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_downloads_transcript_and_returns_response() {
-        let api = create_mock_transcribe_api();
+    #[test]
+    fn test_transcribe_audio_model_without_language_returns_error() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
 
-        api.s3_client.expect_put_object_response(Ok(()));
-        api.transcribe_client
-            .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
-                transcription_job: TranscriptionJob {
-                    transcription_job_name: "test-123".to_string(),
-                    transcription_job_status: "COMPLETED".to_string(),
-                    language_code: None,
-                    media: None,
-                    media_format: None,
-                    media_sample_rate_hertz: None,
-                    creation_time: None,
-                    completion_time: None,
-                    start_time: None,
-                    failure_reason: None,
-                    settings: None,
-                    transcript: Some(Transcript {
-                        transcript_file_uri: Some(
-                            "https://example.com/transcript.json".to_string(),
-                        ),
-                        redacted_transcript_file_uri: None,
-                    }),
-                    tags: None,
-                },
-            }));
-        api.transcribe_client
-            .expect_download_transcript_response(Ok(TranscribeOutput {
-                job_name: "test-123".to_string(),
-                account_id: "123456789".to_string(),
-                results: TranscribeResults {
-                    transcripts: vec![TranscriptText {
-                        transcript: "Hello world".to_string(),
-                    }],
-                    speaker_labels: None,
-                    channel_labels: None,
-                    items: vec![],
-                    audio_segments: vec![],
-                },
-                status: "COMPLETED".to_string(),
-            }));
-        api.transcribe_client
-            .expect_delete_vocabulary_response(Ok(()));
-        api.s3_client.expect_delete_object_response(Ok(()));
-
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio data".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Ogg,
-                channels: Some(1),
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language: Some("fr-FR".to_string()),
-                model: None,
-                diarization: None,
-                enable_multi_channel: false,
-                vocabulary: vec![],
-            }),
-        };
-
-        let response = api.transcribe_audio(request).await.unwrap();
-
-        assert_eq!(response.audio_size_bytes, 15);
-        assert_eq!(response.language, "fr-FR");
-
-        let captured_downloads = api.transcribe_client.get_captured_download_transcript();
-        assert_eq!(captured_downloads.len(), 1);
-        let download_op = &captured_downloads[0];
-        assert_eq!(download_op.job_name, "test-123");
-        assert_eq!(
-            download_op.transcript_uri,
-            "https://example.com/transcript.json"
-        );
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_audio_cleans_up_resources() {
-        let api = create_mock_transcribe_api();
-
-        api.s3_client.expect_put_object_response(Ok(()));
-        api.transcribe_client
-            .expect_create_vocabulary_response(Ok(CreateVocabularyResponse {
-                vocabulary_name: "test-123".to_string(),
-                language_code: "en-US".to_string(),
-                vocabulary_state: "READY".to_string(),
-                last_modified_time: None,
-                failure_reason: None,
-            }));
-        api.transcribe_client
-            .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
-                transcription_job: TranscriptionJob {
-                    transcription_job_name: "test-123".to_string(),
-                    transcription_job_status: "COMPLETED".to_string(),
-                    language_code: None,
-                    media: None,
-                    media_format: None,
-                    media_sample_rate_hertz: None,
-                    creation_time: None,
-                    completion_time: None,
-                    start_time: None,
-                    failure_reason: None,
-                    settings: None,
-                    transcript: Some(Transcript {
-                        transcript_file_uri: Some(
-                            "https://example.com/transcript.json".to_string(),
-                        ),
-                        redacted_transcript_file_uri: None,
-                    }),
-                    tags: None,
-                },
-            }));
-        api.transcribe_client
-            .expect_download_transcript_response(Ok(TranscribeOutput {
-                job_name: "test-123".to_string(),
-                account_id: "123456789".to_string(),
-                results: TranscribeResults {
-                    transcripts: vec![TranscriptText {
-                        transcript: "Hello world".to_string(),
-                    }],
-                    speaker_labels: None,
-                    channel_labels: None,
-                    items: vec![],
-                    audio_segments: vec![],
-                },
-                status: "COMPLETED".to_string(),
-            }));
-        api.transcribe_client
-            .expect_delete_vocabulary_response(Ok(()));
-        api.s3_client.expect_delete_object_response(Ok(()));
-
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                channels: Some(1),
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language: Some("en-US".to_string()),
-                model: None,
-                diarization: None,
-                enable_multi_channel: false,
-                vocabulary: vec!["word1".to_string()],
-            }),
-        };
-
-        let _ = api.transcribe_audio(request).await.unwrap();
-
-        // Check vocabulary was deleted
-        let captured_vocab_deletes = api.transcribe_client.captured_delete_vocabulary.borrow();
-        assert_eq!(captured_vocab_deletes.len(), 1);
-        assert_eq!(captured_vocab_deletes[0], "test-123");
-
-        // Check S3 object was deleted
-        let captured_deletes = api.s3_client.get_captured_delete_operations();
-        assert_eq!(captured_deletes.len(), 1);
-        let delete_op = &captured_deletes[0];
-        assert_eq!(delete_op.request_id, "test-123");
-        assert_eq!(delete_op.bucket, "test-bucket");
-        assert_eq!(delete_op.object_name, "test-123/audio.wav");
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_audio_s3_upload_failure() {
-        let api = create_mock_transcribe_api();
-
-        api.s3_client
-            .expect_put_object_response(Err(Error::APIInternalServerError {
+            let request = TranscriptionRequest {
                 request_id: "test-123".to_string(),
-                provider_error: "S3 upload failed".to_string(),
-            }));
-
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
-
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
-
-        if let Err(Error::APIInternalServerError { provider_error, .. }) = result {
-            assert!(provider_error.contains("S3 upload failed"));
-        } else {
-            panic!("Expected APIInternalServerError");
-        }
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_audio_vocabulary_creation_failure() {
-        let api = create_mock_transcribe_api();
-
-        api.s3_client.expect_put_object_response(Ok(()));
-        api.transcribe_client
-            .expect_create_vocabulary_response(Ok(CreateVocabularyResponse {
-                vocabulary_name: "test-123".to_string(),
-                language_code: "en-US".to_string(),
-                vocabulary_state: "FAILED".to_string(),
-                last_modified_time: None,
-                failure_reason: Some("Invalid vocabulary words".to_string()),
-            }));
-
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                channels: Some(1),
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language: Some("en-US".to_string()),
-                model: None,
-                diarization: None,
-                enable_multi_channel: false,
-                vocabulary: vec!["invalid".to_string()],
-            }),
-        };
-
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
-
-        if let Err(Error::APIBadRequest { provider_error, .. }) = result {
-            assert!(provider_error.contains("Vocabulary creation failed"));
-            assert!(provider_error.contains("Invalid vocabulary words"));
-        } else {
-            panic!("Expected APIBadRequest error");
-        }
-
-        let captured_s3_deletes = api.s3_client.get_captured_delete_operations();
-        assert_eq!(captured_s3_deletes.len(), 1);
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_audio_transcription_job_failure() {
-        let api = create_mock_transcribe_api();
-
-        api.s3_client.expect_put_object_response(Ok(()));
-        api.transcribe_client
-            .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
-                transcription_job: TranscriptionJob {
-                    transcription_job_name: "test-123".to_string(),
-                    transcription_job_status: "FAILED".to_string(),
-                    language_code: None,
-                    media: None,
-                    media_format: None,
-                    media_sample_rate_hertz: None,
-                    creation_time: None,
-                    completion_time: None,
-                    start_time: None,
-                    failure_reason: Some("Audio format not supported".to_string()),
-                    settings: None,
-                    transcript: None,
-                    tags: None,
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    channels: Some(1),
                 },
-            }));
+                transcription_config: Some(TranscriptionConfig {
+                    language: None,                             // No language specified
+                    model: Some("en-US_Telephony".to_string()), // But model provided
+                    diarization: None,
+                    enable_multi_channel: false,
+                    vocabulary: vec![],
+                }),
+            };
 
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
 
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
-
-        if let Err(Error::APIBadRequest { provider_error, .. }) = result {
-            assert!(provider_error.contains("Transcription job creation failed"));
-            assert!(provider_error.contains("Audio format not supported"));
-        } else {
-            panic!("Expected APIBadRequest error");
-        }
-
-        let captured_s3_deletes = api.s3_client.get_captured_delete_operations();
-        assert_eq!(captured_s3_deletes.len(), 1);
+            if let Err(Error::APIBadRequest { provider_error, .. }) = result {
+                assert!(provider_error.contains(
+                    "Model settings can only be used when a specific language is provided"
+                ));
+            } else {
+                panic!("Expected APIBadRequest error");
+            }
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_transcript_download_failure() {
-        let api = create_mock_transcribe_api();
+    #[test]
+    fn test_transcribe_audio_uploads_to_s3() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
 
-        api.s3_client.expect_put_object_response(Ok(()));
-        api.transcribe_client
-            .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
-                transcription_job: TranscriptionJob {
-                    transcription_job_name: "test-123".to_string(),
-                    transcription_job_status: "COMPLETED".to_string(),
-                    language_code: None,
-                    media: None,
-                    media_format: None,
-                    media_sample_rate_hertz: None,
-                    creation_time: None,
-                    completion_time: None,
-                    start_time: None,
-                    failure_reason: None,
-                    settings: None,
-                    transcript: Some(Transcript {
-                        transcript_file_uri: Some(
-                            "https://example.com/transcript.json".to_string(),
-                        ),
-                        redacted_transcript_file_uri: None,
-                    }),
-                    tags: None,
-                },
-            }));
-        api.transcribe_client
-            .expect_download_transcript_response(Err(Error::APINotFound {
+            api.s3_client.expect_put_object_response(Ok(()));
+            api.transcribe_client
+                .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
+                    transcription_job: TranscriptionJob {
+                        transcription_job_name: "test-123".to_string(),
+                        transcription_job_status: "COMPLETED".to_string(),
+                        language_code: None,
+                        media: None,
+                        media_format: None,
+                        media_sample_rate_hertz: None,
+                        creation_time: None,
+                        completion_time: None,
+                        start_time: None,
+                        failure_reason: None,
+                        settings: None,
+                        transcript: Some(Transcript {
+                            transcript_file_uri: Some(
+                                "https://example.com/transcript.json".to_string(),
+                            ),
+                            redacted_transcript_file_uri: None,
+                        }),
+                        tags: None,
+                    },
+                }));
+            api.transcribe_client
+                .expect_download_transcript_response(Ok(TranscribeOutput {
+                    job_name: "test-123".to_string(),
+                    account_id: "123456789".to_string(),
+                    results: TranscribeResults {
+                        transcripts: vec![TranscriptText {
+                            transcript: "Hello world".to_string(),
+                        }],
+                        speaker_labels: None,
+                        channel_labels: None,
+                        items: vec![],
+                        audio_segments: vec![],
+                    },
+                    status: "COMPLETED".to_string(),
+                }));
+            api.transcribe_client
+                .expect_delete_vocabulary_response(Ok(()));
+            api.s3_client.expect_delete_object_response(Ok(()));
+
+            let request = TranscriptionRequest {
                 request_id: "test-123".to_string(),
-                provider_error: "Transcript file not found".to_string(),
-            }));
+                audio: "test audio data".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
 
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
+            let _ = api.transcribe_audio(request).await.unwrap();
 
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
+            let captured_puts = api.s3_client.get_captured_put_operations();
+            assert_eq!(captured_puts.len(), 1);
+            let put_op = &captured_puts[0];
+            assert_eq!(put_op.request_id, "test-123");
+            assert_eq!(put_op.bucket, "test-bucket");
+            assert_eq!(put_op.object_name, "test-123/audio.wav");
+            assert_eq!(put_op.content_size, 15);
+        });
+    }
 
-        if let Err(Error::APINotFound { provider_error, .. }) = result {
-            assert!(provider_error.contains("Transcript file not found"));
-        } else {
-            panic!("Expected APINotFound error");
-        }
+    #[test]
+    fn test_transcribe_audio_creates_vocabulary_when_provided() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
+
+            api.s3_client.expect_put_object_response(Ok(()));
+            api.transcribe_client
+                .expect_create_vocabulary_response(Ok(CreateVocabularyResponse {
+                    vocabulary_name: "test-123".to_string(),
+                    language_code: "en-US".to_string(),
+                    vocabulary_state: "READY".to_string(),
+                    last_modified_time: None,
+                    failure_reason: None,
+                }));
+            api.transcribe_client
+                .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
+                    transcription_job: TranscriptionJob {
+                        transcription_job_name: "test-123".to_string(),
+                        transcription_job_status: "COMPLETED".to_string(),
+                        language_code: None,
+                        media: None,
+                        media_format: None,
+                        media_sample_rate_hertz: None,
+                        creation_time: None,
+                        completion_time: None,
+                        start_time: None,
+                        failure_reason: None,
+                        settings: None,
+                        transcript: Some(Transcript {
+                            transcript_file_uri: Some(
+                                "https://example.com/transcript.json".to_string(),
+                            ),
+                            redacted_transcript_file_uri: None,
+                        }),
+                        tags: None,
+                    },
+                }));
+            api.transcribe_client
+                .expect_download_transcript_response(Ok(TranscribeOutput {
+                    job_name: "test-123".to_string(),
+                    account_id: "123456789".to_string(),
+                    results: TranscribeResults {
+                        transcripts: vec![TranscriptText {
+                            transcript: "Hello world".to_string(),
+                        }],
+                        speaker_labels: None,
+                        channel_labels: None,
+                        items: vec![],
+                        audio_segments: vec![],
+                    },
+                    status: "COMPLETED".to_string(),
+                }));
+            api.transcribe_client
+                .expect_delete_vocabulary_response(Ok(()));
+            api.s3_client.expect_delete_object_response(Ok(()));
+
+            let request = TranscriptionRequest {
+                request_id: "test-123".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Mp3,
+                    channels: Some(1),
+                },
+                transcription_config: Some(TranscriptionConfig {
+                    language: Some("en-US".to_string()),
+                    model: None,
+                    diarization: None,
+                    enable_multi_channel: false,
+                    vocabulary: vec!["custom".to_string(), "words".to_string()],
+                }),
+            };
+
+            let _ = api.transcribe_audio(request).await.unwrap();
+
+            let captured_vocabulary = api.transcribe_client.get_captured_create_vocabulary();
+            assert_eq!(captured_vocabulary.len(), 1);
+            let vocab_op = &captured_vocabulary[0];
+            assert_eq!(vocab_op.vocabulary_name, "test-123");
+            assert_eq!(vocab_op.language_code, "en-US");
+            assert_eq!(
+                vocab_op.phrases,
+                vec!["custom".to_string(), "words".to_string()]
+            );
+        });
+    }
+
+    #[test]
+    fn test_transcribe_audio_starts_transcription_job() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
+
+            api.s3_client.expect_put_object_response(Ok(()));
+            api.transcribe_client
+                .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
+                    transcription_job: TranscriptionJob {
+                        transcription_job_name: "test-123".to_string(),
+                        transcription_job_status: "COMPLETED".to_string(),
+                        language_code: None,
+                        media: None,
+                        media_format: None,
+                        media_sample_rate_hertz: None,
+                        creation_time: None,
+                        completion_time: None,
+                        start_time: None,
+                        failure_reason: None,
+                        settings: None,
+                        transcript: Some(Transcript {
+                            transcript_file_uri: Some(
+                                "https://example.com/transcript.json".to_string(),
+                            ),
+                            redacted_transcript_file_uri: None,
+                        }),
+                        tags: None,
+                    },
+                }));
+            api.transcribe_client
+                .expect_download_transcript_response(Ok(TranscribeOutput {
+                    job_name: "test-123".to_string(),
+                    account_id: "123456789".to_string(),
+                    results: TranscribeResults {
+                        transcripts: vec![TranscriptText {
+                            transcript: "Hello world".to_string(),
+                        }],
+                        speaker_labels: None,
+                        channel_labels: None,
+                        items: vec![],
+                        audio_segments: vec![],
+                    },
+                    status: "COMPLETED".to_string(),
+                }));
+            api.transcribe_client
+                .expect_delete_vocabulary_response(Ok(()));
+            api.s3_client.expect_delete_object_response(Ok(()));
+
+            let request = TranscriptionRequest {
+                request_id: "test-123".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Flac,
+                    channels: Some(2),
+                },
+                transcription_config: Some(TranscriptionConfig {
+                    language: Some("es-ES".to_string()),
+                    model: Some("en-US_Telephony".to_string()),
+                    diarization: Some(DiarizationConfig {
+                        enabled: true,
+                        max_speakers: 2,
+                    }),
+                    enable_multi_channel: false,
+                    vocabulary: vec![],
+                }),
+            };
+
+            let _ = api.transcribe_audio(request).await.unwrap();
+
+            let captured_transcription = api.transcribe_client.get_captured_start_transcription();
+            assert_eq!(captured_transcription.len(), 1);
+            let transcription_op = &captured_transcription[0];
+            assert_eq!(transcription_op.job_name, "test-123");
+            assert_eq!(
+                transcription_op.media_uri,
+                "s3://test-bucket/test-123/audio.flac"
+            );
+            assert_eq!(transcription_op.audio_config.format.to_string(), "flac");
+            assert_eq!(transcription_op.audio_config.channels, Some(2));
+            assert!(transcription_op
+                .transcription_config
+                .as_ref()
+                .unwrap()
+                .diarization
+                .as_ref()
+                .is_some_and(|d| d.enabled));
+            assert_eq!(transcription_op.vocabulary_name, None);
+        });
+    }
+
+    #[test]
+    fn test_transcribe_audio_downloads_transcript_and_returns_response() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
+
+            api.s3_client.expect_put_object_response(Ok(()));
+            api.transcribe_client
+                .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
+                    transcription_job: TranscriptionJob {
+                        transcription_job_name: "test-123".to_string(),
+                        transcription_job_status: "COMPLETED".to_string(),
+                        language_code: None,
+                        media: None,
+                        media_format: None,
+                        media_sample_rate_hertz: None,
+                        creation_time: None,
+                        completion_time: None,
+                        start_time: None,
+                        failure_reason: None,
+                        settings: None,
+                        transcript: Some(Transcript {
+                            transcript_file_uri: Some(
+                                "https://example.com/transcript.json".to_string(),
+                            ),
+                            redacted_transcript_file_uri: None,
+                        }),
+                        tags: None,
+                    },
+                }));
+            api.transcribe_client
+                .expect_download_transcript_response(Ok(TranscribeOutput {
+                    job_name: "test-123".to_string(),
+                    account_id: "123456789".to_string(),
+                    results: TranscribeResults {
+                        transcripts: vec![TranscriptText {
+                            transcript: "Hello world".to_string(),
+                        }],
+                        speaker_labels: None,
+                        channel_labels: None,
+                        items: vec![],
+                        audio_segments: vec![],
+                    },
+                    status: "COMPLETED".to_string(),
+                }));
+            api.transcribe_client
+                .expect_delete_vocabulary_response(Ok(()));
+            api.s3_client.expect_delete_object_response(Ok(()));
+
+            let request = TranscriptionRequest {
+                request_id: "test-123".to_string(),
+                audio: "test audio data".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Ogg,
+                    channels: Some(1),
+                },
+                transcription_config: Some(TranscriptionConfig {
+                    language: Some("fr-FR".to_string()),
+                    model: None,
+                    diarization: None,
+                    enable_multi_channel: false,
+                    vocabulary: vec![],
+                }),
+            };
+
+            let response = api.transcribe_audio(request).await.unwrap();
+
+            assert_eq!(response.audio_size_bytes, 15);
+            assert_eq!(response.language, "fr-FR");
+
+            let captured_downloads = api.transcribe_client.get_captured_download_transcript();
+            assert_eq!(captured_downloads.len(), 1);
+            let download_op = &captured_downloads[0];
+            assert_eq!(download_op.job_name, "test-123");
+            assert_eq!(
+                download_op.transcript_uri,
+                "https://example.com/transcript.json"
+            );
+        });
+    }
+
+    #[test]
+    fn test_transcribe_audio_cleans_up_resources() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
+
+            api.s3_client.expect_put_object_response(Ok(()));
+            api.transcribe_client
+                .expect_create_vocabulary_response(Ok(CreateVocabularyResponse {
+                    vocabulary_name: "test-123".to_string(),
+                    language_code: "en-US".to_string(),
+                    vocabulary_state: "READY".to_string(),
+                    last_modified_time: None,
+                    failure_reason: None,
+                }));
+            api.transcribe_client
+                .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
+                    transcription_job: TranscriptionJob {
+                        transcription_job_name: "test-123".to_string(),
+                        transcription_job_status: "COMPLETED".to_string(),
+                        language_code: None,
+                        media: None,
+                        media_format: None,
+                        media_sample_rate_hertz: None,
+                        creation_time: None,
+                        completion_time: None,
+                        start_time: None,
+                        failure_reason: None,
+                        settings: None,
+                        transcript: Some(Transcript {
+                            transcript_file_uri: Some(
+                                "https://example.com/transcript.json".to_string(),
+                            ),
+                            redacted_transcript_file_uri: None,
+                        }),
+                        tags: None,
+                    },
+                }));
+            api.transcribe_client
+                .expect_download_transcript_response(Ok(TranscribeOutput {
+                    job_name: "test-123".to_string(),
+                    account_id: "123456789".to_string(),
+                    results: TranscribeResults {
+                        transcripts: vec![TranscriptText {
+                            transcript: "Hello world".to_string(),
+                        }],
+                        speaker_labels: None,
+                        channel_labels: None,
+                        items: vec![],
+                        audio_segments: vec![],
+                    },
+                    status: "COMPLETED".to_string(),
+                }));
+            api.transcribe_client
+                .expect_delete_vocabulary_response(Ok(()));
+            api.s3_client.expect_delete_object_response(Ok(()));
+
+            let request = TranscriptionRequest {
+                request_id: "test-123".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    channels: Some(1),
+                },
+                transcription_config: Some(TranscriptionConfig {
+                    language: Some("en-US".to_string()),
+                    model: None,
+                    diarization: None,
+                    enable_multi_channel: false,
+                    vocabulary: vec!["word1".to_string()],
+                }),
+            };
+
+            let _ = api.transcribe_audio(request).await.unwrap();
+
+            // Check vocabulary was deleted
+            let captured_vocab_deletes = api.transcribe_client.captured_delete_vocabulary.borrow();
+            assert_eq!(captured_vocab_deletes.len(), 1);
+            assert_eq!(captured_vocab_deletes[0], "test-123");
+
+            // Check S3 object was deleted
+            let captured_deletes = api.s3_client.get_captured_delete_operations();
+            assert_eq!(captured_deletes.len(), 1);
+            let delete_op = &captured_deletes[0];
+            assert_eq!(delete_op.request_id, "test-123");
+            assert_eq!(delete_op.bucket, "test-bucket");
+            assert_eq!(delete_op.object_name, "test-123/audio.wav");
+        });
+    }
+
+    #[test]
+    fn test_transcribe_audio_s3_upload_failure() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
+
+            api.s3_client
+                .expect_put_object_response(Err(Error::APIInternalServerError {
+                    request_id: "test-123".to_string(),
+                    provider_error: "S3 upload failed".to_string(),
+                }));
+
+            let request = TranscriptionRequest {
+                request_id: "test-123".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
+
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
+
+            if let Err(Error::APIInternalServerError { provider_error, .. }) = result {
+                assert!(provider_error.contains("S3 upload failed"));
+            } else {
+                panic!("Expected APIInternalServerError");
+            }
+        });
+    }
+
+    #[test]
+    fn test_transcribe_audio_vocabulary_creation_failure() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
+
+            api.s3_client.expect_put_object_response(Ok(()));
+            api.transcribe_client
+                .expect_create_vocabulary_response(Ok(CreateVocabularyResponse {
+                    vocabulary_name: "test-123".to_string(),
+                    language_code: "en-US".to_string(),
+                    vocabulary_state: "FAILED".to_string(),
+                    last_modified_time: None,
+                    failure_reason: Some("Invalid vocabulary words".to_string()),
+                }));
+
+            let request = TranscriptionRequest {
+                request_id: "test-123".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    channels: Some(1),
+                },
+                transcription_config: Some(TranscriptionConfig {
+                    language: Some("en-US".to_string()),
+                    model: None,
+                    diarization: None,
+                    enable_multi_channel: false,
+                    vocabulary: vec!["invalid".to_string()],
+                }),
+            };
+
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
+
+            if let Err(Error::APIBadRequest { provider_error, .. }) = result {
+                assert!(provider_error.contains("Vocabulary creation failed"));
+                assert!(provider_error.contains("Invalid vocabulary words"));
+            } else {
+                panic!("Expected APIBadRequest error");
+            }
+
+            let captured_s3_deletes = api.s3_client.get_captured_delete_operations();
+            assert_eq!(captured_s3_deletes.len(), 1);
+        });
+    }
+
+    #[test]
+    fn test_transcribe_audio_transcription_job_failure() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
+
+            api.s3_client.expect_put_object_response(Ok(()));
+            api.transcribe_client
+                .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
+                    transcription_job: TranscriptionJob {
+                        transcription_job_name: "test-123".to_string(),
+                        transcription_job_status: "FAILED".to_string(),
+                        language_code: None,
+                        media: None,
+                        media_format: None,
+                        media_sample_rate_hertz: None,
+                        creation_time: None,
+                        completion_time: None,
+                        start_time: None,
+                        failure_reason: Some("Audio format not supported".to_string()),
+                        settings: None,
+                        transcript: None,
+                        tags: None,
+                    },
+                }));
+
+            let request = TranscriptionRequest {
+                request_id: "test-123".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
+
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
+
+            if let Err(Error::APIBadRequest { provider_error, .. }) = result {
+                assert!(provider_error.contains("Transcription job creation failed"));
+                assert!(provider_error.contains("Audio format not supported"));
+            } else {
+                panic!("Expected APIBadRequest error");
+            }
+
+            let captured_s3_deletes = api.s3_client.get_captured_delete_operations();
+            assert_eq!(captured_s3_deletes.len(), 1);
+        });
+    }
+
+    #[test]
+    fn test_transcribe_audio_transcript_download_failure() {
+        futures::executor::block_on(async {
+            let api = create_mock_transcribe_api();
+
+            api.s3_client.expect_put_object_response(Ok(()));
+            api.transcribe_client
+                .expect_start_transcription_response(Ok(StartTranscriptionJobResponse {
+                    transcription_job: TranscriptionJob {
+                        transcription_job_name: "test-123".to_string(),
+                        transcription_job_status: "COMPLETED".to_string(),
+                        language_code: None,
+                        media: None,
+                        media_format: None,
+                        media_sample_rate_hertz: None,
+                        creation_time: None,
+                        completion_time: None,
+                        start_time: None,
+                        failure_reason: None,
+                        settings: None,
+                        transcript: Some(Transcript {
+                            transcript_file_uri: Some(
+                                "https://example.com/transcript.json".to_string(),
+                            ),
+                            redacted_transcript_file_uri: None,
+                        }),
+                        tags: None,
+                    },
+                }));
+            api.transcribe_client
+                .expect_download_transcript_response(Err(Error::APINotFound {
+                    request_id: "test-123".to_string(),
+                    provider_error: "Transcript file not found".to_string(),
+                }));
+
+            let request = TranscriptionRequest {
+                request_id: "test-123".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
+
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
+
+            if let Err(Error::APINotFound { provider_error, .. }) = result {
+                assert!(provider_error.contains("Transcript file not found"));
+            } else {
+                panic!("Expected APINotFound error");
+            }
+        });
     }
 }

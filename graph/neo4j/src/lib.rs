@@ -43,7 +43,7 @@ pub struct SchemaManager {
 
 impl ExtendedGuest for Neo4j {
     type Graph = Graph;
-    fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
+    async fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
         let host = with_config_key(config, "NEO4J_HOST")
             .or_else(|| {
                 config
@@ -81,8 +81,8 @@ impl Graph {
         Self { api: Arc::new(api) }
     }
 
-    pub(crate) fn begin_transaction(&self) -> Result<Transaction, GraphError> {
-        let tx_url = self.api.begin_transaction()?;
+    pub(crate) async fn begin_transaction(&self) -> Result<Transaction, GraphError> {
+        let tx_url = self.api.begin_transaction().await?;
         Ok(Transaction::new(self.api.clone(), tx_url))
     }
 }

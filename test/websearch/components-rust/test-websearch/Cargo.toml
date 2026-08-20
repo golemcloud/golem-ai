@@ -24,4 +24,3 @@ golem-ai-web-search-serper = { path = "../../../../websearch/serper", optional =
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-wstd = { workspace = true }

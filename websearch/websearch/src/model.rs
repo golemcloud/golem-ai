@@ -1,7 +1,7 @@
 pub mod types {
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct ImageResult {
@@ -11,7 +11,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SearchResult {
@@ -30,7 +30,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum SafeSearchLevel {
@@ -41,7 +41,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct RateLimitInfo {
@@ -52,7 +52,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SearchMetadata {
@@ -70,7 +70,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum TimeRange {
@@ -82,7 +82,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SearchParams {
@@ -101,7 +101,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum SearchError {

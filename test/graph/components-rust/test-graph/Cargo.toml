@@ -22,4 +22,3 @@ golem-ai-graph-janusgraph = { path = "../../../../graph/janusgraph", optional = 
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-wstd = { workspace = true }

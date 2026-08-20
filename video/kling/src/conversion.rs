@@ -373,7 +373,7 @@ fn log_multi_image_unsupported_options(
     }
 }
 
-pub fn generate_video(
+pub async fn generate_video(
     client: &KlingApi,
     input: MediaInput,
     config: GenerationConfig,
@@ -381,7 +381,7 @@ pub fn generate_video(
     let (text_request, image_request) = media_input_to_request(input, config)?;
 
     if let Some(request) = text_request {
-        let response = client.generate_text_to_video(request)?;
+        let response = client.generate_text_to_video(request).await?;
         if response.code == 0 {
             Ok(response.data.task_id)
         } else {
@@ -391,7 +391,7 @@ pub fn generate_video(
             )))
         }
     } else if let Some(request) = image_request {
-        let response = client.generate_image_to_video(request)?;
+        let response = client.generate_image_to_video(request).await?;
         if response.code == 0 {
             Ok(response.data.task_id)
         } else {
@@ -407,13 +407,13 @@ pub fn generate_video(
     }
 }
 
-pub fn poll_video_generation(
+pub async fn poll_video_generation(
     client: &KlingApi,
     task_id: String,
 ) -> Result<VideoResult, VideoError> {
     trace!("Polling video generation for task ID: {task_id}");
 
-    match client.poll_generation(&task_id) {
+    match client.poll_generation(&task_id).await {
         Ok(PollResponse::Processing) => {
             log::info!("Task {task_id} is still processing");
             Ok(VideoResult {
@@ -484,7 +484,7 @@ pub fn cancel_video_generation(_client: &KlingApi, task_id: String) -> Result<St
     )))
 }
 
-pub fn generate_lip_sync_video(
+pub async fn generate_lip_sync_video(
     client: &KlingApi,
     video: golem_ai_video::model::types::LipSyncVideo,
     audio: golem_ai_video::model::types::AudioSource,
@@ -586,7 +586,7 @@ pub fn generate_lip_sync_video(
         callback_url: None,
     };
 
-    let response = client.generate_lip_sync(request)?;
+    let response = client.generate_lip_sync(request).await?;
     if response.code == 0 {
         Ok(response.data.task_id)
     } else {
@@ -607,7 +607,7 @@ pub fn list_available_voices(
     Ok(voices)
 }
 
-pub fn extend_video(
+pub async fn extend_video(
     client: &KlingApi,
     video_id: String,
     prompt: Option<String>,
@@ -663,7 +663,7 @@ pub fn extend_video(
         callback_url: None,
     };
 
-    let response = client.extend_video(request)?;
+    let response = client.extend_video(request).await?;
     if response.code == 0 {
         Ok(response.data.task_id)
     } else {
@@ -683,7 +683,7 @@ pub fn upscale_video(
     ))
 }
 
-pub fn generate_video_effects(
+pub async fn generate_video_effects(
     client: &KlingApi,
     input: golem_ai_video::model::types::InputImage,
     effect: golem_ai_video::model::types::EffectType,
@@ -803,7 +803,7 @@ pub fn generate_video_effects(
         external_task_id: None,
     };
 
-    let response = client.generate_video_effects(request)?;
+    let response = client.generate_video_effects(request).await?;
     if response.code == 0 {
         Ok(response.data.task_id)
     } else {
@@ -814,7 +814,7 @@ pub fn generate_video_effects(
     }
 }
 
-pub fn multi_image_generation(
+pub async fn multi_image_generation(
     client: &KlingApi,
     input_images: Vec<golem_ai_video::model::types::InputImage>,
     prompt: Option<String>,
@@ -904,7 +904,7 @@ pub fn multi_image_generation(
     // Log warnings for unsupported options specific to multi-image
     log_multi_image_unsupported_options(&config, &options);
 
-    let response = client.generate_multi_image_to_video(request)?;
+    let response = client.generate_multi_image_to_video(request).await?;
     if response.code == 0 {
         Ok(response.data.task_id)
     } else {

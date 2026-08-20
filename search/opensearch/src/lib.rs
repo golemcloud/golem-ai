@@ -10,8 +10,7 @@ use golem_ai_search::model::{CreateIndexOptions, SearchStream};
 use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
-use golem_ai_search::wasi_compat::{subscribe_zero, Pollable};
-use golem_ai_search::{SearchProvider, SearchStreamInterface};
+use golem_ai_search::{SearchFuture, SearchProvider, SearchStreamInterface};
 use log::trace;
 use std::cell::{Cell, RefCell};
 
@@ -48,14 +47,10 @@ impl OpenSearchSearchStream {
             scroll_failed: Cell::new(false),
         }
     }
-
-    pub fn subscribe(&self) -> Pollable {
-        subscribe_zero()
-    }
 }
 
 impl OpenSearchSearchStream {
-    fn try_scroll_next(&self) -> Option<Option<Vec<SearchHit>>> {
+    async fn try_scroll_next(&self) -> Option<Option<Vec<SearchHit>>> {
         if self.scroll_id.borrow().is_none() {
             let mut os_query = search_query_to_opensearch_request(self.query.clone());
             os_query.from = Some(0);
@@ -64,6 +59,7 @@ impl OpenSearchSearchStream {
             match self
                 .client
                 .search_with_scroll(&self.index_name, &os_query, "1m")
+                .await
             {
                 Ok(response) => {
                     let scroll_id = response.scroll_id.clone();
@@ -73,6 +69,10 @@ impl OpenSearchSearchStream {
 
                     if search_results.hits.is_empty() {
                         self.finished.set(true);
+                        let scroll_id = self.scroll_id.borrow().clone();
+                        if let Some(scroll_id) = scroll_id {
+                            let _ = self.client.clear_scroll(&scroll_id).await;
+                        }
                         return Some(Some(vec![]));
                     }
 
@@ -86,12 +86,16 @@ impl OpenSearchSearchStream {
         } else {
             let scroll_id = self.scroll_id.borrow().clone().unwrap();
 
-            match self.client.scroll(&scroll_id, "1m") {
+            match self.client.scroll(&scroll_id, "1m").await {
                 Ok(response) => {
                     let search_results = opensearch_scroll_response_to_search_results(response);
 
                     if search_results.hits.is_empty() {
                         self.finished.set(true);
+                        let scroll_id = self.scroll_id.borrow().clone();
+                        if let Some(scroll_id) = scroll_id {
+                            let _ = self.client.clear_scroll(&scroll_id).await;
+                        }
                         return Some(Some(vec![]));
                     }
 
@@ -99,18 +103,22 @@ impl OpenSearchSearchStream {
                 }
                 Err(e) => {
                     trace!("Scroll continuation failed: {e:?}");
+                    let scroll_id = self.scroll_id.borrow().clone();
+                    if let Some(scroll_id) = scroll_id {
+                        let _ = self.client.clear_scroll(&scroll_id).await;
+                    }
                     None
                 }
             }
         }
     }
 
-    fn try_pagination_next(&self) -> Option<Vec<SearchHit>> {
+    async fn try_pagination_next(&self) -> Option<Vec<SearchHit>> {
         let mut os_query = search_query_to_opensearch_request(self.query.clone());
         os_query.from = Some(self.current_offset.get());
         os_query.size = Some(self.query.per_page.unwrap_or(10));
 
-        match self.client.search(&self.index_name, &os_query) {
+        match self.client.search(&self.index_name, &os_query).await {
             Ok(response) => {
                 let search_results = opensearch_response_to_search_results(response);
 
@@ -149,24 +157,25 @@ impl SearchStreamInterface for OpenSearchSearchStream {
         self
     }
 
-    fn get_next(&self) -> Option<Vec<SearchHit>> {
-        if self.finished.get() {
-            return Some(vec![]);
-        }
+    fn get_next(&self) -> SearchFuture<'_, Option<Vec<SearchHit>>> {
+        Box::pin(async move {
+            if self.finished.get() {
+                return Some(vec![]);
+            }
 
-        if self.use_scroll.get() && !self.scroll_failed.get() {
-            self.try_scroll_next().unwrap_or_else(|| {
-                trace!("Scroll failed, falling back to pagination");
-                self.scroll_failed.set(true);
-                self.use_scroll.set(false);
-                self.try_pagination_next()
-            })
-        } else {
-            self.try_pagination_next()
-        }
-    }
-    fn blocking_get_next(&self) -> Vec<SearchHit> {
-        self.get_next().unwrap_or_default()
+            if self.use_scroll.get() && !self.scroll_failed.get() {
+                if let Some(result) = self.try_scroll_next().await {
+                    result
+                } else {
+                    trace!("Scroll failed, falling back to pagination");
+                    self.scroll_failed.set(true);
+                    self.use_scroll.set(false);
+                    self.try_pagination_next().await
+                }
+            } else {
+                self.try_pagination_next().await
+            }
+        })
     }
 }
 
@@ -176,35 +185,37 @@ impl SearchProvider for OpenSearch {
     type SearchStream = OpenSearchSearchStream;
     type ProviderConfig = OpenSearchConfig;
 
-    fn create_index(
+    async fn create_index(
         provider_config: Self::ProviderConfig,
         options: CreateIndexOptions,
     ) -> Result<(), SearchError> {
         let client = OpenSearchApi::new(&provider_config);
 
         let settings = options.schema.map(schema_to_opensearch_settings);
-        client.create_index(&options.index_name, settings)?;
+        client.create_index(&options.index_name, settings).await?;
 
         Ok(())
     }
 
-    fn delete_index(
+    async fn delete_index(
         provider_config: Self::ProviderConfig,
         name: IndexName,
     ) -> Result<(), SearchError> {
         let client = OpenSearchApi::new(&provider_config);
-        client.delete_index(&name)?;
+        client.delete_index(&name).await?;
 
         Ok(())
     }
 
-    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
+    async fn list_indexes(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<IndexName>, SearchError> {
         let client = OpenSearchApi::new(&provider_config);
-        let indices = client.list_indices()?;
+        let indices = client.list_indices().await?;
         Ok(indices.into_iter().map(|idx| idx.index).collect())
     }
 
-    fn upsert(
+    async fn upsert(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         doc: Doc,
@@ -218,12 +229,14 @@ impl SearchProvider for OpenSearch {
             .unwrap_or("unknown")
             .to_string();
 
-        client.index_document(&index, &doc_id, &opensearch_doc)?;
+        client
+            .index_document(&index, &doc_id, &opensearch_doc)
+            .await?;
 
         Ok(())
     }
 
-    fn upsert_many(
+    async fn upsert_many(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         docs: Vec<Doc>,
@@ -257,23 +270,23 @@ impl SearchProvider for OpenSearch {
 
         let bulk_body = bulk_operations.join("\n") + "\n";
 
-        let _result = client.bulk_index(&bulk_body)?;
+        let _result = client.bulk_index(&bulk_body).await?;
 
         Ok(())
     }
 
-    fn delete(
+    async fn delete(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         id: DocumentId,
     ) -> Result<(), SearchError> {
         let client = OpenSearchApi::new(&provider_config);
-        client.delete_document(&index, &id)?;
+        client.delete_document(&index, &id).await?;
 
         Ok(())
     }
 
-    fn delete_many(
+    async fn delete_many(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         ids: Vec<DocumentId>,
@@ -296,25 +309,25 @@ impl SearchProvider for OpenSearch {
         }
 
         let bulk_body = bulk_operations.join("\n") + "\n";
-        client.bulk_index(&bulk_body)?;
+        client.bulk_index(&bulk_body).await?;
 
         Ok(())
     }
 
-    fn get(
+    async fn get(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         id: DocumentId,
     ) -> Result<Option<Doc>, SearchError> {
         let client = OpenSearchApi::new(&provider_config);
 
-        match client.get_document(&index, &id)? {
+        match client.get_document(&index, &id).await? {
             Some(opensearch_doc) => Ok(Some(opensearch_document_to_doc(opensearch_doc))),
             None => Ok(None),
         }
     }
 
-    fn search(
+    async fn search(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -322,11 +335,11 @@ impl SearchProvider for OpenSearch {
         let client = OpenSearchApi::new(&provider_config);
         let opensearch_request = search_query_to_opensearch_request(query);
 
-        let response = client.search(&index, &opensearch_request)?;
+        let response = client.search(&index, &opensearch_request).await?;
         Ok(opensearch_response_to_search_results(response))
     }
 
-    fn stream_search(
+    async fn stream_search(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -336,20 +349,20 @@ impl SearchProvider for OpenSearch {
         Ok(SearchStream::new(stream))
     }
 
-    fn get_schema(
+    async fn get_schema(
         provider_config: Self::ProviderConfig,
         index: IndexName,
     ) -> Result<Schema, SearchError> {
         let client = OpenSearchApi::new(&provider_config);
 
-        let mappings = client.get_mappings(&index)?;
+        let mappings = client.get_mappings(&index).await?;
         Ok(opensearch_mappings_to_schema(
             mappings,
             Some("id".to_string()),
         ))
     }
 
-    fn update_schema(
+    async fn update_schema(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         schema: Schema,
@@ -358,7 +371,7 @@ impl SearchProvider for OpenSearch {
         let settings = schema_to_opensearch_settings(schema);
 
         if let Some(mappings) = settings.mappings {
-            client.put_mappings(&index, &mappings)?;
+            client.put_mappings(&index, &mappings).await?;
         }
 
         Ok(())
@@ -366,7 +379,7 @@ impl SearchProvider for OpenSearch {
 }
 
 impl ExtendedSearchProvider for OpenSearch {
-    fn unwrapped_stream(
+    async fn unwrapped_stream(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -377,19 +390,6 @@ impl ExtendedSearchProvider for OpenSearch {
 
     fn retry_query(original_query: &SearchQuery, partial_hits: &[SearchHit]) -> SearchQuery {
         create_retry_query(original_query, partial_hits)
-    }
-
-    fn subscribe(stream: &Self::SearchStream) -> Pollable {
-        stream.subscribe()
-    }
-}
-
-impl Drop for OpenSearchSearchStream {
-    fn drop(&mut self) {
-        // Clear any active scroll when the stream is dropped
-        if let Some(scroll_id) = self.scroll_id.borrow().as_ref() {
-            let _ = self.client.clear_scroll(scroll_id);
-        }
     }
 }
 

@@ -1,6 +1,6 @@
+use golem_ai_http::{Client, Method, Response};
 use golem_ai_video::error::{from_reqwest_error, video_error_from_status};
 use golem_ai_video::model::types::VideoError;
-use golem_wasi_http::{Client, Method, Response};
 use log::trace;
 use serde::{Deserialize, Serialize};
 
@@ -72,13 +72,13 @@ pub struct StabilityApi {
 
 impl StabilityApi {
     pub fn new(config: &crate::config::StabilityConfig) -> Self {
-        let mut headers = golem_wasi_http::header::HeaderMap::new();
+        let mut headers = golem_ai_http::header::HeaderMap::new();
         headers.insert(
             "accept",
             ACCEPT_HEADER_VIDEO.parse().expect("Invalid header value"),
         );
 
-        let mut headers_image = golem_wasi_http::header::HeaderMap::new();
+        let mut headers_image = golem_ai_http::header::HeaderMap::new();
         headers_image.insert(
             "accept",
             ACCEPT_HEADER_IMAGE.parse().expect("Invalid header value"),
@@ -106,7 +106,7 @@ impl StabilityApi {
     // and then use the image-to-video API to generate the video
 
     // Generate video from image
-    pub fn generate_video(
+    pub async fn generate_video(
         &self,
         request: ImageToVideoRequest,
     ) -> Result<GenerationResponse, VideoError> {
@@ -128,13 +128,14 @@ impl StabilityApi {
             )
             .body(body)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
     // Poll for video generation status
-    pub fn poll_generation(&self, generation_id: &str) -> Result<PollResponse, VideoError> {
+    pub async fn poll_generation(&self, generation_id: &str) -> Result<PollResponse, VideoError> {
         trace!("Polling generation status for ID: {generation_id}");
 
         let response: Response = self
@@ -145,17 +146,19 @@ impl StabilityApi {
             )
             .header("authorization", format!("Bearer {}", self.api_key.get()))
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Poll request failed", err))?;
 
         let status = response.status();
 
-        if status == golem_wasi_http::StatusCode::ACCEPTED {
+        if status == golem_ai_http::StatusCode::ACCEPTED {
             // 202 - Still processing
             Ok(PollResponse::Processing)
         } else if status.is_success() {
             // 200 - Complete, get video data
             let video_bytes = response
                 .bytes()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read video data", err))?;
 
             Ok(PollResponse::Complete {
@@ -166,6 +169,7 @@ impl StabilityApi {
             // Error response
             let error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read error response", err))?;
 
             // Try to parse as JSON error, otherwise use raw text
@@ -181,7 +185,7 @@ impl StabilityApi {
     }
 
     // Generate image from text as part of text->image->video
-    pub fn generate_text_to_image(
+    pub async fn generate_text_to_image(
         &self,
         request: TextToImageRequest,
     ) -> Result<TextToImageResponse, VideoError> {
@@ -204,6 +208,7 @@ impl StabilityApi {
             )
             .body(body)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Text-to-image request failed", err))?;
 
         let status = response.status();
@@ -223,6 +228,7 @@ impl StabilityApi {
 
             let image_data = response
                 .bytes()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read image data", err))?;
 
             Ok(TextToImageResponse {
@@ -233,6 +239,7 @@ impl StabilityApi {
         } else {
             let error_body = response
                 .text()
+                .await
                 .map_err(|err| from_reqwest_error("Failed to read error response", err))?;
 
             let error_message =
@@ -352,15 +359,19 @@ fn build_text_to_image_multipart_body(request: &TextToImageRequest, boundary: &s
     body
 }
 
-fn parse_response<T: serde::de::DeserializeOwned>(response: Response) -> Result<T, VideoError> {
+async fn parse_response<T: serde::de::DeserializeOwned>(
+    response: Response,
+) -> Result<T, VideoError> {
     let status = response.status();
     if status.is_success() {
         response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         let error_message =

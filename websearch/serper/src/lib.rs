@@ -11,14 +11,14 @@ use golem_ai_web_search::durability::ExtendedWebSearchProvider;
 use golem_ai_web_search::model::web_search::{
     SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
-use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
+use golem_ai_web_search::{SearchPageFuture, SearchSessionInterface, WebSearchProvider};
 
 pub use config::SerperConfig;
 #[cfg(feature = "golem")]
 pub use config::SerperHostConfig;
 
 #[cfg(feature = "golem")]
-#[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[derive(Debug, Clone, PartialEq, golem_rust::FromSchema, golem_rust::IntoSchema)]
 pub struct SerperReplayState {
     pub current_page: u32,
     pub metadata: Option<SearchMetadata>,
@@ -44,23 +44,6 @@ impl SerperSearchSessionImpl {
         }
     }
 
-    fn next_page(&mut self) -> Result<Vec<SearchResult>, SearchError> {
-        if self.finished {
-            return Ok(Vec::new());
-        }
-
-        let request = params_to_request(self.params.clone(), self.current_page)?;
-        let num_results = request.num.unwrap_or(10);
-        let response = self.client.search(request)?;
-        let (results, metadata) = response_to_results(response, &self.params, self.current_page);
-
-        self.finished = results.len() < (num_results as usize);
-        self.current_page += 1;
-        self.metadata = Some(metadata);
-
-        Ok(results)
-    }
-
     fn get_metadata(&self) -> Option<SearchMetadata> {
         self.metadata.clone()
     }
@@ -84,9 +67,32 @@ impl SearchSessionInterface for SerperSearchSession {
         self
     }
 
-    fn next_page(&self) -> Result<Vec<SearchResult>, SearchError> {
-        let mut search = self.0.borrow_mut();
-        search.next_page()
+    fn next_page(&self) -> SearchPageFuture<'_> {
+        Box::pin(async move {
+            let (client, params, current_page) = {
+                let search = self.0.borrow();
+                if search.finished {
+                    return Ok(Vec::new());
+                }
+                (
+                    search.client.clone(),
+                    search.params.clone(),
+                    search.current_page,
+                )
+            };
+
+            let request = params_to_request(params.clone(), current_page)?;
+            let num_results = request.num.unwrap_or(10);
+            let response = client.search(request).await?;
+            let (results, metadata) = response_to_results(response, &params, current_page);
+
+            let mut search = self.0.borrow_mut();
+            search.finished = results.len() < (num_results as usize);
+            search.current_page += 1;
+            search.metadata = Some(metadata);
+
+            Ok(results)
+        })
     }
 
     fn get_metadata(&self) -> Option<SearchMetadata> {
@@ -98,7 +104,7 @@ impl SearchSessionInterface for SerperSearchSession {
 pub struct SerperSearch;
 
 impl SerperSearch {
-    fn execute_search(
+    async fn execute_search(
         provider_config: &SerperConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, SearchMetadata), SearchError> {
@@ -107,7 +113,7 @@ impl SerperSearch {
         let client = SerperSearchApi::new(provider_config);
         let request = params_to_request(params.clone(), 1)?;
 
-        let response = client.search(request)?;
+        let response = client.search(request).await?;
         let (results, metadata) = response_to_results(response, &params, 1);
 
         Ok((results, metadata))
@@ -139,11 +145,11 @@ impl WebSearchProvider for SerperSearch {
         }
     }
 
-    fn search_once(
+    async fn search_once(
         provider_config: Self::ProviderConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        let (results, metadata) = Self::execute_search(&provider_config, params)?;
+        let (results, metadata) = Self::execute_search(&provider_config, params).await?;
         Ok((results, Some(metadata)))
     }
 }

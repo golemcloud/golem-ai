@@ -1,7 +1,7 @@
 pub mod types {
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum VideoError {
@@ -24,7 +24,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum ImageRole {
@@ -34,7 +34,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct RawBytes {
@@ -44,7 +44,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum MediaData {
@@ -54,7 +54,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct InputImage {
@@ -63,7 +63,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct Reference {
@@ -74,7 +74,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct BaseVideo {
@@ -83,7 +83,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum MediaInput {
@@ -94,7 +94,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct Narration {
@@ -103,7 +103,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct StaticMask {
@@ -112,7 +112,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Position {
@@ -122,7 +122,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct DynamicMask {
@@ -132,7 +132,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct CameraConfig {
@@ -146,7 +146,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum CameraMovement {
@@ -160,7 +160,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum AspectRatio {
@@ -173,7 +173,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum Resolution {
@@ -185,7 +185,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct Kv {
@@ -195,7 +195,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct GenerationConfig {
@@ -218,7 +218,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct Video {
@@ -234,7 +234,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum JobStatus {
@@ -246,7 +246,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct VideoResult {
@@ -257,7 +257,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum VoiceLanguage {
@@ -267,7 +267,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct TextToSpeech {
@@ -279,7 +279,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum AudioSource {
@@ -289,7 +289,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct VoiceInfo {
@@ -302,7 +302,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum SingleImageEffects {
@@ -318,7 +318,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum DualImageEffects {
@@ -329,7 +329,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct DualEffect {
@@ -339,7 +339,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum EffectType {
@@ -349,7 +349,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum LipSyncVideo {
@@ -383,7 +383,7 @@ pub mod advanced {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct ExtendVideoOptions {
@@ -396,7 +396,7 @@ pub mod advanced {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct GenerateVideoEffectsOptions {
@@ -409,7 +409,7 @@ pub mod advanced {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct MultImageGenerationOptions {

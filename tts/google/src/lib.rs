@@ -17,10 +17,9 @@ use golem_ai_tts::model::types::{
     TimingInfo, TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
 use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
-use golem_ai_tts::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_tts::{
     AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
-    StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
+    StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider, TtsFuture,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
 };
 use std::cell::{Cell, RefCell};
@@ -118,16 +117,20 @@ impl VoiceInterface for GoogleVoiceImpl {
         ]
     }
 
-    fn update_settings(&self, _settings: VoiceSettings) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Voice settings update not supported by Google Cloud TTS".to_string(),
-        ))
+    fn update_settings(&self, _settings: VoiceSettings) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Voice settings update not supported by Google Cloud TTS".to_string(),
+            ))
+        })
     }
 
-    fn delete(&self) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Built-in voices cannot be deleted in Google Cloud TTS".to_string(),
-        ))
+    fn delete(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Built-in voices cannot be deleted in Google Cloud TTS".to_string(),
+            ))
+        })
     }
 
     fn clone(&self) -> Result<Voice, TtsError> {
@@ -136,18 +139,24 @@ impl VoiceInterface for GoogleVoiceImpl {
         ))
     }
 
-    fn preview(&self, text: String) -> Result<Vec<u8>, TtsError> {
-        let input = TextInput {
-            content: text,
-            text_type: golem_ai_tts::model::types::TextType::Plain,
-            language: Some(self.get_language()),
-        };
-        let voice_name = &self.voice_data.name;
-        let language_code = &self.get_language();
-        let (request, _) =
-            conversions::synthesis_options_to_tts_request(&input, voice_name, language_code, None);
+    fn preview(&self, text: String) -> TtsFuture<'_, Vec<u8>> {
+        Box::pin(async move {
+            let input = TextInput {
+                content: text,
+                text_type: golem_ai_tts::model::types::TextType::Plain,
+                language: Some(self.get_language()),
+            };
+            let voice_name = &self.voice_data.name;
+            let language_code = &self.get_language();
+            let (request, _) = conversions::synthesis_options_to_tts_request(
+                &input,
+                voice_name,
+                language_code,
+                None,
+            );
 
-        self.client.text_to_speech(&request)
+            self.client.text_to_speech(&request).await
+        })
     }
 }
 
@@ -182,22 +191,24 @@ impl VoiceResultsInterface for GoogleVoiceResults {
         self.has_more.get()
     }
 
-    fn get_next(&self) -> Result<Vec<VoiceInfo>, TtsError> {
-        let voices = self.voices.borrow();
-        let current_idx = self.current_index.get();
+    fn get_next(&self) -> TtsFuture<'_, Vec<VoiceInfo>> {
+        Box::pin(async move {
+            let voices = self.voices.borrow();
+            let current_idx = self.current_index.get();
 
-        if current_idx >= voices.len() {
-            return Ok(vec![]);
-        }
+            if current_idx >= voices.len() {
+                return Ok(vec![]);
+            }
 
-        const BATCH_SIZE: usize = 10;
-        let end_idx = std::cmp::min(current_idx + BATCH_SIZE, voices.len());
-        let batch = voices[current_idx..end_idx].to_vec();
+            const BATCH_SIZE: usize = 10;
+            let end_idx = std::cmp::min(current_idx + BATCH_SIZE, voices.len());
+            let batch = voices[current_idx..end_idx].to_vec();
 
-        self.current_index.set(end_idx);
-        self.has_more.set(end_idx < voices.len());
+            self.current_index.set(end_idx);
+            self.has_more.set(end_idx < voices.len());
 
-        Ok(batch)
+            Ok(batch)
+        })
     }
 
     fn get_total_count(&self) -> Option<u32> {
@@ -249,70 +260,77 @@ impl SynthesisStreamInterface for GoogleSynthesisStream {
         self
     }
 
-    fn send_text(&self, input: TextInput) -> Result<(), TtsError> {
-        if self.finished.get() {
-            return Err(TtsError::UnsupportedOperation(
-                "Stream is finished".to_string(),
-            ));
-        }
+    fn send_text(&self, input: TextInput) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            if self.finished.get() {
+                return Err(TtsError::UnsupportedOperation(
+                    "Stream is finished".to_string(),
+                ));
+            }
 
-        let mut request_opt = self.current_request.borrow_mut();
-        if let Some(request) = request_opt.as_mut() {
-            match input.text_type {
-                golem_ai_tts::model::types::TextType::Plain => {
-                    request.input.text = Some(input.content.clone());
-                    request.input.ssml = None;
-                }
-                golem_ai_tts::model::types::TextType::Ssml => {
-                    request.input.ssml = Some(input.content.clone());
-                    request.input.text = None;
+            let mut request_opt = self.current_request.borrow_mut();
+            if let Some(request) = request_opt.as_mut() {
+                match input.text_type {
+                    golem_ai_tts::model::types::TextType::Plain => {
+                        request.input.text = Some(input.content.clone());
+                        request.input.ssml = None;
+                    }
+                    golem_ai_tts::model::types::TextType::Ssml => {
+                        request.input.ssml = Some(input.content.clone());
+                        request.input.text = None;
+                    }
                 }
             }
-        }
 
-        Ok(())
+            Ok(())
+        })
     }
 
-    fn finish(&self) -> Result<(), TtsError> {
-        if self.finished.get() {
-            return Ok(());
-        }
+    fn finish(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            if self.finished.get() {
+                return Ok(());
+            }
 
-        if let Some(request) = self.current_request.borrow().as_ref() {
-            let audio_data = self.client.text_to_speech(request)?;
+            let request = self.current_request.borrow().clone();
+            if let Some(request) = request {
+                let audio_data = self.client.text_to_speech(&request).await?;
+                self.chunk_buffer
+                    .borrow_mut()
+                    .extend_from_slice(&audio_data);
+            }
 
+            self.finished.set(true);
+            Ok(())
+        })
+    }
+
+    fn receive_chunk(&self) -> TtsFuture<'_, Option<AudioChunk>> {
+        Box::pin(async move {
             let mut buffer = self.chunk_buffer.borrow_mut();
-            buffer.extend_from_slice(&audio_data);
-        }
 
-        self.finished.set(true);
-        Ok(())
-    }
+            if buffer.is_empty() {
+                return Ok(None);
+            }
 
-    fn receive_chunk(&self) -> Result<Option<AudioChunk>, TtsError> {
-        let mut buffer = self.chunk_buffer.borrow_mut();
+            const CHUNK_SIZE: usize = 4096;
+            let chunk_size = std::cmp::min(CHUNK_SIZE, buffer.len());
+            let chunk_data = buffer.drain(..chunk_size).collect::<Vec<u8>>();
 
-        if buffer.is_empty() {
-            return Ok(None);
-        }
+            let sequence = self.sequence_number.get();
+            self.sequence_number.set(sequence + 1);
+            self.bytes_streamed
+                .set(self.bytes_streamed.get() + chunk_data.len());
+            self.total_chunks_received
+                .set(self.total_chunks_received.get() + 1);
 
-        const CHUNK_SIZE: usize = 4096;
-        let chunk_size = std::cmp::min(CHUNK_SIZE, buffer.len());
-        let chunk_data = buffer.drain(..chunk_size).collect::<Vec<u8>>();
-
-        let sequence = self.sequence_number.get();
-        self.sequence_number.set(sequence + 1);
-        self.bytes_streamed
-            .set(self.bytes_streamed.get() + chunk_data.len());
-        self.total_chunks_received
-            .set(self.total_chunks_received.get() + 1);
-
-        Ok(Some(AudioChunk {
-            data: chunk_data,
-            sequence_number: sequence,
-            is_final: buffer.is_empty() && self.finished.get(),
-            timing_info: None,
-        }))
+            Ok(Some(AudioChunk {
+                data: chunk_data,
+                sequence_number: sequence,
+                is_final: buffer.is_empty() && self.finished.get(),
+                timing_info: None,
+            }))
+        })
     }
 
     fn has_pending_audio(&self) -> bool {
@@ -355,21 +373,27 @@ impl VoiceConversionStreamInterface for GoogleVoiceConversionStream {
         self
     }
 
-    fn send_audio(&self, _audio_data: Vec<u8>) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Voice conversion not supported by Google Cloud TTS".to_string(),
-        ))
+    fn send_audio(&self, _audio_data: Vec<u8>) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Voice conversion not supported by Google Cloud TTS".to_string(),
+            ))
+        })
     }
 
-    fn receive_converted(&self) -> Result<Option<AudioChunk>, TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Voice conversion not supported by Google Cloud TTS".to_string(),
-        ))
+    fn receive_converted(&self) -> TtsFuture<'_, Option<AudioChunk>> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Voice conversion not supported by Google Cloud TTS".to_string(),
+            ))
+        })
     }
 
-    fn finish(&self) -> Result<(), TtsError> {
-        self.finished.set(true);
-        Ok(())
+    fn finish(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            self.finished.set(true);
+            Ok(())
+        })
     }
 
     fn close(&self) {
@@ -413,28 +437,34 @@ impl PronunciationLexiconInterface for GooglePronunciationLexicon {
         self.entries.borrow().len() as u32
     }
 
-    fn add_entry(&self, word: String, pronunciation: String) -> Result<(), TtsError> {
-        self.entries.borrow_mut().push(PronunciationEntry {
-            word,
-            pronunciation,
-            part_of_speech: Some("unknown".to_string()),
-        });
-        Ok(())
+    fn add_entry(&self, word: String, pronunciation: String) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            self.entries.borrow_mut().push(PronunciationEntry {
+                word,
+                pronunciation,
+                part_of_speech: Some("unknown".to_string()),
+            });
+            Ok(())
+        })
     }
 
-    fn remove_entry(&self, word: String) -> Result<(), TtsError> {
-        self.entries.borrow_mut().retain(|entry| entry.word != word);
-        Ok(())
+    fn remove_entry(&self, word: String) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            self.entries.borrow_mut().retain(|entry| entry.word != word);
+            Ok(())
+        })
     }
 
-    fn export_content(&self) -> Result<String, TtsError> {
-        let entries = self.entries.borrow();
-        let content = entries
-            .iter()
-            .map(|entry| format!("{}: {}", entry.word, entry.pronunciation))
-            .collect::<Vec<_>>()
-            .join("\n");
-        Ok(content)
+    fn export_content(&self) -> TtsFuture<'_, String> {
+        Box::pin(async move {
+            let entries = self.entries.borrow();
+            let content = entries
+                .iter()
+                .map(|entry| format!("{}: {}", entry.word, entry.pronunciation))
+                .collect::<Vec<_>>()
+                .join("\n");
+            Ok(content)
+        })
     }
 }
 
@@ -478,7 +508,7 @@ impl GoogleLongFormOperation {
         }
     }
 
-    fn process_long_form(&self) -> Result<(), TtsError> {
+    async fn process_long_form(&self) -> Result<(), TtsError> {
         self.status.set(OperationStatus::Processing);
 
         let chunks = self.split_content_intelligently(&self.content, 4000);
@@ -489,7 +519,7 @@ impl GoogleLongFormOperation {
             let mut request = self.request_template.borrow().clone();
             request.input.text = Some(chunk.clone());
 
-            match self.client.text_to_speech(&request) {
+            match self.client.text_to_speech(&request).await {
                 Ok(audio_data) => {
                     audio_results.push(audio_data);
                     let progress = (i + 1) as f32 / total_chunks as f32;
@@ -579,54 +609,58 @@ impl LongFormOperationInterface for GoogleLongFormOperation {
         self
     }
 
-    fn get_status(&self) -> OperationStatus {
-        self.status.get()
+    fn get_status(&self) -> TtsFuture<'_, OperationStatus> {
+        Box::pin(async move { Ok(self.status.get()) })
     }
 
-    fn get_progress(&self) -> f32 {
-        self.progress.get()
+    fn get_progress(&self) -> TtsFuture<'_, f32> {
+        Box::pin(async move { Ok(self.progress.get()) })
     }
 
-    fn cancel(&self) -> Result<(), TtsError> {
-        self.status.set(OperationStatus::Cancelled);
-        Ok(())
+    fn cancel(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            self.status.set(OperationStatus::Cancelled);
+            Ok(())
+        })
     }
 
-    fn get_result(&self) -> Result<LongFormResult, TtsError> {
-        if self.status.get() != OperationStatus::Completed {
-            return Err(TtsError::UnsupportedOperation(
-                "Operation not completed".to_string(),
-            ));
-        }
+    fn get_result(&self) -> TtsFuture<'_, LongFormResult> {
+        Box::pin(async move {
+            if self.status.get() != OperationStatus::Completed {
+                return Err(TtsError::UnsupportedOperation(
+                    "Operation not completed".to_string(),
+                ));
+            }
 
-        let audio_chunks = self.audio_chunks.borrow();
-        let chunks = audio_chunks
-            .as_ref()
-            .ok_or_else(|| TtsError::UnsupportedOperation("No audio data available".to_string()))?;
+            let audio_chunks = self.audio_chunks.borrow();
+            let chunks = audio_chunks.as_ref().ok_or_else(|| {
+                TtsError::UnsupportedOperation("No audio data available".to_string())
+            })?;
 
-        let combined_audio: Vec<u8> = chunks.iter().flatten().cloned().collect();
+            let combined_audio: Vec<u8> = chunks.iter().flatten().cloned().collect();
 
-        let sample_rate = self
-            .request_template
-            .borrow()
-            .audio_config
-            .sample_rate_hertz
-            .unwrap_or(22050) as u32;
-        let encoding = &self.request_template.borrow().audio_config.audio_encoding;
-        let total_duration = estimate_audio_duration(&combined_audio, sample_rate, encoding);
+            let sample_rate = self
+                .request_template
+                .borrow()
+                .audio_config
+                .sample_rate_hertz
+                .unwrap_or(22050) as u32;
+            let encoding = &self.request_template.borrow().audio_config.audio_encoding;
+            let total_duration = estimate_audio_duration(&combined_audio, sample_rate, encoding);
 
-        Ok(LongFormResult {
-            output_location: self.output_location.clone(),
-            total_duration,
-            chapter_durations: None,
-            metadata: SynthesisMetadata {
-                duration_seconds: total_duration,
-                character_count: self.content.len() as u32,
-                word_count: self.content.split_whitespace().count() as u32,
-                audio_size_bytes: combined_audio.len() as u32,
-                request_id: format!("google-{}", uuid::Uuid::new_v4()),
-                provider_info: Some("Google Cloud TTS".to_string()),
-            },
+            Ok(LongFormResult {
+                output_location: self.output_location.clone(),
+                total_duration,
+                chapter_durations: None,
+                metadata: SynthesisMetadata {
+                    duration_seconds: total_duration,
+                    character_count: self.content.len() as u32,
+                    word_count: self.content.split_whitespace().count() as u32,
+                    audio_size_bytes: combined_audio.len() as u32,
+                    request_id: format!("google-{}", uuid::Uuid::new_v4()),
+                    provider_info: Some("Google Cloud TTS".to_string()),
+                },
+            })
         })
     }
 }
@@ -644,14 +678,14 @@ impl VoiceProvider for GoogleTts {
     type VoiceResults = GoogleVoiceResults;
     type ProviderConfig = GoogleConfig;
 
-    fn list_voices(
+    async fn list_voices(
         provider_config: Self::ProviderConfig,
         filter: Option<VoiceFilter>,
     ) -> Result<VoiceResults, TtsError> {
         let client = Self::create_client(&provider_config)?;
         let language_code = voice_filter_to_language_code(filter);
 
-        let response = client.list_voices(language_code.as_deref())?;
+        let response = client.list_voices(language_code.as_deref()).await?;
 
         let voice_infos: Vec<VoiceInfo> = response
             .voices
@@ -665,13 +699,13 @@ impl VoiceProvider for GoogleTts {
         Ok(VoiceResults::new(results))
     }
 
-    fn get_voice(
+    async fn get_voice(
         provider_config: Self::ProviderConfig,
         voice_id: String,
     ) -> Result<Voice, TtsError> {
         let client = Self::create_client(&provider_config)?;
 
-        let response = client.list_voices(None)?;
+        let response = client.list_voices(None).await?;
 
         let voice_data = response
             .voices
@@ -683,14 +717,14 @@ impl VoiceProvider for GoogleTts {
         Ok(Voice::new(voice_impl))
     }
 
-    fn search_voices(
+    async fn search_voices(
         provider_config: Self::ProviderConfig,
         filter: Option<VoiceFilter>,
     ) -> Result<Vec<VoiceInfo>, TtsError> {
         let client = Self::create_client(&provider_config)?;
         let language_code = voice_filter_to_language_code(filter.clone());
 
-        let response = client.list_voices(language_code.as_deref())?;
+        let response = client.list_voices(language_code.as_deref()).await?;
 
         // Filter voices based on the query matching voice name or language codes.
 
@@ -716,11 +750,11 @@ impl VoiceProvider for GoogleTts {
         Ok(matching_voices)
     }
 
-    fn list_languages(
+    async fn list_languages(
         provider_config: Self::ProviderConfig,
     ) -> Result<Vec<LanguageInfo>, TtsError> {
         let client = Self::create_client(&provider_config)?;
-        let response = client.list_voices(None)?;
+        let response = client.list_voices(None).await?;
 
         Ok(google_voices_to_language_info(response.voices))
     }
@@ -729,7 +763,7 @@ impl VoiceProvider for GoogleTts {
 impl SynthesizeProvider for GoogleTts {
     type ProviderConfig = GoogleConfig;
 
-    fn synthesize(
+    async fn synthesize(
         provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -758,7 +792,7 @@ impl SynthesizeProvider for GoogleTts {
                     &language_code,
                     options.clone(),
                 );
-                let chunk_audio = client.text_to_speech(&chunk_request)?;
+                let chunk_audio = client.text_to_speech(&chunk_request).await?;
                 audio_chunks.push(chunk_audio);
             }
 
@@ -787,7 +821,7 @@ impl SynthesizeProvider for GoogleTts {
             let (request, _) =
                 synthesis_options_to_tts_request(&input, &voice_name, &language_code, options);
 
-            let audio_data = client.text_to_speech(&request)?;
+            let audio_data = client.text_to_speech(&request).await?;
             let text = request
                 .input
                 .text
@@ -806,7 +840,7 @@ impl SynthesizeProvider for GoogleTts {
         }
     }
 
-    fn synthesize_batch(
+    async fn synthesize_batch(
         provider_config: Self::ProviderConfig,
         inputs: Vec<TextInput>,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -840,7 +874,7 @@ impl SynthesizeProvider for GoogleTts {
                         &language_code,
                         options.clone(),
                     );
-                    let chunk_audio = client.text_to_speech(&chunk_request)?;
+                    let chunk_audio = client.text_to_speech(&chunk_request).await?;
                     audio_chunks.push(chunk_audio);
                 }
 
@@ -872,7 +906,7 @@ impl SynthesizeProvider for GoogleTts {
                     &language_code,
                     options.clone(),
                 );
-                let audio_data = client.text_to_speech(&request)?;
+                let audio_data = client.text_to_speech(&request).await?;
                 let text = request
                     .input
                     .text
@@ -894,7 +928,7 @@ impl SynthesizeProvider for GoogleTts {
         Ok(results)
     }
 
-    fn get_timing_marks(
+    async fn get_timing_marks(
         _provider_config: Self::ProviderConfig,
         _input: TextInput,
         _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -904,7 +938,7 @@ impl SynthesizeProvider for GoogleTts {
         ))
     }
 
-    fn validate_input(
+    async fn validate_input(
         _provider_config: Self::ProviderConfig,
         input: TextInput,
         _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -930,7 +964,7 @@ impl StreamingVoiceProvider for GoogleTts {
     type VoiceConversionStream = GoogleVoiceConversionStream;
     type ProviderConfig = GoogleConfig;
 
-    fn create_stream(
+    async fn create_stream(
         provider_config: Self::ProviderConfig,
         _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
@@ -940,7 +974,7 @@ impl StreamingVoiceProvider for GoogleTts {
         Ok(SynthesisStream::new(stream))
     }
 
-    fn create_voice_conversion_stream(
+    async fn create_voice_conversion_stream(
         _provider_config: Self::ProviderConfig,
         _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
@@ -955,7 +989,7 @@ impl AdvancedTtsProvider for GoogleTts {
     type LongFormOperation = GoogleLongFormOperation;
     type ProviderConfig = GoogleConfig;
 
-    fn create_voice_clone(
+    async fn create_voice_clone(
         _provider_config: Self::ProviderConfig,
         _name: String,
         _audio_samples: Vec<AudioSample>,
@@ -966,7 +1000,7 @@ impl AdvancedTtsProvider for GoogleTts {
         ))
     }
 
-    fn design_voice(
+    async fn design_voice(
         _provider_config: Self::ProviderConfig,
         _name: String,
         _characteristics: VoiceDesignParams,
@@ -976,7 +1010,7 @@ impl AdvancedTtsProvider for GoogleTts {
         ))
     }
 
-    fn convert_voice(
+    async fn convert_voice(
         _provider_config: Self::ProviderConfig,
         _input_audio: Vec<u8>,
         _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -987,7 +1021,7 @@ impl AdvancedTtsProvider for GoogleTts {
         ))
     }
 
-    fn generate_sound_effect(
+    async fn generate_sound_effect(
         _provider_config: Self::ProviderConfig,
         _description: String,
         _duration_seconds: Option<f32>,
@@ -998,7 +1032,7 @@ impl AdvancedTtsProvider for GoogleTts {
         ))
     }
 
-    fn create_lexicon(
+    async fn create_lexicon(
         _provider_config: Self::ProviderConfig,
         name: String,
         language: LanguageCode,
@@ -1008,7 +1042,7 @@ impl AdvancedTtsProvider for GoogleTts {
         Ok(PronunciationLexicon::new(lexicon))
     }
 
-    fn synthesize_long_form(
+    async fn synthesize_long_form(
         provider_config: Self::ProviderConfig,
         content: String,
         _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -1018,37 +1052,12 @@ impl AdvancedTtsProvider for GoogleTts {
         let client = Self::create_client(&provider_config)?;
         let operation = GoogleLongFormOperation::new(content, output_location, client, None);
 
-        operation.process_long_form()?;
+        operation.process_long_form().await?;
 
         Ok(LongFormOperation::new(operation))
     }
 }
 
-impl ExtendedTtsProvider for GoogleTts {
-    fn unwrapped_synthesis_stream(
-        provider_config: <Self as VoiceProvider>::ProviderConfig,
-        _voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
-        options: Option<SynthesisOptions>,
-    ) -> Self::SynthesisStream {
-        let client = Self::create_client(&provider_config).expect("Failed to create Google client");
-        GoogleSynthesisStream::new(client, options)
-    }
-
-    fn unwrapped_voice_conversion_stream(
-        _provider_config: <Self as VoiceProvider>::ProviderConfig,
-        _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
-        _options: Option<SynthesisOptions>,
-    ) -> Self::VoiceConversionStream {
-        GoogleVoiceConversionStream::new()
-    }
-
-    fn subscribe_synthesis_stream(_stream: &Self::SynthesisStream) -> Pollable {
-        subscribe_zero()
-    }
-
-    fn subscribe_voice_conversion_stream(_stream: &Self::VoiceConversionStream) -> Pollable {
-        subscribe_zero()
-    }
-}
+impl ExtendedTtsProvider for GoogleTts {}
 
 pub type DurableGoogleTts = DurableTts<GoogleTts>;

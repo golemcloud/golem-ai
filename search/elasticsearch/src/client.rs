@@ -1,6 +1,6 @@
+use golem_ai_http::{Client, Method, RequestBuilder, Response};
 use golem_ai_search::error::{from_reqwest_error, internal_error, search_error_from_status};
 use golem_ai_search::model::SearchError;
-use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -207,7 +207,7 @@ impl ElasticsearchApi {
         builder
     }
 
-    pub fn create_index(
+    pub async fn create_index(
         &self,
         index_name: &str,
         settings: Option<ElasticsearchSettings>,
@@ -224,6 +224,7 @@ impl ElasticsearchApi {
 
         let response = request
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to create index: {e}")))?;
 
         if response.status().is_success() {
@@ -233,7 +234,7 @@ impl ElasticsearchApi {
         }
     }
 
-    pub fn delete_index(&self, index_name: &str) -> Result<(), SearchError> {
+    pub async fn delete_index(&self, index_name: &str) -> Result<(), SearchError> {
         trace!("Deleting index: {index_name}");
 
         let url = format!("{}/{}", self.base_url, index_name);
@@ -241,6 +242,7 @@ impl ElasticsearchApi {
         let response = self
             .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to delete index: {e}")))?;
 
         if response.status().is_success() {
@@ -250,7 +252,7 @@ impl ElasticsearchApi {
         }
     }
 
-    pub fn list_indices(&self) -> Result<Vec<ElasticsearchIndexInfo>, SearchError> {
+    pub async fn list_indices(&self) -> Result<Vec<ElasticsearchIndexInfo>, SearchError> {
         trace!("Listing indices");
 
         let url = format!("{}/_cat/indices?format=json", self.base_url);
@@ -258,12 +260,13 @@ impl ElasticsearchApi {
         let response = self
             .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to list indices: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn index_document(
+    pub async fn index_document(
         &self,
         index_name: &str,
         id: &str,
@@ -277,17 +280,21 @@ impl ElasticsearchApi {
             .create_request(Method::PUT, &url)
             .json(document)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to index document: {e}")))?;
 
         if response.status().is_success() {
-            self.refresh_index(index_name)?;
+            self.refresh_index(index_name).await?;
             Ok(())
         } else {
             Err(search_error_from_status(response.status()))
         }
     }
 
-    pub fn bulk_index(&self, operations: &str) -> Result<ElasticsearchBulkResponse, SearchError> {
+    pub async fn bulk_index(
+        &self,
+        operations: &str,
+    ) -> Result<ElasticsearchBulkResponse, SearchError> {
         trace!("Performing bulk index operation");
 
         let url = format!("{}/_bulk", self.base_url);
@@ -310,12 +317,13 @@ impl ElasticsearchApi {
 
         let response = builder
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to perform bulk operation: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn delete_document(&self, index_name: &str, id: &str) -> Result<(), SearchError> {
+    pub async fn delete_document(&self, index_name: &str, id: &str) -> Result<(), SearchError> {
         trace!("Deleting document {id} from index: {index_name}");
 
         let url = format!("{}/{}/_doc/{}", self.base_url, index_name, id);
@@ -323,6 +331,7 @@ impl ElasticsearchApi {
         let response = self
             .create_request(Method::DELETE, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to delete document: {e}")))?;
 
         if response.status().is_success() {
@@ -332,7 +341,11 @@ impl ElasticsearchApi {
         }
     }
 
-    pub fn get_document(&self, index_name: &str, id: &str) -> Result<Option<Value>, SearchError> {
+    pub async fn get_document(
+        &self,
+        index_name: &str,
+        id: &str,
+    ) -> Result<Option<Value>, SearchError> {
         trace!("Getting document {id} from index: {index_name}");
 
         let url = format!("{}/{}/_doc/{}", self.base_url, index_name, id);
@@ -340,12 +353,13 @@ impl ElasticsearchApi {
         let response = self
             .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to get document: {e}")))?;
 
         if response.status() == 404 {
             Ok(None)
         } else if response.status().is_success() {
-            let doc: Value = parse_response(response)?;
+            let doc: Value = parse_response(response).await?;
 
             if let Some(source) = doc.get("_source") {
                 Ok(Some(source.clone()))
@@ -357,7 +371,7 @@ impl ElasticsearchApi {
         }
     }
 
-    pub fn search(
+    pub async fn search(
         &self,
         index_name: &str,
         query: &ElasticsearchQuery,
@@ -370,12 +384,13 @@ impl ElasticsearchApi {
             .create_request(Method::POST, &url)
             .json(query)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to search: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn search_with_scroll(
+    pub async fn search_with_scroll(
         &self,
         index_name: &str,
         query: &ElasticsearchQuery,
@@ -392,12 +407,13 @@ impl ElasticsearchApi {
             .create_request(Method::POST, &url)
             .json(query)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to search with scroll: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn scroll(
+    pub async fn scroll(
         &self,
         scroll_id: &str,
         scroll_timeout: &str,
@@ -415,12 +431,13 @@ impl ElasticsearchApi {
             .create_request(Method::POST, &url)
             .json(&scroll_request)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to continue scroll: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn clear_scroll(&self, scroll_id: &str) -> Result<(), SearchError> {
+    pub async fn clear_scroll(&self, scroll_id: &str) -> Result<(), SearchError> {
         trace!("Clearing scroll with ID: {scroll_id}");
 
         let url = format!("{}/_search/scroll", self.base_url);
@@ -433,6 +450,7 @@ impl ElasticsearchApi {
             .create_request(Method::DELETE, &url)
             .json(&clear_request)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to clear scroll: {e}")))?;
 
         if response.status().is_success() {
@@ -447,7 +465,7 @@ impl ElasticsearchApi {
         }
     }
 
-    pub fn get_mappings(&self, index_name: &str) -> Result<Value, SearchError> {
+    pub async fn get_mappings(&self, index_name: &str) -> Result<Value, SearchError> {
         trace!("Getting mappings for index: {index_name}");
 
         let url = format!("{}/{}/_mapping", self.base_url, index_name);
@@ -455,12 +473,13 @@ impl ElasticsearchApi {
         let response = self
             .create_request(Method::GET, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to get mappings: {e}")))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn put_mappings(
+    pub async fn put_mappings(
         &self,
         index_name: &str,
         mappings: &ElasticsearchMappings,
@@ -473,6 +492,7 @@ impl ElasticsearchApi {
             .create_request(Method::PUT, &url)
             .json(mappings)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to put mappings: {e}")))?;
 
         if response.status().is_success() {
@@ -482,7 +502,7 @@ impl ElasticsearchApi {
         }
     }
 
-    pub fn refresh_index(&self, index_name: &str) -> Result<(), SearchError> {
+    pub async fn refresh_index(&self, index_name: &str) -> Result<(), SearchError> {
         trace!("Refreshing index: {index_name}");
 
         let url = format!("{}/{}/_refresh", self.base_url, index_name);
@@ -490,6 +510,7 @@ impl ElasticsearchApi {
         let response = self
             .create_request(Method::POST, &url)
             .send()
+            .await
             .map_err(|e| internal_error(format!("Failed to refresh index: {e}")))?;
 
         if response.status().is_success() {
@@ -501,7 +522,7 @@ impl ElasticsearchApi {
     }
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, SearchError> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, SearchError> {
     let status = response.status();
 
     trace!("Received response from Elasticsearch API: {response:?}");
@@ -509,6 +530,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     if status.is_success() {
         let body = response
             .json::<T>()
+            .await
             .map_err(|err| from_reqwest_error("Failed to decode response body", err))?;
 
         trace!("Received response from Elasticsearch API: {body:?}");
@@ -517,6 +539,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     } else {
         let error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
 
         trace!("Received {status} response from Elasticsearch API: {error_body:?}");

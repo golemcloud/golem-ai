@@ -1,7 +1,5 @@
 use std::time::Duration;
 
-use wstd::task;
-
 #[allow(async_fn_in_trait)]
 pub trait AsyncRuntime {
     async fn sleep(&self, duration: Duration);
@@ -23,6 +21,7 @@ impl Default for WasiAsyncRuntime {
 
 impl AsyncRuntime for WasiAsyncRuntime {
     async fn sleep(&self, duration: Duration) {
-        task::sleep(duration.into()).await;
+        let duration_nanos = u64::try_from(duration.as_nanos()).unwrap_or(u64::MAX);
+        wasip3::clocks::monotonic_clock::wait_for(duration_nanos).await;
     }
 }

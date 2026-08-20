@@ -11,12 +11,13 @@ description = "Library for working with Speech to Text APIs on Golem Cloud"
 path = "src/lib.rs"
 
 [dependencies]
+golem-ai-http = { workspace = true }
 golem-rust = { workspace = true, optional = true }
 log = { workspace = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
-wstd = { workspace = true }
+wasip3 = { workspace = true }
 http = "=1.3.1"
 url = { workspace = true }
 wasi-logger = "0.1.2"

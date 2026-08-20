@@ -975,479 +975,501 @@ mod tests {
         }
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_invalid_request_id_returns_error() {
-        let api = create_mock_speech_to_text_api();
+    #[test]
+    fn test_transcribe_audio_invalid_request_id_returns_error() {
+        futures::executor::block_on(async {
+            let api = create_mock_speech_to_text_api();
 
-        let request = TranscriptionRequest {
-            request_id: "invalid request id".to_string(), // spaces are invalid
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                sample_rate_hertz: Some(16000),
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "invalid request id".to_string(), // spaces are invalid
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    sample_rate_hertz: Some(16000),
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
 
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
 
-        let expected_error = SttError::APIBadRequest {
+            let expected_error = SttError::APIBadRequest {
                 request_id: "invalid request id".to_string(),
                 provider_error: "Invalid request ID: Request ID contains invalid characters. Only alphanumeric characters, hyphens (-), underscores (_), and dots (.) are allowed for GCS object naming".to_string(),
             };
-        assert_eq!(
-            format!("{:?}", result.unwrap_err()),
-            format!("{:?}", expected_error)
-        );
+            assert_eq!(
+                format!("{:?}", result.unwrap_err()),
+                format!("{:?}", expected_error)
+            );
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_uploads_to_gcs() {
-        let api = create_mock_speech_to_text_api();
+    #[test]
+    fn test_transcribe_audio_uploads_to_gcs() {
+        futures::executor::block_on(async {
+            let api = create_mock_speech_to_text_api();
 
-        api.cloud_storage_service.expect_put_object_response(Ok(()));
-        api.speech_to_text_service
-            .expect_start_batch_recognize_response(Ok(BatchRecognizeOperationResponse {
-                name: "operations/test-operation".to_string(),
-                metadata: None,
-                done: Some(false),
-                error: None,
-                response: None,
-            }));
+            api.cloud_storage_service.expect_put_object_response(Ok(()));
+            api.speech_to_text_service
+                .expect_start_batch_recognize_response(Ok(BatchRecognizeOperationResponse {
+                    name: "operations/test-operation".to_string(),
+                    metadata: None,
+                    done: Some(false),
+                    error: None,
+                    response: None,
+                }));
 
-        let expected_response = create_successful_batch_response_for_request(
-            "test-123",
-            "test-bucket",
-            &AudioFormat::Mp3,
-        );
-
-        api.speech_to_text_service
-            .expect_wait_for_completion_response(Ok(expected_response));
-        api.cloud_storage_service
-            .expect_delete_object_response(Ok(()));
-
-        let request = TranscriptionRequest {
-            request_id: "test-123".to_string(),
-            audio: "test audio data".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Mp3,
-                sample_rate_hertz: Some(16000),
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
-
-        let _ = api.transcribe_audio(request).await.unwrap();
-
-        let captured_puts = api.cloud_storage_service.get_captured_put_operations();
-        assert_eq!(captured_puts.len(), 1);
-
-        let expected_put_op = GcsPutOperation {
-            request_id: "test-123".to_string(),
-            bucket: "test-bucket".to_string(),
-            object_name: "test-123/audio.mp3".to_string(),
-            content_size: 15,
-        };
-        assert_eq!(captured_puts[0], expected_put_op);
-    }
-
-    #[wstd::test]
-    async fn test_transcribe_audio_starts_batch_recognize_job() {
-        let api = create_mock_speech_to_text_api();
-
-        api.cloud_storage_service.expect_put_object_response(Ok(()));
-        api.speech_to_text_service
-            .expect_start_batch_recognize_response(Ok(BatchRecognizeOperationResponse {
-                name: "operations/test-operation".to_string(),
-                metadata: None,
-                done: None,
-                error: None,
-                response: None,
-            }));
-        api.speech_to_text_service
-            .expect_wait_for_completion_response(Ok(create_successful_batch_response_for_request(
-                "test-456",
+            let expected_response = create_successful_batch_response_for_request(
+                "test-123",
                 "test-bucket",
-                &AudioFormat::Wav,
-            )));
-        api.cloud_storage_service
-            .expect_delete_object_response(Ok(()));
+                &AudioFormat::Mp3,
+            );
 
-        let transcription_config = TranscriptionConfig {
-            language_codes: Some(vec!["en-US".to_string()]),
-            model: Some("latest_long".to_string()),
-            enable_profanity_filter: true,
-            diarization: Some(DiarizationConfig {
-                enabled: true,
-                min_speaker_count: Some(2),
-                max_speaker_count: Some(5),
-            }),
-            enable_multi_channel: true,
-            phrases: vec![Phrase {
-                value: "Google Cloud".to_string(),
-                boost: Some(10.0),
-            }],
-        };
+            api.speech_to_text_service
+                .expect_wait_for_completion_response(Ok(expected_response));
+            api.cloud_storage_service
+                .expect_delete_object_response(Ok(()));
 
-        let request = TranscriptionRequest {
-            request_id: "test-456".to_string(),
-            audio: "test audio data".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                sample_rate_hertz: Some(44100),
-                channels: Some(2),
-            },
-            transcription_config: Some(transcription_config.clone()),
-        };
+            let request = TranscriptionRequest {
+                request_id: "test-123".to_string(),
+                audio: "test audio data".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Mp3,
+                    sample_rate_hertz: Some(16000),
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
 
-        let _ = api.transcribe_audio(request).await.unwrap();
+            let _ = api.transcribe_audio(request).await.unwrap();
 
-        let captured_starts = api
-            .speech_to_text_service
-            .get_captured_start_batch_recognize();
-        assert_eq!(captured_starts.len(), 1);
+            let captured_puts = api.cloud_storage_service.get_captured_put_operations();
+            assert_eq!(captured_puts.len(), 1);
 
-        let expected_start_op = StartBatchRecognizeOperation {
-            request_id: "test-456".to_string(),
-            audio_gcs_uris: vec!["gs://test-bucket/test-456/audio.wav".to_string()],
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                sample_rate_hertz: Some(44100),
-                channels: Some(2),
-            },
-            transcription_config: Some(transcription_config),
-        };
-        assert_eq!(captured_starts[0], expected_start_op);
+            let expected_put_op = GcsPutOperation {
+                request_id: "test-123".to_string(),
+                bucket: "test-bucket".to_string(),
+                object_name: "test-123/audio.mp3".to_string(),
+                content_size: 15,
+            };
+            assert_eq!(captured_puts[0], expected_put_op);
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_uses_synchronous_transcription_for_short_model() {
-        let api = create_mock_speech_to_text_api();
+    #[test]
+    fn test_transcribe_audio_starts_batch_recognize_job() {
+        futures::executor::block_on(async {
+            let api = create_mock_speech_to_text_api();
 
-        let expected_recognize_response = create_successful_recognize_response();
-        api.speech_to_text_service
-            .expect_recognize_response(Ok(expected_recognize_response.clone()));
+            api.cloud_storage_service.expect_put_object_response(Ok(()));
+            api.speech_to_text_service
+                .expect_start_batch_recognize_response(Ok(BatchRecognizeOperationResponse {
+                    name: "operations/test-operation".to_string(),
+                    metadata: None,
+                    done: None,
+                    error: None,
+                    response: None,
+                }));
+            api.speech_to_text_service
+                .expect_wait_for_completion_response(Ok(
+                    create_successful_batch_response_for_request(
+                        "test-456",
+                        "test-bucket",
+                        &AudioFormat::Wav,
+                    ),
+                ));
+            api.cloud_storage_service
+                .expect_delete_object_response(Ok(()));
 
-        // Create a small audio file (< 10MB) with "short" model
-        let small_audio = Bytes::from(vec![0u8; 1024]); // 1KB audio file
-        let request = TranscriptionRequest {
-            request_id: "sync-test".to_string(),
-            audio: small_audio,
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                sample_rate_hertz: Some(16000),
-                channels: Some(1),
-            },
-            transcription_config: Some(TranscriptionConfig {
+            let transcription_config = TranscriptionConfig {
                 language_codes: Some(vec!["en-US".to_string()]),
-                model: Some("short".to_string()),
-                enable_profanity_filter: false,
-                diarization: None,
-                enable_multi_channel: false,
-                phrases: vec![],
-            }),
-        };
+                model: Some("latest_long".to_string()),
+                enable_profanity_filter: true,
+                diarization: Some(DiarizationConfig {
+                    enabled: true,
+                    min_speaker_count: Some(2),
+                    max_speaker_count: Some(5),
+                }),
+                enable_multi_channel: true,
+                phrases: vec![Phrase {
+                    value: "Google Cloud".to_string(),
+                    boost: Some(10.0),
+                }],
+            };
 
-        let result = api.transcribe_audio(request).await.unwrap();
+            let request = TranscriptionRequest {
+                request_id: "test-456".to_string(),
+                audio: "test audio data".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    sample_rate_hertz: Some(44100),
+                    channels: Some(2),
+                },
+                transcription_config: Some(transcription_config.clone()),
+            };
 
-        let captured_recognize = api.speech_to_text_service.get_captured_recognize();
-        assert_eq!(captured_recognize.len(), 1);
+            let _ = api.transcribe_audio(request).await.unwrap();
 
-        let expected_recognize_op = RecognizeOperation {
-            request_id: "sync-test".to_string(),
-            audio_size: 1024,
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                sample_rate_hertz: Some(16000),
-                channels: Some(1),
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language_codes: Some(vec!["en-US".to_string()]),
-                model: Some("short".to_string()),
-                enable_profanity_filter: false,
-                diarization: None,
-                enable_multi_channel: false,
-                phrases: vec![],
-            }),
-        };
-        assert_eq!(captured_recognize[0], expected_recognize_op);
+            let captured_starts = api
+                .speech_to_text_service
+                .get_captured_start_batch_recognize();
+            assert_eq!(captured_starts.len(), 1);
 
-        let captured_batch = api
-            .speech_to_text_service
-            .get_captured_start_batch_recognize();
-        assert_eq!(captured_batch.len(), 0);
-
-        let captured_puts = api.cloud_storage_service.get_captured_put_operations();
-        let captured_deletes = api.cloud_storage_service.get_captured_delete_operations();
-        assert_eq!(captured_puts.len(), 0);
-        assert_eq!(captured_deletes.len(), 0);
-
-        // Verify the response is correct
-        let expected_response = TranscriptionResponse {
-            request_id: "sync-test".to_string(),
-            audio_size_bytes: 1024,
-            language: "en-US".to_string(),
-            model: Some("short".to_string()),
-            gcp_transcription: RecognizeResults {
-                results: expected_recognize_response.results,
-                metadata: expected_recognize_response.metadata,
-            },
-        };
-        assert_eq!(result, expected_response);
+            let expected_start_op = StartBatchRecognizeOperation {
+                request_id: "test-456".to_string(),
+                audio_gcs_uris: vec!["gs://test-bucket/test-456/audio.wav".to_string()],
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    sample_rate_hertz: Some(44100),
+                    channels: Some(2),
+                },
+                transcription_config: Some(transcription_config),
+            };
+            assert_eq!(captured_starts[0], expected_start_op);
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_returns_response_with_transcription() {
-        let api = create_mock_speech_to_text_api();
+    #[test]
+    fn test_transcribe_audio_uses_synchronous_transcription_for_short_model() {
+        futures::executor::block_on(async {
+            let api = create_mock_speech_to_text_api();
 
-        api.cloud_storage_service.expect_put_object_response(Ok(()));
-        api.speech_to_text_service
-            .expect_start_batch_recognize_response(Ok(BatchRecognizeOperationResponse {
-                name: "operations/test-operation".to_string(),
-                metadata: None,
-                done: Some(false),
-                error: None,
-                response: None,
-            }));
+            let expected_recognize_response = create_successful_recognize_response();
+            api.speech_to_text_service
+                .expect_recognize_response(Ok(expected_recognize_response.clone()));
 
-        let expected_gcp_response = create_successful_batch_response_for_request(
-            "test-789",
-            "test-bucket",
-            &AudioFormat::Flac,
-        );
-        api.speech_to_text_service
-            .expect_wait_for_completion_response(Ok(expected_gcp_response.clone()));
-        api.cloud_storage_service
-            .expect_delete_object_response(Ok(()));
+            // Create a small audio file (< 10MB) with "short" model
+            let small_audio = Bytes::from(vec![0u8; 1024]); // 1KB audio file
+            let request = TranscriptionRequest {
+                request_id: "sync-test".to_string(),
+                audio: small_audio,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    sample_rate_hertz: Some(16000),
+                    channels: Some(1),
+                },
+                transcription_config: Some(TranscriptionConfig {
+                    language_codes: Some(vec!["en-US".to_string()]),
+                    model: Some("short".to_string()),
+                    enable_profanity_filter: false,
+                    diarization: None,
+                    enable_multi_channel: false,
+                    phrases: vec![],
+                }),
+            };
 
-        let request = TranscriptionRequest {
-            request_id: "test-789".to_string(),
-            audio: "audio content".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Flac,
-                sample_rate_hertz: None,
-                channels: None,
-            },
-            transcription_config: Some(TranscriptionConfig {
-                language_codes: Some(vec!["fr-FR".to_string()]),
+            let result = api.transcribe_audio(request).await.unwrap();
+
+            let captured_recognize = api.speech_to_text_service.get_captured_recognize();
+            assert_eq!(captured_recognize.len(), 1);
+
+            let expected_recognize_op = RecognizeOperation {
+                request_id: "sync-test".to_string(),
+                audio_size: 1024,
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    sample_rate_hertz: Some(16000),
+                    channels: Some(1),
+                },
+                transcription_config: Some(TranscriptionConfig {
+                    language_codes: Some(vec!["en-US".to_string()]),
+                    model: Some("short".to_string()),
+                    enable_profanity_filter: false,
+                    diarization: None,
+                    enable_multi_channel: false,
+                    phrases: vec![],
+                }),
+            };
+            assert_eq!(captured_recognize[0], expected_recognize_op);
+
+            let captured_batch = api
+                .speech_to_text_service
+                .get_captured_start_batch_recognize();
+            assert_eq!(captured_batch.len(), 0);
+
+            let captured_puts = api.cloud_storage_service.get_captured_put_operations();
+            let captured_deletes = api.cloud_storage_service.get_captured_delete_operations();
+            assert_eq!(captured_puts.len(), 0);
+            assert_eq!(captured_deletes.len(), 0);
+
+            // Verify the response is correct
+            let expected_response = TranscriptionResponse {
+                request_id: "sync-test".to_string(),
+                audio_size_bytes: 1024,
+                language: "en-US".to_string(),
+                model: Some("short".to_string()),
+                gcp_transcription: RecognizeResults {
+                    results: expected_recognize_response.results,
+                    metadata: expected_recognize_response.metadata,
+                },
+            };
+            assert_eq!(result, expected_response);
+        });
+    }
+
+    #[test]
+    fn test_transcribe_audio_returns_response_with_transcription() {
+        futures::executor::block_on(async {
+            let api = create_mock_speech_to_text_api();
+
+            api.cloud_storage_service.expect_put_object_response(Ok(()));
+            api.speech_to_text_service
+                .expect_start_batch_recognize_response(Ok(BatchRecognizeOperationResponse {
+                    name: "operations/test-operation".to_string(),
+                    metadata: None,
+                    done: Some(false),
+                    error: None,
+                    response: None,
+                }));
+
+            let expected_gcp_response = create_successful_batch_response_for_request(
+                "test-789",
+                "test-bucket",
+                &AudioFormat::Flac,
+            );
+            api.speech_to_text_service
+                .expect_wait_for_completion_response(Ok(expected_gcp_response.clone()));
+            api.cloud_storage_service
+                .expect_delete_object_response(Ok(()));
+
+            let request = TranscriptionRequest {
+                request_id: "test-789".to_string(),
+                audio: "audio content".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Flac,
+                    sample_rate_hertz: None,
+                    channels: None,
+                },
+                transcription_config: Some(TranscriptionConfig {
+                    language_codes: Some(vec!["fr-FR".to_string()]),
+                    model: Some("long".to_string()),
+                    enable_profanity_filter: false,
+                    diarization: None,
+                    enable_multi_channel: false,
+                    phrases: vec![],
+                }),
+            };
+
+            let result = api.transcribe_audio(request).await.unwrap();
+
+            let expected_gcp_transcription = expected_gcp_response
+                .response
+                .unwrap()
+                .results
+                .into_iter()
+                .next()
+                .unwrap()
+                .1
+                .inline_result
+                .unwrap()
+                .transcript
+                .unwrap();
+
+            let expected_response = TranscriptionResponse {
+                request_id: "test-789".to_string(),
+                audio_size_bytes: 13,
+                language: "fr-FR".to_string(),
                 model: Some("long".to_string()),
-                enable_profanity_filter: false,
-                diarization: None,
-                enable_multi_channel: false,
-                phrases: vec![],
-            }),
-        };
-
-        let result = api.transcribe_audio(request).await.unwrap();
-
-        let expected_gcp_transcription = expected_gcp_response
-            .response
-            .unwrap()
-            .results
-            .into_iter()
-            .next()
-            .unwrap()
-            .1
-            .inline_result
-            .unwrap()
-            .transcript
-            .unwrap();
-
-        let expected_response = TranscriptionResponse {
-            request_id: "test-789".to_string(),
-            audio_size_bytes: 13,
-            language: "fr-FR".to_string(),
-            model: Some("long".to_string()),
-            gcp_transcription: expected_gcp_transcription,
-        };
-        assert_eq!(result, expected_response);
+                gcp_transcription: expected_gcp_transcription,
+            };
+            assert_eq!(result, expected_response);
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_cleans_up_gcs_object() {
-        let api = create_mock_speech_to_text_api();
+    #[test]
+    fn test_transcribe_audio_cleans_up_gcs_object() {
+        futures::executor::block_on(async {
+            let api = create_mock_speech_to_text_api();
 
-        api.cloud_storage_service.expect_put_object_response(Ok(()));
-        api.speech_to_text_service
-            .expect_start_batch_recognize_response(Ok(BatchRecognizeOperationResponse {
-                name: "operations/test-operation".to_string(),
-                metadata: None,
-                done: Some(false),
-                error: None,
-                response: None,
-            }));
-        api.speech_to_text_service
-            .expect_wait_for_completion_response(Ok(create_successful_batch_response_for_request(
-                "cleanup-test",
-                "test-bucket",
-                &AudioFormat::Mp4,
-            )));
-        api.cloud_storage_service
-            .expect_delete_object_response(Ok(()));
+            api.cloud_storage_service.expect_put_object_response(Ok(()));
+            api.speech_to_text_service
+                .expect_start_batch_recognize_response(Ok(BatchRecognizeOperationResponse {
+                    name: "operations/test-operation".to_string(),
+                    metadata: None,
+                    done: Some(false),
+                    error: None,
+                    response: None,
+                }));
+            api.speech_to_text_service
+                .expect_wait_for_completion_response(Ok(
+                    create_successful_batch_response_for_request(
+                        "cleanup-test",
+                        "test-bucket",
+                        &AudioFormat::Mp4,
+                    ),
+                ));
+            api.cloud_storage_service
+                .expect_delete_object_response(Ok(()));
 
-        let request = TranscriptionRequest {
-            request_id: "cleanup-test".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Mp4,
-                sample_rate_hertz: Some(16000),
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
+            let request = TranscriptionRequest {
+                request_id: "cleanup-test".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Mp4,
+                    sample_rate_hertz: Some(16000),
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
 
-        let _ = api.transcribe_audio(request).await.unwrap();
+            let _ = api.transcribe_audio(request).await.unwrap();
 
-        let captured_deletes = api.cloud_storage_service.get_captured_delete_operations();
-        assert_eq!(captured_deletes.len(), 1);
+            let captured_deletes = api.cloud_storage_service.get_captured_delete_operations();
+            assert_eq!(captured_deletes.len(), 1);
 
-        let expected_delete_op = GcsDeleteOperation {
-            request_id: "cleanup-test".to_string(),
-            bucket: "test-bucket".to_string(),
-            object_name: "cleanup-test/audio.mp4".to_string(),
-        };
-        assert_eq!(captured_deletes[0], expected_delete_op);
+            let expected_delete_op = GcsDeleteOperation {
+                request_id: "cleanup-test".to_string(),
+                bucket: "test-bucket".to_string(),
+                object_name: "cleanup-test/audio.mp4".to_string(),
+            };
+            assert_eq!(captured_deletes[0], expected_delete_op);
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_gcs_upload_failure() {
-        let api = create_mock_speech_to_text_api();
+    #[test]
+    fn test_transcribe_audio_gcs_upload_failure() {
+        futures::executor::block_on(async {
+            let api = create_mock_speech_to_text_api();
 
-        api.cloud_storage_service.expect_put_object_response(Err(
-            SttError::APIInternalServerError {
+            api.cloud_storage_service.expect_put_object_response(Err(
+                SttError::APIInternalServerError {
+                    request_id: "upload-fail".to_string(),
+                    provider_error: "GCS upload failed".to_string(),
+                },
+            ));
+
+            let request = TranscriptionRequest {
+                request_id: "upload-fail".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    sample_rate_hertz: Some(16000),
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
+
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
+
+            let expected_error = SttError::APIInternalServerError {
                 request_id: "upload-fail".to_string(),
                 provider_error: "GCS upload failed".to_string(),
-            },
-        ));
-
-        let request = TranscriptionRequest {
-            request_id: "upload-fail".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                sample_rate_hertz: Some(16000),
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
-
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
-
-        let expected_error = SttError::APIInternalServerError {
-            request_id: "upload-fail".to_string(),
-            provider_error: "GCS upload failed".to_string(),
-        };
-        assert_eq!(
-            format!("{:?}", result.unwrap_err()),
-            format!("{:?}", expected_error)
-        );
+            };
+            assert_eq!(
+                format!("{:?}", result.unwrap_err()),
+                format!("{:?}", expected_error)
+            );
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_batch_recognize_failure() {
-        let api = create_mock_speech_to_text_api();
+    #[test]
+    fn test_transcribe_audio_batch_recognize_failure() {
+        futures::executor::block_on(async {
+            let api = create_mock_speech_to_text_api();
 
-        api.cloud_storage_service.expect_put_object_response(Ok(()));
-        api.speech_to_text_service
-            .expect_start_batch_recognize_response(Err(SttError::APIRateLimit {
+            api.cloud_storage_service.expect_put_object_response(Ok(()));
+            api.speech_to_text_service
+                .expect_start_batch_recognize_response(Err(SttError::APIRateLimit {
+                    request_id: "batch-fail".to_string(),
+                    provider_error: "Speech-to-Text API rate limit exceeded".to_string(),
+                }));
+            api.cloud_storage_service
+                .expect_delete_object_response(Ok(()));
+
+            let request = TranscriptionRequest {
+                request_id: "batch-fail".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    sample_rate_hertz: Some(16000),
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
+
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
+
+            let expected_error = SttError::APIRateLimit {
                 request_id: "batch-fail".to_string(),
                 provider_error: "Speech-to-Text API rate limit exceeded".to_string(),
-            }));
-        api.cloud_storage_service
-            .expect_delete_object_response(Ok(()));
+            };
+            assert_eq!(
+                format!("{:?}", result.unwrap_err()),
+                format!("{:?}", expected_error)
+            );
 
-        let request = TranscriptionRequest {
-            request_id: "batch-fail".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                sample_rate_hertz: Some(16000),
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
+            let captured_deletes = api.cloud_storage_service.get_captured_delete_operations();
+            assert_eq!(captured_deletes.len(), 1);
 
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
-
-        let expected_error = SttError::APIRateLimit {
-            request_id: "batch-fail".to_string(),
-            provider_error: "Speech-to-Text API rate limit exceeded".to_string(),
-        };
-        assert_eq!(
-            format!("{:?}", result.unwrap_err()),
-            format!("{:?}", expected_error)
-        );
-
-        let captured_deletes = api.cloud_storage_service.get_captured_delete_operations();
-        assert_eq!(captured_deletes.len(), 1);
-
-        let expected_delete_op = GcsDeleteOperation {
-            request_id: "batch-fail".to_string(),
-            bucket: "test-bucket".to_string(),
-            object_name: "batch-fail/audio.wav".to_string(),
-        };
-        assert_eq!(captured_deletes[0], expected_delete_op);
+            let expected_delete_op = GcsDeleteOperation {
+                request_id: "batch-fail".to_string(),
+                bucket: "test-bucket".to_string(),
+                object_name: "batch-fail/audio.wav".to_string(),
+            };
+            assert_eq!(captured_deletes[0], expected_delete_op);
+        });
     }
 
-    #[wstd::test]
-    async fn test_transcribe_audio_wait_for_completion_failure() {
-        let api = create_mock_speech_to_text_api();
+    #[test]
+    fn test_transcribe_audio_wait_for_completion_failure() {
+        futures::executor::block_on(async {
+            let api = create_mock_speech_to_text_api();
 
-        api.cloud_storage_service.expect_put_object_response(Ok(()));
-        api.speech_to_text_service
-            .expect_start_batch_recognize_response(Ok(BatchRecognizeOperationResponse {
-                name: "operations/test-operation".to_string(),
-                metadata: None,
-                done: None,
-                error: None,
-                response: None,
-            }));
-        api.speech_to_text_service
-            .expect_wait_for_completion_response(Err(SttError::APIInternalServerError {
+            api.cloud_storage_service.expect_put_object_response(Ok(()));
+            api.speech_to_text_service
+                .expect_start_batch_recognize_response(Ok(BatchRecognizeOperationResponse {
+                    name: "operations/test-operation".to_string(),
+                    metadata: None,
+                    done: None,
+                    error: None,
+                    response: None,
+                }));
+            api.speech_to_text_service
+                .expect_wait_for_completion_response(Err(SttError::APIInternalServerError {
+                    request_id: "timeout-test".to_string(),
+                    provider_error: "Transcription timeout".to_string(),
+                }));
+            api.cloud_storage_service
+                .expect_delete_object_response(Ok(()));
+
+            let request = TranscriptionRequest {
+                request_id: "timeout-test".to_string(),
+                audio: "test audio".into(),
+                audio_config: AudioConfig {
+                    format: AudioFormat::Wav,
+                    sample_rate_hertz: Some(16000),
+                    channels: Some(1),
+                },
+                transcription_config: None,
+            };
+
+            let result = api.transcribe_audio(request).await;
+            assert!(result.is_err());
+
+            let expected_error = SttError::APIInternalServerError {
                 request_id: "timeout-test".to_string(),
                 provider_error: "Transcription timeout".to_string(),
-            }));
-        api.cloud_storage_service
-            .expect_delete_object_response(Ok(()));
+            };
 
-        let request = TranscriptionRequest {
-            request_id: "timeout-test".to_string(),
-            audio: "test audio".into(),
-            audio_config: AudioConfig {
-                format: AudioFormat::Wav,
-                sample_rate_hertz: Some(16000),
-                channels: Some(1),
-            },
-            transcription_config: None,
-        };
+            assert_eq!(
+                format!("{:?}", result.unwrap_err()),
+                format!("{:?}", expected_error)
+            );
 
-        let result = api.transcribe_audio(request).await;
-        assert!(result.is_err());
+            // Verify cleanup still happened
+            let captured_deletes = api.cloud_storage_service.get_captured_delete_operations();
+            assert_eq!(captured_deletes.len(), 1);
 
-        let expected_error = SttError::APIInternalServerError {
-            request_id: "timeout-test".to_string(),
-            provider_error: "Transcription timeout".to_string(),
-        };
+            let expected_delete_op = GcsDeleteOperation {
+                request_id: "timeout-test".to_string(),
+                bucket: "test-bucket".to_string(),
+                object_name: "timeout-test/audio.wav".to_string(),
+            };
 
-        assert_eq!(
-            format!("{:?}", result.unwrap_err()),
-            format!("{:?}", expected_error)
-        );
-
-        // Verify cleanup still happened
-        let captured_deletes = api.cloud_storage_service.get_captured_delete_operations();
-        assert_eq!(captured_deletes.len(), 1);
-
-        let expected_delete_op = GcsDeleteOperation {
-            request_id: "timeout-test".to_string(),
-            bucket: "test-bucket".to_string(),
-            object_name: "timeout-test/audio.wav".to_string(),
-        };
-
-        assert_eq!(captured_deletes[0], expected_delete_op);
+            assert_eq!(captured_deletes[0], expected_delete_op);
+        });
     }
 }

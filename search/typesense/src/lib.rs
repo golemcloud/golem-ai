@@ -5,8 +5,7 @@ use golem_ai_search::model::{CreateIndexOptions, SearchStream};
 use golem_ai_search::model::{
     Doc, DocumentId, IndexName, Schema, SearchError, SearchHit, SearchQuery, SearchResults,
 };
-use golem_ai_search::wasi_compat::{subscribe_zero, Pollable};
-use golem_ai_search::{SearchProvider, SearchStreamInterface};
+use golem_ai_search::{SearchFuture, SearchProvider, SearchStreamInterface};
 use log::trace;
 use std::cell::{Cell, RefCell};
 
@@ -40,11 +39,6 @@ impl TypesenseSearchStream {
             last_response: RefCell::new(None),
         }
     }
-
-    fn subscribe(&self) -> Pollable {
-        // For non-streaming APIs, return an immediately ready pollable
-        subscribe_zero()
-    }
 }
 
 pub struct Typesense;
@@ -58,48 +52,47 @@ impl SearchStreamInterface for TypesenseSearchStream {
         self
     }
 
-    fn get_next(&self) -> Option<Vec<SearchHit>> {
-        if self.finished.get() {
-            return Some(vec![]);
-        }
+    fn get_next(&self) -> SearchFuture<'_, Option<Vec<SearchHit>>> {
+        Box::pin(async move {
+            if self.finished.get() {
+                return Some(vec![]);
+            }
 
-        // Prepare query for current page
-        let mut search_query = self.query.clone();
-        search_query.page = Some(self.current_page.get());
+            // Prepare query for current page
+            let mut search_query = self.query.clone();
+            search_query.page = Some(self.current_page.get());
 
-        let typesense_query = search_query_to_typesense_query(search_query);
+            let typesense_query = search_query_to_typesense_query(search_query);
 
-        match self.client.search(&self.index_name, &typesense_query) {
-            Ok(response) => {
-                let search_results = typesense_response_to_search_results(response);
+            match self.client.search(&self.index_name, &typesense_query).await {
+                Ok(response) => {
+                    let search_results = typesense_response_to_search_results(response);
 
-                let current_page = self.current_page.get();
-                let per_page = self.query.per_page.unwrap_or(20);
-                let total_pages = if let Some(total) = search_results.total {
-                    total.div_ceil(per_page) // Ceiling division
-                } else {
-                    current_page + 1
-                };
+                    let current_page = self.current_page.get();
+                    let per_page = self.query.per_page.unwrap_or(20);
+                    let total_pages = if let Some(total) = search_results.total {
+                        total.div_ceil(per_page) // Ceiling division
+                    } else {
+                        current_page + 1
+                    };
 
-                if current_page >= total_pages || search_results.hits.is_empty() {
-                    self.finished.set(true);
+                    if current_page >= total_pages || search_results.hits.is_empty() {
+                        self.finished.set(true);
+                    }
+
+                    self.current_page.set(current_page + 1);
+
+                    let hits = search_results.hits.clone();
+                    *self.last_response.borrow_mut() = Some(search_results);
+
+                    Some(hits)
                 }
-
-                self.current_page.set(current_page + 1);
-
-                let hits = search_results.hits.clone();
-                *self.last_response.borrow_mut() = Some(search_results);
-
-                Some(hits)
+                Err(_e) => {
+                    self.finished.set(true);
+                    Some(vec![])
+                }
             }
-            Err(_e) => {
-                self.finished.set(true);
-                Some(vec![])
-            }
-        }
-    }
-    fn blocking_get_next(&self) -> Vec<SearchHit> {
-        self.get_next().unwrap_or_default()
+        })
     }
 }
 
@@ -107,7 +100,7 @@ impl SearchProvider for Typesense {
     type SearchStream = TypesenseSearchStream;
     type ProviderConfig = TypesenseConfig;
 
-    fn create_index(
+    async fn create_index(
         provider_config: Self::ProviderConfig,
         options: CreateIndexOptions,
     ) -> Result<(), SearchError> {
@@ -132,22 +125,26 @@ impl SearchProvider for Typesense {
                 symbols_to_index: None,
             });
 
-        client.create_collection(&options.index_name, &typesense_schema)?;
+        client
+            .create_collection(&options.index_name, &typesense_schema)
+            .await?;
         Ok(())
     }
 
-    fn delete_index(
+    async fn delete_index(
         provider_config: Self::ProviderConfig,
         name: IndexName,
     ) -> Result<(), SearchError> {
         let client = TypesenseSearchApi::new(&provider_config);
-        client.delete_collection(&name)?;
+        client.delete_collection(&name).await?;
         Ok(())
     }
 
-    fn list_indexes(provider_config: Self::ProviderConfig) -> Result<Vec<IndexName>, SearchError> {
+    async fn list_indexes(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<IndexName>, SearchError> {
         let client = TypesenseSearchApi::new(&provider_config);
-        let response = client.list_collections()?;
+        let response = client.list_collections().await?;
         Ok(response
             .0
             .into_iter()
@@ -155,18 +152,18 @@ impl SearchProvider for Typesense {
             .collect())
     }
 
-    fn upsert(
+    async fn upsert(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         doc: Doc,
     ) -> Result<(), SearchError> {
         let client = TypesenseSearchApi::new(&provider_config);
         let typesense_doc = doc_to_typesense_document(doc).map_err(SearchError::Internal)?;
-        client.upsert_document(&index, &typesense_doc)?;
+        client.upsert_document(&index, &typesense_doc).await?;
         Ok(())
     }
 
-    fn upsert_many(
+    async fn upsert_many(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         docs: Vec<Doc>,
@@ -177,21 +174,21 @@ impl SearchProvider for Typesense {
             .map(|doc| doc_to_typesense_document(doc.clone()))
             .collect();
         let typesense_docs = typesense_docs.map_err(SearchError::Internal)?;
-        client.index_documents(&index, &typesense_docs)?;
+        client.index_documents(&index, &typesense_docs).await?;
         Ok(())
     }
 
-    fn delete(
+    async fn delete(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         id: DocumentId,
     ) -> Result<(), SearchError> {
         let client = TypesenseSearchApi::new(&provider_config);
-        client.delete_document(&index, &id)?;
+        client.delete_document(&index, &id).await?;
         Ok(())
     }
 
-    fn delete_many(
+    async fn delete_many(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         ids: Vec<DocumentId>,
@@ -199,11 +196,11 @@ impl SearchProvider for Typesense {
         let client = TypesenseSearchApi::new(&provider_config);
         // Typesense doesn't have bulk delete by IDs, so we use filter_by
         let filter = format!("id:[{}]", ids.join(","));
-        client.delete_documents_by_query(&index, &filter)?;
+        client.delete_documents_by_query(&index, &filter).await?;
         Ok(())
     }
 
-    fn get(
+    async fn get(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         id: DocumentId,
@@ -225,7 +222,7 @@ impl SearchProvider for Typesense {
         };
 
         let typesense_query = search_query_to_typesense_query(query);
-        let response = client.search(&index, &typesense_query)?;
+        let response = client.search(&index, &typesense_query).await?;
         let results = typesense_response_to_search_results(response);
 
         Ok(results.hits.into_iter().next().map(|hit| Doc {
@@ -234,18 +231,18 @@ impl SearchProvider for Typesense {
         }))
     }
 
-    fn search(
+    async fn search(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
     ) -> Result<SearchResults, SearchError> {
         let client = TypesenseSearchApi::new(&provider_config);
         let typesense_query = search_query_to_typesense_query(query);
-        let response = client.search(&index, &typesense_query)?;
+        let response = client.search(&index, &typesense_query).await?;
         Ok(typesense_response_to_search_results(response))
     }
 
-    fn stream_search(
+    async fn stream_search(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -274,7 +271,7 @@ impl SearchProvider for Typesense {
         Ok(result)
     }
 
-    fn get_schema(
+    async fn get_schema(
         provider_config: Self::ProviderConfig,
         index: IndexName,
     ) -> Result<Schema, SearchError> {
@@ -282,7 +279,7 @@ impl SearchProvider for Typesense {
 
         // Typesense doesn't have a direct get schema endpoint for collections
         // We need to get the collection info from the list
-        let collections = client.list_collections()?;
+        let collections = client.list_collections().await?;
 
         let collection = collections
             .0
@@ -302,7 +299,7 @@ impl SearchProvider for Typesense {
         Ok(schema)
     }
 
-    fn update_schema(
+    async fn update_schema(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         schema: Schema,
@@ -311,22 +308,22 @@ impl SearchProvider for Typesense {
         // We need to delete and recreate the collection
         let client = TypesenseSearchApi::new(&provider_config);
 
-        let collections = client.list_collections()?;
+        let collections = client.list_collections().await?;
         let exists = collections.0.iter().any(|c| c.name == index);
 
         if exists {
-            client.delete_collection(&index)?;
+            client.delete_collection(&index).await?;
         }
 
         let typesense_schema = schema_to_typesense_schema(schema, &index);
-        client.create_collection(&index, &typesense_schema)?;
+        client.create_collection(&index, &typesense_schema).await?;
 
         Ok(())
     }
 }
 
 impl ExtendedSearchProvider for Typesense {
-    fn unwrapped_stream(
+    async fn unwrapped_stream(
         provider_config: Self::ProviderConfig,
         index: IndexName,
         query: SearchQuery,
@@ -363,10 +360,6 @@ impl ExtendedSearchProvider for Typesense {
         }
 
         retry_query
-    }
-
-    fn subscribe(stream: &Self::SearchStream) -> Pollable {
-        stream.subscribe()
     }
 }
 

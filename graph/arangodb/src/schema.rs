@@ -1,4 +1,5 @@
 use crate::{helpers, ArangoDb, SchemaManager};
+use async_trait::async_trait;
 use golem_ai_graph::{
     durability::ExtendedGuest,
     model::{
@@ -16,7 +17,7 @@ use std::sync::Arc;
 impl SchemaManagerProvider for ArangoDb {
     type SchemaManager = SchemaManager;
 
-    fn get_schema_manager(
+    async fn get_schema_manager(
         config: Option<ConnectionConfig>,
     ) -> Result<golem_ai_graph::model::schema::SchemaManager, GraphError> {
         let final_config = match config {
@@ -24,7 +25,7 @@ impl SchemaManagerProvider for ArangoDb {
             None => helpers::config_from_env()?,
         };
 
-        let graph = ArangoDb::connect_internal(&final_config)?;
+        let graph = ArangoDb::connect_internal(&final_config).await?;
 
         let manager = SchemaManager {
             graph: Arc::new(graph),
@@ -34,6 +35,7 @@ impl SchemaManagerProvider for ArangoDb {
     }
 }
 
+#[async_trait(?Send)]
 impl SchemaManagerInterface for SchemaManager {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -42,15 +44,17 @@ impl SchemaManagerInterface for SchemaManager {
         self
     }
 
-    fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
+    async fn define_vertex_label(&self, schema: VertexLabelSchema) -> Result<(), GraphError> {
         self.create_container(schema.label, ContainerType::VertexContainer)
+            .await
     }
 
-    fn define_edge_label(&self, schema: EdgeLabelSchema) -> Result<(), GraphError> {
+    async fn define_edge_label(&self, schema: EdgeLabelSchema) -> Result<(), GraphError> {
         self.create_container(schema.label, ContainerType::EdgeContainer)
+            .await
     }
 
-    fn get_vertex_label_schema(
+    async fn get_vertex_label_schema(
         &self,
         _label: String,
     ) -> Result<Option<VertexLabelSchema>, GraphError> {
@@ -59,14 +63,17 @@ impl SchemaManagerInterface for SchemaManager {
         ))
     }
 
-    fn get_edge_label_schema(&self, _label: String) -> Result<Option<EdgeLabelSchema>, GraphError> {
+    async fn get_edge_label_schema(
+        &self,
+        _label: String,
+    ) -> Result<Option<EdgeLabelSchema>, GraphError> {
         Err(GraphError::UnsupportedOperation(
             "get_edge_label_schema is not yet supported".to_string(),
         ))
     }
 
-    fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
-        let all_containers = self.list_containers()?;
+    async fn list_vertex_labels(&self) -> Result<Vec<String>, GraphError> {
+        let all_containers = self.list_containers().await?;
         Ok(all_containers
             .into_iter()
             .filter(|c| matches!(c.container_type, ContainerType::VertexContainer))
@@ -74,8 +81,8 @@ impl SchemaManagerInterface for SchemaManager {
             .collect())
     }
 
-    fn list_edge_labels(&self) -> Result<Vec<String>, GraphError> {
-        let all_containers = self.list_containers()?;
+    async fn list_edge_labels(&self) -> Result<Vec<String>, GraphError> {
+        let all_containers = self.list_containers().await?;
         Ok(all_containers
             .into_iter()
             .filter(|c| matches!(c.container_type, ContainerType::EdgeContainer))
@@ -83,45 +90,51 @@ impl SchemaManagerInterface for SchemaManager {
             .collect())
     }
 
-    fn create_index(&self, index: IndexDefinition) -> Result<(), GraphError> {
-        self.graph.api.create_index(
-            index.label,
-            index.properties,
-            index.unique,
-            index.index_type,
-            Some(index.name),
-        )
+    async fn create_index(&self, index: IndexDefinition) -> Result<(), GraphError> {
+        self.graph
+            .api
+            .create_index(
+                index.label,
+                index.properties,
+                index.unique,
+                index.index_type,
+                Some(index.name),
+            )
+            .await
     }
 
-    fn drop_index(&self, name: String) -> Result<(), GraphError> {
-        self.graph.api.drop_index(&name)
+    async fn drop_index(&self, name: String) -> Result<(), GraphError> {
+        self.graph.api.drop_index(&name).await
     }
 
-    fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
-        self.graph.api.list_indexes()
+    async fn list_indexes(&self) -> Result<Vec<IndexDefinition>, GraphError> {
+        self.graph.api.list_indexes().await
     }
 
-    fn get_index(&self, name: String) -> Result<Option<IndexDefinition>, GraphError> {
-        self.graph.api.get_index(&name)
+    async fn get_index(&self, name: String) -> Result<Option<IndexDefinition>, GraphError> {
+        self.graph.api.get_index(&name).await
     }
 
-    fn define_edge_type(&self, definition: EdgeTypeDefinition) -> Result<(), GraphError> {
-        self.graph.api.define_edge_type(definition)
+    async fn define_edge_type(&self, definition: EdgeTypeDefinition) -> Result<(), GraphError> {
+        self.graph.api.define_edge_type(definition).await
     }
 
-    fn list_edge_types(&self) -> Result<Vec<EdgeTypeDefinition>, GraphError> {
-        self.graph.api.list_edge_types()
+    async fn list_edge_types(&self) -> Result<Vec<EdgeTypeDefinition>, GraphError> {
+        self.graph.api.list_edge_types().await
     }
 
-    fn create_container(
+    async fn create_container(
         &self,
         name: String,
         container_type: ContainerType,
     ) -> Result<(), GraphError> {
-        self.graph.api.create_collection(&name, container_type)
+        self.graph
+            .api
+            .create_collection(&name, container_type)
+            .await
     }
 
-    fn list_containers(&self) -> Result<Vec<ContainerInfo>, GraphError> {
-        self.graph.api.list_collections()
+    async fn list_containers(&self) -> Result<Vec<ContainerInfo>, GraphError> {
+        self.graph.api.list_collections().await
     }
 }

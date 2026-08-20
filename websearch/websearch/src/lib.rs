@@ -8,15 +8,21 @@ use crate::model::web_search::{
     SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
 use std::cell::RefCell;
+use std::future::Future;
+use std::pin::Pin;
 use std::str::FromStr;
+
+pub type SearchPageFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<Vec<SearchResult>, SearchError>> + 'a>>;
 
 pub trait SearchSessionInterface: 'static {
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
-    fn next_page(&self) -> Result<Vec<SearchResult>, SearchError>;
+    fn next_page(&self) -> SearchPageFuture<'_>;
     fn get_metadata(&self) -> Option<SearchMetadata>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait WebSearchProvider {
     type SearchSession: SearchSessionInterface;
 
@@ -30,7 +36,7 @@ pub trait WebSearchProvider {
         params: SearchParams,
     ) -> Result<SearchSession, SearchError>;
 
-    fn search_once(
+    async fn search_once(
         provider_config: Self::ProviderConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError>;

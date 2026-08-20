@@ -12,6 +12,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
   ENVIRONMENT: ${{ github.event_name == 'push' && github.ref_type == 'tag' && (!contains(github.ref, '-dev.')) && 'prod' || 'dev' }}
+  GOLEM_REPOSITORY: https://github.com/golemcloud/golem
+  GOLEM_BRANCH: main
 
 jobs:
   tests:
@@ -78,19 +80,14 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-wasip2
           override: true
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-component
         run: cargo binstall --force cargo-component@0.21.1
-      - name: Install Golem CLI
-        run: |
-          set -e
-          echo "Installing Golem CLI"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.5.1-rc1/golem-cli-x86_64-unknown-linux-gnu -o ./golem-cli
-          sudo chmod +x ./golem-cli
-          sudo mv ./golem-cli /usr/local/bin/golem-cli
-          echo "Installed Golem CLI"
+      - name: Install Golem CLI from main
+        run: cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem-cli
       - name: Install wac-cli
         run: cargo binstall --force wac-cli --locked --no-confirm
       - name: Build all test components
@@ -112,6 +109,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-wasip2
           override: true
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
@@ -120,13 +118,10 @@ jobs:
           set -e
           cargo binstall --force cargo-component@0.21.1
           cargo binstall wac-cli --locked --force --no-confirm
-      - name: Install and Run latest Golem Server
+      - name: Install and Run Golem Server from main
         run: |
           set -e
-          echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.5.0-rc5/golem-x86_64-unknown-linux-gnu -o ./golem
-          sudo chmod +x ./golem
-          sudo mv ./golem /usr/local/bin/golem
+          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -139,24 +134,24 @@ jobs:
           golem profile config local set-format json
           export GOLEM_PRESET=release
           golem deploy --yes
-          golem agent invoke 'ExecJsTest("test-1")' test01 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecJsTest("test-2")' test02 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecJsTest("test-3")' test03 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecJsTest("test-4")' test04 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecJsTest("test-5")' test05 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecJsTest("test-6")' test06 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecJsTest("test-7")' test07 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecJsTest("test-8")' test08 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecJsTest("test-9")' test09 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecJsTest("test-10")' test10 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecJsTest("test-11")' test11 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecPyTest("test-1")' test1 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecPyTest("test-2")' test2 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecPyTest("test-3")' test3 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecPyTest("test-4")' test4 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecPyTest("test-5")' test5 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecPyTest("test-6")' test6 --no-stream | jq -e '(.result_wave[0]=="true")'
-          golem agent invoke 'ExecPyTest("test-7")' test7 --no-stream | jq -e '(.result_wave[0]=="true")'
+          golem agent invoke 'ExecJsTest("test-1")' test01 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecJsTest("test-2")' test02 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecJsTest("test-3")' test03 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecJsTest("test-4")' test04 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecJsTest("test-5")' test05 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecJsTest("test-6")' test06 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecJsTest("test-7")' test07 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecJsTest("test-8")' test08 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecJsTest("test-9")' test09 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecJsTest("test-10")' test10 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecJsTest("test-11")' test11 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecPyTest("test-1")' test1 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecPyTest("test-2")' test2 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecPyTest("test-3")' test3 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecPyTest("test-4")' test4 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecPyTest("test-5")' test5 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecPyTest("test-6")' test6 --no-stream | jq -e '(.result == "true")'
+          golem agent invoke 'ExecPyTest("test-7")' test7 --no-stream | jq -e '(.result == "true")'
 
   ollama-integration-tests:
     runs-on: ubuntu-latest
@@ -175,6 +170,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-wasip2
           override: true
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
@@ -196,13 +192,10 @@ jobs:
           docker exec ollama ollama list | grep -q "qwen3:1.7b" || exit 1
           docker exec ollama ollama list | grep -q "gemma3:4b" || exit 1
           echo "Ollama setup completed."
-      - name: Install and Run latest Golem Server
+      - name: Install and Run Golem Server from main
         run: |
           set -e
-          echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.5.0-rc5/golem-x86_64-unknown-linux-gnu -o ./golem
-          sudo chmod +x ./golem
-          sudo mv ./golem /usr/local/bin/golem
+          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -210,19 +203,15 @@ jobs:
       - name: Build and test Ollama integration
         run: |
           set -eo pipefail
+          trap 'docker logs ollama; cat "$GITHUB_WORKSPACE/golem-server.log"' ERR
           cargo make --cwd llm build-ollama
           cd test/llm
           golem deploy --preset ollama-debug --yes
           golem agent new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 'LlmTest("ollama-1")'
-          golem agent invoke 'LlmTest("ollama-1")' test1 | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test2 | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test3 | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test4 | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test5 | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test6 | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test7 | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test8 | grep -v "ERROR: "
-          golem agent invoke 'LlmTest("ollama-1")' test9 | grep -v "ERROR: "
+          for test_name in test1 test2 test3 test4 test5 test6 test7 test8 test9; do
+            echo "Running $test_name"
+            timeout --foreground 10m golem agent invoke 'LlmTest("ollama-1")' "$test_name" --no-stream | grep -v "ERROR: "
+          done
 
   graph-integration-tests:
     runs-on: ubuntu-latest
@@ -241,6 +230,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-wasip2
           override: true
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
@@ -292,13 +282,10 @@ jobs:
           echo "Neo4j is ready"
 
           echo "All graph database providers are ready!"
-      - name: Install and Run latest Golem Server
+      - name: Install and Run Golem Server from main
         run: |
           set -e
-          echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.5.0-rc5/golem-x86_64-unknown-linux-gnu -o ./golem
-          sudo chmod +x ./golem
-          sudo mv ./golem /usr/local/bin/golem
+          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -371,6 +358,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-wasip2
           override: true
       - uses: davidB/rust-cargo-make@v1
       - uses: cargo-bins/cargo-binstall@main
@@ -428,13 +416,10 @@ jobs:
           echo "Qdrant is ready"
 
           echo "All Vector database providers are ready!"
-      - name: Install and Run latest Golem Server
+      - name: Install and Run Golem Server from main
         run: |
           set -e
-          echo "Installing Golem server"
-          sudo curl -L https://github.com/golemcloud/golem/releases/download/v1.5.0-rc5/golem-x86_64-unknown-linux-gnu -o ./golem
-          sudo chmod +x ./golem
-          sudo mv ./golem /usr/local/bin/golem
+          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &

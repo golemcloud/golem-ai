@@ -1,9 +1,9 @@
+use golem_ai_http::header::ACCEPT;
+use golem_ai_http::{Client, HeaderValue, Method, Response, StatusCode};
 use golem_ai_llm::config::SecretSource;
 use golem_ai_llm::error::{error_code_from_status, from_event_source_error, from_reqwest_error};
 use golem_ai_llm::event_source::EventSource;
 use golem_ai_llm::model::{Error, ErrorCode};
-use golem_wasi_http::header::HeaderValue;
-use golem_wasi_http::{Client, Method, Response, StatusCode};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,10 @@ impl CompletionsApi {
         }
     }
 
-    pub fn send_messages(&self, request: CompletionsRequest) -> Result<CompletionsResponse, Error> {
+    pub async fn send_messages(
+        &self,
+        request: CompletionsRequest,
+    ) -> Result<CompletionsResponse, Error> {
         trace!("Sending request to OpenRouter API: {request:?}");
 
         // Resolve the API key right before issuing the request so that
@@ -41,12 +44,16 @@ impl CompletionsApi {
             .bearer_auth(&api_key)
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
-        parse_response(response)
+        parse_response(response).await
     }
 
-    pub fn stream_send_messages(&self, request: CompletionsRequest) -> Result<EventSource, Error> {
+    pub async fn stream_send_messages(
+        &self,
+        request: CompletionsRequest,
+    ) -> Result<EventSource, Error> {
         trace!("Sending request to OpenRouter API: {request:?}");
 
         // Resolve the API key right before issuing the request so that
@@ -56,12 +63,10 @@ impl CompletionsApi {
             .client
             .request(Method::POST, format!("{BASE_URL}/api/v1/chat/completions"))
             .bearer_auth(&api_key)
-            .header(
-                golem_wasi_http::header::ACCEPT,
-                HeaderValue::from_static("text/event-stream"),
-            )
+            .header(ACCEPT, HeaderValue::from_static("text/event-stream"))
             .json(&request)
             .send()
+            .await
             .map_err(|err| from_reqwest_error("Request failed", err))?;
 
         trace!("Initializing SSE stream");
@@ -310,11 +315,12 @@ pub struct ChoiceDelta {
     pub role: Option<String>,
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {
+async fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, Error> {
     let status = response.status();
     if status.is_success() {
         let raw_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive response body", err))?;
         trace!("Received response from OpenRouter API: {raw_body:?}");
 
@@ -345,6 +351,7 @@ fn parse_response<T: DeserializeOwned + Debug>(response: Response) -> Result<T, 
     } else {
         let raw_error_body = response
             .text()
+            .await
             .map_err(|err| from_reqwest_error("Failed to receive error response body", err))?;
         trace!("Received {status} response from OpenRouter API: {raw_error_body:?}");
 

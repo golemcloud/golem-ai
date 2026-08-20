@@ -26,4 +26,3 @@ golem-ai-stt-google = { path = "../../../../stt/google", optional = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-wstd = { workspace = true }

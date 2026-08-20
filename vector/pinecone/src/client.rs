@@ -1,13 +1,19 @@
 use crate::config::PineconeConfig;
+use golem_ai_http::{Client, Error, Method, RequestBuilder, Response, Timeouts};
 use golem_ai_vector::config::{get_max_retries_config, get_timeout_config, SecretSource};
 use golem_ai_vector::model::types::VectorError;
-use golem_wasi_http::{Client, Method, RequestBuilder, Response};
 use log::trace;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::future::Future;
 use std::time::Duration;
+
+async fn wait_for(delay: Duration) {
+    let delay_nanos = u64::try_from(delay.as_nanos()).unwrap_or(u64::MAX);
+    wasip3::clocks::monotonic_clock::wait_for(delay_nanos).await;
+}
 
 /// The Pinecone Vector API client
 /// based on https://docs.pinecone.io/reference/api/2025-04/
@@ -22,9 +28,15 @@ pub struct PineconeClient {
 impl PineconeClient {
     pub fn new(config: &PineconeConfig) -> Self {
         let timeout_secs = get_timeout_config();
+        let timeout = Duration::from_secs(timeout_secs);
 
         let client = Client::builder()
-            .timeout(Duration::from_secs(timeout_secs))
+            .timeouts(
+                Timeouts::new()
+                    .connect(timeout)
+                    .first_byte(timeout)
+                    .between_bytes(timeout),
+            )
             .build()
             .expect("Failed to initialize HTTP client");
 
@@ -53,11 +65,11 @@ impl PineconeClient {
             .header("X-Pinecone-API-Version", "2025-04")
     }
 
-    fn get_data_plane_url(&self, index_name: &str) -> Result<String, VectorError> {
+    async fn get_data_plane_url(&self, index_name: &str) -> Result<String, VectorError> {
         match &self.data_plane_host {
             Some(host) => Ok(host.clone()),
             None => {
-                let index_info = self.describe_index(index_name)?;
+                let index_info = self.describe_index(index_name).await?;
                 match index_info.host {
                     Some(host) => Ok(format!("https://{}", host)),
                     None => Err(VectorError::ConnectionError(
@@ -68,7 +80,7 @@ impl PineconeClient {
         }
     }
 
-    fn should_retry_error(&self, error: &golem_wasi_http::Error) -> bool {
+    fn should_retry_error(&self, error: &Error) -> bool {
         error.is_timeout() || error.is_request()
     }
 
@@ -81,15 +93,16 @@ impl PineconeClient {
         Duration::from_millis(delay_ms)
     }
 
-    fn execute_with_retry_sync<F>(&self, operation: F) -> Result<Response, VectorError>
+    async fn execute_with_retry<F, Fut>(&self, operation: F) -> Result<Response, VectorError>
     where
-        F: Fn() -> Result<Response, golem_wasi_http::Error> + Send + Sync,
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<Response, Error>>,
     {
         let max_retries = get_max_retries_config();
         let mut last_error = None;
 
         for attempt in 0..=max_retries {
-            match operation() {
+            match operation().await {
                 Ok(response) => match response.status().as_u16() {
                     429 => {
                         if attempt < max_retries {
@@ -100,7 +113,7 @@ impl PineconeClient {
                                 max_retries + 1,
                                 delay
                             );
-                            std::thread::sleep(delay);
+                            wait_for(delay).await;
                             continue;
                         } else {
                             return Err(VectorError::RateLimited(
@@ -118,7 +131,7 @@ impl PineconeClient {
                                 max_retries + 1,
                                 delay
                             );
-                            std::thread::sleep(delay);
+                            wait_for(delay).await;
                             continue;
                         } else {
                             return Err(VectorError::ConnectionError(format!(
@@ -145,7 +158,7 @@ impl PineconeClient {
                                 error,
                                 delay
                             );
-                            std::thread::sleep(delay);
+                            wait_for(delay).await;
                         } else if !self.should_retry_error(error) {
                             trace!("Request failed with non-retryable error: {error:?}");
                             break;
@@ -163,52 +176,58 @@ impl PineconeClient {
         )))
     }
 
-    pub fn list_indexes(&self) -> Result<ListIndexesResponse, VectorError> {
+    pub async fn list_indexes(&self) -> Result<ListIndexesResponse, VectorError> {
         trace!("Listing indexes");
 
         let url = format!("{}/indexes", self.control_plane_host);
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::GET, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::GET, &url).send())
+            .await?;
 
-        parse_response(response, "list_indexes")
+        parse_response(response, "list_indexes").await
     }
 
-    pub fn create_index(&self, request: &CreateIndexRequest) -> Result<IndexModel, VectorError> {
+    pub async fn create_index(
+        &self,
+        request: &CreateIndexRequest,
+    ) -> Result<IndexModel, VectorError> {
         trace!("Creating index: {}", request.name);
 
         let url = format!("{}/indexes", self.control_plane_host);
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, &url).json(request).send()
-        })?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::POST, &url).json(request).send())
+            .await?;
 
-        parse_response(response, "create_index")
+        parse_response(response, "create_index").await
     }
 
-    pub fn describe_index(&self, index_name: &str) -> Result<IndexModel, VectorError> {
+    pub async fn describe_index(&self, index_name: &str) -> Result<IndexModel, VectorError> {
         trace!("Describing index: {index_name}");
 
         let url = format!("{}/indexes/{}", self.control_plane_host, index_name);
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::GET, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::GET, &url).send())
+            .await?;
 
-        parse_response(response, "describe_index")
+        parse_response(response, "describe_index").await
     }
 
-    pub fn delete_index(&self, index_name: &str) -> Result<(), VectorError> {
+    pub async fn delete_index(&self, index_name: &str) -> Result<(), VectorError> {
         trace!("Deleting index: {index_name}");
 
         let url = format!("{}/indexes/{}", self.control_plane_host, index_name);
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::DELETE, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::DELETE, &url).send())
+            .await?;
 
         if response.status().is_success() {
             Ok(())
         } else {
-            let error_body = response.text().map_err(|e| {
+            let error_body = response.text().await.map_err(|e| {
                 VectorError::ConnectionError(format!("Failed to read error response: {e}"))
             })?;
             Err(VectorError::ProviderError(format!(
@@ -217,7 +236,7 @@ impl PineconeClient {
         }
     }
 
-    pub fn upsert_vectors(
+    pub async fn upsert_vectors(
         &self,
         index_name: &str,
         request: &UpsertRequest,
@@ -227,41 +246,41 @@ impl PineconeClient {
             request.vectors.len()
         );
 
-        let data_plane_url = self.get_data_plane_url(index_name)?;
+        let data_plane_url = self.get_data_plane_url(index_name).await?;
         let url = format!("{}/vectors/upsert", data_plane_url);
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, &url).json(request).send()
-        })?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::POST, &url).json(request).send())
+            .await?;
 
-        parse_response(response, "upsert_vectors")
+        parse_response(response, "upsert_vectors").await
     }
 
-    pub fn query_vectors(
+    pub async fn query_vectors(
         &self,
         index_name: &str,
         request: &QueryRequest,
     ) -> Result<QueryResponse, VectorError> {
         trace!("Querying vectors in index: {index_name}");
 
-        let data_plane_url = self.get_data_plane_url(index_name)?;
+        let data_plane_url = self.get_data_plane_url(index_name).await?;
         let url = format!("{}/query", data_plane_url);
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, &url).json(request).send()
-        })?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::POST, &url).json(request).send())
+            .await?;
 
-        parse_response(response, "query_vectors")
+        parse_response(response, "query_vectors").await
     }
 
-    pub fn fetch_vectors(
+    pub async fn fetch_vectors(
         &self,
         index_name: &str,
         request: &FetchRequest,
     ) -> Result<FetchResponse, VectorError> {
         trace!("Fetching vectors from index: {index_name}");
 
-        let data_plane_url = self.get_data_plane_url(index_name)?;
+        let data_plane_url = self.get_data_plane_url(index_name).await?;
         let mut url = format!("{}/vectors/fetch", data_plane_url);
 
         let mut params = Vec::new();
@@ -276,30 +295,31 @@ impl PineconeClient {
             url.push_str(&params.join("&"));
         }
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::GET, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::GET, &url).send())
+            .await?;
 
-        parse_response(response, "fetch_vectors")
+        parse_response(response, "fetch_vectors").await
     }
 
-    pub fn delete_vectors(
+    pub async fn delete_vectors(
         &self,
         index_name: &str,
         request: &DeleteRequest,
     ) -> Result<(), VectorError> {
         trace!("Deleting vectors from index: {index_name}");
 
-        let data_plane_url = self.get_data_plane_url(index_name)?;
+        let data_plane_url = self.get_data_plane_url(index_name).await?;
         let url = format!("{}/vectors/delete", data_plane_url);
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, &url).json(request).send()
-        })?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::POST, &url).json(request).send())
+            .await?;
 
         if response.status().is_success() {
             Ok(())
         } else {
-            let error_body = response.text().map_err(|e| {
+            let error_body = response.text().await.map_err(|e| {
                 VectorError::ConnectionError(format!("Failed to read error response: {e}"))
             })?;
             Err(VectorError::ProviderError(format!(
@@ -308,43 +328,47 @@ impl PineconeClient {
         }
     }
 
-    pub fn describe_index_stats(
+    pub async fn describe_index_stats(
         &self,
         index_name: &str,
         request: &DescribeIndexStatsRequest,
     ) -> Result<DescribeIndexStatsResponse, VectorError> {
         trace!("Describing index stats for: {index_name}");
 
-        let data_plane_url = self.get_data_plane_url(index_name)?;
+        let data_plane_url = self.get_data_plane_url(index_name).await?;
         let url = format!("{}/describe_index_stats", data_plane_url);
 
-        let response = self.execute_with_retry_sync(|| {
-            self.create_request(Method::POST, &url).json(request).send()
-        })?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::POST, &url).json(request).send())
+            .await?;
 
-        parse_response(response, "describe_index_stats")
+        parse_response(response, "describe_index_stats").await
     }
 
-    pub fn list_namespaces(&self, index_name: &str) -> Result<ListNamespacesResponse, VectorError> {
+    pub async fn list_namespaces(
+        &self,
+        index_name: &str,
+    ) -> Result<ListNamespacesResponse, VectorError> {
         trace!("Listing namespaces for index: {index_name}");
 
-        let data_plane_url = self.get_data_plane_url(index_name)?;
+        let data_plane_url = self.get_data_plane_url(index_name).await?;
         let url = format!("{}/namespaces", data_plane_url);
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::GET, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::GET, &url).send())
+            .await?;
 
-        parse_response(response, "list_namespaces")
+        parse_response(response, "list_namespaces").await
     }
 
-    pub fn list_vector_ids(
+    pub async fn list_vector_ids(
         &self,
         index_name: &str,
         request: &ListVectorIdsRequest,
     ) -> Result<ListVectorIdsResponse, VectorError> {
         trace!("Listing vector IDs for index: {index_name}");
 
-        let data_plane_url = self.get_data_plane_url(index_name)?;
+        let data_plane_url = self.get_data_plane_url(index_name).await?;
         let mut url = format!("{}/vectors/list", data_plane_url);
 
         let mut params = Vec::new();
@@ -369,10 +393,11 @@ impl PineconeClient {
             url.push_str(&params.join("&"));
         }
 
-        let response =
-            self.execute_with_retry_sync(|| self.create_request(Method::GET, &url).send())?;
+        let response = self
+            .execute_with_retry(|| self.create_request(Method::GET, &url).send())
+            .await?;
 
-        parse_response(response, "list_vector_ids")
+        parse_response(response, "list_vector_ids").await
     }
 }
 
@@ -828,12 +853,13 @@ fn from_http_status_code(status_code: u16, message: &str, operation: &str) -> Ve
     }
 }
 
-fn handle_pinecone_error(response: Response, operation: &str) -> VectorError {
+async fn handle_pinecone_error(response: Response, operation: &str) -> VectorError {
     let status = response.status();
 
     if !status.is_success() {
         let error_body = response
             .text()
+            .await
             .unwrap_or_else(|_| "Unknown error".to_string());
         trace!("HTTP error {status} for {operation}: {error_body:?}");
 
@@ -875,7 +901,7 @@ fn handle_pinecone_error(response: Response, operation: &str) -> VectorError {
     VectorError::ProviderError(format!("Unexpected error state for {}", operation))
 }
 
-fn parse_response<T: DeserializeOwned + Debug>(
+async fn parse_response<T: DeserializeOwned + Debug>(
     response: Response,
     operation: &str,
 ) -> Result<T, VectorError> {
@@ -884,7 +910,7 @@ fn parse_response<T: DeserializeOwned + Debug>(
     trace!("Received response from Pinecone API for {operation}: {response:?}");
 
     if status.is_success() {
-        match response.json::<T>() {
+        match response.json::<T>().await {
             Ok(body) => {
                 trace!("Successfully parsed Pinecone response for {operation}: {body:?}");
                 Ok(body)
@@ -898,6 +924,6 @@ fn parse_response<T: DeserializeOwned + Debug>(
             }
         }
     } else {
-        Err(handle_pinecone_error(response, operation))
+        Err(handle_pinecone_error(response, operation).await)
     }
 }

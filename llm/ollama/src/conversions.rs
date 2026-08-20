@@ -11,7 +11,10 @@ use golem_ai_llm::model::{
 use log::trace;
 use std::collections::HashMap;
 
-pub fn events_to_request(events: Vec<Event>, config: Config) -> Result<CompletionsRequest, Error> {
+pub async fn events_to_request(
+    events: Vec<Event>,
+    config: Config,
+) -> Result<CompletionsRequest, Error> {
     let provider_options = config.provider_options.clone();
     let options = provider_options_to_string_map(provider_options.clone());
     let mut option_additional_params = provider_options_to_json_map(provider_options);
@@ -49,8 +52,8 @@ pub fn events_to_request(events: Vec<Event>, config: Config) -> Result<Completio
 
     for event in events {
         match event {
-            Event::Message(message) => request_messages.push(message_to_request(message)),
-            Event::Response(response) => request_messages.push(response_to_request(response)),
+            Event::Message(message) => request_messages.push(message_to_request(message).await),
+            Event::Response(response) => request_messages.push(response_to_request(response).await),
             Event::ToolResults(tool_results) => {
                 request_messages.extend(tool_results.into_iter().map(tool_result_to_request))
             }
@@ -236,7 +239,7 @@ pub fn events_to_request(events: Vec<Event>, config: Config) -> Result<Completio
     })
 }
 
-fn message_to_request(message: Message) -> MessageRequest {
+async fn message_to_request(message: Message) -> MessageRequest {
     let message_role = match message.role {
         Role::Assistant => MessageRole::Assistant,
         Role::System => MessageRole::System,
@@ -258,7 +261,7 @@ fn message_to_request(message: Message) -> MessageRequest {
             ContentPart::Image(reference) => match reference {
                 ImageReference::Url(image_url) => {
                     let url = &image_url.url;
-                    match image_to_base64(url) {
+                    match image_to_base64(url).await {
                         Ok(image) => attached_image.push(image),
                         Err(err) => {
                             trace!("Failed to encode image: {url}\nError: {err}\n");
@@ -285,7 +288,7 @@ fn message_to_request(message: Message) -> MessageRequest {
     }
 }
 
-fn response_to_request(response: Response) -> MessageRequest {
+async fn response_to_request(response: Response) -> MessageRequest {
     let mut message_content = String::new();
     let mut attached_image = Vec::new();
 
@@ -300,7 +303,7 @@ fn response_to_request(response: Response) -> MessageRequest {
             ContentPart::Image(reference) => match reference {
                 ImageReference::Url(image_url) => {
                     let url = &image_url.url;
-                    match image_to_base64(url) {
+                    match image_to_base64(url).await {
                         Ok(image) => attached_image.push(image),
                         Err(err) => {
                             trace!("Failed to encode image: {url}\nError: {err}\n");
@@ -495,7 +498,7 @@ mod tests {
 
     #[test]
     fn forwards_unmapped_options_inside_ollama_options() {
-        let request = events_to_request(
+        let request = futures::executor::block_on(events_to_request(
             Vec::new(),
             base_config(Some(vec![
                 kv("top_p", "0.8"),
@@ -503,7 +506,7 @@ mod tests {
                 kv("format", "json"),
                 kv("request.raw", "true"),
             ])),
-        )
+        ))
         .unwrap();
 
         assert_eq!(request.format, Some("json".to_string()));
@@ -523,8 +526,11 @@ mod tests {
 
     #[test]
     fn keeps_known_option_when_typed_parse_fails() {
-        let request =
-            events_to_request(Vec::new(), base_config(Some(vec![kv("num_ctx", "large")]))).unwrap();
+        let request = futures::executor::block_on(events_to_request(
+            Vec::new(),
+            base_config(Some(vec![kv("num_ctx", "large")])),
+        ))
+        .unwrap();
 
         let options = request.options.expect("options should be present");
         assert_eq!(options.num_ctx, None);

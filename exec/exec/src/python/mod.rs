@@ -13,7 +13,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU32;
 use std::sync::Mutex;
 use std::{fs, io};
-use wstd::time::Instant;
 
 static TEMP_DIR_COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -127,7 +126,7 @@ impl PythonSession {
         self.ensure_initialized()?;
         ensure_language_is_supported(&self.lang)?;
 
-        let start = Instant::now();
+        let start = wasip3::clocks::monotonic_clock::now();
 
         let maybe_state = self.state.lock().unwrap();
         let state = maybe_state.as_ref().unwrap();
@@ -308,7 +307,10 @@ impl PythonSession {
                             exit_code: Some(0),
                             signal: None,
                         },
-                        time_ms: Some(start.elapsed().as_millis() as u64),
+                        time_ms: Some(
+                            wasip3::clocks::monotonic_clock::now().saturating_sub(start)
+                                / 1_000_000,
+                        ),
                         memory_bytes: None,
                     }));
                 }

@@ -38,7 +38,7 @@ pub use crate::config::QdrantHostConfig;
 pub struct Qdrant;
 
 impl Qdrant {
-    fn metadata_indexes(
+    async fn metadata_indexes(
         client: &QdrantClient,
         collection_name: &str,
         vectors: &[VectorRecord],
@@ -70,6 +70,7 @@ impl Qdrant {
 
                         if client
                             .create_field_index(collection_name, field_name, field_type)
+                            .await
                             .is_err()
                         {}
                     }
@@ -82,7 +83,7 @@ impl Qdrant {
 }
 
 impl ExtendedVectorProvider for Qdrant {
-    fn connect_internal(
+    async fn connect_internal(
         provider_config: <Self as ConnectionProvider>::ProviderConfig,
         _endpoint: &str,
         _credentials: &Option<Credentials>,
@@ -97,7 +98,7 @@ impl ExtendedVectorProvider for Qdrant {
 impl ConnectionProvider for Qdrant {
     type ProviderConfig = QdrantConfig;
 
-    fn connect(
+    async fn connect(
         provider_config: Self::ProviderConfig,
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -108,15 +109,15 @@ impl ConnectionProvider for Qdrant {
         Ok(())
     }
 
-    fn disconnect(_provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
+    async fn disconnect(_provider_config: Self::ProviderConfig) -> Result<(), VectorError> {
         Ok(())
     }
 
-    fn get_connection_status(
+    async fn get_connection_status(
         provider_config: Self::ProviderConfig,
     ) -> Result<ConnectionStatus, VectorError> {
         let client = QdrantClient::new(&provider_config);
-        match client.list_collections() {
+        match client.list_collections().await {
             Ok(_) => Ok(ConnectionStatus {
                 connected: true,
                 provider: Some("Qdrant".to_string()),
@@ -134,7 +135,7 @@ impl ConnectionProvider for Qdrant {
         }
     }
 
-    fn test_connection(
+    async fn test_connection(
         provider_config: Self::ProviderConfig,
         _endpoint: String,
         _credentials: Option<Credentials>,
@@ -142,7 +143,7 @@ impl ConnectionProvider for Qdrant {
         _options: Option<Metadata>,
     ) -> Result<bool, VectorError> {
         let client = QdrantClient::new(&provider_config);
-        match client.list_collections() {
+        match client.list_collections().await {
             Ok(_) => Ok(true),
             Err(_) => Ok(false),
         }
@@ -152,7 +153,7 @@ impl ConnectionProvider for Qdrant {
 impl CollectionProvider for Qdrant {
     type ProviderConfig = QdrantConfig;
 
-    fn upsert_collection(
+    async fn upsert_collection(
         provider_config: Self::ProviderConfig,
         name: String,
         _description: Option<String>,
@@ -170,10 +171,10 @@ impl CollectionProvider for Qdrant {
             config,
         };
 
-        match client.create_collection(&create_request) {
+        match client.create_collection(&create_request).await {
             Ok(response) => {
                 if response.result {
-                    Self::get_collection(provider_config, name)
+                    Self::get_collection(provider_config, name).await
                 } else {
                     Err(VectorError::ProviderError(
                         "Failed to create collection".to_string(),
@@ -184,10 +185,12 @@ impl CollectionProvider for Qdrant {
         }
     }
 
-    fn list_collections(provider_config: Self::ProviderConfig) -> Result<Vec<String>, VectorError> {
+    async fn list_collections(
+        provider_config: Self::ProviderConfig,
+    ) -> Result<Vec<String>, VectorError> {
         let client = QdrantClient::new(&provider_config);
 
-        match client.list_collections() {
+        match client.list_collections().await {
             Ok(response) => Ok(response
                 .result
                 .collections
@@ -198,34 +201,34 @@ impl CollectionProvider for Qdrant {
         }
     }
 
-    fn get_collection(
+    async fn get_collection(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<CollectionInfo, VectorError> {
         let client = QdrantClient::new(&provider_config);
 
-        match client.get_collection(&name) {
+        match client.get_collection(&name).await {
             Ok(response) => collection_info_to_export_collection_info(&name, &response.result),
             Err(e) => Err(e),
         }
     }
 
-    fn update_collection(
+    async fn update_collection(
         provider_config: Self::ProviderConfig,
         name: String,
         _description: Option<String>,
         _metadata: Option<Metadata>,
     ) -> Result<CollectionInfo, VectorError> {
-        Self::get_collection(provider_config, name)
+        Self::get_collection(provider_config, name).await
     }
 
-    fn delete_collection(
+    async fn delete_collection(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<(), VectorError> {
         let client = QdrantClient::new(&provider_config);
 
-        match client.delete_collection(&name) {
+        match client.delete_collection(&name).await {
             Ok(response) => {
                 if response.result {
                     Ok(())
@@ -239,19 +242,19 @@ impl CollectionProvider for Qdrant {
         }
     }
 
-    fn collection_exists(
+    async fn collection_exists(
         provider_config: Self::ProviderConfig,
         name: String,
     ) -> Result<bool, VectorError> {
         let client = QdrantClient::new(&provider_config);
-        client.collection_exists(&name)
+        client.collection_exists(&name).await
     }
 }
 
 impl VectorsProvider for Qdrant {
     type ProviderConfig = QdrantConfig;
 
-    fn upsert_vectors(
+    async fn upsert_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         vectors: Vec<VectorRecord>,
@@ -260,12 +263,12 @@ impl VectorsProvider for Qdrant {
         let client = QdrantClient::new(&provider_config);
 
         if !vectors.is_empty() {
-            Self::metadata_indexes(&client, &collection, &vectors)?;
+            Self::metadata_indexes(&client, &collection, &vectors).await?;
         }
 
         let upsert_request = vector_records_to_upsert_request(&vectors)?;
 
-        match client.upsert_points(&collection, &upsert_request) {
+        match client.upsert_points(&collection, &upsert_request).await {
             Ok(response) => {
                 if response.result.status == "acknowledged" || response.result.status == "completed"
                 {
@@ -295,7 +298,7 @@ impl VectorsProvider for Qdrant {
         }
     }
 
-    fn upsert_vector(
+    async fn upsert_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -309,7 +312,8 @@ impl VectorsProvider for Qdrant {
             metadata,
         };
 
-        let result = Self::upsert_vectors(provider_config, collection, vec![record], namespace)?;
+        let result =
+            Self::upsert_vectors(provider_config, collection, vec![record], namespace).await?;
 
         if result.success_count > 0 {
             Ok(())
@@ -320,7 +324,7 @@ impl VectorsProvider for Qdrant {
         }
     }
 
-    fn get_vectors(
+    async fn get_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
@@ -335,13 +339,13 @@ impl VectorsProvider for Qdrant {
 
         let get_request = create_get_points_request(&ids, with_payload, with_vector)?;
 
-        match client.get_points(&collection, &get_request) {
+        match client.get_points(&collection, &get_request).await {
             Ok(response) => records_to_vector_records(&response.result),
             Err(e) => Err(e),
         }
     }
 
-    fn get_vector(
+    async fn get_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -354,12 +358,13 @@ impl VectorsProvider for Qdrant {
             namespace,
             Some(true),
             Some(true),
-        )?;
+        )
+        .await?;
 
         Ok(vectors.into_iter().next())
     }
 
-    fn update_vector(
+    async fn update_vector(
         provider_config: Self::ProviderConfig,
         collection: String,
         id: Id,
@@ -377,13 +382,15 @@ impl VectorsProvider for Qdrant {
                 metadata,
                 namespace,
             )
+            .await
         } else {
             let current = Self::get_vector(
                 provider_config.clone(),
                 collection.clone(),
                 id.clone(),
                 namespace.clone(),
-            )?;
+            )
+            .await?;
             if let Some(current_record) = current {
                 let new_metadata = if merge_metadata.unwrap_or(false) {
                     if let (Some(current_meta), Some(new_meta)) =
@@ -407,13 +414,14 @@ impl VectorsProvider for Qdrant {
                     new_metadata,
                     namespace,
                 )
+                .await
             } else {
                 Err(VectorError::NotFound("Vector not found".to_string()))
             }
         }
     }
 
-    fn delete_vectors(
+    async fn delete_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         ids: Vec<Id>,
@@ -423,7 +431,7 @@ impl VectorsProvider for Qdrant {
 
         let delete_request = create_delete_points_request(Some(&ids), None)?;
 
-        match client.delete_points(&collection, &delete_request) {
+        match client.delete_points(&collection, &delete_request).await {
             Ok(response) => {
                 if response.result.status == "acknowledged" || response.result.status == "completed"
                 {
@@ -436,7 +444,7 @@ impl VectorsProvider for Qdrant {
         }
     }
 
-    fn delete_by_filter(
+    async fn delete_by_filter(
         provider_config: Self::ProviderConfig,
         collection: String,
         filter: FilterExpression,
@@ -449,11 +457,12 @@ impl VectorsProvider for Qdrant {
             collection.clone(),
             Some(filter.clone()),
             None,
-        )?;
+        )
+        .await?;
 
         let delete_request = create_delete_points_request(None, Some(&filter))?;
 
-        match client.delete_points(&collection, &delete_request) {
+        match client.delete_points(&collection, &delete_request).await {
             Ok(response) => {
                 if response.result.status == "acknowledged" || response.result.status == "completed"
                 {
@@ -466,7 +475,7 @@ impl VectorsProvider for Qdrant {
         }
     }
 
-    fn delete_namespace(
+    async fn delete_namespace(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,
@@ -476,7 +485,7 @@ impl VectorsProvider for Qdrant {
         ))
     }
 
-    fn list_vectors(
+    async fn list_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         _namespace: Option<String>,
@@ -499,7 +508,7 @@ impl VectorsProvider for Qdrant {
             with_vector,
         )?;
 
-        match client.scroll_points(&collection, &scroll_request) {
+        match client.scroll_points(&collection, &scroll_request).await {
             Ok(response) => {
                 let records = records_to_vector_records(&response.result.points)?;
                 let next_offset = response.result.next_page_offset.map(|pid| match pid {
@@ -517,7 +526,7 @@ impl VectorsProvider for Qdrant {
         }
     }
 
-    fn count_vectors(
+    async fn count_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         filter: Option<FilterExpression>,
@@ -527,7 +536,7 @@ impl VectorsProvider for Qdrant {
 
         let count_request = create_count_request(filter.as_ref())?;
 
-        match client.count_points(&collection, &count_request) {
+        match client.count_points(&collection, &count_request).await {
             Ok(response) => Ok(response.result.count),
             Err(e) => Err(e),
         }
@@ -537,7 +546,7 @@ impl VectorsProvider for Qdrant {
 impl SearchProvider for Qdrant {
     type ProviderConfig = QdrantConfig;
 
-    fn search_vectors(
+    async fn search_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         query: SearchQuery,
@@ -565,13 +574,13 @@ impl SearchProvider for Qdrant {
             min_score.map(|s| s as f64),
         )?;
 
-        match client.search_points(&collection, &search_request) {
+        match client.search_points(&collection, &search_request).await {
             Ok(response) => scored_points_to_search_results(&response.result),
             Err(e) => Err(e),
         }
     }
 
-    fn find_similar(
+    async fn find_similar(
         provider_config: Self::ProviderConfig,
         collection: String,
         vector: VectorData,
@@ -592,9 +601,10 @@ impl SearchProvider for Qdrant {
             None,
             None,
         )
+        .await
     }
 
-    fn batch_search(
+    async fn batch_search(
         provider_config: Self::ProviderConfig,
         collection: String,
         queries: Vec<SearchQuery>,
@@ -618,7 +628,7 @@ impl SearchProvider for Qdrant {
             with_vector,
         )?;
 
-        match client.batch_search(&collection, &batch_request) {
+        match client.batch_search(&collection, &batch_request).await {
             Ok(response) => {
                 let mut results = Vec::new();
                 for scored_points in response.result {
@@ -635,7 +645,7 @@ impl SearchProvider for Qdrant {
 impl SearchExtendedProvider for Qdrant {
     type ProviderConfig = QdrantConfig;
 
-    fn recommend_vectors(
+    async fn recommend_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         positive: Vec<RecommendationExample>,
@@ -661,13 +671,16 @@ impl SearchExtendedProvider for Qdrant {
             with_vector,
         )?;
 
-        match client.recommend_points(&collection, &recommend_request) {
+        match client
+            .recommend_points(&collection, &recommend_request)
+            .await
+        {
             Ok(response) => scored_points_to_search_results(&response.result),
             Err(e) => Err(e),
         }
     }
 
-    fn discover_vectors(
+    async fn discover_vectors(
         provider_config: Self::ProviderConfig,
         collection: String,
         target: Option<RecommendationExample>,
@@ -692,13 +705,13 @@ impl SearchExtendedProvider for Qdrant {
             with_vector,
         )?;
 
-        match client.discover_points(&collection, &discover_request) {
+        match client.discover_points(&collection, &discover_request).await {
             Ok(response) => scored_points_to_search_results(&response.result),
             Err(e) => Err(e),
         }
     }
 
-    fn search_groups(
+    async fn search_groups(
         provider_config: Self::ProviderConfig,
         collection: String,
         query: SearchQuery,
@@ -724,7 +737,8 @@ impl SearchExtendedProvider for Qdrant {
             None,
             None,
             None,
-        )?;
+        )
+        .await?;
 
         use std::collections::HashMap;
         let mut groups: HashMap<String, Vec<SearchResult>> = HashMap::new();
@@ -776,7 +790,7 @@ impl SearchExtendedProvider for Qdrant {
         Ok(grouped_results)
     }
 
-    fn search_range(
+    async fn search_range(
         provider_config: Self::ProviderConfig,
         collection: String,
         vector: VectorData,
@@ -802,9 +816,10 @@ impl SearchExtendedProvider for Qdrant {
             Some(max_distance),
             None,
         )
+        .await
     }
 
-    fn search_text(
+    async fn search_text(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _query: String,
@@ -821,14 +836,14 @@ impl SearchExtendedProvider for Qdrant {
 impl AnalyticsProvider for Qdrant {
     type ProviderConfig = QdrantConfig;
 
-    fn get_collection_stats(
+    async fn get_collection_stats(
         provider_config: Self::ProviderConfig,
         collection: String,
         _namespace: Option<String>,
     ) -> Result<CollectionStats, VectorError> {
         let client = QdrantClient::new(&provider_config);
 
-        match client.get_collection(&collection) {
+        match client.get_collection(&collection).await {
             Ok(response) => {
                 let info = response.result;
 
@@ -865,7 +880,7 @@ impl AnalyticsProvider for Qdrant {
         }
     }
 
-    fn get_field_stats(
+    async fn get_field_stats(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _field_name: String,
@@ -876,7 +891,7 @@ impl AnalyticsProvider for Qdrant {
         ))
     }
 
-    fn get_field_distribution(
+    async fn get_field_distribution(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _field_name: String,
@@ -892,7 +907,7 @@ impl AnalyticsProvider for Qdrant {
 impl NamespacesProvider for Qdrant {
     type ProviderConfig = QdrantConfig;
 
-    fn upsert_namespace(
+    async fn upsert_namespace(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _name: String,
@@ -903,7 +918,7 @@ impl NamespacesProvider for Qdrant {
         ))
     }
 
-    fn list_namespaces(
+    async fn list_namespaces(
         _provider_config: Self::ProviderConfig,
         _collection: String,
     ) -> Result<Vec<NamespaceInfo>, VectorError> {
@@ -912,7 +927,7 @@ impl NamespacesProvider for Qdrant {
         ))
     }
 
-    fn get_namespace(
+    async fn get_namespace(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,
@@ -922,7 +937,7 @@ impl NamespacesProvider for Qdrant {
         ))
     }
 
-    fn delete_namespace(
+    async fn delete_namespace(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,
@@ -932,7 +947,7 @@ impl NamespacesProvider for Qdrant {
         ))
     }
 
-    fn namespace_exists(
+    async fn namespace_exists(
         _provider_config: Self::ProviderConfig,
         _collection: String,
         _namespace: String,

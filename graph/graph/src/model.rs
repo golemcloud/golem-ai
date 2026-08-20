@@ -1,7 +1,7 @@
 pub mod types {
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Date {
@@ -12,7 +12,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Time {
@@ -24,7 +24,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Datetime {
@@ -35,7 +35,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Duration {
@@ -45,7 +45,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Point {
@@ -56,7 +56,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct Linestring {
@@ -65,7 +65,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct Polygon {
@@ -75,7 +75,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum PropertyValue {
@@ -104,7 +104,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum ElementId {
@@ -117,7 +117,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct Vertex {
@@ -129,7 +129,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct Edge {
@@ -142,7 +142,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct Path {
@@ -154,7 +154,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum Direction {
@@ -166,7 +166,7 @@ pub mod types {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum ComparisonOperator {
@@ -186,7 +186,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct FilterCondition {
@@ -197,7 +197,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct SortSpec {
@@ -207,7 +207,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum QueryResult {
@@ -222,7 +222,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct ExecuteQueryOptions {
@@ -236,7 +236,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct CreateVertexOptions {
@@ -247,7 +247,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct UpdateVertexOptions {
@@ -259,7 +259,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct CreateEdgeOptions {
@@ -271,7 +271,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct CreateMissingEdgeOptions {
@@ -282,7 +282,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct UpdateEdgeOptions {
@@ -294,7 +294,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct FindVerticesOptions {
@@ -307,7 +307,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct FindEdgesOptions {
@@ -320,7 +320,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct GetAdjacentVerticesOptions {
@@ -332,7 +332,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct GetConnectedEdgesOptions {
@@ -344,7 +344,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct QueryExecutionResult {
@@ -357,7 +357,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct PathOptions {
@@ -370,7 +370,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct GetNeighborhoodOptions {
@@ -383,7 +383,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct Subgraph {
@@ -393,7 +393,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct FindShortestPathOptions {
@@ -404,7 +404,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct FindAllPathsOptions {
@@ -416,7 +416,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct PathExistsOptions {
@@ -427,7 +427,7 @@ pub mod types {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct GetVerticesAtDistanceOptions {
@@ -443,7 +443,7 @@ pub mod errors {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub enum GraphError {
@@ -560,7 +560,7 @@ pub mod connection {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct ConnectionConfig {
@@ -576,7 +576,7 @@ pub mod connection {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct GraphStatistics {
@@ -642,7 +642,7 @@ pub mod schema {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum PropertyType {
@@ -663,7 +663,7 @@ pub mod schema {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum IndexType {
@@ -675,7 +675,7 @@ pub mod schema {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct PropertyDefinition {
@@ -688,7 +688,7 @@ pub mod schema {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct VertexLabelSchema {
@@ -699,7 +699,7 @@ pub mod schema {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct EdgeLabelSchema {
@@ -712,7 +712,7 @@ pub mod schema {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct IndexDefinition {
@@ -726,7 +726,7 @@ pub mod schema {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct EdgeTypeDefinition {
@@ -738,7 +738,7 @@ pub mod schema {
     #[repr(u8)]
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum ContainerType {
@@ -748,7 +748,7 @@ pub mod schema {
 
     #[cfg_attr(
         feature = "golem",
-        derive(golem_rust::FromValueAndType, golem_rust::IntoValue)
+        derive(golem_rust::FromSchema, golem_rust::IntoSchema)
     )]
     #[derive(Clone, Debug, PartialEq)]
     pub struct ContainerInfo {

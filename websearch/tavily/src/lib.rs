@@ -9,7 +9,7 @@ use golem_ai_web_search::durability::ExtendedWebSearchProvider;
 use golem_ai_web_search::model::web_search::{
     SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
-use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
+use golem_ai_web_search::{SearchPageFuture, SearchSessionInterface, WebSearchProvider};
 use std::cell::RefCell;
 
 pub use config::TavilyConfig;
@@ -17,7 +17,7 @@ pub use config::TavilyConfig;
 pub use config::TavilyHostConfig;
 
 #[cfg(feature = "golem")]
-#[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[derive(Debug, Clone, PartialEq, golem_rust::FromSchema, golem_rust::IntoSchema)]
 pub struct TavilyReplayState {
     pub metadata: Option<SearchMetadata>,
     pub finished: bool,
@@ -38,20 +38,6 @@ impl TavilySearchSessionImpl {
             metadata: None,
             finished: false,
         }
-    }
-
-    fn next_page(&mut self) -> Result<Vec<SearchResult>, SearchError> {
-        if self.finished {
-            return Ok(Vec::new());
-        }
-
-        let request = params_to_request(&self.params)?;
-        let response = self.client.search(request)?;
-        let (results, metadata) = response_to_results(response, &self.params);
-
-        self.finished = true;
-        self.metadata = Some(metadata);
-        Ok(results)
     }
 
     fn get_metadata(&self) -> Option<SearchMetadata> {
@@ -77,9 +63,25 @@ impl SearchSessionInterface for TavilySearchSession {
         self
     }
 
-    fn next_page(&self) -> Result<Vec<SearchResult>, SearchError> {
-        let mut search = self.0.borrow_mut();
-        search.next_page()
+    fn next_page(&self) -> SearchPageFuture<'_> {
+        Box::pin(async move {
+            let (client, params) = {
+                let search = self.0.borrow();
+                if search.finished {
+                    return Ok(Vec::new());
+                }
+                (search.client.clone(), search.params.clone())
+            };
+
+            let request = params_to_request(&params)?;
+            let response = client.search(request).await?;
+            let (results, metadata) = response_to_results(response, &params);
+
+            let mut search = self.0.borrow_mut();
+            search.finished = true;
+            search.metadata = Some(metadata);
+            Ok(results)
+        })
     }
     fn get_metadata(&self) -> Option<SearchMetadata> {
         let search = self.0.borrow();
@@ -90,7 +92,7 @@ impl SearchSessionInterface for TavilySearchSession {
 pub struct TavilySearch;
 
 impl TavilySearch {
-    fn execute_search(
+    async fn execute_search(
         provider_config: &TavilyConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, SearchMetadata), SearchError> {
@@ -99,7 +101,7 @@ impl TavilySearch {
         let client = TavilySearchApi::new(provider_config);
         let request = params_to_request(&params)?;
 
-        let response = client.search(request)?;
+        let response = client.search(request).await?;
         let (results, metadata) = response_to_results(response, &params);
 
         // Unwrap the metadata Option since we know it should be Some
@@ -132,11 +134,11 @@ impl WebSearchProvider for TavilySearch {
         }
     }
 
-    fn search_once(
+    async fn search_once(
         provider_config: Self::ProviderConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        let (results, metadata) = Self::execute_search(&provider_config, params)?;
+        let (results, metadata) = Self::execute_search(&provider_config, params).await?;
         Ok((results, Some(metadata)))
     }
 }

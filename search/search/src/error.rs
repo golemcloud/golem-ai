@@ -1,5 +1,5 @@
 use crate::model::SearchError;
-use golem_wasi_http::StatusCode;
+use golem_ai_http::StatusCode;
 
 pub fn unsupported(_what: impl AsRef<str>) -> SearchError {
     SearchError::Unsupported
@@ -25,7 +25,7 @@ pub fn rate_limited() -> SearchError {
     SearchError::RateLimited
 }
 
-pub fn from_reqwest_error(details: impl AsRef<str>, err: golem_wasi_http::Error) -> SearchError {
+pub fn from_reqwest_error(details: impl AsRef<str>, err: golem_ai_http::Error) -> SearchError {
     SearchError::Internal(format!("{}: {err}", details.as_ref()))
 }
 

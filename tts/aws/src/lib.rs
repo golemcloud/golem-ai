@@ -17,10 +17,9 @@ use golem_ai_tts::model::types::{
     TtsError, VoiceGender, VoiceQuality, VoiceSettings,
 };
 use golem_ai_tts::model::voices::{LanguageInfo, Voice, VoiceFilter, VoiceInfo, VoiceResults};
-use golem_ai_tts::wasi_compat::{subscribe_zero, Pollable};
 use golem_ai_tts::{
     AdvancedTtsProvider, LongFormOperationInterface, PronunciationLexiconInterface,
-    StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider,
+    StreamingVoiceProvider, SynthesisStreamInterface, SynthesizeProvider, TtsFuture,
     VoiceConversionStreamInterface, VoiceInterface, VoiceProvider, VoiceResultsInterface,
 };
 use log::trace;
@@ -121,16 +120,20 @@ impl VoiceInterface for PollyVoiceImpl {
         vec![AudioFormat::Mp3, AudioFormat::Pcm, AudioFormat::OggOpus]
     }
 
-    fn update_settings(&self, _settings: VoiceSettings) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Voice settings cannot be permanently updated in AWS Polly".to_string(),
-        ))
+    fn update_settings(&self, _settings: VoiceSettings) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Voice settings cannot be permanently updated in AWS Polly".to_string(),
+            ))
+        })
     }
 
-    fn delete(&self) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "AWS Polly voices cannot be deleted".to_string(),
-        ))
+    fn delete(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "AWS Polly voices cannot be deleted".to_string(),
+            ))
+        })
     }
 
     fn clone(&self) -> Result<Voice, TtsError> {
@@ -139,10 +142,11 @@ impl VoiceInterface for PollyVoiceImpl {
         ))
     }
 
-    fn preview(&self, text: String) -> Result<Vec<u8>, TtsError> {
-        let params = synthesis_options_to_polly_params(None, self.voice_data.id.clone(), text);
-
-        self.client.synthesize_speech(params)
+    fn preview(&self, text: String) -> TtsFuture<'_, Vec<u8>> {
+        Box::pin(async move {
+            let params = synthesis_options_to_polly_params(None, self.voice_data.id.clone(), text);
+            self.client.synthesize_speech(params).await
+        })
     }
 }
 
@@ -189,78 +193,80 @@ impl VoiceResultsInterface for PollyVoiceResults {
         self.has_more.get()
     }
 
-    fn get_next(&self) -> Result<Vec<VoiceInfo>, TtsError> {
-        let voices = self.voices.borrow();
-        let start_index = self.current_index.get();
+    fn get_next(&self) -> TtsFuture<'_, Vec<VoiceInfo>> {
+        Box::pin(async move {
+            let start_index = self.current_index.get();
 
-        if start_index < voices.len() {
-            let batch_size = 10;
-            let end_index = std::cmp::min(start_index + batch_size, voices.len());
+            if start_index < self.voices.borrow().len() {
+                let batch_size = 10;
+                let voices = self.voices.borrow();
+                let end_index = std::cmp::min(start_index + batch_size, voices.len());
 
-            trace!(
-                "PollyVoiceResults::get_next - start: {}, end: {}, total: {}",
-                start_index,
-                end_index,
-                voices.len()
-            );
+                trace!(
+                    "PollyVoiceResults::get_next - start: {}, end: {}, total: {}",
+                    start_index,
+                    end_index,
+                    voices.len()
+                );
 
-            let batch = voices[start_index..end_index].to_vec();
-            trace!("Returning batch of {} voices", batch.len());
+                let batch = voices[start_index..end_index].to_vec();
+                trace!("Returning batch of {} voices", batch.len());
 
-            self.current_index.set(end_index);
-
-            let has_more_local = end_index < voices.len();
-            let has_more_remote = self.next_token.borrow().is_some();
-            self.has_more.set(has_more_local || has_more_remote);
-
-            return Ok(batch);
-        }
-
-        if let Some(token) = self.next_token.borrow().clone() {
-            drop(voices);
-
-            let mut params = voice_filter_to_describe_params(self.filter.borrow().clone());
-            if let Some(ref mut p) = params {
-                p.next_token = Some(token);
-            } else {
-                params = Some(client::DescribeVoicesParams {
-                    engine: None,
-                    language_code: None,
-                    include_additional_language_codes: Some(true),
-                    next_token: Some(token),
-                });
-            }
-
-            let response = self.client.describe_voices(params)?;
-            let new_voice_infos: Vec<VoiceInfo> = response
-                .voices
-                .into_iter()
-                .map(aws_voice_to_voice_info)
-                .collect();
-
-            *self.next_token.borrow_mut() = response.next_token;
-
-            self.voices.borrow_mut().extend(new_voice_infos);
-
-            let batch_size = 10;
-            let new_voices = self.voices.borrow();
-            let end_index = std::cmp::min(start_index + batch_size, new_voices.len());
-
-            if start_index < new_voices.len() {
-                let batch = new_voices[start_index..end_index].to_vec();
                 self.current_index.set(end_index);
 
-                let has_more_local = end_index < new_voices.len();
+                let has_more_local = end_index < voices.len();
                 let has_more_remote = self.next_token.borrow().is_some();
                 self.has_more.set(has_more_local || has_more_remote);
 
                 return Ok(batch);
             }
-        }
 
-        trace!("No more voices to return");
-        self.has_more.set(false);
-        Ok(Vec::new())
+            let token = self.next_token.borrow().clone();
+            if let Some(token) = token {
+                let filter = self.filter.borrow().clone();
+                let mut params = voice_filter_to_describe_params(filter);
+                if let Some(ref mut p) = params {
+                    p.next_token = Some(token);
+                } else {
+                    params = Some(client::DescribeVoicesParams {
+                        engine: None,
+                        language_code: None,
+                        include_additional_language_codes: Some(true),
+                        next_token: Some(token),
+                    });
+                }
+
+                let response = self.client.describe_voices(params).await?;
+                let new_voice_infos: Vec<VoiceInfo> = response
+                    .voices
+                    .into_iter()
+                    .map(aws_voice_to_voice_info)
+                    .collect();
+
+                *self.next_token.borrow_mut() = response.next_token;
+
+                self.voices.borrow_mut().extend(new_voice_infos);
+
+                let batch_size = 10;
+                let new_voices = self.voices.borrow();
+                let end_index = std::cmp::min(start_index + batch_size, new_voices.len());
+
+                if start_index < new_voices.len() {
+                    let batch = new_voices[start_index..end_index].to_vec();
+                    self.current_index.set(end_index);
+
+                    let has_more_local = end_index < new_voices.len();
+                    let has_more_remote = self.next_token.borrow().is_some();
+                    self.has_more.set(has_more_local || has_more_remote);
+
+                    return Ok(batch);
+                }
+            }
+
+            trace!("No more voices to return");
+            self.has_more.set(false);
+            Ok(Vec::new())
+        })
     }
 
     fn get_total_count(&self) -> Option<u32> {
@@ -299,87 +305,94 @@ impl SynthesisStreamInterface for PollySynthesisStream {
         self
     }
 
-    fn send_text(&self, input: TextInput) -> Result<(), TtsError> {
-        if self.finished.get() {
-            return Err(TtsError::InvalidConfiguration(
-                "Stream already finished".to_string(),
-            ));
-        }
+    fn send_text(&self, input: TextInput) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            if self.finished.get() {
+                return Err(TtsError::InvalidConfiguration(
+                    "Stream already finished".to_string(),
+                ));
+            }
 
-        let mut buffer = self.text_buffer.borrow_mut();
-        buffer.push_str(&input.content);
-
-        if buffer.len() > 1000
-            || buffer.ends_with('.')
-            || buffer.ends_with('!')
-            || buffer.ends_with('?')
-        {
-            let text_to_process = buffer.clone();
-            buffer.clear();
-
-            let params = synthesis_options_to_polly_params(
-                self.synthesis_options.borrow().clone(),
-                self.voice_id.clone(),
-                text_to_process,
-            );
-
-            let audio_data = self.client.synthesize_speech(params)?;
-            let sequence = self.sequence_number.get();
-            self.sequence_number.set(sequence + 1);
-
-            let chunk = AudioChunk {
-                data: audio_data,
-                sequence_number: sequence,
-                is_final: false,
-                timing_info: None,
+            let text_to_process = {
+                let mut buffer = self.text_buffer.borrow_mut();
+                buffer.push_str(&input.content);
+                if buffer.len() > 1000
+                    || buffer.ends_with('.')
+                    || buffer.ends_with('!')
+                    || buffer.ends_with('?')
+                {
+                    Some(std::mem::take(&mut *buffer))
+                } else {
+                    None
+                }
             };
 
-            self.audio_queue.borrow_mut().push(chunk);
-        }
+            if let Some(text_to_process) = text_to_process {
+                let params = synthesis_options_to_polly_params(
+                    self.synthesis_options.borrow().clone(),
+                    self.voice_id.clone(),
+                    text_to_process,
+                );
 
-        Ok(())
+                let audio_data = self.client.synthesize_speech(params).await?;
+                let sequence = self.sequence_number.get();
+                self.sequence_number.set(sequence + 1);
+
+                let chunk = AudioChunk {
+                    data: audio_data,
+                    sequence_number: sequence,
+                    is_final: false,
+                    timing_info: None,
+                };
+
+                self.audio_queue.borrow_mut().push(chunk);
+            }
+
+            Ok(())
+        })
     }
 
-    fn finish(&self) -> Result<(), TtsError> {
-        if self.finished.get() {
-            return Ok(());
-        }
+    fn finish(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            if self.finished.get() {
+                return Ok(());
+            }
 
-        let remaining_text = {
-            let mut buffer = self.text_buffer.borrow_mut();
-            let text = buffer.clone();
-            buffer.clear();
-            text
-        };
-
-        if !remaining_text.is_empty() {
-            let params = synthesis_options_to_polly_params(
-                self.synthesis_options.borrow().clone(),
-                self.voice_id.clone(),
-                remaining_text,
-            );
-
-            let audio_data = self.client.synthesize_speech(params)?;
-            let sequence = self.sequence_number.get();
-            self.sequence_number.set(sequence + 1);
-
-            let chunk = AudioChunk {
-                data: audio_data,
-                sequence_number: sequence,
-                is_final: true,
-                timing_info: None,
+            let remaining_text = {
+                let mut buffer = self.text_buffer.borrow_mut();
+                let text = buffer.clone();
+                buffer.clear();
+                text
             };
 
-            self.audio_queue.borrow_mut().push(chunk);
-        }
+            if !remaining_text.is_empty() {
+                let params = synthesis_options_to_polly_params(
+                    self.synthesis_options.borrow().clone(),
+                    self.voice_id.clone(),
+                    remaining_text,
+                );
 
-        self.finished.set(true);
-        Ok(())
+                let audio_data = self.client.synthesize_speech(params).await?;
+                let sequence = self.sequence_number.get();
+                self.sequence_number.set(sequence + 1);
+
+                let chunk = AudioChunk {
+                    data: audio_data,
+                    sequence_number: sequence,
+                    is_final: true,
+                    timing_info: None,
+                };
+
+                self.audio_queue.borrow_mut().push(chunk);
+            }
+
+            self.finished.set(true);
+            Ok(())
+        })
     }
 
-    fn receive_chunk(&self) -> Result<Option<AudioChunk>, TtsError> {
-        let mut queue = self.audio_queue.borrow_mut();
-        Ok(queue.pop())
+    fn receive_chunk(&self) -> TtsFuture<'_, Option<AudioChunk>> {
+        Box::pin(async move { Ok(self.audio_queue.borrow_mut().pop()) })
     }
 
     fn has_pending_audio(&self) -> bool {
@@ -426,21 +439,27 @@ impl VoiceConversionStreamInterface for PollyVoiceConversionStream {
         self
     }
 
-    fn send_audio(&self, _audio_data: Vec<u8>) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Voice conversion not supported by AWS Polly".to_string(),
-        ))
+    fn send_audio(&self, _audio_data: Vec<u8>) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Voice conversion not supported by AWS Polly".to_string(),
+            ))
+        })
     }
 
-    fn receive_converted(&self) -> Result<Option<AudioChunk>, TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Voice conversion not supported by AWS Polly".to_string(),
-        ))
+    fn receive_converted(&self) -> TtsFuture<'_, Option<AudioChunk>> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Voice conversion not supported by AWS Polly".to_string(),
+            ))
+        })
     }
 
-    fn finish(&self) -> Result<(), TtsError> {
-        self.finished.set(true);
-        Ok(())
+    fn finish(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            self.finished.set(true);
+            Ok(())
+        })
     }
 
     fn close(&self) {
@@ -491,26 +510,36 @@ impl PronunciationLexiconInterface for PollyPronunciationLexicon {
         self.entries.borrow().len() as u32
     }
 
-    fn add_entry(&self, word: String, pronunciation: String) -> Result<(), TtsError> {
-        let entry = PronunciationEntry {
-            word,
-            pronunciation,
-            part_of_speech: None,
-        };
-        self.entries.borrow_mut().push(entry);
+    fn add_entry(&self, word: String, pronunciation: String) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            let entry = PronunciationEntry {
+                word,
+                pronunciation,
+                part_of_speech: None,
+            };
+            self.entries.borrow_mut().push(entry);
 
-        self.sync_lexicon()?;
-        Ok(())
+            self.sync_lexicon().await?;
+            Ok(())
+        })
     }
 
-    fn remove_entry(&self, word: String) -> Result<(), TtsError> {
-        self.entries.borrow_mut().retain(|entry| entry.word != word);
+    fn remove_entry(&self, word: String) -> TtsFuture<'_, ()> {
+        Box::pin(async move {
+            self.entries.borrow_mut().retain(|entry| entry.word != word);
 
-        self.sync_lexicon()?;
-        Ok(())
+            self.sync_lexicon().await?;
+            Ok(())
+        })
     }
 
-    fn export_content(&self) -> Result<String, TtsError> {
+    fn export_content(&self) -> TtsFuture<'_, String> {
+        Box::pin(async move { Ok(self.render_content()) })
+    }
+}
+
+impl PollyPronunciationLexicon {
+    fn render_content(&self) -> String {
         let entries = self.entries.borrow();
         let mut lexicon_content = format!(
             r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -531,14 +560,12 @@ impl PronunciationLexiconInterface for PollyPronunciationLexicon {
         }
 
         lexicon_content.push_str("</lexicon>");
-        Ok(lexicon_content)
+        lexicon_content
     }
-}
 
-impl PollyPronunciationLexicon {
-    fn sync_lexicon(&self) -> Result<(), TtsError> {
-        let content = self.export_content()?;
-        self.client.put_lexicon(&self.name, &content)?;
+    async fn sync_lexicon(&self) -> Result<(), TtsError> {
+        let content = self.render_content();
+        self.client.put_lexicon(&self.name, &content).await?;
         Ok(())
     }
 }
@@ -560,8 +587,8 @@ impl PollyLongFormOperation {
         }
     }
 
-    fn update_status(&self) -> Result<(), TtsError> {
-        let task = self.client.get_speech_synthesis_task(&self.task_id)?;
+    async fn update_status(&self) -> Result<(), TtsError> {
+        let task = self.client.get_speech_synthesis_task(&self.task_id).await?;
 
         let status = match task.task_status.as_deref() {
             Some("scheduled") => OperationStatus::Pending,
@@ -594,81 +621,88 @@ impl LongFormOperationInterface for PollyLongFormOperation {
         self
     }
 
-    fn get_status(&self) -> OperationStatus {
-        let _ = self.update_status();
-        self.status.get()
+    fn get_status(&self) -> TtsFuture<'_, OperationStatus> {
+        Box::pin(async move {
+            let _ = self.update_status().await;
+            Ok(self.status.get())
+        })
     }
 
-    fn get_progress(&self) -> f32 {
-        self.progress.get()
+    fn get_progress(&self) -> TtsFuture<'_, f32> {
+        Box::pin(async move { Ok(self.progress.get()) })
     }
 
-    fn cancel(&self) -> Result<(), TtsError> {
-        Err(TtsError::UnsupportedOperation(
-            "Cannot cancel AWS Polly synthesis tasks".to_string(),
-        ))
-    }
-
-    fn get_result(&self) -> Result<LongFormResult, TtsError> {
-        let task = self.client.get_speech_synthesis_task(&self.task_id)?;
-
-        if let Some(output_uri) = task.output_uri {
-            let character_count = task.request_characters.unwrap_or(0) as u32;
-
-            let estimated_word_count = if character_count > 0 {
-                (character_count as f32 / 5.0).ceil() as u32
-            } else {
-                0
-            };
-
-            let estimated_duration = if estimated_word_count > 0 {
-                (estimated_word_count as f32 / 150.0) * 60.0
-            } else {
-                0.0
-            };
-
-            let actual_audio_size = match self.client.get_s3_object_metadata(&output_uri) {
-                Ok(metadata) => {
-                    trace!(
-                        "Retrieved S3 object metadata: {} bytes",
-                        metadata.size_bytes
-                    );
-                    metadata.size_bytes as u32
-                }
-                Err(e) => {
-                    trace!("Failed to get S3 object metadata, using estimation: {}", e);
-                    if estimated_duration > 0.0 {
-                        let format = task.output_format.as_deref().unwrap_or("mp3");
-                        match format {
-                            "mp3" => ((estimated_duration * 128000.0) / 8.0) as u32,
-                            "pcm" => (estimated_duration * 22050.0 * 2.0) as u32,
-                            "ogg_vorbis" => ((estimated_duration * 64000.0) / 8.0) as u32,
-                            _ => 0,
-                        }
-                    } else {
-                        0
-                    }
-                }
-            };
-
-            Ok(LongFormResult {
-                output_location: output_uri,
-                total_duration: estimated_duration,
-                chapter_durations: None,
-                metadata: golem_ai_tts::model::types::SynthesisMetadata {
-                    duration_seconds: estimated_duration,
-                    character_count,
-                    word_count: estimated_word_count,
-                    audio_size_bytes: actual_audio_size,
-                    request_id: self.task_id.clone(),
-                    provider_info: Some("AWS Polly".to_string()),
-                },
-            })
-        } else {
-            Err(TtsError::InternalError(
-                "Task result not available".to_string(),
+    fn cancel(&self) -> TtsFuture<'_, ()> {
+        Box::pin(async {
+            Err(TtsError::UnsupportedOperation(
+                "Cannot cancel AWS Polly synthesis tasks".to_string(),
             ))
-        }
+        })
+    }
+
+    fn get_result(&self) -> TtsFuture<'_, LongFormResult> {
+        Box::pin(async move {
+            let task = self.client.get_speech_synthesis_task(&self.task_id).await?;
+
+            if let Some(output_uri) = task.output_uri {
+                let character_count = task.request_characters.unwrap_or(0) as u32;
+
+                let estimated_word_count = if character_count > 0 {
+                    (character_count as f32 / 5.0).ceil() as u32
+                } else {
+                    0
+                };
+
+                let estimated_duration = if estimated_word_count > 0 {
+                    (estimated_word_count as f32 / 150.0) * 60.0
+                } else {
+                    0.0
+                };
+
+                let actual_audio_size = match self.client.get_s3_object_metadata(&output_uri).await
+                {
+                    Ok(metadata) => {
+                        trace!(
+                            "Retrieved S3 object metadata: {} bytes",
+                            metadata.size_bytes
+                        );
+                        metadata.size_bytes as u32
+                    }
+                    Err(e) => {
+                        trace!("Failed to get S3 object metadata, using estimation: {}", e);
+                        if estimated_duration > 0.0 {
+                            let format = task.output_format.as_deref().unwrap_or("mp3");
+                            match format {
+                                "mp3" => ((estimated_duration * 128000.0) / 8.0) as u32,
+                                "pcm" => (estimated_duration * 22050.0 * 2.0) as u32,
+                                "ogg_vorbis" => ((estimated_duration * 64000.0) / 8.0) as u32,
+                                _ => 0,
+                            }
+                        } else {
+                            0
+                        }
+                    }
+                };
+
+                Ok(LongFormResult {
+                    output_location: output_uri,
+                    total_duration: estimated_duration,
+                    chapter_durations: None,
+                    metadata: golem_ai_tts::model::types::SynthesisMetadata {
+                        duration_seconds: estimated_duration,
+                        character_count,
+                        word_count: estimated_word_count,
+                        audio_size_bytes: actual_audio_size,
+                        request_id: self.task_id.clone(),
+                        provider_info: Some("AWS Polly".to_string()),
+                    },
+                })
+            } else {
+                Err(TtsError::InternalError(
+                    "Task result not available".to_string(),
+                ))
+            }
+        })
     }
 }
 
@@ -685,14 +719,14 @@ impl VoiceProvider for AwsPolly {
     type VoiceResults = PollyVoiceResults;
     type ProviderConfig = AwsConfig;
 
-    fn list_voices(
+    async fn list_voices(
         provider_config: Self::ProviderConfig,
         filter: Option<VoiceFilter>,
     ) -> Result<VoiceResults, TtsError> {
         let client = Self::create_client(&provider_config)?;
         let params = voice_filter_to_describe_params(filter.clone());
 
-        let response = client.describe_voices(params)?;
+        let response = client.describe_voices(params).await?;
         trace!(
             "AWS describe_voices returned {} voices",
             response.voices.len()
@@ -719,12 +753,12 @@ impl VoiceProvider for AwsPolly {
         )))
     }
 
-    fn get_voice(
+    async fn get_voice(
         provider_config: Self::ProviderConfig,
         voice_id: String,
     ) -> Result<Voice, TtsError> {
         let client = Self::create_client(&provider_config)?;
-        let response = client.describe_voices(None)?;
+        let response = client.describe_voices(None).await?;
 
         let voice_data = response
             .voices
@@ -735,14 +769,14 @@ impl VoiceProvider for AwsPolly {
         Ok(Voice::new(PollyVoiceImpl::new(voice_data, client)))
     }
 
-    fn search_voices(
+    async fn search_voices(
         provider_config: Self::ProviderConfig,
         filter: Option<VoiceFilter>,
     ) -> Result<Vec<VoiceInfo>, TtsError> {
         let client = Self::create_client(&provider_config)?;
         let params = voice_filter_to_describe_params(filter.clone());
 
-        let response = client.describe_voices(params)?;
+        let response = client.describe_voices(params).await?;
         // Filter voices based on the query matching name, language name, or language code.(returns as response)
         let search_query = filter.as_ref().and_then(|f| f.search_query.as_ref());
 
@@ -764,7 +798,7 @@ impl VoiceProvider for AwsPolly {
         Ok(voice_infos)
     }
 
-    fn list_languages(
+    async fn list_languages(
         _provider_config: Self::ProviderConfig,
     ) -> Result<Vec<LanguageInfo>, TtsError> {
         Ok(get_polly_language_info())
@@ -774,7 +808,7 @@ impl VoiceProvider for AwsPolly {
 impl SynthesizeProvider for AwsPolly {
     type ProviderConfig = AwsConfig;
 
-    fn synthesize(
+    async fn synthesize(
         provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -800,7 +834,7 @@ impl SynthesizeProvider for AwsPolly {
                     voice_id.clone(),
                     chunk_input.content.clone(),
                 );
-                let chunk_audio = client.synthesize_speech(params)?;
+                let chunk_audio = client.synthesize_speech(params).await?;
                 audio_chunks.push(chunk_audio);
             }
 
@@ -827,7 +861,7 @@ impl SynthesizeProvider for AwsPolly {
         } else {
             let params =
                 synthesis_options_to_polly_params(options, voice_id, input.content.clone());
-            let audio_data = client.synthesize_speech(params.clone())?;
+            let audio_data = client.synthesize_speech(params.clone()).await?;
 
             let format = polly_format_to_audio_format(&params.output_format);
             let sample_rate = params
@@ -844,7 +878,7 @@ impl SynthesizeProvider for AwsPolly {
         }
     }
 
-    fn synthesize_batch(
+    async fn synthesize_batch(
         provider_config: Self::ProviderConfig,
         inputs: Vec<TextInput>,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -872,7 +906,7 @@ impl SynthesizeProvider for AwsPolly {
                         voice_id.clone(),
                         chunk_input.content.clone(),
                     );
-                    let chunk_audio = client.synthesize_speech(params)?;
+                    let chunk_audio = client.synthesize_speech(params).await?;
                     audio_chunks.push(chunk_audio);
                 }
 
@@ -902,7 +936,7 @@ impl SynthesizeProvider for AwsPolly {
                     voice_id.clone(),
                     input.content.clone(),
                 );
-                let audio_data = client.synthesize_speech(params.clone())?;
+                let audio_data = client.synthesize_speech(params.clone()).await?;
 
                 let format = polly_format_to_audio_format(&params.output_format);
                 let sample_rate = params
@@ -922,7 +956,7 @@ impl SynthesizeProvider for AwsPolly {
         Ok(results)
     }
 
-    fn get_timing_marks(
+    async fn get_timing_marks(
         provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -943,7 +977,7 @@ impl SynthesizeProvider for AwsPolly {
             crate::client::SpeechMarkType::Sentence,
         ]);
 
-        let response_data = client.synthesize_speech(params)?;
+        let response_data = client.synthesize_speech(params).await?;
 
         let response_text = String::from_utf8(response_data).map_err(|_| {
             TtsError::InternalError("Invalid UTF-8 in speech marks response".to_string())
@@ -994,7 +1028,7 @@ impl SynthesizeProvider for AwsPolly {
         Ok(timing_marks)
     }
 
-    fn validate_input(
+    async fn validate_input(
         _provider_config: Self::ProviderConfig,
         input: TextInput,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -1009,7 +1043,7 @@ impl StreamingVoiceProvider for AwsPolly {
     type VoiceConversionStream = PollyVoiceConversionStream;
     type ProviderConfig = AwsConfig;
 
-    fn create_stream(
+    async fn create_stream(
         provider_config: Self::ProviderConfig,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         options: Option<SynthesisOptions>,
@@ -1022,7 +1056,7 @@ impl StreamingVoiceProvider for AwsPolly {
         )))
     }
 
-    fn create_voice_conversion_stream(
+    async fn create_voice_conversion_stream(
         provider_config: Self::ProviderConfig,
         target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
         _options: Option<SynthesisOptions>,
@@ -1041,7 +1075,7 @@ impl AdvancedTtsProvider for AwsPolly {
     type LongFormOperation = PollyLongFormOperation;
     type ProviderConfig = AwsConfig;
 
-    fn create_voice_clone(
+    async fn create_voice_clone(
         _provider_config: Self::ProviderConfig,
         _name: String,
         _audio_samples: Vec<AudioSample>,
@@ -1052,7 +1086,7 @@ impl AdvancedTtsProvider for AwsPolly {
         ))
     }
 
-    fn design_voice(
+    async fn design_voice(
         _provider_config: Self::ProviderConfig,
         _name: String,
         _characteristics: VoiceDesignParams,
@@ -1062,7 +1096,7 @@ impl AdvancedTtsProvider for AwsPolly {
         ))
     }
 
-    fn convert_voice(
+    async fn convert_voice(
         _provider_config: Self::ProviderConfig,
         _input_audio: Vec<u8>,
         _target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -1073,7 +1107,7 @@ impl AdvancedTtsProvider for AwsPolly {
         ))
     }
 
-    fn generate_sound_effect(
+    async fn generate_sound_effect(
         _provider_config: Self::ProviderConfig,
         _description: String,
         _duration_seconds: Option<f32>,
@@ -1084,7 +1118,7 @@ impl AdvancedTtsProvider for AwsPolly {
         ))
     }
 
-    fn create_lexicon(
+    async fn create_lexicon(
         provider_config: Self::ProviderConfig,
         name: String,
         language: LanguageCode,
@@ -1093,12 +1127,12 @@ impl AdvancedTtsProvider for AwsPolly {
         let client = Self::create_client(&provider_config)?;
         let lexicon = PollyPronunciationLexicon::new(name, language, entries, client);
 
-        lexicon.sync_lexicon()?;
+        lexicon.sync_lexicon().await?;
 
         Ok(PronunciationLexicon::new(lexicon))
     }
 
-    fn synthesize_long_form(
+    async fn synthesize_long_form(
         provider_config: Self::ProviderConfig,
         content: String,
         voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
@@ -1142,7 +1176,7 @@ impl AdvancedTtsProvider for AwsPolly {
             voice_id,
         };
 
-        let task = client.start_speech_synthesis_task(params)?;
+        let task = client.start_speech_synthesis_task(params).await?;
         let task_id = task
             .task_id
             .ok_or_else(|| TtsError::InternalError("No task ID returned".to_string()))?;
@@ -1153,38 +1187,6 @@ impl AdvancedTtsProvider for AwsPolly {
     }
 }
 
-impl ExtendedTtsProvider for AwsPolly {
-    fn unwrapped_synthesis_stream(
-        provider_config: <Self as VoiceProvider>::ProviderConfig,
-        voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
-        options: Option<SynthesisOptions>,
-    ) -> Self::SynthesisStream {
-        let client = Self::create_client(&provider_config)
-            .unwrap_or_else(|_| panic!("Failed to create AWS Polly client"));
-        let voice_id = voice.get::<PollyVoiceImpl>().get_id();
-
-        PollySynthesisStream::new(voice_id, client, options)
-    }
-
-    fn unwrapped_voice_conversion_stream(
-        provider_config: <Self as VoiceProvider>::ProviderConfig,
-        target_voice: golem_ai_tts::model::voices::VoiceBorrow<'_>,
-        _options: Option<SynthesisOptions>,
-    ) -> Self::VoiceConversionStream {
-        let client = Self::create_client(&provider_config)
-            .unwrap_or_else(|_| panic!("Failed to create AWS Polly client"));
-        let voice_id = target_voice.get::<PollyVoiceImpl>().get_id();
-
-        PollyVoiceConversionStream::new(voice_id, client)
-    }
-
-    fn subscribe_synthesis_stream(_stream: &Self::SynthesisStream) -> Pollable {
-        subscribe_zero()
-    }
-
-    fn subscribe_voice_conversion_stream(_stream: &Self::VoiceConversionStream) -> Pollable {
-        subscribe_zero()
-    }
-}
+impl ExtendedTtsProvider for AwsPolly {}
 
 pub type DurableAwsPolly = DurableTts<AwsPolly>;

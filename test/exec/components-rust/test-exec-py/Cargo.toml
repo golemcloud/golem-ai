@@ -14,4 +14,4 @@ indoc = "2.0.6"
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-wstd = { workspace = true }
+wasip3 = { workspace = true }

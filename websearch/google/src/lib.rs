@@ -9,7 +9,7 @@ use golem_ai_web_search::durability::ExtendedWebSearchProvider;
 use golem_ai_web_search::model::web_search::{
     SearchError, SearchMetadata, SearchParams, SearchResult, SearchSession,
 };
-use golem_ai_web_search::{SearchSessionInterface, WebSearchProvider};
+use golem_ai_web_search::{SearchPageFuture, SearchSessionInterface, WebSearchProvider};
 use std::cell::RefCell;
 
 pub use config::GoogleConfig;
@@ -20,7 +20,7 @@ pub use config::GoogleHostConfig;
 const INITIAL_START_INDEX: u32 = 1;
 
 #[cfg(feature = "golem")]
-#[derive(Debug, Clone, PartialEq, golem_rust::FromValueAndType, golem_rust::IntoValue)]
+#[derive(Debug, Clone, PartialEq, golem_rust::FromSchema, golem_rust::IntoSchema)]
 pub struct GoogleReplayState {
     pub current_page: u32,
     pub next_page_start_index: Option<u32>,
@@ -49,24 +49,6 @@ impl GoogleSearch {
         }
     }
 
-    fn next_page(&mut self) -> Result<Vec<SearchResult>, SearchError> {
-        if self.finished {
-            return Ok(Vec::new());
-        }
-
-        let current_start = self.next_page_start_index.unwrap_or(INITIAL_START_INDEX);
-        let request = params_to_request(&self.params, current_start)?;
-        let response = self.client.search(request)?;
-
-        let (results, metadata) = response_to_results(&response, &self.params, self.current_page);
-
-        self.finished = response.next_page.is_none();
-        self.current_page += 1;
-        self.next_page_start_index = response.next_page.map(|np| np.start_index);
-        self.metadata = Some(metadata);
-        Ok(results)
-    }
-
     fn get_metadata(&self) -> Option<SearchMetadata> {
         self.metadata.clone()
     }
@@ -90,9 +72,32 @@ impl SearchSessionInterface for GoogleSearchSession {
         self
     }
 
-    fn next_page(&self) -> Result<Vec<SearchResult>, SearchError> {
-        let mut search = self.0.borrow_mut();
-        search.next_page()
+    fn next_page(&self) -> SearchPageFuture<'_> {
+        Box::pin(async move {
+            let (client, params, current_page, current_start) = {
+                let search = self.0.borrow();
+                if search.finished {
+                    return Ok(Vec::new());
+                }
+                (
+                    search.client.clone(),
+                    search.params.clone(),
+                    search.current_page,
+                    search.next_page_start_index.unwrap_or(INITIAL_START_INDEX),
+                )
+            };
+
+            let request = params_to_request(&params, current_start)?;
+            let response = client.search(request).await?;
+            let (results, metadata) = response_to_results(&response, &params, current_page);
+
+            let mut search = self.0.borrow_mut();
+            search.finished = response.next_page.is_none();
+            search.current_page += 1;
+            search.next_page_start_index = response.next_page.map(|np| np.start_index);
+            search.metadata = Some(metadata);
+            Ok(results)
+        })
     }
 
     fn get_metadata(&self) -> Option<SearchMetadata> {
@@ -104,7 +109,7 @@ impl SearchSessionInterface for GoogleSearchSession {
 pub struct GoogleCustomSearch;
 
 impl GoogleCustomSearch {
-    fn execute_search(
+    async fn execute_search(
         provider_config: &GoogleConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
@@ -113,7 +118,7 @@ impl GoogleCustomSearch {
         let client = GoogleSearchApi::new(provider_config);
         let request = params_to_request(&params, INITIAL_START_INDEX)?;
 
-        let response = client.search(request)?;
+        let response = client.search(request).await?;
         let (results, metadata) = response_to_results(&response, &params, 0);
 
         Ok((results, Some(metadata)))
@@ -145,11 +150,11 @@ impl WebSearchProvider for GoogleCustomSearch {
         }
     }
 
-    fn search_once(
+    async fn search_once(
         provider_config: Self::ProviderConfig,
         params: SearchParams,
     ) -> Result<(Vec<SearchResult>, Option<SearchMetadata>), SearchError> {
-        Self::execute_search(&provider_config, params)
+        Self::execute_search(&provider_config, params).await
     }
 }
 

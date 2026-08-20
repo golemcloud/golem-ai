@@ -9,7 +9,7 @@ use golem_ai_embed::{
         VectorData,
     },
 };
-use golem_wasi_http::{Client, Url};
+use golem_ai_http::{Client, Url};
 use log::trace;
 
 use crate::client::{
@@ -27,7 +27,7 @@ fn output_dtype_to_cohere_embedding_type(dtype: OutputDtype) -> EmbeddingType {
     }
 }
 
-pub fn create_embed_request(
+pub async fn create_embed_request(
     inputs: Vec<ContentPart>,
     config: Config,
 ) -> Result<EmbeddingRequest, Error> {
@@ -36,7 +36,7 @@ pub fn create_embed_request(
     for input in inputs {
         match input {
             ContentPart::Text(text) => text_inputs.push(text),
-            ContentPart::Image(image) => match image_to_base64(&image.url) {
+            ContentPart::Image(image) => match image_to_base64(&image.url).await {
                 Ok(base64_data) => image_inputs.push(base64_data),
                 Err(err) => {
                     trace!("Failed to encode image: {}\nError: {}\n", image.url, err);
@@ -118,11 +118,11 @@ pub fn create_rerank_request(
     })
 }
 
-pub fn image_to_base64(source: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn image_to_base64(source: &str) -> Result<String, Box<dyn std::error::Error>> {
     let bytes = if Url::parse(source).is_ok() {
         let client = Client::new();
-        let response = client.get(source).send()?;
-        response.bytes()?.to_vec()
+        let response = client.get(source).send().await?;
+        response.bytes().await?.to_vec()
     } else {
         let path = Path::new(source);
         fs::read(path)?

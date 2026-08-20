@@ -10,7 +10,7 @@ path = "src/lib.rs"
 [features]
 default = ["openai"]
 openai = ["golem-ai-embed-openai"]
-cohere = ["golem-ai-embed-cohere", "golem-wasi-http", "base64", "infer"]
+cohere = ["golem-ai-embed-cohere", "golem-ai-http", "base64", "infer"]
 hugging-face = ["golem-ai-embed-hugging-face"]
 voyageai = ["golem-ai-embed-voyageai"]
 
@@ -21,10 +21,9 @@ golem-ai-embed-openai = { path = "../../../../embed/openai", optional = true }
 golem-ai-embed-cohere = { path = "../../../../embed/cohere", optional = true }
 golem-ai-embed-hugging-face = { path = "../../../../embed/hugging-face", optional = true }
 golem-ai-embed-voyageai = { path = "../../../../embed/voyageai", optional = true }
-golem-wasi-http = { version = "0.2.0", features = ["json"], optional = true }
+golem-ai-http = { path = "../../../../http", optional = true }
 base64 = { version = "0.22.1", optional = true }
 infer = { version = "0.15", optional = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-wstd = { workspace = true }

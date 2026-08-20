@@ -10,12 +10,11 @@ pub use snapshot::{EmptySnapshot, SessionSnapshot};
 
 #[cfg(feature = "golem")]
 mod snapshot {
-    use golem_rust::value_and_type::{FromValueAndType, IntoValue};
-    use golem_rust::{FromValueAndType, IntoValue};
+    use golem_rust::{FromSchema, IntoSchema};
     use std::fmt::Debug;
 
     pub trait SessionSnapshot<Session> {
-        type Snapshot: Debug + Clone + IntoValue + FromValueAndType;
+        type Snapshot: Debug + Clone + IntoSchema + FromSchema;
 
         fn supports_snapshot(session: &Session) -> bool;
 
@@ -23,7 +22,7 @@ mod snapshot {
         fn restore_snapshot(session: &Session, snapshot: Self::Snapshot);
     }
 
-    #[derive(Debug, Clone, IntoValue, FromValueAndType)]
+    #[derive(Debug, Clone, IntoSchema, FromSchema)]
     pub struct EmptySnapshot {}
 }
 
@@ -57,13 +56,15 @@ mod durable_impl {
     use crate::model::{Error, ExecResult, File, Language, RunOptions};
     use crate::{ExecutionProvider, ExecutionSession};
     use async_trait::async_trait;
-    use golem_rust::bindings::golem::durability::durability::DurableFunctionType;
-    use golem_rust::durability::Durability;
-    use golem_rust::value_and_type::{
-        FromValueAndType, IntoValue, NodeBuilder, TypeNodeBuilder, WitValueExtractor,
-    };
-    use golem_rust::{use_persistence_level, FromValueAndType, IntoValue, PersistenceLevel};
+    use golem_rust::durability::{Durability, DurableFunctionType};
+    use golem_rust::{FromSchema, IntoSchema};
     use std::fmt::{Debug, Display, Formatter};
+
+    impl From<&Error> for Error {
+        fn from(error: &Error) -> Self {
+            error.clone()
+        }
+    }
 
     #[async_trait(?Send)]
     impl<Impl: ExecutionProvider + SessionSnapshot<Impl::Session> + 'static> ExecutionProvider
@@ -77,36 +78,21 @@ mod durable_impl {
             snippet: String,
             options: RunOptions,
         ) -> Result<ExecResult, Error> {
+            let input = RunInput {
+                language: lang.clone(),
+                modules: modules.iter().map(|f| f.name.clone()).collect(),
+                snippet: snippet.clone(),
+                options: options.clone(),
+            };
             let durability = Durability::<ExecResult, Error>::new(
                 "golem_ai_exec",
                 "run",
                 DurableFunctionType::WriteLocal,
+                &input,
             );
-            if durability.is_live() {
-                let result = {
-                    let _guard = use_persistence_level(PersistenceLevel::PersistNothing);
-
-                    Impl::run(
-                        lang.clone(),
-                        modules.clone(),
-                        snippet.clone(),
-                        options.clone(),
-                    )
-                    .await
-                };
-                durability.persist_serializable(
-                    RunInput {
-                        language: lang,
-                        modules: modules.iter().map(|f| f.name.clone()).collect(),
-                        snippet,
-                        options,
-                    },
-                    result.clone(),
-                );
-                result
-            } else {
-                durability.replay_serializable()
-            }
+            durability
+                .run_async(|| Impl::run(lang, modules, snippet, options))
+                .await
         }
     }
 
@@ -133,11 +119,6 @@ mod durable_impl {
         }
 
         async fn run(&self, snippet: String, options: RunOptions) -> Result<ExecResult, Error> {
-            let durability = Durability::<SessionRunResult<Impl::Snapshot>, UnusedError>::new(
-                "golem_ai_exec",
-                "session_run",
-                DurableFunctionType::WriteLocal,
-            );
             let input = RunInput {
                 language: self.lang.clone(),
                 modules: self.module_names.clone(),
@@ -147,41 +128,50 @@ mod durable_impl {
             if Impl::supports_snapshot(&self.inner) {
                 // We can take a snapshot of the session and restore it during replay without
                 // actually running the snippet.
-                if durability.is_live() {
-                    let result = {
-                        let _guard = use_persistence_level(PersistenceLevel::PersistNothing);
-                        self.inner.run(snippet, options).await
-                    };
-                    let snapshot = Impl::take_snapshot(&self.inner);
-                    let result = SessionRunResult {
-                        result,
-                        snapshot: Some(snapshot),
-                    };
-                    durability.persist_infallible(input, result.clone());
-                    result.result
-                } else {
-                    let result: SessionRunResult<Impl::Snapshot> = durability.replay_infallible();
+                let durability = Durability::<SessionRunResult<Impl::Snapshot>, UnusedError>::new(
+                    "golem_ai_exec",
+                    "session_run",
+                    DurableFunctionType::WriteLocal,
+                    &input,
+                );
+                let mut ran = false;
+                let result = durability
+                    .run_infallible_async(|| async {
+                        ran = true;
+                        let result = self.inner.run(snippet, options).await;
+                        let snapshot = Impl::take_snapshot(&self.inner);
+                        SessionRunResult {
+                            result,
+                            snapshot: Some(snapshot),
+                        }
+                    })
+                    .await;
+                if !ran {
                     if let Some(snapshot) = result.snapshot {
                         Impl::restore_snapshot(&self.inner, snapshot);
                     }
-                    result.result
                 }
+                result.result
             } else {
                 // We cannot take a snapshot of the session, so we have to run the actual snippet
                 // in both live and replay modes.
                 //
-                // We still persist a custom oplog entry to increase oplog readability
+                // We still persist a custom oplog entry to increase oplog readability. Construct
+                // it only after the run because `Durability::new` opens its replay subtree
+                // immediately, which would otherwise consume the snippet's host calls.
                 let result = self.inner.run(snippet, options).await;
                 let result = SessionRunResult {
                     result,
                     snapshot: None,
                 };
-
-                if durability.is_live() {
-                    durability.persist_infallible(input, result.clone());
-                } else {
-                    let _: SessionRunResult<Impl::Snapshot> = durability.replay_infallible();
-                }
+                let durability = Durability::<SessionRunResult<Impl::Snapshot>, UnusedError>::new(
+                    "golem_ai_exec",
+                    "session_run",
+                    DurableFunctionType::WriteLocal,
+                    &input,
+                );
+                let _: SessionRunResult<Impl::Snapshot> =
+                    durability.run_infallible(|| result.clone());
                 result.result
             }
         }
@@ -207,7 +197,7 @@ mod durable_impl {
         }
     }
 
-    #[derive(Debug, IntoValue)]
+    #[derive(Debug, Clone, IntoSchema)]
     struct RunInput {
         language: Language,
         modules: Vec<String>,
@@ -215,46 +205,13 @@ mod durable_impl {
         options: RunOptions,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, FromSchema, IntoSchema)]
     struct SessionRunResult<Snapshot: Debug + Clone> {
         result: Result<ExecResult, Error>,
         snapshot: Option<Snapshot>,
     }
 
-    impl<Snapshot: IntoValue + Debug + Clone> IntoValue for SessionRunResult<Snapshot> {
-        fn add_to_builder<T: NodeBuilder>(self, builder: T) -> T::Result {
-            let builder = builder.record();
-            let builder = self.result.add_to_builder(builder.item());
-            let builder = self.snapshot.add_to_builder(builder.item());
-            builder.finish()
-        }
-
-        fn add_to_type_builder<T: TypeNodeBuilder>(builder: T) -> T::Result {
-            let builder = builder.record(Some("SessionRunResult".to_string()), None);
-            let builder = Result::<ExecResult, Error>::add_to_type_builder(builder.field("result"));
-            let builder = Option::<Snapshot>::add_to_type_builder(builder.field("snapshot"));
-            builder.finish()
-        }
-    }
-
-    impl<Snapshot: FromValueAndType + Debug + Clone> FromValueAndType for SessionRunResult<Snapshot> {
-        fn from_extractor<'a, 'b>(
-            extractor: &'a impl WitValueExtractor<'a, 'b>,
-        ) -> Result<Self, String> {
-            Ok(SessionRunResult {
-                result: Result::<ExecResult, Error>::from_extractor(
-                    &extractor
-                        .field(0)
-                        .ok_or_else(|| "Missing result field".to_string())?,
-                )?,
-                snapshot: Option::<Snapshot>::from_extractor(
-                    &extractor.field(1).ok_or("Missing snapshot field")?,
-                )?,
-            })
-        }
-    }
-
-    #[derive(Debug, FromValueAndType, IntoValue)]
+    #[derive(Debug, FromSchema, IntoSchema)]
     struct UnusedError;
 
     impl Display for UnusedError {

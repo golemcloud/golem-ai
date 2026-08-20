@@ -15,10 +15,9 @@ golem-rust = { workspace = true, optional = true }
 log = { workspace = true }
 mime = "0.3.17"
 nom = { version = "7.1", default-features = false }
-golem-wasi-http = { workspace = true }
+golem-ai-http = { workspace = true }
 thiserror = "2.0.12"
 wasi-logger = "0.1.2"
-wasip2 = { workspace = true }
 
 
 [features]

@@ -1,17 +1,13 @@
 use crate::event_source::{Event, EventSource, MessageEvent};
 use crate::model::{Error, ErrorCode, StreamEvent};
-use crate::wasi_compat::{subscribe_zero, Pollable};
-use crate::ChatStreamInterface;
-use async_trait::async_trait;
-use std::cell::{Ref, RefMut};
-use std::task::Poll;
+use crate::{ChatStreamInterface, LlmFuture};
+use futures::lock::Mutex;
 
 pub trait LlmChatStreamState: 'static {
     fn failure(&self) -> &Option<Error>;
     fn is_finished(&self) -> bool;
     fn set_finished(&self);
-    fn stream(&self) -> Ref<'_, Option<EventSource>>;
-    fn stream_mut(&self) -> RefMut<'_, Option<EventSource>>;
+    fn stream(&self) -> &Mutex<Option<EventSource>>;
     fn decode_message(&self, raw: &str) -> Result<Option<StreamEvent>, Error>;
 }
 
@@ -23,95 +19,64 @@ impl<T: LlmChatStreamState> LlmChatStream<T> {
     pub fn new(implementation: T) -> Self {
         Self { implementation }
     }
-
-    pub fn subscribe(&self) -> Pollable {
-        if let Some(stream) = self.implementation.stream().as_ref() {
-            stream.subscribe()
-        } else {
-            subscribe_zero()
-        }
-    }
 }
 
-#[async_trait(?Send)]
 impl<T: LlmChatStreamState> ChatStreamInterface for LlmChatStream<T> {
-    async fn poll_next(&self) -> Option<Vec<Result<StreamEvent, Error>>> {
-        if self.implementation.is_finished() {
-            return Some(vec![]);
-        }
-
-        let mut stream = self.implementation.stream_mut();
-        if let Some(stream) = stream.as_mut() {
-            match stream.poll_next() {
-                Poll::Ready(None) => {
-                    self.implementation.set_finished();
-                    Some(vec![])
-                }
-                Poll::Ready(Some(Err(crate::event_source::error::Error::StreamEnded))) => {
-                    self.implementation.set_finished();
-                    Some(vec![])
-                }
-                Poll::Ready(Some(Err(error))) => {
-                    self.implementation.set_finished();
-                    Some(vec![Err(Error {
-                        code: ErrorCode::InternalError,
-                        message: error.to_string(),
-                        provider_error_json: None,
-                    })])
-                }
-                Poll::Ready(Some(Ok(event))) => {
-                    let mut events = vec![];
-
-                    match event {
-                        Event::Open => {}
-                        Event::Message(MessageEvent { data, .. }) => {
-                            if data != "[DONE]" {
-                                match self.implementation.decode_message(&data) {
-                                    Ok(Some(stream_event)) => {
-                                        if matches!(stream_event, StreamEvent::Finish(_)) {
-                                            self.implementation.set_finished();
-                                        }
-                                        events.push(Ok(stream_event));
+    fn get_next(&self) -> LlmFuture<'_, Vec<Result<StreamEvent, Error>>> {
+        Box::pin(async move {
+            if self.implementation.is_finished() {
+                return vec![];
+            }
+            let mut source = self.implementation.stream().lock().await;
+            // A concurrent caller may have observed the stream as unfinished before waiting
+            // for this lock, then yielded while the active reader received a finish event.
+            if self.implementation.is_finished() {
+                return vec![];
+            }
+            if let Some(source) = source.as_mut() {
+                loop {
+                    match source.next().await {
+                        None | Some(Err(crate::event_source::error::Error::StreamEnded)) => {
+                            self.implementation.set_finished();
+                            return vec![];
+                        }
+                        Some(Err(error)) => {
+                            self.implementation.set_finished();
+                            return vec![Err(Error {
+                                code: ErrorCode::InternalError,
+                                message: error.to_string(),
+                                provider_error_json: None,
+                            })];
+                        }
+                        Some(Ok(Event::Open)) => {}
+                        Some(Ok(Event::Message(MessageEvent { data, .. }))) if data == "[DONE]" => {
+                        }
+                        Some(Ok(Event::Message(MessageEvent { data, .. }))) => {
+                            match self.implementation.decode_message(&data) {
+                                Ok(Some(event)) => {
+                                    if matches!(event, StreamEvent::Finish(_)) {
+                                        self.implementation.set_finished();
                                     }
-                                    Ok(None) => {
-                                        // Ignored event
-                                    }
-                                    Err(err) => events.push(Err(err)),
+                                    return vec![Ok(event)];
                                 }
+                                Ok(None) => {}
+                                Err(error) => return vec![Err(error)],
                             }
                         }
                     }
-
-                    if events.is_empty() {
-                        None
-                    } else {
-                        Some(events)
-                    }
                 }
-                Poll::Pending => None,
+            } else if let Some(error) = self.implementation.failure().clone() {
+                self.implementation.set_finished();
+                vec![Err(error)]
+            } else {
+                vec![]
             }
-        } else if let Some(error) = self.implementation.failure().clone() {
-            self.implementation.set_finished();
-            Some(vec![Err(error)])
-        } else {
-            None
-        }
-    }
-
-    async fn get_next(&self) -> Vec<Result<StreamEvent, Error>> {
-        let pollable = self.subscribe();
-        loop {
-            pollable.block();
-            if let Some(events) = self.poll_next().await {
-                return events;
-            }
-        }
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
-
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
     }

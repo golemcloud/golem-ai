@@ -3,12 +3,12 @@ use crate::client::{
     Input, InputItem, OpenOutputItem, OutputItem, OutputMessageContent, Tool,
 };
 use base64::{engine::general_purpose, Engine as _};
+use golem_ai_http::StatusCode;
 use golem_ai_llm::error::error_code_from_status;
 use golem_ai_llm::model::{
     Config, ContentPart, Error, ErrorCode, Event, ImageDetail, ImageReference, Kv, Message,
     Response, ResponseMetadata, Role, ToolCall, ToolDefinition, ToolResult, Usage,
 };
-use golem_wasi_http::StatusCode;
 use log::trace;
 use std::collections::HashMap;
 use std::str::FromStr;

@@ -16,7 +16,7 @@ type RequestTuple = (
     Option<String>,
 );
 
-pub fn media_input_to_request(
+pub async fn media_input_to_request(
     input: MediaInput,
     config: GenerationConfig,
 ) -> Result<RequestTuple, VideoError> {
@@ -120,7 +120,7 @@ pub fn media_input_to_request(
                         }
                     } else {
                         // Download video from URL and convert to base64
-                        let raw_bytes = download_video_from_url(&url)?;
+                        let raw_bytes = download_video_from_url(&url).await?;
                         VideoData {
                             bytes_base64_encoded: Some(base64::Engine::encode(
                                 &base64::engine::general_purpose::STANDARD,
@@ -188,7 +188,7 @@ pub fn media_input_to_request(
                         }
                     } else {
                         // Download image from URL and convert to base64
-                        let raw_bytes = download_image_from_url(&url)?;
+                        let raw_bytes = download_image_from_url(&url).await?;
                         ImageData {
                             bytes_base64_encoded: Some(base64::Engine::encode(
                                 &base64::engine::general_purpose::STANDARD,
@@ -234,7 +234,7 @@ pub fn media_input_to_request(
                                 gcs_uri: Some(url.clone()),
                             })
                         } else {
-                            let raw_bytes = download_image_from_url(url)?;
+                            let raw_bytes = download_image_from_url(url).await?;
                             Some(ImageData {
                                 bytes_base64_encoded: Some(base64::Engine::encode(
                                     &base64::engine::general_purpose::STANDARD,
@@ -325,18 +325,18 @@ fn log_unsupported_options(config: &GenerationConfig, options: &HashMap<String, 
     }
 }
 
-pub fn generate_video(
+pub async fn generate_video(
     client: &VeoApi,
     input: MediaInput,
     config: GenerationConfig,
 ) -> Result<String, VideoError> {
-    let (text_request, image_request, model_id) = media_input_to_request(input, config)?;
+    let (text_request, image_request, model_id) = media_input_to_request(input, config).await?;
 
     if let Some(request) = text_request {
-        let response = client.generate_text_to_video(request, model_id)?;
+        let response = client.generate_text_to_video(request, model_id).await?;
         Ok(response.name)
     } else if let Some(request) = image_request {
-        let response = client.generate_image_to_video(request, model_id)?;
+        let response = client.generate_image_to_video(request, model_id).await?;
         Ok(response.name)
     } else {
         Err(VideoError::InternalError(
@@ -345,11 +345,11 @@ pub fn generate_video(
     }
 }
 
-pub fn poll_video_generation(
+pub async fn poll_video_generation(
     client: &VeoApi,
     operation_name: String,
 ) -> Result<VideoResult, VideoError> {
-    match client.poll_generation(&operation_name) {
+    match client.poll_generation(&operation_name).await {
         Ok(PollResponse::Processing) => Ok(VideoResult {
             status: JobStatus::Running,
             videos: None,
@@ -382,7 +382,7 @@ pub fn poll_video_generation(
     }
 }
 
-pub fn cancel_video_generation(
+pub async fn cancel_video_generation(
     _client: &VeoApi,
     operation_name: String,
 ) -> Result<String, VideoError> {
@@ -391,7 +391,7 @@ pub fn cancel_video_generation(
     )))
 }
 
-pub fn generate_lip_sync_video(
+pub async fn generate_lip_sync_video(
     _client: &VeoApi,
     _video: golem_ai_video::model::types::LipSyncVideo,
     _audio: golem_ai_video::model::types::AudioSource,
@@ -401,7 +401,7 @@ pub fn generate_lip_sync_video(
     ))
 }
 
-pub fn list_available_voices(
+pub async fn list_available_voices(
     _client: &VeoApi,
     _language: Option<String>,
 ) -> Result<Vec<golem_ai_video::model::types::VoiceInfo>, VideoError> {
@@ -410,7 +410,7 @@ pub fn list_available_voices(
     ))
 }
 
-pub fn extend_video(
+pub async fn extend_video(
     _client: &VeoApi,
     _video_id: String,
     _prompt: Option<String>,
@@ -423,7 +423,7 @@ pub fn extend_video(
     ))
 }
 
-pub fn upscale_video(
+pub async fn upscale_video(
     _client: &VeoApi,
     _input: golem_ai_video::model::types::BaseVideo,
 ) -> Result<String, VideoError> {
@@ -432,7 +432,7 @@ pub fn upscale_video(
     ))
 }
 
-pub fn generate_video_effects(
+pub async fn generate_video_effects(
     _client: &VeoApi,
     _input: golem_ai_video::model::types::InputImage,
     _effect: golem_ai_video::model::types::EffectType,
@@ -445,7 +445,7 @@ pub fn generate_video_effects(
     ))
 }
 
-pub fn multi_image_generation(
+pub async fn multi_image_generation(
     _client: &VeoApi,
     _input_images: Vec<golem_ai_video::model::types::InputImage>,
     _prompt: Option<String>,

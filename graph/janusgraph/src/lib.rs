@@ -43,7 +43,7 @@ pub struct SchemaManager {
 
 impl ExtendedGuest for JanusGraph {
     type Graph = Graph;
-    fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
+    async fn connect_internal(config: &ConnectionConfig) -> Result<Graph, GraphError> {
         let host = with_config_key(config, "JANUSGRAPH_HOST")
             .or_else(|| {
                 config
@@ -65,7 +65,7 @@ impl ExtendedGuest for JanusGraph {
             with_config_key(config, "JANUSGRAPH_PASSWORD").or_else(|| config.password.clone());
 
         let api = JanusGraphApi::new(&host, port, username.as_deref(), password.as_deref())?;
-        api.execute("g.tx().open()", None)?;
+        api.execute("g.tx().open()", None).await?;
         Ok(Graph::new(api))
     }
 }
