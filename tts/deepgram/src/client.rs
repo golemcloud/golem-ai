@@ -10,7 +10,29 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::future::Future;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
+
+fn retry_delay(response: &Response, fallback: Duration, now: SystemTime) -> Duration {
+    if !matches!(response.status().as_u16(), 429 | 503) {
+        return fallback;
+    }
+
+    response
+        .headers()
+        .get("retry-after")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| {
+            let value = value.trim();
+            if !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()) {
+                value.parse::<u64>().ok().map(Duration::from_secs)
+            } else {
+                httpdate::parse_http_date(value)
+                    .ok()
+                    .map(|date| date.duration_since(now).unwrap_or_default())
+            }
+        })
+        .unwrap_or(fallback)
+}
 
 async fn wait_for(delay: Duration) {
     let delay_nanos = u64::try_from(delay.as_nanos()).unwrap_or(u64::MAX);
@@ -111,13 +133,7 @@ impl DeepgramTtsApi {
                         }
                         return Ok(response);
                     } else if response.status().as_u16() == 429 && attempt < max_retries {
-                        let wait_time = response
-                            .headers()
-                            .get("retry-after")
-                            .and_then(|h| h.to_str().ok())
-                            .and_then(|s| s.parse::<u64>().ok())
-                            .map(Duration::from_secs)
-                            .unwrap_or(delay);
+                        let wait_time = retry_delay(&response, delay, SystemTime::now());
 
                         trace!(
                             "Deepgram API rate limited (429), waiting {}ms before retry {} of {}",
@@ -137,15 +153,16 @@ impl DeepgramTtsApi {
                         );
                         continue;
                     } else if response.status().as_u16() >= 500 && attempt < max_retries {
+                        let wait_time = retry_delay(&response, delay, SystemTime::now());
                         trace!(
                             "Deepgram API server error ({}), waiting {}ms before retry {} of {}",
                             response.status().as_u16(),
-                            delay.as_millis(),
+                            wait_time.as_millis(),
                             attempt + 1,
                             max_retries
                         );
 
-                        wait_for(delay).await;
+                        wait_for(wait_time).await;
                         delay = std::cmp::min(
                             Duration::from_millis(
                                 (delay.as_millis() as f64
@@ -930,6 +947,121 @@ async fn _parse_response<T: DeserializeOwned + Debug>(response: Response) -> Res
         Err(e) => {
             trace!("Failed to parse response: {:?}", e);
             Err(from_reqwest_error("Failed to parse response", e))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use golem_ai_http::{Bytes, HeaderMap, HeaderValue, StatusCode, Url};
+    use std::time::UNIX_EPOCH;
+
+    fn response(status: u16, retry_after: Option<&str>) -> Response {
+        let mut headers = HeaderMap::new();
+        if let Some(value) = retry_after {
+            headers.insert("retry-after", value.parse().unwrap());
+        }
+        Response::from_bytes(
+            StatusCode::from_u16(status).unwrap(),
+            headers,
+            Bytes::new(),
+            Url::parse("https://example.com/v1/speak").unwrap(),
+        )
+    }
+
+    #[test]
+    fn retry_after_seconds_on_rate_limit_and_service_unavailable() {
+        for status in [503, 429] {
+            for (header, seconds) in [("120", 120), ("0", 0), (" 12 ", 12)] {
+                assert_eq!(
+                    retry_delay(
+                        &response(status, Some(header)),
+                        Duration::from_secs(1),
+                        UNIX_EPOCH
+                    ),
+                    Duration::from_secs(seconds),
+                    "status={status}, header={header}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn retry_after_supports_all_http_date_formats() {
+        let now = UNIX_EPOCH + Duration::from_secs(784_111_747);
+        for status in [429, 503] {
+            for header in [
+                "Sun, 06 Nov 1994 08:49:37 GMT",
+                "Sunday, 06-Nov-94 08:49:37 GMT",
+                "Sun Nov  6 08:49:37 1994",
+            ] {
+                assert_eq!(
+                    retry_delay(&response(status, Some(header)), Duration::from_secs(1), now),
+                    Duration::from_secs(30),
+                    "status={status}, header={header}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn retry_after_expired_dates_do_not_underflow() {
+        let now = UNIX_EPOCH + Duration::from_secs(784_111_777);
+        for status in [429, 503] {
+            for elapsed in [0, 60] {
+                assert_eq!(
+                    retry_delay(
+                        &response(status, Some("Sun, 06 Nov 1994 08:49:37 GMT")),
+                        Duration::from_secs(1),
+                        now + Duration::from_secs(elapsed),
+                    ),
+                    Duration::ZERO
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn retry_after_missing_or_invalid_uses_backoff() {
+        let fallback = Duration::from_secs(8);
+        for status in [429, 503] {
+            for header in [
+                None,
+                Some(""),
+                Some("-1"),
+                Some("+1"),
+                Some("1.5"),
+                Some("tomorrow"),
+                Some("18446744073709551616"),
+            ] {
+                assert_eq!(
+                    retry_delay(&response(status, header), fallback, UNIX_EPOCH),
+                    fallback
+                );
+            }
+            let mut response = response(status, None);
+            // Non-text header values must also fall back without panicking.
+            let mut headers = response.headers().clone();
+            headers.insert("retry-after", HeaderValue::from_bytes(&[0xff]).unwrap());
+            response = Response::from_bytes(
+                response.status(),
+                headers,
+                Bytes::new(),
+                response.url().clone(),
+            );
+            assert_eq!(retry_delay(&response, fallback, UNIX_EPOCH), fallback);
+        }
+    }
+
+    #[test]
+    fn retry_after_does_not_change_other_server_error_backoff() {
+        let fallback = Duration::from_secs(4);
+        for status in [500, 502, 504] {
+            assert_eq!(
+                retry_delay(&response(status, Some("120")), fallback, UNIX_EPOCH),
+                fallback
+            );
         }
     }
 }
