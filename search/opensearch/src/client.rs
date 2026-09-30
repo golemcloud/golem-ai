@@ -296,18 +296,28 @@ impl OpenSearchApi {
     }
 
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
-        let mut builder = self
+        let builder = self
             .client
             .request(method, url)
             .header("Content-Type", "application/json");
 
+        self.add_authentication(builder)
+    }
+
+    fn add_authentication(&self, mut builder: RequestBuilder) -> RequestBuilder {
         // Add authentication. NOTE: secrets are resolved here immediately
         // before the outgoing request so that hot-rotated host secrets take
         // effect on the very next request.
         if let Some(api_key) = &self.api_key {
-            builder = builder.header("Authorization", format!("ApiKey {}", api_key.get()));
+            builder = match api_key.get() {
+                Ok(api_key) => builder.header("Authorization", format!("ApiKey {api_key}")),
+                Err(error) => builder.with_error(error),
+            };
         } else if let (Some(username), Some(password)) = (&self.username, &self.password) {
-            builder = builder.basic_auth(username.get(), Some(password.get()));
+            builder = match (username.get(), password.get()) {
+                (Ok(username), Ok(password)) => builder.basic_auth(username, Some(password)),
+                (Err(error), _) | (_, Err(error)) => builder.with_error(error),
+            };
         }
 
         builder
@@ -319,21 +329,12 @@ impl OpenSearchApi {
         url: &str,
         content_type: &str,
     ) -> RequestBuilder {
-        let mut builder = self
+        let builder = self
             .client
             .request(method, url)
             .header("Content-Type", content_type);
 
-        // Add authentication. NOTE: secrets are resolved here immediately
-        // before the outgoing request so that hot-rotated host secrets take
-        // effect on the very next request.
-        if let Some(api_key) = &self.api_key {
-            builder = builder.header("Authorization", format!("ApiKey {}", api_key.get()));
-        } else if let (Some(username), Some(password)) = (&self.username, &self.password) {
-            builder = builder.basic_auth(username.get(), Some(password.get()));
-        }
-
-        builder
+        self.add_authentication(builder)
     }
 
     pub async fn create_index(

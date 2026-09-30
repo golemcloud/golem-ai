@@ -57,14 +57,14 @@ script = '''
 cd ../test/vector
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b milvus-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b pgvector-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b pinecone-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b qdrant-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset milvus-debug --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset pgvector-debug --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset pinecone-debug --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset qdrant-debug --yes
 '''
 
 [tasks.release-build-test-components]
@@ -74,12 +74,12 @@ script = '''
 cd ../test/vector
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b milvus-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b pgvector-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b pinecone-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b qdrant-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset milvus-release --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset pgvector-release --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset pinecone-release --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset qdrant-release --yes
 '''

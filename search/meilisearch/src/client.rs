@@ -211,7 +211,10 @@ impl MeilisearchApi {
 
         // NOTE: secret resolved here immediately before the outgoing request.
         if let Some(api_key) = &self.api_key {
-            req = req.header("Authorization", format!("Bearer {}", api_key.get()));
+            req = match api_key.get() {
+                Ok(api_key) => req.header("Authorization", format!("Bearer {api_key}")),
+                Err(error) => req.with_error(error),
+            };
         }
         req = req.header("Content-Type", "application/json");
 

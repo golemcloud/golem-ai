@@ -32,7 +32,7 @@ impl VeoApi {
     async fn get_auth_header(&self) -> Result<String, VideoError> {
         // Resolve the private key right before signing so that
         // hot-rotated host secrets take effect on the next request.
-        let private_key = self.private_key.get();
+        let private_key = self.private_key.get()?;
         let token = generate_access_token(&self.client_email, &private_key, SCOPE).await?;
         Ok(format!("Bearer {token}"))
     }

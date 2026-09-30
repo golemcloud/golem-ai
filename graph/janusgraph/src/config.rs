@@ -94,27 +94,29 @@ impl JanusGraphConfig {
     /// Secrets are resolved via [`SecretSource::get`] at this point —
     /// call this **per top-level operation** so that host-rotated
     /// secrets take effect on the very next request.
-    pub fn to_connection_config(&self) -> ConnectionConfig {
+    pub fn to_connection_config(&self) -> Result<ConnectionConfig, GraphError> {
+        let username = self.username.as_ref().map(SecretSource::get).transpose()?;
+        let password = self.password.as_ref().map(SecretSource::get).transpose()?;
         let mut provider_config = vec![(HOST_ENV_VAR.to_string(), self.host.clone())];
         if let Some(port) = self.port {
             provider_config.push((PORT_ENV_VAR.to_string(), port.to_string()));
         }
-        if let Some(username) = &self.username {
-            provider_config.push((USER_ENV_VAR.to_string(), username.get()));
+        if let Some(username) = &username {
+            provider_config.push((USER_ENV_VAR.to_string(), username.clone()));
         }
-        if let Some(password) = &self.password {
-            provider_config.push((PASSWORD_ENV_VAR.to_string(), password.get()));
+        if let Some(password) = &password {
+            provider_config.push((PASSWORD_ENV_VAR.to_string(), password.clone()));
         }
-        ConnectionConfig {
+        Ok(ConnectionConfig {
             hosts: Some(vec![self.host.clone()]),
             port: self.port,
             database_name: None,
-            username: self.username.as_ref().map(|s| s.get()),
-            password: self.password.as_ref().map(|s| s.get()),
+            username,
+            password,
             timeout_seconds: None,
             max_connections: None,
             provider_config,
-        }
+        })
     }
 }
 

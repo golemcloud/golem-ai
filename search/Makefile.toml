@@ -87,13 +87,13 @@ cd ../test/search
 
 golem-cli --version
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset algolia-release
+golem-cli --dev-mode build --preset algolia-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset elasticsearch-release
+golem-cli --dev-mode build --preset elasticsearch-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset meilisearch-release
+golem-cli --dev-mode build --preset meilisearch-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset opensearch-release
+golem-cli --dev-mode build --preset opensearch-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset typesense-release
+golem-cli --dev-mode build --preset typesense-release --yes
 '''

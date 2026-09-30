@@ -87,11 +87,12 @@ impl DeepgramTtsApi {
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.api_key.get();
-        self.client
-            .request(method, url)
-            .header("Authorization", format!("Token {}", api_key))
-            .header("Content-Type", "application/json")
+        let request = self.client.request(method, url);
+        let request = match self.api_key.get() {
+            Ok(api_key) => request.header("Authorization", format!("Token {api_key}")),
+            Err(error) => request.with_error(error),
+        };
+        request.header("Content-Type", "application/json")
     }
 
     async fn execute_with_retry<F, Fut>(&self, operation: F) -> Result<Response, TtsError>
@@ -163,6 +164,10 @@ impl DeepgramTtsApi {
                     }
                 }
                 Err(e) => {
+                    if !matches!(e, TtsError::NetworkError(_)) {
+                        return Err(e);
+                    }
+
                     if attempt < max_retries {
                         trace!(
                             "Deepgram API network error, waiting {}ms before retry {} of {}: {}",

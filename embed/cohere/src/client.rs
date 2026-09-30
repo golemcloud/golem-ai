@@ -43,7 +43,7 @@ impl EmbeddingsApi {
         trace!("Sending request to Cohere API: {request:?}");
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.cohere_api_key.get();
+        let api_key = self.cohere_api_key.get()?;
         let response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v2/embed"))
@@ -60,7 +60,7 @@ impl EmbeddingsApi {
         trace!("Sending request to Cohere API: {request:?}");
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.cohere_api_key.get();
+        let api_key = self.cohere_api_key.get()?;
         let response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v2/rerank"))

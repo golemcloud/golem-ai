@@ -289,6 +289,17 @@ impl RequestBuilder {
         }
     }
 
+    /// Records an error that prevents this request from being sent.
+    ///
+    /// This lets callers defer a fallible request-building step until
+    /// [`RequestBuilder::send`], where it is returned as a normal HTTP error.
+    pub fn with_error<E: fmt::Display>(mut self, error: E) -> Self {
+        if self.error.is_none() {
+            self.error = Some(Error::builder(error));
+        }
+        self
+    }
+
     /// Appends a request header.
     pub fn header<K, V>(mut self, key: K, value: V) -> Self
     where

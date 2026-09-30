@@ -118,6 +118,8 @@ jobs:
           set -e
           cargo binstall --force cargo-component@0.21.1
           cargo binstall wac-cli --locked --force --no-confirm
+      - name: Install Protocol Buffers compiler
+        run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
       - name: Install and Run Golem Server from main
         run: |
           set -e
@@ -192,6 +194,8 @@ jobs:
           docker exec ollama ollama list | grep -q "qwen3:1.7b" || exit 1
           docker exec ollama ollama list | grep -q "gemma3:4b" || exit 1
           echo "Ollama setup completed."
+      - name: Install Protocol Buffers compiler
+        run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
       - name: Install and Run Golem Server from main
         run: |
           set -e
@@ -282,6 +286,8 @@ jobs:
           echo "Neo4j is ready"
 
           echo "All graph database providers are ready!"
+      - name: Install Protocol Buffers compiler
+        run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
       - name: Install and Run Golem Server from main
         run: |
           set -e
@@ -416,6 +422,8 @@ jobs:
           echo "Qdrant is ready"
 
           echo "All Vector database providers are ready!"
+      - name: Install Protocol Buffers compiler
+        run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
       - name: Install and Run Golem Server from main
         run: |
           set -e

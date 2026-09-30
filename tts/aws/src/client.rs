@@ -155,17 +155,17 @@ impl AwsPollyTtsApi {
     /// (`<access_key>:<session_token>`) for inclusion in the
     /// `Credential` field of the `Authorization` header. Resolved
     /// fresh per request so host-side rotation takes immediate effect.
-    fn resolve_access_key_for_credential(&self) -> String {
-        let access_key = self.access_key_id.get();
+    fn resolve_access_key_for_credential(&self) -> Result<String, TtsError> {
+        let access_key = self.access_key_id.get()?;
         if let Some(token) = self.session_token.as_ref() {
-            format!("{}:{}", access_key, token.get())
+            Ok(format!("{}:{}", access_key, token.get()?))
         } else {
-            access_key
+            Ok(access_key)
         }
     }
 
     fn validate_credentials(&self) -> Result<(), TtsError> {
-        if self.access_key_id.get().is_empty() || self.secret_access_key.get().is_empty() {
+        if self.access_key_id.get()?.is_empty() || self.secret_access_key.get()?.is_empty() {
             return Err(TtsError::Unauthorized(
                 "AWS credentials not properly configured".to_string(),
             ));
@@ -222,11 +222,12 @@ impl AwsPollyTtsApi {
 
         trace!("AWS Polly REST API request to: {} {}", method, url);
 
-        let mut request_builder = self
-            .client
-            .request(method, &url)
-            .header("Authorization", authorization)
-            .header("X-Amz-Date", timestamp);
+        let request_builder = self.client.request(method, &url);
+        let mut request_builder = match authorization {
+            Ok(authorization) => request_builder.header("Authorization", authorization),
+            Err(error) => request_builder.with_error(error),
+        }
+        .header("X-Amz-Date", timestamp);
 
         if !request_body.is_empty() {
             request_builder = request_builder
@@ -489,7 +490,7 @@ impl AwsPollyTtsApi {
 
         let payload_hash = self.sha256_hex(request_body.as_bytes());
         let authorization =
-            self.create_s3_auth_header(&method, path, &timestamp, &payload_hash, endpoint);
+            self.create_s3_auth_header(&method, path, &timestamp, &payload_hash, endpoint)?;
 
         trace!("AWS S3 request to: {} {}", method, url);
 
@@ -518,7 +519,7 @@ impl AwsPollyTtsApi {
         timestamp: &str,
         payload_hash: &str,
         endpoint: &str,
-    ) -> String {
+    ) -> Result<String, TtsError> {
         let date = &timestamp[0..8];
 
         let host = endpoint.replace("https://", "").replace("http://", "");
@@ -545,11 +546,11 @@ impl AwsPollyTtsApi {
 
         // Resolve the secrets right before signing so that hot-rotated
         // host secrets take effect on the next request.
-        let secret_access_key = self.secret_access_key.get();
+        let secret_access_key = self.secret_access_key.get()?;
         let signature = self.calculate_s3_signature(&string_to_sign, date, &secret_access_key);
-        let access_key_for_credential = self.resolve_access_key_for_credential();
+        let access_key_for_credential = self.resolve_access_key_for_credential()?;
 
-        format!(
+        Ok(format!(
             "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}",
             access_key_for_credential
                 .split(':')
@@ -558,7 +559,7 @@ impl AwsPollyTtsApi {
             credential_scope,
             signed_headers,
             signature
-        )
+        ))
     }
 
     fn calculate_s3_signature(
@@ -586,7 +587,7 @@ impl AwsPollyTtsApi {
         query_params: Option<&[(&str, &str)]>,
         timestamp: &str,
         payload_hash: &str,
-    ) -> String {
+    ) -> Result<String, TtsError> {
         let date = &timestamp[0..8];
         let host = format!("polly.{}.amazonaws.com", self.region);
 
@@ -625,11 +626,11 @@ impl AwsPollyTtsApi {
 
         // Resolve the secrets right before signing so that hot-rotated
         // host secrets take effect on the next request.
-        let secret_access_key = self.secret_access_key.get();
+        let secret_access_key = self.secret_access_key.get()?;
         let signature = self.calculate_signature(&string_to_sign, date, &secret_access_key);
-        let access_key_for_credential = self.resolve_access_key_for_credential();
+        let access_key_for_credential = self.resolve_access_key_for_credential()?;
 
-        format!(
+        Ok(format!(
             "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}",
             access_key_for_credential
                 .split(':')
@@ -638,7 +639,7 @@ impl AwsPollyTtsApi {
             credential_scope,
             signed_headers,
             signature
-        )
+        ))
     }
 
     fn calculate_signature(

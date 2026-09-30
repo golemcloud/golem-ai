@@ -84,9 +84,9 @@ cd ../test/stt
 
 golem-cli --version
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset aws-release
-golem-cli --dev-mode build --preset azure-release
-golem-cli --dev-mode build --preset deepgram-release
-golem-cli --dev-mode build --preset google-release
-golem-cli --dev-mode build --preset whisper-release
+golem-cli --dev-mode build --preset aws-release --yes
+golem-cli --dev-mode build --preset azure-release --yes
+golem-cli --dev-mode build --preset deepgram-release --yes
+golem-cli --dev-mode build --preset google-release --yes
+golem-cli --dev-mode build --preset whisper-release --yes
 '''

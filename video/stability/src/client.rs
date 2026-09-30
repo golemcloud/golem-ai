@@ -121,7 +121,7 @@ impl StabilityApi {
         let response: Response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v2beta/image-to-video"))
-            .header("authorization", format!("Bearer {}", self.api_key.get()))
+            .header("authorization", format!("Bearer {}", self.api_key.get()?))
             .header(
                 "content-type",
                 format!("multipart/form-data; boundary={boundary}"),
@@ -144,7 +144,7 @@ impl StabilityApi {
                 Method::GET,
                 format!("{BASE_URL}/v2beta/image-to-video/result/{generation_id}"),
             )
-            .header("authorization", format!("Bearer {}", self.api_key.get()))
+            .header("authorization", format!("Bearer {}", self.api_key.get()?))
             .send()
             .await
             .map_err(|err| from_reqwest_error("Poll request failed", err))?;
@@ -201,7 +201,7 @@ impl StabilityApi {
                 Method::POST,
                 format!("{BASE_URL}/v2beta/stable-image/generate/core"),
             )
-            .header("authorization", format!("Bearer {}", self.api_key.get()))
+            .header("authorization", format!("Bearer {}", self.api_key.get()?))
             .header(
                 "content-type",
                 format!("multipart/form-data; boundary={boundary}"),

@@ -37,7 +37,7 @@ impl PgVectorClient {
     fn get_connection(&self) -> Result<DbConnection, VectorError> {
         // Resolve the secret right before each outgoing request so
         // host-side secret rotation takes effect immediately.
-        let conn_str = self.connection_string.get();
+        let conn_str = self.connection_string.get()?;
         match DbConnection::open(&conn_str) {
             Ok(conn) => Ok(conn),
             Err(e) => Err(VectorError::ConnectionError(format!(

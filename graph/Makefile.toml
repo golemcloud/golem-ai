@@ -63,9 +63,9 @@ cd ../test/graph
 
 golem-cli --version
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset arangodb-release
+golem-cli --dev-mode build --preset arangodb-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset janusgraph-release
+golem-cli --dev-mode build --preset janusgraph-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset neo4j-release
+golem-cli --dev-mode build --preset neo4j-release --yes
 '''

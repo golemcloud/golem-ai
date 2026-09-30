@@ -51,8 +51,10 @@ impl QdrantClient {
         if let Some(api_key) = &self.api_key {
             // Resolve the secret right before each outgoing request so
             // host-side secret rotation takes effect immediately.
-            let key_value = api_key.get();
-            req = req.header("api-key", key_value);
+            req = match api_key.get() {
+                Ok(key_value) => req.header("api-key", key_value),
+                Err(error) => req.with_error(error),
+            };
         }
 
         req.header("Content-Type", "application/json")

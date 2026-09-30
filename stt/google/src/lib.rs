@@ -79,7 +79,7 @@ impl GoogleStt {
                 .ok_or_else(|| {
                     WitSttError::InternalError("Google private_key not set".to_string())
                 })?
-                .get();
+                .get()?;
             ServiceAccountKey::new(project_id, client_email, private_key)
         };
 

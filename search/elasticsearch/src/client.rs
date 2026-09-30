@@ -190,18 +190,28 @@ impl ElasticsearchApi {
     }
 
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
-        let mut builder = self
+        let builder = self
             .client
             .request(method, url)
             .header("Content-Type", "application/json");
 
+        self.add_authentication(builder)
+    }
+
+    fn add_authentication(&self, mut builder: RequestBuilder) -> RequestBuilder {
         // Add authentication. NOTE: secrets are resolved here immediately
         // before the outgoing request so that hot-rotated host secrets take
         // effect on the very next request.
         if let Some(api_key) = &self.api_key {
-            builder = builder.header("Authorization", format!("ApiKey {}", api_key.get()));
+            builder = match api_key.get() {
+                Ok(api_key) => builder.header("Authorization", format!("ApiKey {api_key}")),
+                Err(error) => builder.with_error(error),
+            };
         } else if let (Some(username), Some(password)) = (&self.username, &self.password) {
-            builder = builder.basic_auth(username.get(), Some(password.get()));
+            builder = match (username.get(), password.get()) {
+                (Ok(username), Ok(password)) => builder.basic_auth(username, Some(password)),
+                (Err(error), _) | (_, Err(error)) => builder.with_error(error),
+            };
         }
 
         builder
@@ -300,22 +310,14 @@ impl ElasticsearchApi {
         let url = format!("{}/_bulk", self.base_url);
 
         // Building request without create_request to avoid Content-Type conflicts
-        let mut builder = self
+        let builder = self
             .client
             .post(&url)
             .header("Content-Type", "application/x-ndjson")
             .body(operations.to_string());
 
-        // Add authentication. NOTE: secrets are resolved here immediately
-        // before the outgoing request so that hot-rotated host secrets take
-        // effect on the very next request.
-        if let Some(api_key) = &self.api_key {
-            builder = builder.header("Authorization", format!("ApiKey {}", api_key.get()));
-        } else if let (Some(username), Some(password)) = (&self.username, &self.password) {
-            builder = builder.basic_auth(username.get(), Some(password.get()));
-        }
-
-        let response = builder
+        let response = self
+            .add_authentication(builder)
             .send()
             .await
             .map_err(|e| internal_error(format!("Failed to perform bulk operation: {e}")))?;

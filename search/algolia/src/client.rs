@@ -100,11 +100,15 @@ impl AlgoliaSearchApi {
     }
 
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
-        self.client
+        let request = self
+            .client
             .request(method, url)
-            .header("X-Algolia-Application-Id", &self.application_id)
-            .header("X-Algolia-API-Key", self.api_key.get())
-            .header("Content-Type", "application/json")
+            .header("X-Algolia-Application-Id", &self.application_id);
+        let request = match self.api_key.get() {
+            Ok(api_key) => request.header("X-Algolia-API-Key", api_key),
+            Err(error) => request.with_error(error),
+        };
+        request.header("Content-Type", "application/json")
     }
 
     pub async fn delete_index(&self, index_name: &str) -> Result<DeleteIndexResponse, SearchError> {

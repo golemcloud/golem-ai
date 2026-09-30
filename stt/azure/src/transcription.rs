@@ -229,7 +229,12 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             .method(Method::POST)
             .uri(&url)
             .header("Content-Type", content_type)
-            .header("Ocp-Apim-Subscription-Key", &self.subscription_key.get())
+            .header(
+                "Ocp-Apim-Subscription-Key",
+                self.subscription_key
+                    .get()
+                    .map_err(|error| SttError::AuthError(error.to_string()))?,
+            )
             .body(body)
             .map_err(|e| SttError::Http(request_id.clone(), HttpError::from(e)))?;
 
