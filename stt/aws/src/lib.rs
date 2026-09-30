@@ -48,13 +48,20 @@ impl AwsStt {
     /// the call returns.
     fn build_client(
         config: &AwsConfig,
-    ) -> TranscribeApi<S3Client<WstdHttpClient>, TranscribeClient<WstdHttpClient, WasiAsyncRuntime>>
-    {
-        let access_key = config.access_key.get();
-        let secret_key = config.secret_key.get();
+    ) -> Result<
+        TranscribeApi<S3Client<WstdHttpClient>, TranscribeClient<WstdHttpClient, WasiAsyncRuntime>>,
+        WitSttError,
+    > {
+        let access_key = config.access_key.get()?;
+        let secret_key = config.secret_key.get()?;
         let region = config.region.clone();
         let bucket_name = config.bucket_name.clone();
-        TranscribeApi::live(bucket_name, access_key, secret_key, region)
+        Ok(TranscribeApi::live(
+            bucket_name,
+            access_key,
+            secret_key,
+            region,
+        ))
     }
 }
 
@@ -83,7 +90,7 @@ impl SttTranscriptionProvider for AwsStt {
     ) -> Result<WitTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        let api_client = Self::build_client(&provider_config);
+        let api_client = Self::build_client(&provider_config)?;
         let api_response = api_client.transcribe_audio(req.try_into()?).await?;
         Ok(api_response.into())
     }
@@ -94,7 +101,7 @@ impl SttTranscriptionProvider for AwsStt {
     ) -> Result<WitMultiTranscriptionResult, WitSttError> {
         LOGGING_STATE.with_borrow_mut(|state| state.init());
 
-        let api_client = Self::build_client(&provider_config);
+        let api_client = Self::build_client(&provider_config)?;
 
         let mut successes: Vec<WitTranscriptionResult> = Vec::new();
         let mut failures: Vec<WitFailedTranscription> = Vec::new();

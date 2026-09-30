@@ -105,11 +105,13 @@ impl ArangoDbConfig {
     /// Secrets are resolved via [`SecretSource::get`] at this point —
     /// call this **per top-level operation** so that host-rotated
     /// secrets take effect on the very next request.
-    pub fn to_connection_config(&self) -> ConnectionConfig {
+    pub fn to_connection_config(&self) -> Result<ConnectionConfig, GraphError> {
+        let username = self.username.get()?;
+        let password = self.password.get()?;
         let mut provider_config = vec![
             (HOST_ENV_VAR.to_string(), self.host.clone()),
-            (USER_ENV_VAR.to_string(), self.username.get()),
-            (PASSWORD_ENV_VAR.to_string(), self.password.get()),
+            (USER_ENV_VAR.to_string(), username.clone()),
+            (PASSWORD_ENV_VAR.to_string(), password.clone()),
         ];
         if let Some(port) = self.port {
             provider_config.push((PORT_ENV_VAR.to_string(), port.to_string()));
@@ -117,16 +119,16 @@ impl ArangoDbConfig {
         if let Some(db) = &self.database {
             provider_config.push((DATABASE_ENV_VAR.to_string(), db.clone()));
         }
-        ConnectionConfig {
+        Ok(ConnectionConfig {
             hosts: Some(vec![self.host.clone()]),
             port: self.port,
             database_name: self.database.clone(),
-            username: Some(self.username.get()),
-            password: Some(self.password.get()),
+            username: Some(username),
+            password: Some(password),
             timeout_seconds: None,
             max_connections: None,
             provider_config,
-        }
+        })
     }
 }
 

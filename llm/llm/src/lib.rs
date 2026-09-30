@@ -3,6 +3,8 @@ pub mod config;
 pub mod durability;
 pub mod error;
 pub mod model;
+#[cfg(feature = "golem")]
+pub mod tools;
 
 #[allow(dead_code)]
 pub mod event_source;

@@ -32,10 +32,12 @@ impl TypesenseSearchApi {
     }
 
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
-        self.client
-            .request(method, url)
-            .header("X-TYPESENSE-API-KEY", self.api_key.get())
-            .header("Content-Type", "application/json")
+        let request = self.client.request(method, url);
+        let request = match self.api_key.get() {
+            Ok(api_key) => request.header("X-TYPESENSE-API-KEY", api_key),
+            Err(error) => request.with_error(error),
+        };
+        request.header("Content-Type", "application/json")
     }
 
     pub async fn create_collection(

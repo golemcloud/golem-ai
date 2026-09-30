@@ -44,7 +44,7 @@ impl VoyageAIApi {
         trace!("Sending embedding request to VoyageAI API: {request:?}");
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.voyageai_api_key.get();
+        let api_key = self.voyageai_api_key.get()?;
         let response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/embeddings"))
@@ -60,7 +60,7 @@ impl VoyageAIApi {
         trace!("Sending rerank request to VoyageAI API: {request:?}");
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.voyageai_api_key.get();
+        let api_key = self.voyageai_api_key.get()?;
         let response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/rerank"))

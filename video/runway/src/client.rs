@@ -125,7 +125,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/image_to_video"))
-            .header("Authorization", format!("Bearer {}", self.api_key.get()))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()?))
             .header("X-Runway-Version", API_VERSION)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -142,7 +142,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::GET, format!("{BASE_URL}/v1/tasks/{task_id}"))
-            .header("Authorization", format!("Bearer {}", self.api_key.get()))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()?))
             .header("X-Runway-Version", API_VERSION)
             .send()
             .await
@@ -202,7 +202,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::DELETE, format!("{BASE_URL}/v1/tasks/{task_id}"))
-            .header("Authorization", format!("Bearer {}", self.api_key.get()))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()?))
             .header("X-Runway-Version", API_VERSION)
             .send()
             .await
@@ -230,7 +230,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/video_upscale"))
-            .header("Authorization", format!("Bearer {}", self.api_key.get()))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()?))
             .header("X-Runway-Version", API_VERSION)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -250,7 +250,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::POST, format!("{BASE_URL}/v1/text_to_image"))
-            .header("Authorization", format!("Bearer {}", self.api_key.get()))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()?))
             .header("X-Runway-Version", API_VERSION)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -267,7 +267,7 @@ impl RunwayApi {
         let response: Response = self
             .client
             .request(Method::GET, format!("{BASE_URL}/v1/tasks/{task_id}"))
-            .header("Authorization", format!("Bearer {}", self.api_key.get()))
+            .header("Authorization", format!("Bearer {}", self.api_key.get()?))
             .header("X-Runway-Version", API_VERSION)
             .send()
             .await

@@ -67,7 +67,9 @@ fn provider_config() -> golem_ai_graph_neo4j::Neo4jConfig {
 /// subsystems: every outgoing operation re-reads the typed config and
 /// resolves any secret sources at that moment.
 fn make_config() -> ConnectionConfig {
-    provider_config().to_connection_config()
+    provider_config()
+        .to_connection_config()
+        .expect("plain-text test credentials should always resolve")
 }
 
 #[cfg(feature = "arangodb")]

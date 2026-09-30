@@ -49,7 +49,7 @@ impl EmbeddingsApi {
         trace!("Sending request to OpenAI API: {request:?}");
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.openai_api_key.get();
+        let api_key = self.openai_api_key.get()?;
         let response = self
             .client
             .request(Method::POST, format!("{}/embeddings", self.openai_base_url))

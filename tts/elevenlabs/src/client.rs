@@ -100,10 +100,11 @@ impl ElevenLabsTtsApi {
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.api_key.get();
-        self.client
-            .request(method, url)
-            .header("xi-api-key", api_key)
+        let request = self.client.request(method, url);
+        match self.api_key.get() {
+            Ok(api_key) => request.header("xi-api-key", api_key),
+            Err(error) => request.with_error(error),
+        }
     }
 
     pub fn get_model_version(&self) -> &str {
@@ -653,11 +654,12 @@ impl ElevenLabsTtsApi {
             .execute_with_retry(|| async {
                 // Resolve the API key right before issuing the request so that
                 // hot-rotated host secrets take effect on the next request.
-                let api_key = self.api_key.get();
-                let request = self
-                    .client
-                    .post(&url)
-                    .header("xi-api-key", api_key)
+                let request = self.client.post(&url);
+                let request = match self.api_key.get() {
+                    Ok(api_key) => request.header("xi-api-key", api_key),
+                    Err(error) => request.with_error(error),
+                };
+                let request = request
                     .header(
                         "Content-Type",
                         format!("multipart/form-data; boundary={}", boundary),

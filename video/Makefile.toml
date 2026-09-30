@@ -82,18 +82,18 @@ cd ../test/video
 
 golem-cli --version
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset veo-release
+golem-cli --dev-mode build --preset veo-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset stability-release
+golem-cli --dev-mode build --preset stability-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset kling-release
+golem-cli --dev-mode build --preset kling-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset runway-release
+golem-cli --dev-mode build --preset runway-release --yes
 
 cd ../video-advanced
 
 golem-cli --version
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset kling-release
+golem-cli --dev-mode build --preset kling-release --yes
 golem-cli --dev-mode clean
 '''

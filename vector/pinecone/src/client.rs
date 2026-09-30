@@ -56,10 +56,12 @@ impl PineconeClient {
     fn create_request(&self, method: Method, url: &str) -> RequestBuilder {
         // Resolve the secret right before each outgoing request so
         // host-side secret rotation takes effect immediately.
-        let api_key = self.api_key.get();
-        self.client
-            .request(method, url)
-            .header("Api-Key", api_key)
+        let request = self.client.request(method, url);
+        let request = match self.api_key.get() {
+            Ok(api_key) => request.header("Api-Key", api_key),
+            Err(error) => request.with_error(error),
+        };
+        request
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
             .header("X-Pinecone-API-Version", "2025-04")
@@ -100,8 +102,10 @@ impl PineconeClient {
     {
         let max_retries = get_max_retries_config();
         let mut last_error = None;
+        let mut attempts = 0;
 
         for attempt in 0..=max_retries {
+            attempts = attempt + 1;
             match operation().await {
                 Ok(response) => match response.status().as_u16() {
                     429 => {
@@ -169,11 +173,13 @@ impl PineconeClient {
         }
 
         let error = last_error.unwrap();
-        Err(VectorError::ConnectionError(format!(
-            "Request failed after {} attempts: {}",
-            max_retries + 1,
-            error
-        )))
+        if matches!(error, Error::Builder(_)) {
+            Err(VectorError::ProviderError(error.to_string()))
+        } else {
+            Err(VectorError::ConnectionError(format!(
+                "Request failed after {attempts} attempts: {error}"
+            )))
+        }
     }
 
     pub async fn list_indexes(&self) -> Result<ListIndexesResponse, VectorError> {

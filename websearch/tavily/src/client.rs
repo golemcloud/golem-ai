@@ -35,7 +35,7 @@ impl TavilySearchApi {
         trace!("Sending request to Tavily Search API: {request:?}");
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.api_key.get();
+        let api_key = self.api_key.get()?;
         let response = self
             .client
             .request(Method::POST, BASE_URL)

@@ -91,14 +91,14 @@ script = '''
 cd ../test/tts
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b aws-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b deepgram-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b elevenlabs-debug
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b google-debug
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset aws-debug --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset deepgram-debug --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset elevenlabs-debug --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset google-debug --yes
 '''
 
 [tasks.release-build-test-components]
@@ -108,12 +108,12 @@ script = '''
 cd ../test/tts
 
 golem-cli --version
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b aws-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b deepgram-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b elevenlabs-release
-golem-cli --dev-mode app clean
-golem-cli --dev-mode app build -b google-release
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset aws-release --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset deepgram-release --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset elevenlabs-release --yes
+golem-cli --dev-mode clean
+golem-cli --dev-mode build --preset google-release --yes
 '''

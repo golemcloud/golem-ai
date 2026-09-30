@@ -70,8 +70,10 @@ impl MilvusClient {
         if let Some(token) = &self.token {
             // Resolve the secret right before each outgoing request so
             // host-side secret rotation takes effect immediately.
-            let token_value = token.get();
-            request = request.header("Authorization", format!("Bearer {}", token_value));
+            request = match token.get() {
+                Ok(token_value) => request.header("Authorization", format!("Bearer {token_value}")),
+                Err(error) => request.with_error(error),
+            };
         }
 
         request
@@ -96,8 +98,10 @@ impl MilvusClient {
     {
         let max_retries = get_max_retries_config();
         let mut last_error = None;
+        let mut attempts = 0;
 
         for attempt in 0..=max_retries {
+            attempts = attempt + 1;
             match operation().await {
                 Ok(response) => return Ok(response),
                 Err(error) => {
@@ -125,11 +129,13 @@ impl MilvusClient {
         }
 
         let error = last_error.unwrap();
-        Err(VectorError::ConnectionError(format!(
-            "Request failed after {} attempts: {}",
-            max_retries + 1,
-            error
-        )))
+        if matches!(error, Error::Builder(_)) {
+            Err(VectorError::ProviderError(error.to_string()))
+        } else {
+            Err(VectorError::ConnectionError(format!(
+                "Request failed after {attempts} attempts: {error}"
+            )))
+        }
     }
 
     pub async fn list_collections(&self) -> Result<ListCollectionsResponse, VectorError> {

@@ -99,11 +99,11 @@ cd ../test/websearch
 
 golem-cli --version
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset brave-release
+golem-cli --dev-mode build --preset brave-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset google-release
+golem-cli --dev-mode build --preset google-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset serper-release
+golem-cli --dev-mode build --preset serper-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset tavily-release
+golem-cli --dev-mode build --preset tavily-release --yes
 '''

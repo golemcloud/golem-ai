@@ -203,7 +203,12 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             .uri(BASE_URL)
             .header(
                 "Authorization",
-                format!("Bearer {}", self.openai_api_key.get()),
+                format!(
+                    "Bearer {}",
+                    self.openai_api_key
+                        .get()
+                        .map_err(|error| Error::AuthError(error.to_string()))?
+                ),
             )
             .header("Content-Type", content_type)
             .body(body)

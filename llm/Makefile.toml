@@ -99,15 +99,15 @@ cd ../test/llm
 
 golem-cli --version
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset anthropic-release
+golem-cli --dev-mode build --preset anthropic-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset grok-release
+golem-cli --dev-mode build --preset grok-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset openai-release
+golem-cli --dev-mode build --preset openai-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset openrouter-release
+golem-cli --dev-mode build --preset openrouter-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset ollama-release
+golem-cli --dev-mode build --preset ollama-release --yes
 golem-cli --dev-mode clean
-golem-cli --dev-mode build --preset bedrock-release
+golem-cli --dev-mode build --preset bedrock-release --yes
 '''

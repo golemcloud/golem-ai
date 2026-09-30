@@ -271,7 +271,12 @@ impl<HC: HttpClient> SttProviderClient<TranscriptionRequest, TranscriptionRespon
             .header(CONTENT_TYPE, mime_type)
             .header(
                 "Authorization",
-                &format!("Token {}", self.deepgram_api_key.get()),
+                &format!(
+                    "Token {}",
+                    self.deepgram_api_key
+                        .get()
+                        .map_err(|error| Error::AuthError(error.to_string()))?
+                ),
             )
             .body(request.audio)
             .map_err(|e| {

@@ -51,7 +51,7 @@ impl ResponsesApi {
 
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.openai_api_key.get();
+        let api_key = self.openai_api_key.get()?;
         let response: Response = self
             .client
             .request(Method::POST, format!("{}/responses", self.openai_base_url))
@@ -75,7 +75,7 @@ impl ResponsesApi {
         // creation. Header-based auth means the value cannot change
         // mid-stream, but a brand-new stream (including durability
         // replay continuations) will pick up the rotated value.
-        let api_key = self.openai_api_key.get();
+        let api_key = self.openai_api_key.get()?;
         let response: Response = self
             .client
             .request(Method::POST, format!("{}/responses", self.openai_base_url))

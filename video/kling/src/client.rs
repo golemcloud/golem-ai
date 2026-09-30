@@ -28,8 +28,8 @@ impl KlingApi {
     }
 
     fn get_auth_header(&self) -> Result<String, VideoError> {
-        let access_key = self.access_key.get();
-        let secret_key = self.secret_key.get();
+        let access_key = self.access_key.get()?;
+        let secret_key = self.secret_key.get()?;
         let token = generate_jwt_token(&access_key, &secret_key)
             .map_err(|e| VideoError::InternalError(format!("JWT token generation failed: {e}")))?;
         Ok(format!("Bearer {token}"))

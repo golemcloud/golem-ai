@@ -39,6 +39,88 @@ with the underlying LLM provider.
 
 **Note**: When GOLEM_OLLAMA_BASE_URL is not set, Ollama defaults to `http://localhost:11434` as the base URL.
 
+## Registered Golem tools
+
+With the default `golem` feature, `golem-ai-llm` can reflect explicitly selected
+registered tools into provider-neutral LLM definitions and execute complete
+model-requested calls:
+
+```rust
+use golem_ai_llm::model::{Config, Event, ToolDefinition, ToolResult};
+use golem_ai_llm::tools::{GolemToolSelection, GolemToolkit};
+use golem_ai_llm::LlmProvider;
+
+let toolkit = GolemToolkit::new([
+    GolemToolSelection::new("files", ["read"])
+        .name("read_file")
+        .max_stdout_bytes(64 * 1024)
+        .max_stderr_bytes(8 * 1024),
+])?;
+
+// Native and application-owned tools can be advertised together. The
+// application must keep names unique across the combined list.
+let mut definitions = toolkit.definitions().to_vec();
+definitions.push(ToolDefinition {
+    name: "manual-tool".into(),
+    description: Some("An application-owned tool".into()),
+    parameters_schema: r#"{"type":"object","properties":{}}"#.into(),
+});
+let config = Config {
+    tools: Some(definitions),
+    tool_choice: Some("auto".into()),
+    // provider-specific model and other fields omitted here
+    # model: String::new(), temperature: None, max_tokens: None,
+    # stop_sequences: None, provider_options: None,
+};
+
+let mut events: Vec<Event> = initial_events;
+for _ in 0..8 { // The application owns the stopping policy.
+    let response = Provider::send(provider_config.clone(), events.clone(), config.clone()).await?;
+    let calls = response.tool_calls.clone();
+    events.push(Event::Response(response));
+    if calls.is_empty() {
+        break;
+    }
+
+    let mut results = Vec::<ToolResult>::new();
+    for call in calls {
+        // Apply application policy or obtain user approval here, before execute.
+        if toolkit.contains(&call.name) {
+            results.push(toolkit.execute(&call).await?);
+        } else {
+            results.push(execute_manual_tool(call).await?);
+        }
+    }
+    events.push(Event::ToolResults(results));
+}
+```
+
+Selection is an allowlist: ambient registered tools are never advertised, and
+unknown calls are rejected before transport. Root commands default to `<tool>`;
+nested commands default to `<tool>__<path>`. Commands declaring stdout or stderr
+require an explicit capture limit. The limit bounds the retained prefix while
+the adapter continues draining the entire stream; captured output reports its
+encoding, truncation status, and total byte count.
+
+For a command declaring stdin, model arguments include `_stdin`, for example
+`{"_stdin":{"data":"hello\n","encoding":"utf8"}}`. Both `utf8` and strict
+`base64` are supported, and required stdin is validated before invocation.
+
+A successful native result has a `{"status":"success",...}` envelope. A
+validated error declared by the tool is also returned as `ToolResult::Success`,
+with a `{"status":"error",...}` payload for the model. Discovery, invalid
+arguments, transport, malformed output, and stream failures remain
+`GolemToolError`s for application policy; do not blindly retry them after a
+possible side effect. For streaming LLM responses, wait until the provider has
+assembled complete tool calls—never execute partial argument deltas.
+
+The runnable test application demonstrates the complete deterministic fake-LLM
+round trip, domain errors, stream capture, and crash replay in
+[`test10_native_tool_flow`, `test11_native_tool_error`, and
+`test12_native_tool_replay`](../test/llm/components-rust/test-llm/src/lib.rs).
+After `test12_native_tool_replay` completes, simulate a host crash and call
+`test13_native_tool_side_effect_count`; the count remains one after reconstruction.
+
 ## Examples
 
 Take the [test application](../test/llm/components-rust/test-llm/src/lib.rs) as an example of using `golem-llm` from
@@ -56,6 +138,10 @@ The implemented test functions are demonstrating the following:
 | `test7`       | Using a source image by passing byte array as base64 in the prompt                         |
 | `test8`       | Multi-turn conversation with streaming                                                     |
 | `test9`       | Provider-options passthrough smoke test (provider-specific extra parameters)               |
+| `test10_native_tool_flow` | Deterministic request → registered tool → result → final response flow          |
+| `test11_native_tool_error` | Declared tool error with captured stdout and stderr                           |
+| `test12_native_tool_replay` | Completed tool-call replay without duplicate side effects                    |
+| `test13_native_tool_side_effect_count` | Read the replay fixture's external side-effect count              |
 
 ### Running the examples
 

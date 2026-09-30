@@ -52,16 +52,21 @@ impl SecretSource {
         Self(SecretSourceInner::Handle(Arc::new(handle)))
     }
 
-    /// Returns the current secret value.
+    /// Returns the current secret value, or an internal error if the host
+    /// cannot resolve or reveal a Golem-managed secret.
     ///
     /// Callers MUST call this right before each outgoing request that
     /// uses the secret so that hot-rotated host secrets take effect on
     /// the very next request.
-    pub fn get(&self) -> String {
+    pub fn get(&self) -> Result<String, Error> {
         match &self.0 {
-            SecretSourceInner::Plain(s) => s.clone(),
+            SecretSourceInner::Plain(s) => Ok(s.clone()),
             #[cfg(feature = "golem")]
-            SecretSourceInner::Handle(handle) => handle.get(),
+            SecretSourceInner::Handle(handle) => handle.get().map_err(|error| Error {
+                code: ErrorCode::InternalError,
+                message: format!("Failed to access secret: {error:?}"),
+                provider_error_json: None,
+            }),
         }
     }
 }

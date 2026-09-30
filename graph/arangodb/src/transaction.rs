@@ -624,7 +624,7 @@ impl TransactionInterface for Transaction {
             GraphError::InvalidQuery("vertex_type must be provided for find_vertices".to_string())
         })?;
 
-        let mut query_parts = vec![format!("FOR v IN @@collection")];
+        let mut query_parts = vec!["FOR v IN @@collection".to_string()];
         let mut bind_vars = serde_json::Map::new();
         bind_vars.insert("@collection".to_string(), json!(collection.clone()));
 
@@ -852,7 +852,7 @@ impl TransactionInterface for Transaction {
                 GraphError::InvalidQuery("An edge_type must be provided for find_edges".to_string())
             })?;
 
-        let mut query_parts = vec![format!("FOR e IN @@collection")];
+        let mut query_parts = vec!["FOR e IN @@collection".to_string()];
         let mut bind_vars = serde_json::Map::new();
         bind_vars.insert("@collection".to_string(), json!(collection.clone()));
 

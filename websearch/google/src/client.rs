@@ -40,7 +40,7 @@ impl GoogleSearchApi {
 
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.api_key.get();
+        let api_key = self.api_key.get()?;
         let mut url = Url::parse(BASE_URL).expect("Invalid base URL");
         {
             let mut query_pairs = url.query_pairs_mut();

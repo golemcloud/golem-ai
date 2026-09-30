@@ -45,7 +45,7 @@ impl EmbeddingsApi {
         trace!("Sending request to Hugging Face API: {request:?}");
         // Resolve the API key right before issuing the request so that
         // hot-rotated host secrets take effect on the next request.
-        let api_key = self.huggingface_api_key.get();
+        let api_key = self.huggingface_api_key.get()?;
         let response = self
             .client
             .request(
