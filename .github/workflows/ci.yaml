@@ -13,7 +13,7 @@ env:
   CARGO_TERM_COLOR: always
   ENVIRONMENT: ${{ github.event_name == 'push' && github.ref_type == 'tag' && (!contains(github.ref, '-dev.')) && 'prod' || 'dev' }}
   GOLEM_REPOSITORY: https://github.com/golemcloud/golem
-  GOLEM_BRANCH: main
+  GOLEM_REVISION: c8cdc7a2388b2e96953b8e920e9af5c361196957
 
 jobs:
   tests:
@@ -86,8 +86,8 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-component
         run: cargo binstall --force cargo-component@0.21.1
-      - name: Install Golem CLI from main
-        run: cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem-cli
+      - name: Install matching Golem CLI
+        run: cargo install --git "$GOLEM_REPOSITORY" --rev "$GOLEM_REVISION" --locked --force golem-cli
       - name: Install wac-cli
         run: cargo binstall --force wac-cli --locked --no-confirm
       - name: Build all test components
@@ -120,10 +120,10 @@ jobs:
           cargo binstall wac-cli --locked --force --no-confirm
       - name: Install Protocol Buffers compiler
         run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
-      - name: Install and Run Golem Server from main
+      - name: Install and Run matching Golem Server
         run: |
           set -e
-          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
+          cargo install --git "$GOLEM_REPOSITORY" --rev "$GOLEM_REVISION" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -196,10 +196,10 @@ jobs:
           echo "Ollama setup completed."
       - name: Install Protocol Buffers compiler
         run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
-      - name: Install and Run Golem Server from main
+      - name: Install and Run matching Golem Server
         run: |
           set -e
-          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
+          cargo install --git "$GOLEM_REPOSITORY" --rev "$GOLEM_REVISION" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -288,10 +288,10 @@ jobs:
           echo "All graph database providers are ready!"
       - name: Install Protocol Buffers compiler
         run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
-      - name: Install and Run Golem Server from main
+      - name: Install and Run matching Golem Server
         run: |
           set -e
-          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
+          cargo install --git "$GOLEM_REPOSITORY" --rev "$GOLEM_REVISION" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -424,10 +424,10 @@ jobs:
           echo "All Vector database providers are ready!"
       - name: Install Protocol Buffers compiler
         run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
-      - name: Install and Run Golem Server from main
+      - name: Install and Run matching Golem Server
         run: |
           set -e
-          cargo install --git "$GOLEM_REPOSITORY" --branch "$GOLEM_BRANCH" --locked --force golem
+          cargo install --git "$GOLEM_REPOSITORY" --rev "$GOLEM_REVISION" --locked --force golem
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
