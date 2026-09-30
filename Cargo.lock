@@ -1734,6 +1734,7 @@ dependencies = [
 name = "golem-ai-llm"
 version = "0.0.0"
 dependencies = [
+ "base64 0.22.1",
  "futures",
  "golem-ai-http",
  "golem-rust",
@@ -1741,6 +1742,7 @@ dependencies = [
  "log 0.4.29",
  "mime 0.3.17",
  "nom",
+ "serde_json",
  "thiserror 2.0.18",
  "wasi-logger",
 ]

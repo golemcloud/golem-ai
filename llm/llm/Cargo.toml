@@ -13,6 +13,8 @@ path = "src/lib.rs"
 [dependencies]
 futures = { workspace = true }
 golem-rust = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 
 golem-ai-http = { workspace = true }
 indoc = "2.0.6"
@@ -25,4 +27,10 @@ wasi-logger = "0.1.2"
 
 [features]
 default = ["golem"]
-golem = ["dep:golem-rust", "golem-rust/durability", "golem-rust/export_golem_agentic"]
+golem = [
+    "dep:base64",
+    "dep:golem-rust",
+    "dep:serde_json",
+    "golem-rust/durability",
+    "golem-rust/export_golem_agentic",
+]
