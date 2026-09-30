@@ -33,9 +33,13 @@ impl Bedrock {
     /// secrets via `SecretSource::get()`. This satisfies the
     /// per-request hot-rotation contract.
     pub async fn new(config: &BedrockConfig) -> Result<Self, Error> {
-        let access_key_id = config.access_key_id.get();
-        let secret_access_key = config.secret_access_key.get();
-        let session_token = config.session_token.as_ref().map(|s| s.get());
+        let access_key_id = config.access_key_id.get()?;
+        let secret_access_key = config.secret_access_key.get()?;
+        let session_token = config
+            .session_token
+            .as_ref()
+            .map(|source| source.get())
+            .transpose()?;
         let region_str = config.region.clone();
 
         let sdk_config = aws_config::defaults(BehaviorVersion::latest())
