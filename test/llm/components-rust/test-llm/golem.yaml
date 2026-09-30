@@ -34,7 +34,12 @@ components:
 
 agents:
   LlmTest:
+    tools:
+      native-llm-fixture: {}
     files:
     - sourcePath: ../../data/cat.png
       targetPath: /data/cat.png
       permissions: read-only
+
+tools:
+  native-llm-fixture: {}

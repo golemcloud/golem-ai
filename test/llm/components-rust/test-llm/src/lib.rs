@@ -1,11 +1,12 @@
 use golem_ai_llm::model::*;
+use golem_ai_llm::tools::{GolemToolError, GolemToolSelection, GolemToolkit};
 use golem_ai_llm::LlmProvider;
-use golem_rust::bindings::wasi::keyvalue::eventual::{
-    delete, exists, set, Bucket, OutgoingValue,
-};
+use golem_rust::bindings::wasi::keyvalue::eventual::{delete, exists, set, Bucket, OutgoingValue};
 use golem_rust::{
     agent_definition, agent_implementation, generate_idempotency_key, mark_atomic_operation,
 };
+
+mod native_tool;
 
 struct Restart {
     marker: String,
@@ -38,6 +39,7 @@ impl Restart {
 pub trait TestHelper {
     fn new(name: String) -> Self;
     fn inc_and_get(&mut self) -> u64;
+    fn current_count(&self) -> u64;
 }
 
 struct TestHelperImpl {
@@ -56,6 +58,10 @@ impl TestHelper for TestHelperImpl {
 
     fn inc_and_get(&mut self) -> u64 {
         self.total += 1;
+        self.total
+    }
+
+    fn current_count(&self) -> u64 {
         self.total
     }
 }
@@ -126,6 +132,119 @@ const IMAGE_MODEL: &str = "grok-2-vision-latest";
 const IMAGE_MODEL: &str = "openrouter/auto";
 #[cfg(feature = "ollama")]
 const IMAGE_MODEL: &str = "gemma3:4b";
+
+const NATIVE_TOOL_NAME: &str = "native-llm-fixture__run";
+
+struct FakeChatStream;
+
+impl golem_ai_llm::ChatStreamInterface for FakeChatStream {
+    fn get_next(
+        &self,
+    ) -> golem_ai_llm::LlmFuture<'_, Vec<Result<StreamEvent, golem_ai_llm::model::Error>>> {
+        Box::pin(async { Vec::new() })
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+struct FakeNativeToolProvider;
+
+impl LlmProvider for FakeNativeToolProvider {
+    type ChatStream = FakeChatStream;
+    type ProviderConfig = String;
+
+    async fn send(
+        counter_name: Self::ProviderConfig,
+        events: Vec<Event>,
+        config: Config,
+    ) -> Result<Response, golem_ai_llm::model::Error> {
+        if let Some(Event::ToolResults(results)) = events.last() {
+            let result_json = match results.as_slice() {
+                [ToolResult::Success(success)]
+                    if success.id == "fake-call-1" && success.name == NATIVE_TOOL_NAME =>
+                {
+                    success.result_json.clone()
+                }
+                _ => return Err(fake_error("unexpected fake tool result")),
+            };
+            return Ok(Response {
+                id: "fake-final".to_string(),
+                content: vec![ContentPart::Text(format!("final:{result_json}"))],
+                tool_calls: Vec::new(),
+                metadata: fake_metadata(FinishReason::Stop),
+            });
+        }
+
+        let definitions = config.tools.unwrap_or_default();
+        if !definitions.iter().any(|tool| tool.name == NATIVE_TOOL_NAME)
+            || !definitions.iter().any(|tool| tool.name == "manual-tool")
+        {
+            return Err(fake_error(
+                "fake request must contain native and manual definitions",
+            ));
+        }
+        Ok(Response {
+            id: "fake-tool-request".to_string(),
+            content: Vec::new(),
+            tool_calls: vec![ToolCall {
+                id: "fake-call-1".to_string(),
+                name: NATIVE_TOOL_NAME.to_string(),
+                arguments_json: format!(
+                    r#"{{"counter-name":"{counter_name}","mode":"success","_stdin":{{"data":"world","encoding":"utf8"}}}}"#
+                ),
+            }],
+            metadata: fake_metadata(FinishReason::ToolCalls),
+        })
+    }
+
+    async fn stream(
+        _counter_name: Self::ProviderConfig,
+        _events: Vec<Event>,
+        _config: Config,
+    ) -> ChatStream {
+        ChatStream::new(FakeChatStream)
+    }
+}
+
+fn fake_metadata(finish_reason: FinishReason) -> ResponseMetadata {
+    ResponseMetadata {
+        finish_reason: Some(finish_reason),
+        usage: None,
+        provider_id: Some("deterministic-fake".to_string()),
+        timestamp: None,
+        provider_metadata_json: None,
+    }
+}
+
+fn fake_error(message: &str) -> golem_ai_llm::model::Error {
+    golem_ai_llm::model::Error {
+        code: ErrorCode::InvalidRequest,
+        message: message.to_string(),
+        provider_error_json: None,
+    }
+}
+
+fn native_toolkit() -> Result<GolemToolkit, GolemToolError> {
+    GolemToolkit::new([GolemToolSelection::new("native-llm-fixture", ["run"])
+        .max_stdout_bytes(16)
+        .max_stderr_bytes(64)])
+}
+
+fn native_tool_call(counter_name: &str, mode: &str) -> ToolCall {
+    ToolCall {
+        id: format!("{counter_name}-call"),
+        name: NATIVE_TOOL_NAME.to_string(),
+        arguments_json: format!(
+            r#"{{"counter-name":"{counter_name}","mode":"{mode}","_stdin":{{"data":"fixture-input","encoding":"utf8"}}}}"#
+        ),
+    }
+}
 
 #[cfg(feature = "openai")]
 fn provider_passthrough_options() -> Vec<Kv> {
@@ -200,6 +319,10 @@ pub trait LlmTest {
     async fn test7(&self) -> String;
     async fn test8(&self) -> String;
     async fn test9(&self) -> String;
+    async fn test10_native_tool_flow(&self) -> String;
+    async fn test11_native_tool_error(&self) -> String;
+    async fn test12_native_tool_replay(&self) -> String;
+    async fn test13_native_tool_side_effect_count(&self) -> u64;
 }
 
 struct LlmTestImpl {
@@ -884,5 +1007,102 @@ impl LlmTest for LlmTestImpl {
                 error.provider_error_json.unwrap_or_default()
             ),
         }
+    }
+
+    async fn test10_native_tool_flow(&self) -> String {
+        let toolkit = native_toolkit().expect("resolve registered native fixture");
+        let mut definitions = toolkit.definitions().to_vec();
+        definitions.push(ToolDefinition {
+            name: "manual-tool".to_string(),
+            description: Some("Application-owned tool used to demonstrate mixing".to_string()),
+            parameters_schema: r#"{"type":"object","properties":{},"additionalProperties":false}"#
+                .to_string(),
+        });
+        let config = Config {
+            model: "deterministic-fake".to_string(),
+            temperature: None,
+            max_tokens: None,
+            stop_sequences: None,
+            tools: Some(definitions),
+            tool_choice: Some("auto".to_string()),
+            provider_options: None,
+        };
+        let mut events = vec![Event::Message(Message {
+            role: Role::User,
+            name: None,
+            content: vec![ContentPart::Text("Run the selected fixture".to_string())],
+        })];
+
+        let requested = FakeNativeToolProvider::send(
+            format!("{}-fake-flow", self._name),
+            events.clone(),
+            config.clone(),
+        )
+        .await
+        .expect("fake provider requests a tool");
+        events.push(Event::Response(requested.clone()));
+
+        let mut results = Vec::new();
+        for call in &requested.tool_calls {
+            if toolkit.contains(&call.name) {
+                results.push(
+                    toolkit
+                        .execute(call)
+                        .await
+                        .expect("execute selected native fixture"),
+                );
+            }
+        }
+        events.push(Event::ToolResults(results));
+
+        let final_response =
+            FakeNativeToolProvider::send(format!("{}-fake-flow", self._name), events, config)
+                .await
+                .expect("fake provider returns final response");
+        final_response
+            .content
+            .into_iter()
+            .filter_map(|part| match part {
+                ContentPart::Text(text) => Some(text),
+                ContentPart::Image(_) => None,
+            })
+            .collect::<Vec<_>>()
+            .join("")
+    }
+
+    async fn test11_native_tool_error(&self) -> String {
+        let toolkit = native_toolkit().expect("resolve registered native fixture");
+        let result = toolkit
+            .execute(&native_tool_call(
+                &format!("{}-domain-error", self._name),
+                "reject",
+            ))
+            .await
+            .expect("declared tool failures are model-visible results");
+        match result {
+            ToolResult::Success(success) => success.result_json,
+            ToolResult::Error(failure) => panic!("unexpected tool failure: {failure:?}"),
+        }
+    }
+
+    async fn test12_native_tool_replay(&self) -> String {
+        let toolkit = native_toolkit().expect("resolve registered native fixture");
+        let result = toolkit
+            .execute(&native_tool_call(
+                &format!("{}-replay", self._name),
+                "success",
+            ))
+            .await
+            .expect("execute native fixture before replay");
+        match result {
+            ToolResult::Success(success) => success.result_json,
+            ToolResult::Error(failure) => panic!("unexpected tool failure: {failure:?}"),
+        }
+    }
+
+    async fn test13_native_tool_side_effect_count(&self) -> u64 {
+        TestHelperClient::get(format!("{}-replay", self._name))
+            .current_count()
+            .await
     }
 }
