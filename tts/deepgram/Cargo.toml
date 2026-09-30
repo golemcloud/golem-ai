@@ -25,3 +25,4 @@ base64 = { workspace = true }
 golem-ai-http = { workspace = true }
 wasip3 = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
+httpdate = "1.0"
