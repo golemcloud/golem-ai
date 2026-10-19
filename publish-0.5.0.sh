@@ -60,8 +60,9 @@ publish_crate() {
   return 1
 }
 
-# Core crates (no internal deps) — must be published first
+# Publish the shared HTTP transport before the core crates that depend on it.
 CORE_CRATES=(
+  http
   llm/llm
   embed/embed
   websearch/websearch

@@ -540,9 +540,10 @@ jobs:
 
           PUBLISH_FLAGS="--no-verify --allow-dirty"
 
-          # Publish core crates first (no internal deps)
+          # Publish the shared HTTP transport before the core crates that depend on it.
           echo "Publishing core crates..."
           for crate in \
+            http \
             llm/llm \
             embed/embed \
             websearch/websearch \
