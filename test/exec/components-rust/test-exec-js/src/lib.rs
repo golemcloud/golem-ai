@@ -1,7 +1,8 @@
 use golem_ai_exec::model::*;
 use golem_ai_exec::{DurableExecution, ExecutionProvider, ExecutionSession};
 use golem_rust::bindings::wasi::keyvalue::eventual::{delete, exists, set, Bucket, OutgoingValue};
-use golem_rust::{agent_definition, agent_implementation, atomically, generate_idempotency_key};
+use golem_rust::durability::{Durability, DurableFunctionType};
+use golem_rust::{agent_definition, agent_implementation, generate_idempotency_key};
 use indoc::indoc;
 
 type Provider = DurableExecution;
@@ -21,15 +22,22 @@ impl Restart {
     pub async fn here(&self) {
         let bucket = Bucket::open_bucket("golem-ai-exec-test-restarts").unwrap();
 
-        // Values recorded in the oplog, including RPC results, replay identically. The key-value
-        // marker is an external side effect: it survives the atomic rollback, so only the first
-        // execution traps and the retried block can finish.
-        atomically(|| {
+        // The harness crashes the agent while this custom operation is incomplete.
+        // Recovery re-executes it and sees the external marker instead of replaying a miss.
+        Durability::<(), String>::new(
+            "golem-ai-exec-test",
+            "crash-once",
+            DurableFunctionType::WriteRemote,
+            &self.marker,
+        )
+        .run_infallible(|| {
             if !exists(&bucket, &self.marker).unwrap() {
                 let value = OutgoingValue::new_outgoing_value();
                 value.outgoing_value_write_body_sync(&[1]).unwrap();
                 set(&bucket, &self.marker, &value).unwrap();
-                panic!("Simulating crash");
+                println!("GOLEM_AI_RECOVERY_READY");
+                std::thread::sleep(std::time::Duration::from_secs(60));
+                panic!("Recovery harness did not simulate a crash within 60 seconds");
             }
         });
 

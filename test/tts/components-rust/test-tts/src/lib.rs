@@ -11,7 +11,8 @@ use golem_ai_tts::model::voices::{Voice, VoiceBorrow, VoiceFilter};
 use golem_ai_tts::{
     AdvancedTtsProvider, StreamingVoiceProvider, SynthesizeProvider, VoiceProvider,
 };
-use golem_rust::{agent_definition, agent_implementation, mark_atomic_operation};
+use golem_rust::durability::{Durability, DurableFunctionType};
+use golem_rust::{agent_definition, agent_implementation};
 use std::time::Duration;
 
 #[cfg(feature = "elevenlabs")]
@@ -1208,14 +1209,22 @@ impl TtsTest for TtsTestImpl {
                     }
                 }
 
-                {
-                    let _guard = mark_atomic_operation();
+                Durability::<(), String>::new(
+                    "golem-ai-tts-test",
+                    "crash-once",
+                    DurableFunctionType::WriteRemote,
+                    &worker_name,
+                )
+                .run_infallible_async(|| async {
                     let mut client = TestHelperClient::get(worker_name.clone());
                     let counter = client.inc_and_get().await;
                     if counter == 1 {
-                        panic!("Simulating crash during durability test");
+                        println!("GOLEM_AI_RECOVERY_READY");
+                        std::thread::sleep(Duration::from_secs(60));
+                        panic!("Recovery harness did not simulate a crash within 60 seconds");
                     }
-                }
+                })
+                .await;
 
                 results.push("✓ Continued after recovery".to_string());
 

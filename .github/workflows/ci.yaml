@@ -12,8 +12,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
   ENVIRONMENT: ${{ github.event_name == 'push' && github.ref_type == 'tag' && (!contains(github.ref, '-dev.')) && 'prod' || 'dev' }}
-  GOLEM_REPOSITORY: https://github.com/golemcloud/golem
-  GOLEM_REVISION: c8cdc7a2388b2e96953b8e920e9af5c361196957
+  # Use Golem 1.6.0-rc3 binaries until rc4 binaries are published (the Rust SDK uses 3.0.0-rc5).
+  GOLEM_VERSION: 1.6.0-rc3
 
 jobs:
   tests:
@@ -86,8 +86,11 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-component
         run: cargo binstall --force cargo-component@0.21.1
-      - name: Install matching Golem CLI
-        run: cargo install --git "$GOLEM_REPOSITORY" --rev "$GOLEM_REVISION" --locked --force golem-cli
+      - name: Install released Golem CLI
+        run: |
+          curl --fail --location "https://github.com/golemcloud/golem/releases/download/v${GOLEM_VERSION}/golem-cli-x86_64-unknown-linux-gnu" --output "$HOME/.cargo/bin/golem-cli"
+          chmod +x "$HOME/.cargo/bin/golem-cli"
+          golem-cli --version
       - name: Install wac-cli
         run: cargo binstall --force wac-cli --locked --no-confirm
       - name: Build all test components
@@ -118,12 +121,11 @@ jobs:
           set -e
           cargo binstall --force cargo-component@0.21.1
           cargo binstall wac-cli --locked --force --no-confirm
-      - name: Install Protocol Buffers compiler
-        run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
-      - name: Install and Run matching Golem Server
+      - name: Install and run released Golem server
         run: |
           set -e
-          cargo install --git "$GOLEM_REPOSITORY" --rev "$GOLEM_REVISION" --locked --force golem
+          curl --fail --location "https://github.com/golemcloud/golem/releases/download/v${GOLEM_VERSION}/golem-x86_64-unknown-linux-gnu" --output "$HOME/.cargo/bin/golem"
+          chmod +x "$HOME/.cargo/bin/golem"
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -136,15 +138,15 @@ jobs:
           golem profile config local set-format json
           export GOLEM_PRESET=release
           golem deploy --yes
-          golem agent invoke 'ExecJsTest("test-1")' test01 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-2")' test02 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-3")' test03 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-4")' test04 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-5")' test05 --no-stream | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-1")' test01 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-2")' test02 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-3")' test03 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-4")' test04 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-5")' test05 | jq -e '(.result == "true")'
           golem agent invoke 'ExecJsTest("test-6")' test06 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-7")' test07 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-8")' test08 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-9")' test09 --no-stream | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-7")' test07 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-8")' test08 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-9")' test09 | jq -e '(.result == "true")'
           golem agent invoke 'ExecJsTest("test-10")' test10 --no-stream | jq -e '(.result == "true")'
           golem agent invoke 'ExecJsTest("test-11")' test11 --no-stream | jq -e '(.result == "true")'
           golem agent invoke 'ExecPyTest("test-1")' test1 --no-stream | jq -e '(.result == "true")'
@@ -194,12 +196,11 @@ jobs:
           docker exec ollama ollama list | grep -q "qwen3:1.7b" || exit 1
           docker exec ollama ollama list | grep -q "gemma3:4b" || exit 1
           echo "Ollama setup completed."
-      - name: Install Protocol Buffers compiler
-        run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
-      - name: Install and Run matching Golem Server
+      - name: Install and run released Golem server
         run: |
           set -e
-          cargo install --git "$GOLEM_REPOSITORY" --rev "$GOLEM_REVISION" --locked --force golem
+          curl --fail --location "https://github.com/golemcloud/golem/releases/download/v${GOLEM_VERSION}/golem-x86_64-unknown-linux-gnu" --output "$HOME/.cargo/bin/golem"
+          chmod +x "$HOME/.cargo/bin/golem"
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -214,7 +215,11 @@ jobs:
           golem agent new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 'LlmTest("ollama-1")'
           for test_name in test1 test2 test3 test4 test5 test6 test7 test8 test9; do
             echo "Running $test_name"
-            timeout --foreground 10m golem agent invoke 'LlmTest("ollama-1")' "$test_name" --no-stream | grep -v "ERROR: "
+            if [[ "$test_name" == test6 || "$test_name" == test8 ]]; then
+              bash ../invoke-with-recovery.sh 'LlmTest("ollama-1")' "$test_name" | grep -v "ERROR: "
+            else
+              timeout --foreground 10m golem agent invoke 'LlmTest("ollama-1")' "$test_name" --no-stream | grep -v "ERROR: "
+            fi
           done
 
   graph-integration-tests:
@@ -286,12 +291,11 @@ jobs:
           echo "Neo4j is ready"
 
           echo "All graph database providers are ready!"
-      - name: Install Protocol Buffers compiler
-        run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
-      - name: Install and Run matching Golem Server
+      - name: Install and run released Golem server
         run: |
           set -e
-          cargo install --git "$GOLEM_REPOSITORY" --rev "$GOLEM_REVISION" --locked --force golem
+          curl --fail --location "https://github.com/golemcloud/golem/releases/download/v${GOLEM_VERSION}/golem-x86_64-unknown-linux-gnu" --output "$HOME/.cargo/bin/golem"
+          chmod +x "$HOME/.cargo/bin/golem"
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &
@@ -422,12 +426,11 @@ jobs:
           echo "Qdrant is ready"
 
           echo "All Vector database providers are ready!"
-      - name: Install Protocol Buffers compiler
-        run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
-      - name: Install and Run matching Golem Server
+      - name: Install and run released Golem server
         run: |
           set -e
-          cargo install --git "$GOLEM_REPOSITORY" --rev "$GOLEM_REVISION" --locked --force golem
+          curl --fail --location "https://github.com/golemcloud/golem/releases/download/v${GOLEM_VERSION}/golem-x86_64-unknown-linux-gnu" --output "$HOME/.cargo/bin/golem"
+          chmod +x "$HOME/.cargo/bin/golem"
           golem --version
           golem profile switch local
           nohup golem server run >golem-server.log 2>&1 &

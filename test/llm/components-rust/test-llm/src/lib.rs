@@ -2,9 +2,8 @@ use golem_ai_llm::model::*;
 use golem_ai_llm::tools::{GolemToolError, GolemToolSelection, GolemToolkit};
 use golem_ai_llm::LlmProvider;
 use golem_rust::bindings::wasi::keyvalue::eventual::{delete, exists, set, Bucket, OutgoingValue};
-use golem_rust::{
-    agent_definition, agent_implementation, generate_idempotency_key, mark_atomic_operation,
-};
+use golem_rust::durability::{Durability, DurableFunctionType};
+use golem_rust::{agent_definition, agent_implementation, generate_idempotency_key};
 
 mod native_tool;
 
@@ -21,12 +20,23 @@ impl Restart {
 
     fn crash_once(&self) {
         let bucket = Bucket::open_bucket("golem-ai-llm-test-restarts").unwrap();
-        if !exists(&bucket, &self.marker).unwrap() {
-            let value = OutgoingValue::new_outgoing_value();
-            value.outgoing_value_write_body_sync(&[1]).unwrap();
-            set(&bucket, &self.marker, &value).unwrap();
-            panic!("Simulating crash");
-        }
+        // An incomplete custom operation re-checks the external marker on recovery.
+        Durability::<(), String>::new(
+            "golem-ai-llm-test",
+            "crash-once",
+            DurableFunctionType::WriteRemote,
+            &self.marker,
+        )
+        .run_infallible(|| {
+            if !exists(&bucket, &self.marker).unwrap() {
+                let value = OutgoingValue::new_outgoing_value();
+                value.outgoing_value_write_body_sync(&[1]).unwrap();
+                set(&bucket, &self.marker, &value).unwrap();
+                println!("GOLEM_AI_RECOVERY_READY");
+                std::thread::sleep(std::time::Duration::from_secs(60));
+                panic!("Recovery harness did not simulate a crash within 60 seconds");
+            }
+        });
     }
 
     fn cleanup(&self) {
@@ -787,7 +797,6 @@ impl LlmTest for LlmTestImpl {
 
             if round == 2 {
                 {
-                    let _guard = mark_atomic_operation();
                     let mut client = TestHelperClient::get(restart.marker.clone());
                     let answer = client.inc_and_get().await;
                     assert_eq!(answer, 1);
@@ -939,7 +948,6 @@ impl LlmTest for LlmTestImpl {
 
             if round == 2 {
                 {
-                    let _guard = mark_atomic_operation();
                     let mut client = TestHelperClient::get(restart.marker.clone());
                     let answer = client.inc_and_get().await;
                     assert_eq!(answer, 1);

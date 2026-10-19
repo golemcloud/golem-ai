@@ -47,6 +47,10 @@ For detailed information about each module and its providers, see the individual
 
 ## Using with Golem
 
+This release targets Golem 1.6 and uses `golem-rust` SDK version `3.0.0-rc5` from crates.io.
+CI temporarily uses the published Golem CLI and server binaries from
+[1.6.0-rc3](https://github.com/golemcloud/golem/releases/tag/v1.6.0-rc3), until rc4 binaries are available.
+
 ### Using a template
 
 The easiest way to get started is to use one of the predefined **templates** Golem provides.
@@ -100,6 +104,20 @@ Then you can invoke the test functions on this worker:
 golem agent  invoke test:llm/debug test1 --stream 
 ```
 
+Recovery tests use external crash injection: Golem 1.6 treats guest panics as
+terminal failures, and no longer supports atomic regions. Run tests with a recovery
+checkpoint through the harness, from the test application's directory:
+
+```nu
+bash ../invoke-with-recovery.sh 'LlmTest("debug")' test6
+```
+
+The harness waits for `GOLEM_AI_RECOVERY_READY`, calls `golem agent simulate-crash`,
+and waits for the original invocation to finish. It fails if the checkpoint is not
+reached or recovery does not complete. Use it for LLM `test6`/`test8`, exec JS
+`test01`–`test05`/`test07`–`test09`, and the recovery tests in websearch, video,
+video-advanced, and TTS. Other tests can be invoked normally.
+
 For detailed information about available profiles and environment variables for each module, and what tests are available, see the individual README files:
 - [LLM Module](llm/README.md)
 - [WebSearch Module](websearch/README.md)
@@ -126,4 +144,3 @@ Some of the important tasks are:
 The `test` directory contains a **Golem application** for testing various features of the LLM, WebSearch, Video and Search libraries.
 Check [the Golem documentation](https://learn.golem.cloud/quickstart) to learn how to install Golem and `golem-cli` to
 run these tests.
-

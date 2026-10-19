@@ -1,7 +1,8 @@
 use golem_ai_web_search::model::types::{SafeSearchLevel, TimeRange};
 use golem_ai_web_search::model::web_search::{SearchError, SearchParams};
 use golem_ai_web_search::WebSearchProvider;
-use golem_rust::{agent_definition, agent_implementation, mark_atomic_operation};
+use golem_rust::durability::{Durability, DurableFunctionType};
+use golem_rust::{agent_definition, agent_implementation};
 
 #[agent_definition]
 pub trait TestHelper {
@@ -223,12 +224,22 @@ impl WebsearchTest for WebsearchTestImpl {
         std::thread::sleep(std::time::Duration::from_secs(2));
 
         if round == 1 {
-            let _guard = mark_atomic_operation();
-            let mut client = TestHelperClient::get(name.clone());
-            let answer = client.inc_and_get().await;
-            if answer == 1 {
-                panic!("Simulating crash")
-            }
+            Durability::<(), String>::new(
+                "golem-ai-websearch-test",
+                "crash-once",
+                DurableFunctionType::WriteRemote,
+                &name,
+            )
+            .run_infallible_async(|| async {
+                let mut client = TestHelperClient::get(name.clone());
+                let answer = client.inc_and_get().await;
+                if answer == 1 {
+                    println!("GOLEM_AI_RECOVERY_READY");
+                    std::thread::sleep(std::time::Duration::from_secs(60));
+                    panic!("Recovery harness did not simulate a crash within 60 seconds");
+                }
+            })
+            .await;
         }
 
         println!("Getting second page...");
