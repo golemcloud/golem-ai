@@ -1,6 +1,7 @@
 use golem_ai_video::model::types::*;
 use golem_ai_video::{AdvancedVideoGenerationProvider, VideoGenerationProvider};
-use golem_rust::{agent_definition, agent_implementation, mark_atomic_operation};
+use golem_rust::durability::{Durability, DurableFunctionType};
+use golem_rust::{agent_definition, agent_implementation};
 use std::fs;
 use std::fs::File;
 use std::io::Read;
@@ -196,12 +197,22 @@ impl VideoTest for VideoTestImpl {
             }
 
             if round == 1 {
-                let _guard = mark_atomic_operation();
-                let mut client = TestHelperClient::get(name.clone());
-                let answer = client.inc_and_get().await;
-                if answer == 1 {
-                    panic!("Simulating crash during durability test")
-                }
+                Durability::<(), String>::new(
+                    "golem-ai-video-test",
+                    "crash-once",
+                    DurableFunctionType::WriteRemote,
+                    &name,
+                )
+                .run_infallible_async(|| async {
+                    let mut client = TestHelperClient::get(name.clone());
+                    let answer = client.inc_and_get().await;
+                    if answer == 1 {
+                        println!("GOLEM_AI_RECOVERY_READY");
+                        thread::sleep(Duration::from_secs(60));
+                        panic!("Recovery harness did not simulate a crash within 60 seconds");
+                    }
+                })
+                .await;
             }
 
             round += 1;

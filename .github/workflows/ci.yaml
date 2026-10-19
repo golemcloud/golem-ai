@@ -138,15 +138,15 @@ jobs:
           golem profile config local set-format json
           export GOLEM_PRESET=release
           golem deploy --yes
-          golem agent invoke 'ExecJsTest("test-1")' test01 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-2")' test02 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-3")' test03 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-4")' test04 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-5")' test05 --no-stream | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-1")' test01 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-2")' test02 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-3")' test03 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-4")' test04 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-5")' test05 | jq -e '(.result == "true")'
           golem agent invoke 'ExecJsTest("test-6")' test06 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-7")' test07 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-8")' test08 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-9")' test09 --no-stream | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-7")' test07 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-8")' test08 | jq -e '(.result == "true")'
+          bash ../invoke-with-recovery.sh 'ExecJsTest("test-9")' test09 | jq -e '(.result == "true")'
           golem agent invoke 'ExecJsTest("test-10")' test10 --no-stream | jq -e '(.result == "true")'
           golem agent invoke 'ExecJsTest("test-11")' test11 --no-stream | jq -e '(.result == "true")'
           golem agent invoke 'ExecPyTest("test-1")' test1 --no-stream | jq -e '(.result == "true")'
@@ -215,7 +215,11 @@ jobs:
           golem agent new -e GOLEM_OLLAMA_BASE_URL=http://localhost:11434 'LlmTest("ollama-1")'
           for test_name in test1 test2 test3 test4 test5 test6 test7 test8 test9; do
             echo "Running $test_name"
-            timeout --foreground 10m golem agent invoke 'LlmTest("ollama-1")' "$test_name" --no-stream | grep -v "ERROR: "
+            if [[ "$test_name" == test6 || "$test_name" == test8 ]]; then
+              bash ../invoke-with-recovery.sh 'LlmTest("ollama-1")' "$test_name" | grep -v "ERROR: "
+            else
+              timeout --foreground 10m golem agent invoke 'LlmTest("ollama-1")' "$test_name" --no-stream | grep -v "ERROR: "
+            fi
           done
 
   graph-integration-tests:
