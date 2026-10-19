@@ -472,19 +472,25 @@ dependencies = [
 
 [[package]]
 name = "golem-rust"
-version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#c8cdc7a2388b2e96953b8e920e9af5c361196957"
+version = "3.0.0-rc5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5666494ec1a1c27db86644681fdcb4e788f6f18619b5adf934dbd25d693d38c1"
 dependencies = [
  "async-trait",
+ "bytes",
  "ctor",
+ "futures",
  "glob-match",
  "golem-rust-macro",
  "golem-schema",
  "golem-tool-metadata",
  "http",
+ "http-body",
+ "http-body-util",
  "log",
  "serde",
  "serde_json",
+ "thiserror",
  "unicode-segmentation",
  "uuid",
  "wasi-logger",
@@ -494,8 +500,9 @@ dependencies = [
 
 [[package]]
 name = "golem-rust-macro"
-version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#c8cdc7a2388b2e96953b8e920e9af5c361196957"
+version = "3.0.0-rc5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b86a1d50a525f1cfadec77415c29c4fb6a0427e413a108b3f5d66f67aad2b279"
 dependencies = [
  "golem-schema",
  "heck 0.5.0",
@@ -508,8 +515,9 @@ dependencies = [
 
 [[package]]
 name = "golem-schema"
-version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#c8cdc7a2388b2e96953b8e920e9af5c361196957"
+version = "1.6.0-rc4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12d3e4b6ab3c2cd5095550687f711d555aab5ba69724e341cae40c3ede28af17"
 dependencies = [
  "base64",
  "blake3",
@@ -525,8 +533,9 @@ dependencies = [
 
 [[package]]
 name = "golem-schema-derive"
-version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#c8cdc7a2388b2e96953b8e920e9af5c361196957"
+version = "1.6.0-rc4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "854bbc1dc23e5315d49e9833cff5335211d3f074073a5b66836214a5d192e443"
 dependencies = [
  "darling",
  "heck 0.5.0",
@@ -538,8 +547,9 @@ dependencies = [
 
 [[package]]
 name = "golem-tool-metadata"
-version = "0.0.0"
-source = "git+https://github.com/golemcloud/golem?branch=main#c8cdc7a2388b2e96953b8e920e9af5c361196957"
+version = "1.6.0-rc4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "086e628e88e06b23de9fa4bd983ede7f048cae99e3ea201d9b256659de1c5f7c"
 dependencies = [
  "golem-schema",
 ]
@@ -1460,7 +1470,8 @@ dependencies = [
 [[package]]
 name = "wit-bindgen"
 version = "0.59.0"
-source = "git+https://github.com/golemcloud/wit-bindgen?branch=wit-bindgen-golem-1.6#3e7d6bd6e79809b2d64a151515d51800448fab2a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94c5e45f6d4cfaca727c1c48989ab3e05bb289bf84fbad226e1cfbbef2c04b7f"
 dependencies = [
  "bitflags",
  "futures",
@@ -1480,7 +1491,8 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-core"
 version = "0.59.0"
-source = "git+https://github.com/golemcloud/wit-bindgen?branch=wit-bindgen-golem-1.6#3e7d6bd6e79809b2d64a151515d51800448fab2a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05cf25dc4bb1981c16aa549ec66c6762b7752bfb8b7c3b3936ae13100298dc72"
 dependencies = [
  "anyhow",
  "heck 0.5.0",
@@ -1513,7 +1525,8 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-rust"
 version = "0.59.0"
-source = "git+https://github.com/golemcloud/wit-bindgen?branch=wit-bindgen-golem-1.6#3e7d6bd6e79809b2d64a151515d51800448fab2a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "407ee2b474af1a366766fe91b8255b7935e5e3c3afb9c304e91ac3d154287ff1"
 dependencies = [
  "anyhow",
  "heck 0.5.0",
@@ -1542,7 +1555,8 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-rust-macro"
 version = "0.59.0"
-source = "git+https://github.com/golemcloud/wit-bindgen?branch=wit-bindgen-golem-1.6#3e7d6bd6e79809b2d64a151515d51800448fab2a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37386eba32427684ffe37a0f765f63ce2ece03efb1ad28c23cf69562fdc67ec0"
 dependencies = [
  "anyhow",
  "macro-string",

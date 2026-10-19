@@ -47,6 +47,10 @@ For detailed information about each module and its providers, see the individual
 
 ## Using with Golem
 
+This release targets Golem 1.6 and uses `golem-rust` SDK version `3.0.0-rc5` from crates.io.
+CI temporarily uses the published Golem CLI and server binaries from
+[1.6.0-rc3](https://github.com/golemcloud/golem/releases/tag/v1.6.0-rc3), until rc4 binaries are available.
+
 ### Using a template
 
 The easiest way to get started is to use one of the predefined **templates** Golem provides.
@@ -126,4 +130,3 @@ Some of the important tasks are:
 The `test` directory contains a **Golem application** for testing various features of the LLM, WebSearch, Video and Search libraries.
 Check [the Golem documentation](https://learn.golem.cloud/quickstart) to learn how to install Golem and `golem-cli` to
 run these tests.
-

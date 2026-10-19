@@ -68,8 +68,8 @@ To run the examples first you need a running Golem instance. This can be Golem C
 binary
 started with `golem server run`.
 
-**NOTE**: `golem-embed` requires the latest (unstable) version of Golem currently. It's going to work with the next public
-stable release 1.2.2.
+This release targets Golem 1.6. See the repository's [Golem compatibility notes](../README.md#using-with-golem)
+for the current SDK and CLI/server versions.
 
 Then build and deploy the _test application_. Select one of the following profiles to choose which provider to use:
 | Profile Name | Description |
