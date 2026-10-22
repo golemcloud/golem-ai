@@ -692,9 +692,9 @@ dependencies = [
 
 [[package]]
 name = "golem-rust"
-version = "3.0.0-rc5"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5666494ec1a1c27db86644681fdcb4e788f6f18619b5adf934dbd25d693d38c1"
+checksum = "5b6acc1e62ef61d9947db4aa86758f33a8d438813db1787fb76f7ca5792e244f"
 dependencies = [
  "async-trait",
  "bytes",
@@ -720,9 +720,9 @@ dependencies = [
 
 [[package]]
 name = "golem-rust-macro"
-version = "3.0.0-rc5"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b86a1d50a525f1cfadec77415c29c4fb6a0427e413a108b3f5d66f67aad2b279"
+checksum = "77aa9647efd5dccd8be4d0f7862c1920f708a54669e7f92f3582227396d66271"
 dependencies = [
  "golem-schema",
  "heck 0.5.0",
@@ -735,9 +735,9 @@ dependencies = [
 
 [[package]]
 name = "golem-schema"
-version = "1.6.0-rc4"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12d3e4b6ab3c2cd5095550687f711d555aab5ba69724e341cae40c3ede28af17"
+checksum = "05ffe9fd989aa3a3007c9f3224e59ef58be234924cb017fa1d4295eff6fadcf7"
 dependencies = [
  "base64",
  "blake3",
@@ -753,9 +753,9 @@ dependencies = [
 
 [[package]]
 name = "golem-schema-derive"
-version = "1.6.0-rc4"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "854bbc1dc23e5315d49e9833cff5335211d3f074073a5b66836214a5d192e443"
+checksum = "a5d9326373af9c6ec284fe67932c4b7a1f92c0616cdbb381b13bdf9dfa80488a"
 dependencies = [
  "darling",
  "heck 0.5.0",
@@ -767,9 +767,9 @@ dependencies = [
 
 [[package]]
 name = "golem-tool-metadata"
-version = "1.6.0-rc4"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "086e628e88e06b23de9fa4bd983ede7f048cae99e3ea201d9b256659de1c5f7c"
+checksum = "c47320c7f5f8c29738d92209898f9f53b3e263bf54dab2026f853d7b4da6a4e8"
 dependencies = [
  "golem-schema",
 ]

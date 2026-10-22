@@ -47,9 +47,10 @@ For detailed information about each module and its providers, see the individual
 
 ## Using with Golem
 
-This release targets Golem 1.6 and uses `golem-rust` SDK version `3.0.0-rc5` from crates.io.
-CI temporarily uses the published Golem CLI and server binaries from
-[1.6.0-rc3](https://github.com/golemcloud/golem/releases/tag/v1.6.0-rc3), until rc4 binaries are available.
+This release targets Golem 1.6.0 and uses `golem-rust` SDK version `3.0.0` from crates.io,
+allowing compatible SDK updates through Cargo's default caret requirement (`golem-rust = "3.0.0"`).
+CI uses the published Golem CLI and server binaries from
+[1.6.0](https://github.com/golemcloud/golem/releases/tag/v1.6.0).
 
 ### Using a template
 
