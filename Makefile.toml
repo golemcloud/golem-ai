@@ -20,7 +20,7 @@ args = ["test"]
 script_runner = "@duckscript"
 script = '''
 
-domains = array llm embed websearch search video exec graph stt vector tts
+domains = array llm embed websearch search video graph stt vector tts
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -36,7 +36,7 @@ end
 script_runner = "@duckscript"
 script = '''
 
-domains = array llm embed websearch search video exec graph stt vector tts
+domains = array llm embed websearch search video graph stt vector tts
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -52,7 +52,7 @@ end
 description = "Builds all test components with golem-cli"
 script_runner = "@duckscript"
 script = '''
-domains = array llm embed websearch search video exec graph stt vector tts
+domains = array llm embed websearch search video graph stt vector tts
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -68,7 +68,7 @@ end
 description = "Builds all test components with golem-cli"
 script_runner = "@duckscript"
 script = '''
-domains = array llm websearch search video exec graph stt
+domains = array llm websearch search video graph stt
 
 # if there is no domain passed run for every domain
 if is_empty ${1}
@@ -86,7 +86,6 @@ description = "Runs rustfmt and clippy checks without applying any fix"
 dependencies = [
     "check-clippy",
     "check-clippy-no-default-features",
-    "check-clippy-no-default-features-exec",
     "check-rustfmt",
 ]
 
@@ -103,31 +102,13 @@ command = "cargo"
 args = ["clippy", "--all-targets", "--", "--no-deps", "-Dwarnings"]
 
 [tasks.check-clippy-no-default-features]
-description = "Runs clippy with --no-default-features across the workspace. The `exec` crate has runtime feature requirements unrelated to `golem` and is handled by check-clippy-no-default-features-exec."
+description = "Runs clippy with --no-default-features across the workspace."
 install_crate = "clippy"
 command = "cargo"
 args = [
     "clippy",
     "--workspace",
     "--no-default-features",
-    "--exclude",
-    "golem-ai-exec",
-    "--",
-    "--no-deps",
-    "-Dwarnings",
-]
-
-[tasks.check-clippy-no-default-features-exec]
-description = "Runs clippy on golem-ai-exec with --no-default-features --features 'javascript python'. The `exec` crate's runtime features (javascript, python) — unrelated to the `golem` feature — are required for meaningful compilation; bundling everything into a single --no-default-features check disables them too and produces unrelated dead-code warnings."
-install_crate = "clippy"
-command = "cargo"
-args = [
-    "clippy",
-    "-p",
-    "golem-ai-exec",
-    "--no-default-features",
-    "--features",
-    "javascript python",
     "--",
     "--no-deps",
     "-Dwarnings",

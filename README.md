@@ -52,6 +52,8 @@ allowing compatible SDK updates through Cargo's default caret requirement (`gole
 CI uses the published Golem CLI and server binaries from
 [1.6.0](https://github.com/golemcloud/golem/releases/tag/v1.6.0).
 
+The `golem-ai-exec` library has been removed. Use native Golem tools for code execution instead.
+
 ### Using a template
 
 The easiest way to get started is to use one of the predefined **templates** Golem provides.
@@ -115,9 +117,8 @@ bash ../invoke-with-recovery.sh 'LlmTest("debug")' test6
 
 The harness waits for `GOLEM_AI_RECOVERY_READY`, calls `golem agent simulate-crash`,
 and waits for the original invocation to finish. It fails if the checkpoint is not
-reached or recovery does not complete. Use it for LLM `test6`/`test8`, exec JS
-`test01`–`test05`/`test07`–`test09`, and the recovery tests in websearch, video,
-video-advanced, and TTS. Other tests can be invoked normally.
+reached or recovery does not complete. Use it for LLM `test6`/`test8` and the recovery
+tests in websearch, video, video-advanced, and TTS. Other tests can be invoked normally.
 
 For detailed information about available profiles and environment variables for each module, and what tests are available, see the individual README files:
 - [LLM Module](llm/README.md)

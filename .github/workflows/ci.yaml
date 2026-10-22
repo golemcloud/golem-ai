@@ -94,67 +94,6 @@ jobs:
         run: cargo binstall --force wac-cli --locked --no-confirm
       - name: Build all test components
         run: cargo make release-build-test-components
-  golem-ai-exec-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-ollama-integration
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: wasm32-wasip2
-          override: true
-      - uses: davidB/rust-cargo-make@v1
-      - uses: cargo-bins/cargo-binstall@main
-      - name: Install tools
-        run: |
-          set -e
-          cargo binstall --force cargo-component@0.21.1
-          cargo binstall wac-cli --locked --force --no-confirm
-      - name: Install and run released Golem server
-        run: |
-          set -e
-          curl --fail --location "https://github.com/golemcloud/golem/releases/download/v${GOLEM_VERSION}/golem-x86_64-unknown-linux-gnu" --output "$HOME/.cargo/bin/golem"
-          chmod +x "$HOME/.cargo/bin/golem"
-          golem --version
-          golem profile switch local
-          nohup golem server run >golem-server.log 2>&1 &
-          echo "Golem server started."
-      - name: Build and test golem:exec implementations
-        run: |
-          set -eo pipefail
-          cargo make --cwd exec release-build
-          cd test/exec
-          golem profile config local set-format json
-          export GOLEM_PRESET=release
-          golem deploy --yes
-          bash ../invoke-with-recovery.sh 'ExecJsTest("test-1")' test01 | jq -e '(.result == "true")'
-          bash ../invoke-with-recovery.sh 'ExecJsTest("test-2")' test02 | jq -e '(.result == "true")'
-          bash ../invoke-with-recovery.sh 'ExecJsTest("test-3")' test03 | jq -e '(.result == "true")'
-          bash ../invoke-with-recovery.sh 'ExecJsTest("test-4")' test04 | jq -e '(.result == "true")'
-          bash ../invoke-with-recovery.sh 'ExecJsTest("test-5")' test05 | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-6")' test06 --no-stream | jq -e '(.result == "true")'
-          bash ../invoke-with-recovery.sh 'ExecJsTest("test-7")' test07 | jq -e '(.result == "true")'
-          bash ../invoke-with-recovery.sh 'ExecJsTest("test-8")' test08 | jq -e '(.result == "true")'
-          bash ../invoke-with-recovery.sh 'ExecJsTest("test-9")' test09 | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-10")' test10 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecJsTest("test-11")' test11 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecPyTest("test-1")' test1 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecPyTest("test-2")' test2 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecPyTest("test-3")' test3 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecPyTest("test-4")' test4 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecPyTest("test-5")' test5 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecPyTest("test-6")' test6 --no-stream | jq -e '(.result == "true")'
-          golem agent invoke 'ExecPyTest("test-7")' test7 --no-stream | jq -e '(.result == "true")'
 
   ollama-integration-tests:
     runs-on: ubuntu-latest
@@ -495,7 +434,6 @@ jobs:
       - build-test-components
       - ollama-integration-tests
       - graph-integration-tests
-      - golem-ai-exec-tests
       - vector-integration-tests
     runs-on: ubuntu-latest
     permissions:
@@ -549,7 +487,6 @@ jobs:
             search/search \
             graph/graph \
             video/video \
-            exec/exec \
             stt/stt \
             tts/tts \
             vector/vector; do
