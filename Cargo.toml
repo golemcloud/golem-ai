@@ -35,7 +35,6 @@ members = [
     "video/runway",
     "video/veo",
     "video/stability",
-    "exec/exec",
     "stt/stt",
     "stt/whisper",
     "stt/deepgram",

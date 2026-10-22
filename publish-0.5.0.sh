@@ -69,7 +69,6 @@ CORE_CRATES=(
   search/search
   graph/graph
   video/video
-  exec/exec
   stt/stt
   tts/tts
   vector/vector
